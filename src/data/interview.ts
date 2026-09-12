@@ -1,0 +1,135 @@
+export interface InterviewTrack {
+  id: string;
+  title: string;
+  blurb: string;
+  audience: string;
+  problemIds: string[];
+}
+
+/**
+ * Curated interview tracks. Every id must exist in src/data/problems.
+ * Problem order is intentional: warm-ups first, hardest last.
+ */
+export const INTERVIEW_TRACKS: InterviewTrack[] = [
+  {
+    id: "faang-ml",
+    title: "FAANG ML Interview",
+    blurb:
+      "Machine learning screens in the style of large tech companies: linear algebra, classic algorithms, and applied ML, ordered from warm-up to hard.",
+    audience: "ML engineers · new grads",
+    problemIds: [
+      "al-001",
+      "la-001",
+      "la-004",
+      "ml-002",
+      "ml-006",
+      "dl-001",
+      "al-015",
+      "al-018",
+      "al-024",
+      "al-025",
+      "al-026",
+      "la-025",
+      "la-038",
+      "ml-001",
+      "ml-004",
+      "ml-009",
+      "ml-014",
+      "dl-003",
+      "al-035",
+      "al-077",
+      "la-045",
+      "la-048",
+      "la-050",
+      "ml-045",
+      "dl-005",
+    ],
+  },
+  {
+    id: "quant",
+    title: "Quant Interview",
+    blurb:
+      "Probability, statistics, linear algebra, and algorithmic reasoning at the level quant trading interviews expect.",
+    audience: "Quant researchers · traders",
+    problemIds: [
+      "pr-002",
+      "pr-003",
+      "pr-004",
+      "st-001",
+      "st-002",
+      "la-001",
+      "la-004",
+      "pr-001",
+      "pr-005",
+      "st-003",
+      "st-004",
+      "st-005",
+      "al-022",
+      "al-023",
+      "la-083",
+      "la-042",
+      "la-045",
+      "la-050",
+      "al-037",
+      "al-079",
+    ],
+  },
+  {
+    id: "ml-engineer",
+    title: "ML Engineer Interview",
+    blurb:
+      "Applied machine learning, deep learning, optimization, and NLP fundamentals — the code you write on the job and in the loop.",
+    audience: "MLE · applied scientists",
+    problemIds: [
+      "dl-001",
+      "dl-002",
+      "ml-002",
+      "nlp-001",
+      "nlp-002",
+      "dl-003",
+      "dl-004",
+      "op-001",
+      "op-003",
+      "nlp-003",
+      "nlp-005",
+      "ml-012",
+      "ml-014",
+      "ml-004",
+      "al-057",
+      "dl-005",
+      "op-002",
+      "op-004",
+      "ml-045",
+      "al-035",
+    ],
+  },
+  {
+    id: "data-scientist",
+    title: "Data Scientist Interview",
+    blurb:
+      "Statistics, probability, and ML fundamentals with the metric-driven questions every data science loop asks.",
+    audience: "Data scientists · analysts",
+    problemIds: [
+      "st-001",
+      "st-002",
+      "pr-002",
+      "pr-003",
+      "ml-017",
+      "ml-008",
+      "st-003",
+      "st-004",
+      "st-005",
+      "pr-001",
+      "pr-005",
+      "ml-009",
+      "ml-020",
+      "ml-037",
+      "nlp-003",
+      "nlp-005",
+      "ml-038",
+      "ml-073",
+      "ml-076",
+      "ml-101",
+    ],
+  },
+];

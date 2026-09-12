@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Problem } from "@/types/problem";
 import { cn, clipRepr, difficultyClasses } from "@/lib/utils";
 import { loadPyodideOnce, runTests, type TestResult } from "@/lib/pyodide";
+import { StudyAssistant } from "@/components/StudyAssistant";
+import { Discuss } from "@/components/Discuss";
 import {
   getProblemProgress,
   markOpened,
@@ -207,6 +209,8 @@ export function ProblemView({
                 </div>
               )}
 
+              <StudyAssistant key={problem.id} problem={problem} />
+
               <div className="mt-5">
                 <h3 className="mb-2 text-xs font-medium text-body-mid">
                   Test cases
@@ -243,6 +247,8 @@ export function ProblemView({
                   </pre>
                 </div>
               )}
+
+              <Discuss key={problem.id} problemId={problem.id} />
             </div>
 
             {/* Right: editor + results */}

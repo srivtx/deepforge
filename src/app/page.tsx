@@ -7,6 +7,10 @@ import { StatsStrip } from "@/components/StatsStrip";
 import { CategoryGrid } from "@/components/CategoryGrid";
 import { ProblemList } from "@/components/ProblemList";
 import { Paths } from "@/components/Paths";
+import { Projects } from "@/components/Projects";
+import { Contests } from "@/components/Contests";
+import { Leaderboard } from "@/components/Leaderboard";
+import { Collections } from "@/components/Collections";
 import { About } from "@/components/About";
 import { Footer } from "@/components/Footer";
 import { ProblemView } from "@/components/ProblemView";
@@ -104,6 +108,10 @@ export default function Page() {
           problems={PROBLEMS}
           progress={progress}
         />
+        <Projects />
+        <Contests />
+        <Leaderboard />
+        <Collections />
         <About />
       </main>
       <Footer />

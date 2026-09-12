@@ -47,6 +47,30 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
             Paths
           </a>
           <a
+            href="#projects"
+            className="rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink sm:px-3"
+          >
+            Projects
+          </a>
+          <a
+            href="#contests"
+            className="rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink sm:px-3"
+          >
+            Contests
+          </a>
+          <a
+            href="#leaderboard"
+            className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink md:inline-block sm:px-3"
+          >
+            Leaderboard
+          </a>
+          <a
+            href="#collections"
+            className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink lg:inline-block sm:px-3"
+          >
+            Collections
+          </a>
+          <a
             href="#about"
             className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink sm:inline-block sm:px-3"
           >
