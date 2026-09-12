@@ -10,8 +10,8 @@ const categoryNames = new Set(CATEGORIES.map((c) => c.name));
 const KNOWN_DUPLICATE_TITLES = new Set<string>();
 
 describe("problem catalog integrity", () => {
-  test("ships at least 2755 problems", () => {
-    expect(PROBLEMS.length).toBeGreaterThanOrEqual(2755);
+  test("ships at least 3400 problems", () => {
+    expect(PROBLEMS.length).toBeGreaterThanOrEqual(3400);
   });
 
   test("has unique, well-formed ids", () => {
