@@ -10,7 +10,12 @@ export type Category =
   | "NLP"
   | "Optimization"
   | "Algorithms"
-  | "Data Structures";
+  | "Data Structures"
+  | "Computer Vision"
+  | "Reinforcement Learning"
+  | "Time Series"
+  | "Graph Algorithms"
+  | "Information Theory";
 
 export interface TestCase {
   /** Positional arguments to the user's function (JSON-serializable). */
