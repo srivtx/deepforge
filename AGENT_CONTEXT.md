@@ -22,7 +22,7 @@ Deep-ML is the incumbent. Current state:
 
 | Feature | Deep-ML | DeepForge |
 |---|---|---|
-| Problems | 1,200+ | **4,690** |
+| Problems | 1,200+ | **4,825** |
 | Categories | 5 | **15** |
 | In-browser execution | Yes | Yes (Pyodide) |
 | Design | Generic dark | svx dark+light |
@@ -47,14 +47,14 @@ Honest caveats: leaderboard, comments, and collections are localStorage-backed (
 |---|---:|---|---|---:|
 | Algorithms | 395 | | Optimization | 275 |
 | ML Fundamentals | 315 | | NLP | 320 |
-| Data Structures | 310 | | Statistics | 275 |
+| Data Structures | 355 | | Statistics | 275 |
 | Computer Vision | 350 | | Probability | 275 |
 | Linear Algebra | 275 | | Calculus | 275 |
-| Deep Learning | 455 | | Graph Algorithms | 270 |
+| Deep Learning | 455 | | Graph Algorithms | 315 |
 | Reinforcement Learning | 315 | | Information Theory | 315 |
-| Time Series | 270 | | **Total** | **4,690** |
+| Time Series | 315 | | **Total** | **4,825** |
 
-Difficulty mix: 1,688 Easy · 2,083 Medium · 919 Hard.
+Difficulty mix: 1,735 Easy · 2,145 Medium · 945 Hard.
 
 ---
 
@@ -260,7 +260,7 @@ bun run build                                 # production build
 ## Roadmap
 
 ### Phase 1: Problems — ✅ Complete
-4,690 verified problems across 15 categories (target was 2,000+, deep-ml has 1,200+). Every solution passes real-Python verification.
+4,825 verified problems across 15 categories (target was 2,000+, deep-ml has 1,200+). Every solution passes real-Python verification.
 
 ### Phase 2: Features — ✅ Complete
 - **Contests** — 8 timed sets (10–60 min), countdown, difficulty-weighted scores, local results
@@ -336,7 +336,7 @@ If you are an AI agent working on DeepForge:
 
 ## Current Status (as of last update)
 
-- **Problems:** 4,690 (1,688 Easy · 2,083 Medium · 919 Hard) — ✅ target exceeded
+- **Problems:** 4,825 (1,735 Easy · 2,145 Medium · 945 Hard) — ✅ target exceeded
 - **Categories:** 15 — ✅
 - **Learning paths:** 24 — ✅
 - **Light mode:** ✅ Working

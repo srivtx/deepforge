@@ -43,6 +43,14 @@ export async function generateMetadata({
   if (!category) return { title: "Category not found" };
 
   const description = categoryMetaDescription(category);
+  const count = getProblemsByCategory(category.name).length;
+  const ogImage = {
+    url: `${siteUrl}/og?title=${encodeURIComponent(
+      category.name,
+    )}&subtitle=${encodeURIComponent(`${count} problems`)}&kind=category`,
+    width: 1200,
+    height: 630,
+  };
   return {
     title: `${category.name} problems`,
     description,
@@ -55,6 +63,11 @@ export async function generateMetadata({
       url: `/categories/${slug}`,
       type: "website",
       siteName: "DeepForge",
+      images: [ogImage],
+    },
+    twitter: {
+      card: "summary_large_image",
+      images: [ogImage],
     },
   };
 }
