@@ -64,3 +64,16 @@ MIT — see [LICENSE](./LICENSE).
 
 - **Author:** [svx](https://github.com/srivtx) (Sribatsha dash)
 - **Repository:** [github.com/srivtx/deepforge](https://github.com/srivtx/deepforge)
+
+## For AI Agents
+
+If you're an AI agent working on DeepForge:
+
+1. **Read [`AGENT_CONTEXT.md`](./AGENT_CONTEXT.md)** — complete context, goals, design system, and instructions
+2. **Run `./agent-quickstart.sh`** — verifies environment is ready
+3. **Follow the design system** — dark/light mode, Inter font, no noise, minimal x.ai style
+4. **Commit incrementally** — small commits, clear messages
+
+### Current Priority: Add 1,950+ more problems to reach 2,000+ total (surpassing deep-ml's 1,200+)
+
+See `AGENT_CONTEXT.md` for the full roadmap and problem generation guidelines.
