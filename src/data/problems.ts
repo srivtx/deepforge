@@ -9,6 +9,8 @@ export const CATEGORIES: CategoryMeta[] = [
   { name: "Deep Learning", blurb: "Activations, forward pass, backprop. The core of every neural net.", icon: "neuron" },
   { name: "NLP", blurb: "Tokenize, embed, compare. Text into numbers.", icon: "text" },
   { name: "Optimization", blurb: "GD, momentum, Adam, schedules. How models actually learn.", icon: "descent" },
+  { name: "Algorithms", blurb: "Search, sort, graph traversal, DP. The timeless core of computer science.", icon: "tree" },
+  { name: "Data Structures", blurb: "Stacks, queues, trees, heaps, tries. The containers that make algorithms fast.", icon: "matrix" },
 ];
 
 export const PROBLEMS: Problem[] = [

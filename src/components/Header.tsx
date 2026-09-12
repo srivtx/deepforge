@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface HeaderProps {
   solvedCount: number;
@@ -51,11 +52,14 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
           >
             About
           </a>
-          <div className="ml-2 hidden items-center gap-2 rounded-md border border-hairline px-2.5 py-1 text-xs text-body-mid sm:flex">
+          <div className="ml-1 hidden items-center gap-2 rounded-md border border-hairline px-2.5 py-1 text-xs text-body-mid sm:flex">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
             <span className="font-mono">
               {solvedCount}/{totalCount} solved
             </span>
+          </div>
+          <div className="ml-1 sm:ml-2">
+            <ThemeToggle />
           </div>
         </nav>
       </div>

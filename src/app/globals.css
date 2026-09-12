@@ -38,8 +38,9 @@
   --radius-xl: 12px;
 }
 
-/* ── Dark mode (DEFAULT — no light mode in v1) ── */
-:root {
+/* ── Dark mode (DEFAULT — falls back here when no theme class is set) ── */
+:root,
+:root.dark {
   color-scheme: dark;
   --radius: 8px;
 
@@ -58,6 +59,7 @@
   --canvas:          #0a0a0a;
   --canvas-card:     #111111;
   --canvas-soft:     #161616;
+  --canvas-mid:      #1a1a1a;
   --hairline:        #1f1f1f;
 
   /* Ink + body text. */
@@ -75,6 +77,46 @@
   --warning:         #FFB347;
   --error:           #FF6B6B;
   --info:            #A0C3EC;
+
+  /* Selection. */
+  --selection-bg:    rgba(127, 255, 159, 0.25);
+  --selection-fg:    #ffffff;
+}
+
+/* ── Light mode (applied when <html class="light"> via next-themes) ── */
+:root.light {
+  color-scheme: light;
+  --radius: 8px;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Canvas — clean white. */
+  --canvas:          #ffffff;
+  --canvas-card:     #f8f8f8;
+  --canvas-soft:     #f0f0f0;
+  --canvas-mid:      #e8e8e8;
+  --hairline:        #e0e0e0;
+
+  /* Ink + body text — near-black for contrast on white. */
+  --ink:             #1a1a1a;
+  --body:            #333333;
+  --body-mid:        #666666;
+  --mute:            #999999;
+
+  /* Accent — darker phosphor green for AA contrast on white. */
+  --accent:          #1f8a3d;
+  --accent-soft:     #cfe9d6;
+
+  /* Status colors — slightly darkened for light backgrounds. */
+  --success:         #1f8a3d;
+  --warning:         #b8730a;
+  --error:           #c63838;
+  --info:            #2f6db5;
+
+  /* Selection. */
+  --selection-bg:    rgba(31, 138, 61, 0.18);
+  --selection-fg:    #1a1a1a;
 }
 
 @layer base {
@@ -93,8 +135,8 @@
     -moz-osx-font-smoothing: grayscale;
   }
   ::selection {
-    background-color: rgba(127, 255, 159, 0.25);
-    color: var(--ink);
+    background-color: var(--selection-bg);
+    color: var(--selection-fg);
   }
 }
 

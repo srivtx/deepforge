@@ -8,7 +8,9 @@ export type Category =
   | "ML Fundamentals"
   | "Deep Learning"
   | "NLP"
-  | "Optimization";
+  | "Optimization"
+  | "Algorithms"
+  | "Data Structures";
 
 export interface TestCase {
   /** Positional arguments to the user's function (JSON-serializable). */
