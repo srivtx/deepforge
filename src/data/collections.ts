@@ -1,0 +1,161 @@
+export interface PremadeCollection {
+  id: string;
+  name: string;
+  description: string;
+  problemIds: string[];
+}
+
+/**
+ * Curated problem sets. Every id must exist in src/data/problems.
+ * Sets are ordered easy -> hard.
+ */
+export const PREMADE_COLLECTIONS: PremadeCollection[] = [
+  {
+    id: "interview-prep-essentials",
+    name: "Interview Prep Essentials",
+    description:
+      "Twenty problems that cover the patterns that show up most in ML and software interviews: two pointers, dynamic programming, heaps, and core metrics.",
+    problemIds: [
+      "al-001",
+      "al-002",
+      "al-041",
+      "ds-002",
+      "ds-008",
+      "ds-010",
+      "ml-017",
+      "pr-003",
+      "al-015",
+      "al-017",
+      "al-018",
+      "al-025",
+      "al-026",
+      "al-055",
+      "al-057",
+      "ds-022",
+      "ds-028",
+      "ml-009",
+      "al-037",
+      "al-073",
+    ],
+  },
+  {
+    id: "linear-algebra-crash-course",
+    name: "Linear Algebra Crash Course",
+    description:
+      "From dot products to Gram-Schmidt. A compact path through the linear algebra every ML engineer should be able to code by hand.",
+    problemIds: [
+      "la-004",
+      "la-006",
+      "la-001",
+      "la-008",
+      "la-015",
+      "la-020",
+      "la-023",
+      "la-025",
+      "la-027",
+      "la-010",
+      "la-031",
+      "la-038",
+      "la-040",
+      "la-045",
+      "la-049",
+    ],
+  },
+  {
+    id: "thirty-day-challenge",
+    name: "30-Day Challenge",
+    description:
+      "One Easy problem a day for a month, spread across every category. A gentle way to build a daily practice habit.",
+    problemIds: [
+      "ca-001",
+      "la-004",
+      "st-001",
+      "pr-003",
+      "ml-002",
+      "dl-001",
+      "nlp-001",
+      "op-005",
+      "al-001",
+      "ds-001",
+      "cv-001",
+      "ca-003",
+      "la-013",
+      "st-002",
+      "pr-002",
+      "ml-017",
+      "dl-002",
+      "nlp-002",
+      "al-003",
+      "ds-002",
+      "cv-006",
+      "la-023",
+      "ml-008",
+      "al-011",
+      "ds-014",
+      "cv-011",
+      "ml-029",
+      "al-041",
+      "ds-026",
+      "cv-049",
+    ],
+  },
+  {
+    id: "deep-learning-starter",
+    name: "Deep Learning Starter",
+    description:
+      "Activations, MLPs, and the text preprocessing that feeds them. Ten problems that take you from a single neuron to a backward pass.",
+    problemIds: [
+      "dl-001",
+      "dl-002",
+      "nlp-001",
+      "nlp-002",
+      "nlp-004",
+      "dl-003",
+      "dl-004",
+      "nlp-003",
+      "nlp-005",
+      "dl-005",
+    ],
+  },
+  {
+    id: "probability-statistics-core",
+    name: "Probability & Statistics Core",
+    description:
+      "Descriptive statistics, distributions, and Bayes. The probability toolkit behind evaluation, experimentation, and model diagnostics.",
+    problemIds: [
+      "st-001",
+      "st-002",
+      "pr-002",
+      "pr-003",
+      "pr-004",
+      "st-003",
+      "st-004",
+      "st-005",
+      "pr-001",
+      "pr-005",
+    ],
+  },
+  {
+    id: "algorithms-warm-up",
+    name: "Algorithms Warm-up",
+    description:
+      "Sorting, searching, and classic dynamic programming. A quick warm-up set for interview season or a refresher on fundamentals.",
+    problemIds: [
+      "al-001",
+      "al-002",
+      "al-008",
+      "al-010",
+      "al-041",
+      "al-042",
+      "al-015",
+      "al-017",
+      "al-018",
+      "al-024",
+      "al-025",
+      "al-026",
+      "al-055",
+      "al-037",
+      "al-073",
+    ],
+  },
+];
