@@ -22,7 +22,7 @@ Deep-ML is the incumbent. Current state:
 
 | Feature | Deep-ML | DeepForge |
 |---|---|---|
-| Problems | 1,200+ | **2,440** |
+| Problems | 1,200+ | **3,475** |
 | Categories | 5 | **15** |
 | In-browser execution | Yes | Yes (Pyodide) |
 | Design | Generic dark | svx dark+light |
@@ -45,16 +45,16 @@ Honest caveats: leaderboard, comments, and collections are localStorage-backed (
 
 | Category | Problems | | Category | Problems |
 |---|---:|---|---|---:|
-| Algorithms | 260 | | Optimization | 95 |
-| ML Fundamentals | 225 | | NLP | 95 |
-| Data Structures | 220 | | Statistics | 95 |
-| Computer Vision | 215 | | Probability | 95 |
-| Linear Algebra | 185 | | Calculus | 95 |
-| Deep Learning | 185 | | Graph Algorithms | 135 |
-| Reinforcement Learning | 180 | | Information Theory | 180 |
-| Time Series | 180 | | **Total** | **2,440** |
+| Algorithms | 350 | | Optimization | 140 |
+| ML Fundamentals | 315 | | NLP | 140 |
+| Data Structures | 310 | | Statistics | 140 |
+| Computer Vision | 305 | | Probability | 140 |
+| Linear Algebra | 275 | | Calculus | 185 |
+| Deep Learning | 275 | | Graph Algorithms | 225 |
+| Reinforcement Learning | 225 | | Information Theory | 225 |
+| Time Series | 225 | | **Total** | **3,475** |
 
-Difficulty mix: 874 Easy · 1,081 Medium · 485 Hard.
+Difficulty mix: 1,241 Easy · 1,542 Medium · 692 Hard.
 
 ---
 
@@ -260,7 +260,7 @@ bun run build                                 # production build
 ## Roadmap
 
 ### Phase 1: Problems — ✅ Complete
-2,440 verified problems across 15 categories (target was 2,000+, deep-ml has 1,200+). Every solution passes real-Python verification.
+3,475 verified problems across 15 categories (target was 2,000+, deep-ml has 1,200+). Every solution passes real-Python verification.
 
 ### Phase 2: Features — ✅ Complete
 - **Contests** — 8 timed sets (10–60 min), countdown, difficulty-weighted scores, local results
@@ -336,7 +336,7 @@ If you are an AI agent working on DeepForge:
 
 ## Current Status (as of last update)
 
-- **Problems:** 2,440 (874 Easy · 1,081 Medium · 485 Hard) — ✅ target exceeded
+- **Problems:** 3,475 (1,241 Easy · 1,542 Medium · 692 Hard) — ✅ target exceeded
 - **Categories:** 15 — ✅
 - **Learning paths:** 24 — ✅
 - **Light mode:** ✅ Working

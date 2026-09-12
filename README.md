@@ -22,7 +22,7 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 
 | Feature | Deep-ML | DeepForge |
 |---|---|---|
-| Problems | 1,200+ | 2,440 |
+| Problems | 1,200+ | 3,475 |
 | Categories | 5 | 15 |
 | Learning paths | Yes | 24 |
 | Projects (multi-step labs) | Yes | 5 labs · 36 steps |
@@ -44,14 +44,14 @@ Community features (leaderboard, discuss) are local-first today — a shared bac
 
 | Category | Problems | | Category | Problems |
 |---|---:|---|---|---:|
-| Algorithms | 260 | | Optimization | 95 |
-| ML Fundamentals | 225 | | NLP | 95 |
-| Data Structures | 220 | | Statistics | 95 |
-| Computer Vision | 215 | | Probability | 95 |
-| Linear Algebra | 185 | | Calculus | 95 |
-| Deep Learning | 185 | | Graph Algorithms | 135 |
-| Reinforcement Learning | 180 | | Information Theory | 180 |
-| Time Series | 180 | | **Total** | **2,440** |
+| Algorithms | 350 | | Optimization | 140 |
+| ML Fundamentals | 315 | | NLP | 140 |
+| Data Structures | 310 | | Statistics | 140 |
+| Computer Vision | 305 | | Probability | 140 |
+| Linear Algebra | 275 | | Calculus | 185 |
+| Deep Learning | 275 | | Graph Algorithms | 225 |
+| Reinforcement Learning | 225 | | Information Theory | 225 |
+| Time Series | 225 | | **Total** | **3,475** |
 
 ## Features
 
@@ -86,7 +86,7 @@ src/
 │   ├── problems/
 │   │   ├── meta.ts           # 15 categories
 │   │   ├── paths.ts          # 24 learning paths
-│   │   ├── index.ts          # aggregates all 2,440 problems (PROBLEMS, CATEGORIES)
+│   │   ├── index.ts          # aggregates all 3,475 problems (PROBLEMS, CATEGORIES)
 │   │   └── <category>/       # part-NN.ts problem files + per-category index.ts aggregator
 │   ├── contests.ts           # 8 timed contests
 │   ├── projects.ts           # 5 labs · 36 steps
@@ -111,7 +111,7 @@ scripts/
 ## Verification
 
 ```bash
-bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 2,440 solutions
+bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 3,475 solutions
 bunx tsc --noEmit                    # types
 bun run lint                         # ESLint
 bun run build                        # production build

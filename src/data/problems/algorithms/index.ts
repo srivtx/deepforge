@@ -6,6 +6,7 @@ import { problems as p04 } from "./part-04";
 import { problems as p05 } from "./part-05";
 import { problems as p06 } from "./part-06";
 import { problems as p07 } from "./part-07";
+import { problems as p08 } from "./part-08";
 
 export const algorithmsProblems: Problem[] = [
   ...p01,
@@ -15,4 +16,5 @@ export const algorithmsProblems: Problem[] = [
   ...p05,
   ...p06,
   ...p07,
+  ...p08,
 ];

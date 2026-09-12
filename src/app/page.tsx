@@ -16,6 +16,7 @@ import { PenPaper } from "@/components/PenPaper";
 import { DailyChallenge } from "@/components/DailyChallenge";
 import { Playground } from "@/components/Playground";
 import { CommandPalette } from "@/components/CommandPalette";
+import { ProgressBackup } from "@/components/ProgressBackup";
 import { About } from "@/components/About";
 import { Footer } from "@/components/Footer";
 import { ProblemView } from "@/components/ProblemView";
@@ -117,6 +118,7 @@ export default function Page() {
         <Projects />
         <Contests />
         <Leaderboard />
+        <ProgressBackup />
         <Collections />
         <InterviewPrep />
         <PenPaper />

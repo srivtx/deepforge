@@ -21,7 +21,7 @@ const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app";
 
 const siteDescription =
-  "Forge your ML skills from scratch. 2,400+ problems across 15 categories with real Python execution in your browser via Pyodide — no account needed, free and MIT-licensed.";
+  "Forge your ML skills from scratch. 3,400+ problems across 15 categories with real Python execution in your browser via Pyodide — no account needed, free and MIT-licensed.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
