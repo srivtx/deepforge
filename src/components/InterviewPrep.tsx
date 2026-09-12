@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Problem } from "@/types/problem";
 import { PROBLEMS } from "@/data/problems";
+import { PROJECTS, type Project } from "@/data/projects";
 import { INTERVIEW_TRACKS, type InterviewTrack } from "@/data/interview";
 import { cn, difficultyClasses } from "@/lib/utils";
 import { getProgress, type ProgressMap } from "@/lib/progress";
@@ -17,6 +18,8 @@ import { ProblemView } from "./ProblemView";
 const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
 const SESSION_SIZES = [5, 10, 20];
 const SECONDS_PER_PROBLEM = 4 * 60;
+
+type SetupMode = "practice" | "mock";
 
 interface InterviewSummary {
   result: InterviewResult;
@@ -36,15 +39,95 @@ function interviewScore(solved: number, seconds: number): number {
   return Math.max(0, Math.round(raw * 10) / 10);
 }
 
-function sessionSizesFor(track: InterviewTrack): number[] {
-  const options = SESSION_SIZES.filter((s) => s <= track.problemIds.length);
-  return options.length > 0 ? options : [track.problemIds.length];
+function fullPathIds(track: InterviewTrack): string[] {
+  return track.phases.flatMap((phase) => phase.problemIds);
+}
+
+function idsFor(
+  track: InterviewTrack,
+  mode: SetupMode,
+  phase: number,
+): string[] {
+  if (mode === "mock") return track.mockProblemIds;
+  if (phase >= track.phases.length) return fullPathIds(track);
+  return track.phases[phase].problemIds;
+}
+
+function sessionSizesFor(ids: string[]): number[] {
+  const options = SESSION_SIZES.filter((size) => size <= ids.length);
+  return options.length > 0 ? options : [ids.length];
+}
+
+function preferredSize(ids: string[]): number {
+  const options = sessionSizesFor(ids);
+  return options.includes(10) ? 10 : options[options.length - 1];
+}
+
+function ProblemRow({
+  problem,
+  index,
+  solved,
+  onOpen,
+}: {
+  problem: Problem;
+  index?: number;
+  solved: boolean;
+  onOpen: (problem: Problem) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(problem)}
+      className="flex w-full items-center gap-3 rounded-lg border border-hairline bg-canvas-card px-3 py-2.5 text-left transition-colors hover:bg-canvas-soft"
+    >
+      {index !== undefined && (
+        <span className="w-5 shrink-0 font-mono text-xs text-mute">
+          {index}
+        </span>
+      )}
+      <span
+        className={cn(
+          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+          solved ? "bg-accent/15 text-accent" : "border border-hairline",
+        )}
+        aria-hidden
+      >
+        {solved && (
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path
+              d="M2 5l2 2 4-4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </span>
+      <span className="hidden shrink-0 font-mono text-[11px] text-mute sm:inline">
+        {problem.id}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm text-ink">
+        {problem.title}
+      </span>
+      <span
+        className={cn(
+          "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+          difficultyClasses(problem.difficulty),
+        )}
+      >
+        {problem.difficulty}
+      </span>
+    </button>
+  );
 }
 
 export function InterviewPrep() {
   const [progress, setProgress] = useState<ProgressMap>({});
   const [best, setBest] = useState<Record<string, InterviewResult | null>>({});
   const [setupTrack, setSetupTrack] = useState<InterviewTrack | null>(null);
+  const [setupMode, setSetupMode] = useState<SetupMode>("practice");
+  const [setupPhase, setSetupPhase] = useState(0);
   const [sessionSize, setSessionSize] = useState(10);
   const [activeTrack, setActiveTrack] = useState<InterviewTrack | null>(null);
   const [sessionIds, setSessionIds] = useState<string[]>([]);
@@ -65,7 +148,6 @@ export function InterviewPrep() {
     [],
   );
 
-  // Load stored bests + progress, then stay in sync with every writer.
   useEffect(() => {
     const load = () => {
       setProgress(getProgress());
@@ -84,7 +166,6 @@ export function InterviewPrep() {
     };
   }, []);
 
-  // Countdown for the active session. Auto-ends at zero.
   useEffect(() => {
     if (!activeTrack || summary) return;
     const tick = () => {
@@ -100,7 +181,6 @@ export function InterviewPrep() {
     return () => window.clearInterval(id);
   }, [activeTrack, summary]);
 
-  // Escape closes the session overlay, unless ProblemView is stacked above.
   useEffect(() => {
     if (!activeTrack) return;
     const onKey = (e: KeyboardEvent) => {
@@ -110,17 +190,15 @@ export function InterviewPrep() {
     return () => window.removeEventListener("keydown", onKey);
   }, [activeTrack, activeProblem]);
 
-  // Escape also dismisses the setup dialog.
   useEffect(() => {
     if (!setupTrack) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSetupTrack(null);
+      if (e.key === "Escape" && !activeProblem) setSetupTrack(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setupTrack]);
+  }, [setupTrack, activeProblem]);
 
-  // Focus the setup dialog, lock background scroll, restore focus on close.
   useEffect(() => {
     if (!setupTrack) return;
     setupReturnFocusRef.current =
@@ -136,7 +214,6 @@ export function InterviewPrep() {
     };
   }, [setupTrack]);
 
-  // Focus the session overlay, lock background scroll, restore focus on close.
   useEffect(() => {
     if (!activeTrack) return;
     sessionReturnFocusRef.current =
@@ -152,8 +229,7 @@ export function InterviewPrep() {
     };
   }, [activeTrack]);
 
-  function startSession(track: InterviewTrack, size: number) {
-    const ids = track.problemIds.slice(0, size);
+  function startSession(track: InterviewTrack, ids: string[]) {
     const now = Date.now();
     startAtRef.current = now;
     endAtRef.current = now + ids.length * SECONDS_PER_PROBLEM * 1000;
@@ -199,19 +275,40 @@ export function InterviewPrep() {
     setSessionIds([]);
   }
 
-  function openSetup(track: InterviewTrack) {
-    const options = sessionSizesFor(track);
-    setSessionSize(
-      options.includes(10) ? 10 : options[options.length - 1],
-    );
+  function openSetup(track: InterviewTrack, mode: SetupMode, phase = 0) {
+    const ids = idsFor(track, mode, phase);
+    setSessionSize(preferredSize(ids));
+    setSetupMode(mode);
+    setSetupPhase(phase);
     setSetupTrack(track);
   }
 
-  function difficultySpread(track: InterviewTrack) {
+  function chooseMode(mode: SetupMode) {
+    if (!setupTrack) return;
+    setSessionSize(preferredSize(idsFor(setupTrack, mode, setupPhase)));
+    setSetupMode(mode);
+  }
+
+  function choosePhase(phase: number) {
+    if (!setupTrack) return;
+    setSessionSize(preferredSize(idsFor(setupTrack, "practice", phase)));
+    setSetupPhase(phase);
+  }
+
+  function beginSetup() {
+    if (!setupTrack) return;
+    const ids =
+      setupMode === "mock"
+        ? setupTrack.mockProblemIds
+        : setupIds.slice(0, setupSize);
+    startSession(setupTrack, ids);
+  }
+
+  function difficultySpread(ids: string[]) {
     let easy = 0;
     let medium = 0;
     let hard = 0;
-    for (const id of track.problemIds) {
+    for (const id of ids) {
       const problem = problemMap.get(id);
       if (!problem) continue;
       if (problem.difficulty === "Easy") easy += 1;
@@ -221,12 +318,26 @@ export function InterviewPrep() {
     return { easy, medium, hard };
   }
 
+  const setupIds = setupTrack ? idsFor(setupTrack, setupMode, setupPhase) : [];
+  const setupSize = Math.min(sessionSize, setupIds.length);
+  const setupGroups = !setupTrack
+    ? []
+    : setupMode === "mock"
+      ? [{ name: "Timed mock", ids: setupTrack.mockProblemIds }]
+      : setupPhase >= setupTrack.phases.length
+        ? setupTrack.phases.map((phase) => ({
+            name: phase.name,
+            ids: phase.problemIds,
+          }))
+        : [
+            {
+              name: setupTrack.phases[setupPhase].name,
+              ids: setupTrack.phases[setupPhase].problemIds,
+            },
+          ];
+
   const solvedCount = activeTrack
     ? sessionIds.filter((id) => progress[id]?.solved).length
-    : 0;
-
-  const setupSize = setupTrack
-    ? Math.min(sessionSize, setupTrack.problemIds.length)
     : 0;
 
   return (
@@ -240,24 +351,34 @@ export function InterviewPrep() {
             Interview Prep
           </h2>
           <p className="mt-1 text-sm text-body-mid">
-            Curated tracks for ML, quant, and data interviews. Pick a session
-            size, race the clock, and your best run stays saved in this browser.
+            Company-specific tracks with a paced path from warm-up to hard, plus
+            a timed mock drawn from the toughest problems. Your best run stays
+            saved in this browser.
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {INTERVIEW_TRACKS.map((track) => {
-            const spread = difficultySpread(track);
+            const allIds = [...fullPathIds(track), ...track.mockProblemIds];
+            const spread = difficultySpread(allIds);
             const bestResult = best[track.id];
+            const projectLinks = (track.resumeProjectIds ?? [])
+              .map((id) => PROJECTS.find((project) => project.id === id))
+              .filter((project): project is Project => Boolean(project));
             return (
               <div
                 key={track.id}
                 className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <h3 className="text-base font-semibold text-ink">
-                    {track.title}
-                  </h3>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold text-ink">
+                      {track.company}
+                    </h3>
+                    <p className="text-xs font-medium text-body-mid">
+                      {track.role}
+                    </p>
+                  </div>
                   {bestResult && (
                     <span className="shrink-0 rounded-full border border-accent/40 bg-accent/5 px-2 py-0.5 text-[10px] font-medium text-accent">
                       Best{" "}
@@ -274,27 +395,73 @@ export function InterviewPrep() {
                 <p className="text-sm leading-relaxed text-body">
                   {track.blurb}
                 </p>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid">
                     {track.audience}
                   </span>
-                  <span className="font-mono text-xs text-body-mid">
-                    {track.problemIds.length} problems
+                  <span className="rounded-full border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid">
+                    {track.style}
                   </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {track.phases.map((phase, index) => (
+                    <button
+                      key={phase.name}
+                      type="button"
+                      onClick={() => openSetup(track, "practice", index)}
+                      className="rounded-lg border border-hairline bg-canvas-card px-2 py-1.5 text-left transition-colors hover:bg-canvas-soft"
+                      aria-label={`Practice ${phase.name}: ${phase.problemIds.length} problems`}
+                    >
+                      <span className="block text-[11px] font-medium text-ink">
+                        {phase.name}
+                      </span>
+                      <span className="mt-0.5 block font-mono text-[10px] text-mute">
+                        {phase.problemIds.length} problems
+                      </span>
+                    </button>
+                  ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px]">
                   <span className="text-accent">{spread.easy} Easy</span>
                   <span className="text-warning">{spread.medium} Medium</span>
                   <span className="text-error">{spread.hard} Hard</span>
                 </div>
-                <div className="mt-auto flex items-center justify-end pt-1">
-                  <button
-                    type="button"
-                    onClick={() => openSetup(track)}
-                    className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
-                  >
-                    Start
-                  </button>
+                {projectLinks.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] text-mute">Projects</span>
+                    {projectLinks.map((project) => (
+                      <a
+                        key={project.id}
+                        href="#projects"
+                        className="rounded-full border border-hairline px-2 py-0.5 text-[10px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+                      >
+                        {project.title}
+                      </a>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+                  <span className="font-mono text-[11px] text-mute">
+                    {allIds.length} problems
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openSetup(track, "practice", track.phases.length)
+                      }
+                      className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+                    >
+                      Full path
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openSetup(track, "mock")}
+                      className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
+                    >
+                      Start mock
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -309,43 +476,151 @@ export function InterviewPrep() {
           className="df-fade-in fixed inset-0 z-40 flex items-center justify-center bg-canvas/80 p-3 backdrop-blur-sm outline-none sm:p-6"
           role="dialog"
           aria-modal="true"
-          aria-label={`Start ${setupTrack.title}`}
+          aria-label={`${setupTrack.company} ${setupTrack.role} interview prep`}
         >
-          <div className="w-full max-w-md rounded-lg border border-hairline bg-canvas p-5">
-            <h3 className="text-base font-semibold text-ink">
-              {setupTrack.title}
-            </h3>
-            <p className="mt-1 text-sm text-body-mid">
-              Choose a session size. The clock starts when you begin.
-            </p>
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {sessionSizesFor(setupTrack).map((size) => (
+          <div className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-hairline bg-canvas">
+            <div className="shrink-0 border-b border-hairline px-5 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-ink">
+                    {setupTrack.company}
+                  </h3>
+                  <p className="text-xs text-body-mid">{setupTrack.role}</p>
+                </div>
+                <span className="rounded-full border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid">
+                  {setupTrack.style}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
-                  key={size}
                   type="button"
-                  onClick={() => setSessionSize(size)}
-                  aria-pressed={setupSize === size}
+                  onClick={() => chooseMode("practice")}
+                  aria-pressed={setupMode === "practice"}
                   className={cn(
-                    "rounded-lg border px-3 py-2 font-mono text-sm transition-colors",
-                    setupSize === size
+                    "rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                    setupMode === "practice"
                       ? "border-accent bg-accent/10 text-accent"
                       : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
                   )}
                 >
-                  {size}
+                  Paced practice
                 </button>
-              ))}
-            </div>
-            <div className="mt-4 rounded-lg border border-hairline bg-canvas-card p-3">
-              <div className="text-xs text-body-mid">Time limit</div>
-              <div className="mt-1 font-mono text-xl text-ink">
-                {formatClock(setupSize * SECONDS_PER_PROBLEM)}
+                <button
+                  type="button"
+                  onClick={() => chooseMode("mock")}
+                  aria-pressed={setupMode === "mock"}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                    setupMode === "mock"
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
+                  )}
+                >
+                  Timed mock
+                </button>
               </div>
-              <div className="mt-1 text-[11px] text-mute">
-                4 minutes per problem
+            </div>
+
+            <div className="df-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              {setupMode === "practice" ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {setupTrack.phases.map((phase, index) => (
+                      <button
+                        key={phase.name}
+                        type="button"
+                        onClick={() => choosePhase(index)}
+                        aria-pressed={setupPhase === index}
+                        className={cn(
+                          "rounded-lg border px-3 py-1.5 font-mono text-xs transition-colors",
+                          setupPhase === index
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
+                        )}
+                      >
+                        {phase.name} · {phase.problemIds.length}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => choosePhase(setupTrack.phases.length)}
+                      aria-pressed={setupPhase >= setupTrack.phases.length}
+                      className={cn(
+                        "rounded-lg border px-3 py-1.5 font-mono text-xs transition-colors",
+                        setupPhase >= setupTrack.phases.length
+                          ? "border-accent bg-accent/10 text-accent"
+                          : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
+                      )}
+                    >
+                      Full path · {fullPathIds(setupTrack).length}
+                    </button>
+                  </div>
+                  <div className="mt-4">
+                    <div className="text-xs text-body-mid">Session size</div>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {sessionSizesFor(setupIds).map((size) => (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => setSessionSize(size)}
+                          aria-pressed={setupSize === size}
+                          className={cn(
+                            "rounded-lg border px-3 py-2 font-mono text-sm transition-colors",
+                            setupSize === size
+                              ? "border-accent bg-accent/10 text-accent"
+                              : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
+                          )}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-body-mid">
+                  Five of the hardest problems in this track, mixed across
+                  topics. Four minutes per problem.
+                </p>
+              )}
+
+              <div className="mt-4 rounded-lg border border-hairline bg-canvas-card p-3">
+                <div className="text-xs text-body-mid">Time limit</div>
+                <div className="mt-1 font-mono text-xl text-ink">
+                  {formatClock(setupSize * SECONDS_PER_PROBLEM)}
+                </div>
+                <div className="mt-1 text-[11px] text-mute">
+                  {setupSize} problems · 4 minutes each
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {setupGroups.map((group) => (
+                  <div key={group.name}>
+                    <div className="mb-1.5 text-xs font-medium text-body-mid">
+                      {group.name}
+                    </div>
+                    <div className="space-y-2">
+                      {group.ids.map((id, index) => {
+                        const problem = problemMap.get(id);
+                        if (!problem) return null;
+                        return (
+                          <ProblemRow
+                            key={id}
+                            problem={problem}
+                            index={index + 1}
+                            solved={Boolean(progress[id]?.solved)}
+                            onOpen={setActiveProblem}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="mt-5 flex items-center justify-end gap-2">
+
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-hairline px-5 py-4">
               <button
                 type="button"
                 onClick={() => setSetupTrack(null)}
@@ -355,10 +630,10 @@ export function InterviewPrep() {
               </button>
               <button
                 type="button"
-                onClick={() => startSession(setupTrack, setupSize)}
+                onClick={beginSetup}
                 className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
               >
-                Begin session
+                {setupMode === "mock" ? "Begin mock" : "Begin session"}
               </button>
             </div>
           </div>
@@ -372,13 +647,13 @@ export function InterviewPrep() {
           className="df-fade-in fixed inset-0 z-40 flex items-center justify-center bg-canvas/80 p-3 backdrop-blur-sm outline-none sm:p-6"
           role="dialog"
           aria-modal="true"
-          aria-label={`Interview session: ${activeTrack.title}`}
+          aria-label={`Interview session: ${activeTrack.company} ${activeTrack.role}`}
         >
           <div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-hairline bg-canvas">
             <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-hairline px-4 py-3 sm:px-6">
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-sm font-semibold text-ink">
-                  {activeTrack.title}
+                  {activeTrack.company} · {activeTrack.role}
                 </h3>
                 <p className="text-xs text-body-mid">
                   <span className="font-mono">
@@ -455,58 +730,14 @@ export function InterviewPrep() {
                   {sessionIds.map((id, index) => {
                     const problem = problemMap.get(id);
                     if (!problem) return null;
-                    const solved = Boolean(progress[id]?.solved);
                     return (
-                      <button
+                      <ProblemRow
                         key={id}
-                        type="button"
-                        onClick={() => setActiveProblem(problem)}
-                        className="flex w-full items-center gap-3 rounded-lg border border-hairline bg-canvas-card px-3 py-2.5 text-left transition-colors hover:bg-canvas-soft"
-                      >
-                        <span className="w-5 shrink-0 font-mono text-xs text-mute">
-                          {index + 1}
-                        </span>
-                        <span
-                          className={cn(
-                            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
-                            solved
-                              ? "bg-accent/15 text-accent"
-                              : "border border-hairline",
-                          )}
-                          aria-hidden
-                        >
-                          {solved && (
-                            <svg
-                              width="10"
-                              height="10"
-                              viewBox="0 0 10 10"
-                              fill="none"
-                            >
-                              <path
-                                d="M2 5l2 2 4-4"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                        </span>
-                        <span className="hidden shrink-0 font-mono text-[11px] text-mute sm:inline">
-                          {problem.id}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                          {problem.title}
-                        </span>
-                        <span
-                          className={cn(
-                            "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
-                            difficultyClasses(problem.difficulty),
-                          )}
-                        >
-                          {problem.difficulty}
-                        </span>
-                      </button>
+                        problem={problem}
+                        index={index + 1}
+                        solved={Boolean(progress[id]?.solved)}
+                        onOpen={setActiveProblem}
+                      />
                     );
                   })}
                 </div>

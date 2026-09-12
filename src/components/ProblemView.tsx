@@ -60,6 +60,18 @@ export function ProblemView({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // Share the current problem + editor code with the Zero assistant.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("deepforge:problem-context", {
+          detail: { problem, code },
+        }),
+      );
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [problem, code]);
+
   const runCode = async () => {
     setRunning(true);
     setResults(null);

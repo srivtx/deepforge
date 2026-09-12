@@ -8,14 +8,21 @@ import { CategoryGrid } from "@/components/CategoryGrid";
 import { ProblemList } from "@/components/ProblemList";
 import { Paths } from "@/components/Paths";
 import { Projects } from "@/components/Projects";
+import { Labs } from "@/components/Labs";
 import { Contests } from "@/components/Contests";
+import { Research } from "@/components/Research";
 import { Leaderboard } from "@/components/Leaderboard";
+import { Badges } from "@/components/Badges";
 import { Collections } from "@/components/Collections";
+import { Playlists } from "@/components/Playlists";
 import { InterviewPrep } from "@/components/InterviewPrep";
 import { PenPaper } from "@/components/PenPaper";
+import { Articles } from "@/components/Articles";
 import { DailyChallenge } from "@/components/DailyChallenge";
+import { Discuss } from "@/components/Discuss";
 import { Playground } from "@/components/Playground";
 import { CommandPalette } from "@/components/CommandPalette";
+import { ZeroAssistant } from "@/components/ZeroAssistant";
 import { ProgressBackup } from "@/components/ProgressBackup";
 import { About } from "@/components/About";
 import { Footer } from "@/components/Footer";
@@ -54,6 +61,20 @@ export default function Page() {
 
   const handleProgressChange = useCallback(() => {
     setProgress(getProgress());
+  }, []);
+
+  // Allow any section (forum chips, playlists, assistant citations, articles)
+  // to open a problem by id.
+  useEffect(() => {
+    const onOpenProblem = (e: Event) => {
+      const id = (e as CustomEvent).detail?.id;
+      if (typeof id !== "string") return;
+      const p = PROBLEMS.find((x) => x.id === id);
+      if (p) setSelected(p);
+    };
+    window.addEventListener("deepforge:open-problem", onOpenProblem);
+    return () =>
+      window.removeEventListener("deepforge:open-problem", onOpenProblem);
   }, []);
 
   const categoryCounts = useMemo(() => getCategoryCounts(), []);
@@ -116,12 +137,18 @@ export default function Page() {
           progress={progress}
         />
         <Projects />
+        <Labs />
         <Contests />
+        <Research />
         <Leaderboard />
+        <Badges />
         <ProgressBackup />
         <Collections />
+        <Playlists />
         <InterviewPrep />
         <PenPaper />
+        <Articles />
+        <Discuss />
         <Playground />
         <About />
       </main>
@@ -134,6 +161,7 @@ export default function Page() {
         />
       )}
       <CommandPalette />
+      <ZeroAssistant />
     </div>
   );
 }

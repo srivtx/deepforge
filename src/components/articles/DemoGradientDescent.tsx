@@ -1,0 +1,430 @@
+"use client";
+
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
+import {
+  clamp,
+  getCanvasPalette,
+  type DemoProps,
+} from "@/lib/articles-demos";
+
+const W = 520;
+const H = 420;
+const CX = W / 2;
+const CY = H / 2;
+const SCALE = 150;
+const LIMIT = 1.35;
+const STEPS = 300;
+
+interface LabeledPoint {
+  x: number;
+  y: number;
+  label: 1 | -1;
+}
+
+type Rule = "logistic" | "mse";
+
+const INITIAL_POINTS: LabeledPoint[] = [
+  { x: 0.3, y: 0.65, label: 1 },
+  { x: 0.6, y: 0.4, label: 1 },
+  { x: 0.75, y: 0.8, label: 1 },
+  { x: 0.4, y: 0.95, label: 1 },
+  { x: 0.95, y: 0.35, label: 1 },
+  { x: 0.2, y: 0.45, label: 1 },
+  { x: 0.65, y: 0.15, label: 1 },
+  { x: -0.35, y: -0.6, label: -1 },
+  { x: -0.65, y: -0.35, label: -1 },
+  { x: -0.8, y: -0.75, label: -1 },
+  { x: -0.45, y: -0.9, label: -1 },
+  { x: -0.95, y: -0.3, label: -1 },
+  { x: -0.25, y: -0.5, label: -1 },
+  { x: -0.6, y: -0.15, label: -1 },
+];
+
+interface Fit {
+  w1: number;
+  w2: number;
+  b: number;
+  curve: number[];
+  loss: number;
+  accuracy: number;
+}
+
+function sigmoid(z: number): number {
+  return 1 / (1 + Math.exp(-z));
+}
+
+function probability(
+  p: LabeledPoint,
+  w1: number,
+  w2: number,
+  b: number,
+): number {
+  return sigmoid(w1 * p.x + w2 * p.y + b);
+}
+
+function meanLoss(
+  points: LabeledPoint[],
+  rule: Rule,
+  w1: number,
+  w2: number,
+  b: number,
+): number {
+  if (points.length === 0) return 0;
+  let total = 0;
+  for (const p of points) {
+    const prob = clamp(probability(p, w1, w2, b), 1e-9, 1 - 1e-9);
+    const y = p.label === 1 ? 1 : 0;
+    total +=
+      rule === "logistic"
+        ? -(y * Math.log(prob) + (1 - y) * Math.log(1 - prob))
+        : (prob - y) * (prob - y);
+  }
+  return total / points.length;
+}
+
+function fitLogistic(
+  points: LabeledPoint[],
+  rule: Rule,
+  lr: number,
+  steps: number,
+): Fit {
+  let w1 = 0;
+  let w2 = 0;
+  let b = 0;
+  const curve: number[] = [meanLoss(points, rule, w1, w2, b)];
+
+  for (let s = 0; s < steps; s++) {
+    const p = points[s % points.length];
+    const y = p.label === 1 ? 1 : 0;
+    const prob = sigmoid(w1 * p.x + w2 * p.y + b);
+    const err =
+      rule === "logistic" ? prob - y : (prob - y) * prob * (1 - prob);
+    w1 -= lr * err * p.x;
+    w2 -= lr * err * p.y;
+    b -= lr * err;
+    if ((s + 1) % 5 === 0) curve.push(meanLoss(points, rule, w1, w2, b));
+  }
+
+  let correct = 0;
+  for (const p of points) {
+    const predicted = probability(p, w1, w2, b) >= 0.5 ? 1 : -1;
+    if (predicted === p.label) correct += 1;
+  }
+  return {
+    w1,
+    w2,
+    b,
+    curve,
+    loss: curve[curve.length - 1],
+    accuracy: points.length > 0 ? correct / points.length : 0,
+  };
+}
+
+function toPx(x: number, y: number): [number, number] {
+  return [CX + x * SCALE, CY - y * SCALE];
+}
+
+function LossCurve({ curve, rule }: { curve: number[]; rule: Rule }) {
+  const width = 400;
+  const height = 80;
+  const max = Math.max(...curve, 1e-6);
+  const n = curve.length;
+  const pointsPath = curve
+    .map((value, i) => {
+      const x = n <= 1 ? 0 : (i / (n - 1)) * width;
+      const y = 70 - (value / max) * 58;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const label = rule === "logistic" ? "log loss" : "MSE";
+  return (
+    <div className="mt-3 rounded-lg border border-hairline bg-canvas px-3 py-2">
+      <div className="flex items-center justify-between text-[10px] text-mute">
+        <span>{label} per SGD step</span>
+        <span className="font-mono">
+          {curve[0].toFixed(4)} &rarr; {curve[n - 1].toFixed(4)}
+        </span>
+      </div>
+      <svg
+        role="img"
+        aria-label={`${label} curve over ${STEPS} stochastic gradient steps. Starts at ${curve[0].toFixed(4)}, ends at ${curve[n - 1].toFixed(4)}.`}
+        viewBox={`0 0 ${width} ${height}`}
+        className="mt-1 h-20 w-full"
+      >
+        <line
+          x1="0"
+          y1="70"
+          x2={width}
+          y2="70"
+          stroke="var(--hairline)"
+          strokeWidth="1"
+        />
+        <polyline
+          points={pointsPath}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <circle
+          cx={width}
+          cy={70 - (curve[n - 1] / max) * 58}
+          r="2.5"
+          fill="var(--accent)"
+        />
+      </svg>
+    </div>
+  );
+}
+
+export function GradientDescentDemo({ params }: DemoProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [points, setPoints] = useState<LabeledPoint[]>(INITIAL_POINTS);
+  const [adding, setAdding] = useState<1 | -1>(1);
+  const [rule, setRule] = useState<Rule>("logistic");
+  const [lr, setLr] = useState(() => clamp(params?.lr ?? 0.6, 0.05, 2));
+
+  const fit = useMemo(
+    () => fitLogistic(points, rule, lr, STEPS),
+    [points, rule, lr],
+  );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const render = () => {
+      const palette = getCanvasPalette(canvas);
+      ctx.setTransform(2, 0, 0, 2, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.strokeStyle = palette.hairline;
+      ctx.lineWidth = 1;
+      for (const t of [-1, -0.5, 0.5, 1]) {
+        const [gx] = toPx(t, 0);
+        const [, gy] = toPx(0, t);
+        ctx.beginPath();
+        ctx.moveTo(gx, 0);
+        ctx.lineTo(gx, H);
+        ctx.moveTo(0, gy);
+        ctx.lineTo(W, gy);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = palette.mute;
+      ctx.beginPath();
+      ctx.moveTo(0, CY);
+      ctx.lineTo(W, CY);
+      ctx.moveTo(CX, 0);
+      ctx.lineTo(CX, H);
+      ctx.stroke();
+
+      ctx.font = "16px 'JetBrains Mono', ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = palette.mute;
+      const corners: [number, number][] = [
+        [LIMIT - 0.12, LIMIT - 0.12],
+        [-LIMIT + 0.12, LIMIT - 0.12],
+        [LIMIT - 0.12, -LIMIT + 0.12],
+        [-LIMIT + 0.12, -LIMIT + 0.12],
+      ];
+      for (const [wx, wy] of corners) {
+        const [px, py] = toPx(wx, wy);
+        const side = fit.w1 * wx + fit.w2 * wy + fit.b >= 0 ? "+" : "\u2212";
+        ctx.fillText(side, px, py);
+      }
+
+      if (Math.abs(fit.w2) > 1e-6) {
+        const [x0, y0] = toPx(-1.4, -(fit.w1 * -1.4 + fit.b) / fit.w2);
+        const [x1, y1] = toPx(1.4, -(fit.w1 * 1.4 + fit.b) / fit.w2);
+        ctx.strokeStyle = palette.warning;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+      } else if (Math.abs(fit.w1) > 1e-6) {
+        const [x0] = toPx(-fit.b / fit.w1, 0);
+        ctx.strokeStyle = palette.warning;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x0, 0);
+        ctx.lineTo(x0, H);
+        ctx.stroke();
+      }
+
+      for (const p of points) {
+        const [px, py] = toPx(p.x, p.y);
+        if (p.label === 1) {
+          ctx.fillStyle = palette.accent;
+          ctx.beginPath();
+          ctx.arc(px, py, 5, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.strokeStyle = palette.error;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(px - 5, py - 5);
+          ctx.lineTo(px + 5, py + 5);
+          ctx.moveTo(px + 5, py - 5);
+          ctx.lineTo(px - 5, py + 5);
+          ctx.stroke();
+        }
+      }
+
+      ctx.font = "11px 'JetBrains Mono', ui-monospace, monospace";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = palette.warning;
+      ctx.fillText(
+        rule === "logistic"
+          ? "boundary: sigmoid(w\u00B7x + b) = 0.5"
+          : "same boundary line, MSE gradient",
+        10,
+        16,
+      );
+    };
+
+    render();
+    window.addEventListener("resize", render);
+    return () => window.removeEventListener("resize", render);
+  }, [points, rule, fit]);
+
+  const positives = points.filter((p) => p.label === 1).length;
+  const negatives = points.length - positives;
+
+  const handleClick = (e: ReactMouseEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * W;
+    const py = ((e.clientY - rect.top) / rect.height) * H;
+    const x = clamp((px - CX) / SCALE, -LIMIT, LIMIT);
+    const y = clamp((CY - py) / SCALE, -LIMIT, LIMIT);
+    setPoints((prev) => [...prev, { x, y, label: adding }]);
+  };
+
+  const ruleLabel = rule === "logistic" ? "log loss" : "mean squared error";
+  const ariaLabel =
+    `Decision boundary canvas. ${points.length} points: ${positives} positive, ${negatives} negative. ` +
+    `Update rule ${ruleLabel}, learning rate ${lr.toFixed(2)}. ` +
+    `Weights ${fit.w1.toFixed(2)}, ${fit.w2.toFixed(2)}, bias ${fit.b.toFixed(2)}. ` +
+    `Accuracy ${(fit.accuracy * 100).toFixed(0)} percent. Final ${ruleLabel} ${fit.loss.toFixed(4)}.`;
+
+  const status =
+    `${points.length} points (${positives} positive, ${negatives} negative). ` +
+    `Rule: ${ruleLabel}, lr ${lr.toFixed(2)}. ` +
+    `w\u2081 = ${fit.w1.toFixed(2)}, w\u2082 = ${fit.w2.toFixed(2)}, b = ${fit.b.toFixed(2)}. ` +
+    `Accuracy ${(fit.accuracy * 100).toFixed(0)}%. Final ${ruleLabel} = ${fit.loss.toFixed(4)}.`;
+
+  const toggleClasses = (active: boolean) =>
+    active
+      ? "rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-canvas"
+      : "rounded-lg border border-hairline px-2.5 py-1 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink";
+
+  return (
+    <figure className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+      <figcaption className="mb-3 text-sm font-semibold text-ink">
+        Decision boundary playground
+      </figcaption>
+
+      <canvas
+        ref={canvasRef}
+        width={W * 2}
+        height={H * 2}
+        role="img"
+        aria-label={ariaLabel}
+        onClick={handleClick}
+        className="block w-full cursor-crosshair touch-none rounded-lg bg-canvas"
+      />
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-body-mid">Click canvas to add a</span>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            aria-pressed={adding === 1}
+            onClick={() => setAdding(1)}
+            className={toggleClasses(adding === 1)}
+          >
+            + point
+          </button>
+          <button
+            type="button"
+            aria-pressed={adding === -1}
+            onClick={() => setAdding(-1)}
+            className={toggleClasses(adding === -1)}
+          >
+            &minus; point
+          </button>
+        </div>
+        <span className="mx-1 hidden h-4 w-px bg-hairline sm:block" />
+        <span className="text-xs text-body-mid">Update rule</span>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            aria-pressed={rule === "logistic"}
+            onClick={() => setRule("logistic")}
+            className={toggleClasses(rule === "logistic")}
+          >
+            Log loss
+          </button>
+          <button
+            type="button"
+            aria-pressed={rule === "mse"}
+            onClick={() => setRule("mse")}
+            className={toggleClasses(rule === "mse")}
+          >
+            MSE
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => setPoints(INITIAL_POINTS)}
+          className="ml-auto rounded-lg border border-hairline px-2.5 py-1 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+        >
+          Reset
+        </button>
+      </div>
+
+      <div className="mt-2 flex items-center gap-3">
+        <label htmlFor="gd-lr" className="shrink-0 text-xs text-body-mid">
+          Learning rate
+        </label>
+        <input
+          id="gd-lr"
+          type="range"
+          min={0.05}
+          max={2}
+          step={0.05}
+          value={lr}
+          onChange={(e) => setLr(Number(e.target.value))}
+          aria-label="Learning rate"
+          aria-valuetext={`learning rate ${lr.toFixed(2)}`}
+          className="h-1.5 w-full max-w-xs cursor-pointer appearance-none rounded-full bg-canvas-soft"
+          style={{ accentColor: "var(--accent)" }}
+        />
+        <span className="w-10 shrink-0 font-mono text-xs text-ink">
+          {lr.toFixed(2)}
+        </span>
+      </div>
+
+      <LossCurve curve={fit.curve} rule={rule} />
+
+      <p
+        role="status"
+        aria-live="polite"
+        className="mt-3 text-xs leading-relaxed text-body-mid"
+      >
+        {status}
+      </p>
+    </figure>
+  );
+}

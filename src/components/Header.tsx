@@ -95,6 +95,30 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
             Math
           </a>
           <a
+            href="#labs"
+            className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink xl:inline-block sm:px-3"
+          >
+            Labs
+          </a>
+          <a
+            href="#research"
+            className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink xl:inline-block sm:px-3"
+          >
+            Research
+          </a>
+          <a
+            href="#articles"
+            className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink xl:inline-block sm:px-3"
+          >
+            Articles
+          </a>
+          <a
+            href="#discuss"
+            className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink xl:inline-block sm:px-3"
+          >
+            Discuss
+          </a>
+          <a
             href="#about"
             className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink sm:inline-block sm:px-3"
           >

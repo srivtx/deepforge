@@ -32,6 +32,12 @@ const PAGES: { label: string; hash: string }[] = [
   { label: "Interview", hash: "#interview" },
   { label: "Math", hash: "#math" },
   { label: "Daily", hash: "#daily" },
+  { label: "Labs", hash: "#labs" },
+  { label: "Research", hash: "#research" },
+  { label: "Articles", hash: "#articles" },
+  { label: "Playlists", hash: "#playlists" },
+  { label: "Profile", hash: "#profile" },
+  { label: "Discuss", hash: "#discuss" },
   { label: "Playground", hash: "#playground" },
 ];
 

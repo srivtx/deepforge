@@ -22,7 +22,7 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 
 | Feature | Deep-ML | DeepForge |
 |---|---|---|
-| Problems | 1,200+ | 4,105 |
+| Problems | 1,200+ | 4,330 |
 | Categories | 5 | 15 |
 | Learning paths | Yes | 24 |
 | Projects (multi-step labs) | Yes | 5 labs · 36 steps |
@@ -45,17 +45,24 @@ Community features (leaderboard, discuss) are local-first today — a shared bac
 | Category | Problems | | Category | Problems |
 |---|---:|---|---|---:|
 | Algorithms | 350 | | Optimization | 230 |
-| ML Fundamentals | 315 | | NLP | 230 |
-| Data Structures | 310 | | Statistics | 230 |
+| ML Fundamentals | 315 | | NLP | 275 |
+| Data Structures | 310 | | Statistics | 275 |
 | Computer Vision | 305 | | Probability | 230 |
 | Linear Algebra | 275 | | Calculus | 230 |
-| Deep Learning | 320 | | Graph Algorithms | 270 |
-| Reinforcement Learning | 270 | | Information Theory | 270 |
-| Time Series | 270 | | **Total** | **4,105** |
+| Deep Learning | 410 | | Graph Algorithms | 270 |
+| Reinforcement Learning | 315 | | Information Theory | 270 |
+| Time Series | 270 | | **Total** | **4,330** |
 
 ## Features
 
 - **Problems** — code editor, in-browser Pyodide execution, test cases, one-line hints, saved code per problem
+- **Labs** — dataset-driven challenges with metrics, baselines, constraints, and a time limit, scored in-browser
+- **Research** — beat-the-baseline benchmark challenges against hidden test sets, best submissions saved locally
+- **Articles** — interactive lessons with live demos (softmax temperature, eigenvector explorer, decision boundary, k-means, attention heatmap)
+- **Playlists** — build, reorder, share, and fork problem playlists via compact `?playlist=` codes
+- **Profile** — 24 badges, XP/levels, 52-week activity heatmap, and deterministic daily quests
+- **Zero assistant** — catalogue-grounded study coach: recommends problems, explains concepts, reviews your code, builds playlists and plans, with zero backend
+- **Discuss** — community forum with categories, threads, replies, upvotes, and clickable problem references
 - **Paths** — 24 curated learning paths from math foundations to transformers, with estimated hours
 - **Projects** — 5 multi-step labs: GPT from scratch, neural network framework, search engine, recommender, CNN
 - **Contests** — 8 timed sets (10–60 min) with countdown, difficulty-weighted scoring, and local results
@@ -86,7 +93,7 @@ src/
 │   ├── problems/
 │   │   ├── meta.ts           # 15 categories
 │   │   ├── paths.ts          # 24 learning paths
-│   │   ├── index.ts          # aggregates all 4,105 problems (PROBLEMS, CATEGORIES)
+│   │   ├── index.ts          # aggregates all 4,330 problems (PROBLEMS, CATEGORIES)
 │   │   └── <category>/       # part-NN.ts problem files + per-category index.ts aggregator
 │   ├── contests.ts           # 8 timed contests
 │   ├── projects.ts           # 5 labs · 36 steps
@@ -111,7 +118,7 @@ scripts/
 ## Verification
 
 ```bash
-bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 4,105 solutions
+bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 4,330 solutions
 bunx tsc --noEmit                    # types
 bun run lint                         # ESLint
 bun run build                        # production build
