@@ -56,7 +56,15 @@ export function Paths({ paths, problems, progress }: PathsProps) {
                 {path.description}
               </p>
               <div className="mt-1">
-                <div className="h-1 w-full overflow-hidden rounded-full bg-canvas-mid">
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={pct}
+                  aria-valuetext={`${solvedInPath} of ${path.problemIds.length} problems solved (${pct}%)`}
+                  aria-label={`${path.title} progress`}
+                  className="h-1 w-full overflow-hidden rounded-full bg-canvas-mid"
+                >
                   <div
                     className="h-full bg-accent transition-all"
                     style={{ width: `${pct}%` }}

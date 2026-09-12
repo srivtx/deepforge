@@ -22,7 +22,7 @@ Deep-ML is the incumbent. Current state:
 
 | Feature | Deep-ML | DeepForge |
 |---|---|---|
-| Problems | 1,200+ | **4,330** |
+| Problems | 1,200+ | **4,555** |
 | Categories | 5 | **15** |
 | In-browser execution | Yes | Yes (Pyodide) |
 | Design | Generic dark | svx dark+light |
@@ -45,16 +45,16 @@ Honest caveats: leaderboard, comments, and collections are localStorage-backed (
 
 | Category | Problems | | Category | Problems |
 |---|---:|---|---|---:|
-| Algorithms | 350 | | Optimization | 230 |
-| ML Fundamentals | 315 | | NLP | 275 |
+| Algorithms | 395 | | Optimization | 275 |
+| ML Fundamentals | 315 | | NLP | 320 |
 | Data Structures | 310 | | Statistics | 275 |
-| Computer Vision | 305 | | Probability | 230 |
+| Computer Vision | 350 | | Probability | 230 |
 | Linear Algebra | 275 | | Calculus | 230 |
-| Deep Learning | 410 | | Graph Algorithms | 270 |
+| Deep Learning | 455 | | Graph Algorithms | 270 |
 | Reinforcement Learning | 315 | | Information Theory | 270 |
-| Time Series | 270 | | **Total** | **4,330** |
+| Time Series | 270 | | **Total** | **4,555** |
 
-Difficulty mix: 1,550 Easy · 1,925 Medium · 855 Hard.
+Difficulty mix: 1,636 Easy · 2,022 Medium · 897 Hard.
 
 ---
 
@@ -260,7 +260,7 @@ bun run build                                 # production build
 ## Roadmap
 
 ### Phase 1: Problems — ✅ Complete
-4,330 verified problems across 15 categories (target was 2,000+, deep-ml has 1,200+). Every solution passes real-Python verification.
+4,555 verified problems across 15 categories (target was 2,000+, deep-ml has 1,200+). Every solution passes real-Python verification.
 
 ### Phase 2: Features — ✅ Complete
 - **Contests** — 8 timed sets (10–60 min), countdown, difficulty-weighted scores, local results
@@ -336,7 +336,7 @@ If you are an AI agent working on DeepForge:
 
 ## Current Status (as of last update)
 
-- **Problems:** 4,330 (1,550 Easy · 1,925 Medium · 855 Hard) — ✅ target exceeded
+- **Problems:** 4,555 (1,636 Easy · 2,022 Medium · 897 Hard) — ✅ target exceeded
 - **Categories:** 15 — ✅
 - **Learning paths:** 24 — ✅
 - **Light mode:** ✅ Working

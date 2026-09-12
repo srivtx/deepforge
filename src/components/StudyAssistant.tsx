@@ -40,30 +40,36 @@ export function StudyAssistant({ problem }: StudyAssistantProps) {
 
       <div
         id={`hint-tiers-${problem.id}`}
+        aria-live="polite"
+        aria-atomic="false"
         className="mt-2 space-y-2 empty:mt-0"
       >
-        {tiers.slice(0, revealed).map((tier) => (
-          <div
-            key={tier.label}
-            className="rounded-lg border border-hairline bg-canvas-soft p-3 text-sm"
-          >
-            <div
-              className={cn(
-                "mb-1.5 text-xs font-medium",
-                tier.isSolution ? "text-warning" : "text-body-mid",
-              )}
-            >
-              {tier.label}
-            </div>
-            {tier.isSolution ? (
-              <pre className="df-scroll overflow-x-auto font-mono text-xs leading-relaxed text-body">
-                {tier.text}
-              </pre>
-            ) : (
-              <p className="leading-relaxed text-body">{tier.text}</p>
-            )}
+        {revealed > 0 && (
+          <div className="space-y-2">
+            {tiers.slice(0, revealed).map((tier) => (
+              <div
+                key={tier.label}
+                className="rounded-lg border border-hairline bg-canvas-soft p-3 text-sm"
+              >
+                <div
+                  className={cn(
+                    "mb-1.5 text-xs font-medium",
+                    tier.isSolution ? "text-warning" : "text-body-mid",
+                  )}
+                >
+                  {tier.label}
+                </div>
+                {tier.isSolution ? (
+                  <pre className="df-scroll overflow-x-auto font-mono text-xs leading-relaxed text-body">
+                    {tier.text}
+                  </pre>
+                ) : (
+                  <p className="leading-relaxed text-body">{tier.text}</p>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </section>
   );

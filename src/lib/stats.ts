@@ -1,0 +1,418 @@
+/**
+ * "Your Stats" dashboard derivations.
+ *
+ * Pure reads over the existing localStorage stores (progress, daily, labs,
+ * research, concepts, contests). Every function derives its result from the
+ * current state — nothing here mutates progress, so the dashboard can
+ * recompute freely on change events.
+ *
+ * All math guards empty stores: counts default to 0 and division-by-zero
+ * cases yield 0 rather than NaN.
+ */
+
+import { CATEGORIES, PROBLEMS, getCategoryCounts } from "@/data/problems";
+import { getBadgeSnapshot, computeXp } from "@/lib/badges";
+import { getConceptStats } from "@/lib/concepts";
+import { getDailyDateKey } from "@/lib/daily";
+import { getCurrentStreak, getLongestStreak } from "@/lib/leaderboard";
+import { getProgress } from "@/lib/progress";
+import type { Category, Difficulty } from "@/types/problem";
+
+/* ──────────────────────────────── types ─────────────────────────────────── */
+
+export interface Overview {
+  solved: number;
+  attempted: number;
+  total: number;
+  /** solved / attempted, 0..1; 0 when nothing has been attempted. */
+  accuracy: number;
+  solvedToday: number;
+  /** Solves within the trailing 7 local calendar days (today included). */
+  solvedThisWeek: number;
+  currentStreak: number;
+  longestStreak: number;
+  xp: number;
+  level: number;
+  levelTitle: string;
+  labsPassed: number;
+  researchBeaten: number;
+  conceptsMastered: number;
+  contestsPlayed: number;
+}
+
+export interface CategoryStat {
+  name: Category;
+  solved: number;
+  total: number;
+  /** solved / total as a 0..100 percentage. */
+  percent: number;
+  /** Mean difficulty score (Easy 1, Medium 2, Hard 3) of solved problems, 0 when none. */
+  avgDifficulty: number;
+}
+
+export interface DifficultyStat {
+  difficulty: Difficulty;
+  solved: number;
+  total: number;
+  /** solved / total as a 0..100 percentage. */
+  percent: number;
+}
+
+export interface TrendDay {
+  /** Local calendar date, "YYYY-MM-DD". */
+  date: string;
+  count: number;
+}
+
+export interface TimeOfDayBucket {
+  /** "0-5", "6-11", "12-17", "18-23". */
+  label: string;
+  count: number;
+}
+
+export interface FastestSolveRecord {
+  problemId: string;
+  title: string;
+  durationMs: number;
+}
+
+export interface MostActiveDay {
+  date: string;
+  count: number;
+}
+
+export interface Records {
+  /**
+   * Smallest non-negative gap between a solve's `lastOpened` timestamp and
+   * its `solvedAt`. Progress stores no dedicated attempt timestamp, so the
+   * last-open marker is the closest available proxy.
+   */
+  fastestFirstSolve: FastestSolveRecord | null;
+  longestDailyStreak: number;
+  mostActiveDay: MostActiveDay | null;
+  hardestSolved: number;
+  firstSolvedAt: string | null;
+  lastSolvedAt: string | null;
+}
+
+export interface MasteryEstimate {
+  /** Weighted result, 0..100. */
+  value: number;
+  /** Component scores, each 0..100 for display. */
+  coverage: number;
+  depth: number;
+  recency: number;
+}
+
+/* ─────────────────────────────── constants ──────────────────────────────── */
+
+export const DIFFICULTY_SCORE: Record<Difficulty, number> = {
+  Easy: 1,
+  Medium: 2,
+  Hard: 3,
+};
+
+/**
+ * Weights for `getEstimatedMastery`. The three components are independent
+ * 0..1 ratios, so the result is simply their weighted sum:
+ *
+ *   coverage = solved / total problems
+ *   depth    = solved Hard / total Hard problems
+ *   recency  = min(1, solves in the last 14 days / 7)
+ *   value    = round(100 * (0.45 * coverage + 0.35 * depth + 0.20 * recency))
+ *
+ * Coverage dominates, depth rewards working the hardest tier, and recency
+ * credits sustained recent practice (7 solves in 14 days saturates it).
+ */
+export const MASTERY_WEIGHTS = {
+  coverage: 0.45,
+  depth: 0.35,
+  recency: 0.2,
+} as const;
+
+const MASTERY_RECENCY_DAYS = 14;
+const MASTERY_RECENCY_TARGET = 7;
+
+const TIME_OF_DAY_LABELS = ["0-5", "6-11", "12-17", "18-23"];
+
+const DIFFICULTIES: Difficulty[] = ["Easy", "Medium", "Hard"];
+
+/* ────────────────────────────── overview ────────────────────────────────── */
+
+export function getOverview(): Overview {
+  const snapshot = getBadgeSnapshot();
+  const progress = snapshot.progress;
+
+  const todayKey = getDailyDateKey(snapshot.now);
+  const weekKeys = new Set<string>();
+  for (let i = 0; i < 7; i += 1) {
+    const day = new Date(snapshot.now);
+    day.setDate(day.getDate() - i);
+    weekKeys.add(getDailyDateKey(day));
+  }
+
+  let solved = 0;
+  let attempted = 0;
+  let solvedToday = 0;
+  let solvedThisWeek = 0;
+
+  for (const problem of PROBLEMS) {
+    const record = progress[problem.id];
+    if (!record) continue;
+    if (record.attempted) attempted += 1;
+    if (!record.solved) continue;
+    solved += 1;
+    if (!record.solvedAt) continue;
+    const at = new Date(record.solvedAt);
+    if (Number.isNaN(at.getTime())) continue;
+    const key = getDailyDateKey(at);
+    if (key === todayKey) solvedToday += 1;
+    if (weekKeys.has(key)) solvedThisWeek += 1;
+  }
+
+  const xp = computeXp(snapshot);
+  const concepts = getConceptStats(snapshot.now);
+
+  return {
+    solved,
+    attempted,
+    total: PROBLEMS.length,
+    accuracy: attempted > 0 ? solved / attempted : 0,
+    solvedToday,
+    solvedThisWeek,
+    currentStreak: getCurrentStreak(progress),
+    longestStreak: getLongestStreak(progress),
+    xp: xp.xp,
+    level: xp.level,
+    levelTitle: xp.title,
+    labsPassed: Object.values(snapshot.labs).filter((record) => record.passed)
+      .length,
+    researchBeaten: Object.values(snapshot.research).filter(
+      (state) => state.beatenBaseline,
+    ).length,
+    conceptsMastered: concepts.mastered,
+    contestsPlayed: snapshot.contests.length,
+  };
+}
+
+/* ─────────────────────────── category breakdown ─────────────────────────── */
+
+export function getCategoryBreakdown(): CategoryStat[] {
+  const progress = getProgress();
+  const totals = getCategoryCounts();
+
+  const solvedCounts = new Map<Category, number>();
+  const difficultySums = new Map<Category, number>();
+
+  for (const problem of PROBLEMS) {
+    if (!progress[problem.id]?.solved) continue;
+    solvedCounts.set(
+      problem.category,
+      (solvedCounts.get(problem.category) ?? 0) + 1,
+    );
+    difficultySums.set(
+      problem.category,
+      (difficultySums.get(problem.category) ?? 0) +
+        DIFFICULTY_SCORE[problem.difficulty],
+    );
+  }
+
+  return CATEGORIES.map((meta) => {
+    const solved = solvedCounts.get(meta.name) ?? 0;
+    const total = totals[meta.name] ?? 0;
+    const difficultySum = difficultySums.get(meta.name) ?? 0;
+    return {
+      name: meta.name,
+      solved,
+      total,
+      percent: total > 0 ? (solved / total) * 100 : 0,
+      avgDifficulty: solved > 0 ? difficultySum / solved : 0,
+    };
+  }).sort((a, b) => b.percent - a.percent);
+}
+
+/* ────────────────────────── difficulty breakdown ────────────────────────── */
+
+export function getDifficultyBreakdown(): DifficultyStat[] {
+  const progress = getProgress();
+  const totals: Record<Difficulty, number> = { Easy: 0, Medium: 0, Hard: 0 };
+  const solved: Record<Difficulty, number> = { Easy: 0, Medium: 0, Hard: 0 };
+
+  for (const problem of PROBLEMS) {
+    totals[problem.difficulty] += 1;
+    if (progress[problem.id]?.solved) solved[problem.difficulty] += 1;
+  }
+
+  return DIFFICULTIES.map((difficulty) => ({
+    difficulty,
+    solved: solved[difficulty],
+    total: totals[difficulty],
+    percent:
+      totals[difficulty] > 0 ? (solved[difficulty] / totals[difficulty]) * 100 : 0,
+  }));
+}
+
+/* ─────────────────────────── activity trend ─────────────────────────────── */
+
+export function getActivityTrend(days = 30): TrendDay[] {
+  const safeDays = Math.max(1, Math.floor(days));
+  const progress = getProgress();
+
+  const counts = new Map<string, number>();
+  for (const record of Object.values(progress)) {
+    if (!record.solvedAt) continue;
+    const at = new Date(record.solvedAt);
+    if (Number.isNaN(at.getTime())) continue;
+    const key = getDailyDateKey(at);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const trend: TrendDay[] = [];
+  for (let i = safeDays - 1; i >= 0; i -= 1) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const key = getDailyDateKey(date);
+    trend.push({ date: key, count: counts.get(key) ?? 0 });
+  }
+  return trend;
+}
+
+/* ──────────────────────────── time of day ───────────────────────────────── */
+
+export function getTimeOfDay(): TimeOfDayBucket[] {
+  const counts = [0, 0, 0, 0];
+
+  for (const record of Object.values(getProgress())) {
+    if (!record.solvedAt) continue;
+    const at = new Date(record.solvedAt);
+    if (Number.isNaN(at.getTime())) continue;
+    const bucket = Math.min(3, Math.max(0, Math.floor(at.getHours() / 6)));
+    counts[bucket] += 1;
+  }
+
+  return TIME_OF_DAY_LABELS.map((label, index) => ({
+    label,
+    count: counts[index],
+  }));
+}
+
+/* ─────────────────────────────── records ────────────────────────────────── */
+
+export function getRecords(): Records {
+  const progress = getProgress();
+
+  let fastestFirstSolve: FastestSolveRecord | null = null;
+  let firstSolvedAt: string | null = null;
+  let lastSolvedAt: string | null = null;
+  let firstTime = Number.POSITIVE_INFINITY;
+  let lastTime = Number.NEGATIVE_INFINITY;
+  let hardestSolved = 0;
+  const dayCounts = new Map<string, number>();
+
+  for (const problem of PROBLEMS) {
+    const record = progress[problem.id];
+    if (!record?.solved) continue;
+    if (problem.difficulty === "Hard") hardestSolved += 1;
+    if (!record.solvedAt) continue;
+    const solvedAt = new Date(record.solvedAt);
+    if (Number.isNaN(solvedAt.getTime())) continue;
+    const solvedTime = solvedAt.getTime();
+
+    if (solvedTime < firstTime) {
+      firstTime = solvedTime;
+      firstSolvedAt = record.solvedAt;
+    }
+    if (solvedTime > lastTime) {
+      lastTime = solvedTime;
+      lastSolvedAt = record.solvedAt;
+    }
+
+    const key = getDailyDateKey(solvedAt);
+    dayCounts.set(key, (dayCounts.get(key) ?? 0) + 1);
+
+    if (record.lastOpened) {
+      const opened = new Date(record.lastOpened);
+      if (!Number.isNaN(opened.getTime())) {
+        const durationMs = solvedTime - opened.getTime();
+        if (
+          durationMs >= 0 &&
+          (fastestFirstSolve === null ||
+            durationMs < fastestFirstSolve.durationMs)
+        ) {
+          fastestFirstSolve = {
+            problemId: problem.id,
+            title: problem.title,
+            durationMs,
+          };
+        }
+      }
+    }
+  }
+
+  let mostActiveDay: MostActiveDay | null = null;
+  for (const [date, count] of dayCounts) {
+    if (
+      mostActiveDay === null ||
+      count > mostActiveDay.count ||
+      (count === mostActiveDay.count && date > mostActiveDay.date)
+    ) {
+      mostActiveDay = { date, count };
+    }
+  }
+
+  return {
+    fastestFirstSolve,
+    longestDailyStreak: getLongestStreak(progress),
+    mostActiveDay,
+    hardestSolved,
+    firstSolvedAt,
+    lastSolvedAt,
+  };
+}
+
+/* ────────────────────────── estimated mastery ───────────────────────────── */
+
+export function getEstimatedMastery(): MasteryEstimate {
+  const snapshot = getBadgeSnapshot();
+  const progress = snapshot.progress;
+  const total = PROBLEMS.length;
+
+  const cutoffTime =
+    snapshot.now.getTime() - MASTERY_RECENCY_DAYS * 24 * 60 * 60 * 1000;
+
+  let hardTotal = 0;
+  let solved = 0;
+  let hardSolved = 0;
+  let recentSolves = 0;
+
+  for (const problem of PROBLEMS) {
+    if (problem.difficulty === "Hard") hardTotal += 1;
+    const record = progress[problem.id];
+    if (!record?.solved) continue;
+    solved += 1;
+    if (problem.difficulty === "Hard") hardSolved += 1;
+    if (!record.solvedAt) continue;
+    const at = new Date(record.solvedAt);
+    if (Number.isNaN(at.getTime())) continue;
+    if (at.getTime() >= cutoffTime) recentSolves += 1;
+  }
+
+  const coverage = total > 0 ? solved / total : 0;
+  const depth = hardTotal > 0 ? hardSolved / hardTotal : 0;
+  const recency = Math.min(1, recentSolves / MASTERY_RECENCY_TARGET);
+
+  const weighted =
+    MASTERY_WEIGHTS.coverage * coverage +
+    MASTERY_WEIGHTS.depth * depth +
+    MASTERY_WEIGHTS.recency * recency;
+
+  return {
+    value: Math.max(0, Math.min(100, Math.round(weighted * 100))),
+    coverage: Math.round(coverage * 100),
+    depth: Math.round(depth * 100),
+    recency: Math.round(recency * 100),
+  };
+}

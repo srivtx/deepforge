@@ -13,13 +13,19 @@ import { Contests } from "@/components/Contests";
 import { Research } from "@/components/Research";
 import { Leaderboard } from "@/components/Leaderboard";
 import { Badges } from "@/components/Badges";
+import { Certificates } from "@/components/Certificates";
+import { StatsDashboard } from "@/components/StatsDashboard";
 import { Collections } from "@/components/Collections";
 import { Playlists } from "@/components/Playlists";
 import { InterviewPrep } from "@/components/InterviewPrep";
 import { PenPaper } from "@/components/PenPaper";
 import { Articles } from "@/components/Articles";
+import { Sims } from "@/components/Sims";
+import { Speedrun } from "@/components/Speedrun";
+import { DeepLink } from "@/components/DeepLink";
 import { DailyChallenge } from "@/components/DailyChallenge";
 import { Discuss } from "@/components/Discuss";
+import { SubmitProblem } from "@/components/SubmitProblem";
 import { Playground } from "@/components/Playground";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ZeroAssistant } from "@/components/ZeroAssistant";
@@ -75,6 +81,20 @@ export default function Page() {
     window.addEventListener("deepforge:open-problem", onOpenProblem);
     return () =>
       window.removeEventListener("deepforge:open-problem", onOpenProblem);
+  }, []);
+
+  // Deep-link support: /?category=<name> filters the problem list.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const category = params.get("category");
+    if (category && CATEGORIES.some((c) => c.name === category)) {
+      setActiveCategory(category);
+      requestAnimationFrame(() => {
+        document
+          .getElementById("problems")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
   }, []);
 
   const categoryCounts = useMemo(() => getCategoryCounts(), []);
@@ -139,16 +159,21 @@ export default function Page() {
         <Projects />
         <Labs />
         <Contests />
+        <Speedrun />
         <Research />
         <Leaderboard />
         <Badges />
+        <StatsDashboard />
+        <Certificates />
         <ProgressBackup />
         <Collections />
         <Playlists />
         <InterviewPrep />
         <PenPaper />
         <Articles />
+        <Sims />
         <Discuss />
+        <SubmitProblem />
         <Playground />
         <About />
       </main>
@@ -162,6 +187,7 @@ export default function Page() {
       )}
       <CommandPalette />
       <ZeroAssistant />
+      <DeepLink />
     </div>
   );
 }

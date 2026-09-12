@@ -25,10 +25,7 @@ export function ProblemCard({
         <span className="font-mono text-[11px] text-mute">{problem.id}</span>
         <div className="flex items-center gap-2">
           {solved && (
-            <span
-              className="flex h-4 w-4 items-center justify-center rounded-full bg-accent/15 text-accent"
-              aria-label="Solved"
-            >
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-accent/15 text-accent">
               <svg
                 width="10"
                 height="10"
@@ -44,13 +41,13 @@ export function ProblemCard({
                   strokeLinejoin="round"
                 />
               </svg>
+              <span className="sr-only">Solved</span>
             </span>
           )}
           {!solved && attempted && (
-            <span
-              className="h-1.5 w-1.5 rounded-full bg-warning"
-              aria-label="Attempted"
-            />
+            <span className="relative h-1.5 w-1.5 rounded-full bg-warning">
+              <span className="sr-only">Attempted</span>
+            </span>
           )}
           <span
             className={cn(

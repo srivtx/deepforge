@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DeepForge">
+  <rect width="512" height="512" rx="112" fill="#0a0a0a"/>
+  <rect x="4" y="4" width="504" height="504" rx="108" fill="none" stroke="#1f1f1f" stroke-width="4"/>
+  <g fill="none" stroke="#7FFF9F" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M120 166V346"/>
+    <path d="M120 166h40a90 90 0 0 1 0 180h-40"/>
+    <path d="M296 166V346"/>
+    <path d="M296 166h100"/>
+    <path d="M296 256h72"/>
+  </g>
+</svg>

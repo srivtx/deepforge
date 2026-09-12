@@ -35,9 +35,14 @@ const PAGES: { label: string; hash: string }[] = [
   { label: "Labs", hash: "#labs" },
   { label: "Research", hash: "#research" },
   { label: "Articles", hash: "#articles" },
+  { label: "Sims", hash: "#sims" },
+  { label: "Speedrun", hash: "#speedrun" },
   { label: "Playlists", hash: "#playlists" },
   { label: "Profile", hash: "#profile" },
+  { label: "Stats", hash: "#stats" },
+  { label: "Certificates", hash: "#certificates" },
   { label: "Discuss", hash: "#discuss" },
+  { label: "Submit a Problem", hash: "#submit-problem" },
   { label: "Playground", hash: "#playground" },
 ];
 
@@ -312,6 +317,15 @@ export function CommandPalette() {
                 }}
                 placeholder="Search problems, categories, pages…"
                 aria-label="Search problems, categories, and pages"
+                role="combobox"
+                aria-expanded={!selectedProblem}
+                aria-controls="command-palette-listbox"
+                aria-autocomplete="list"
+                aria-activedescendant={
+                  rows.length > 0
+                    ? `command-palette-option-${activeIndex}`
+                    : undefined
+                }
                 autoComplete="off"
                 spellCheck={false}
                 className="w-full bg-transparent py-3 text-sm text-ink placeholder:text-mute focus:outline-none"
@@ -320,6 +334,9 @@ export function CommandPalette() {
 
             <div
               ref={listRef}
+              id="command-palette-listbox"
+              role={rows.length > 0 ? "listbox" : undefined}
+              aria-label="Search results"
               className="df-scroll max-h-[55vh] overflow-y-auto py-1"
             >
               {rows.length === 0 ? (
@@ -330,12 +347,19 @@ export function CommandPalette() {
                 rows.map((row, i) => (
                   <Fragment key={row.key}>
                     {(i === 0 || rows[i - 1].kind !== row.kind) && (
-                      <div className="px-3 pb-1 pt-2 text-xs text-mute">
+                      <div
+                        role="presentation"
+                        className="px-3 pb-1 pt-2 text-xs text-mute"
+                      >
                         {GROUP_LABELS[row.kind]}
                       </div>
                     )}
                     <button
                       type="button"
+                      id={`command-palette-option-${i}`}
+                      role="option"
+                      aria-selected={i === activeIndex}
+                      tabIndex={-1}
                       data-index={i}
                       onClick={() => choose(row)}
                       onMouseEnter={() => setActiveIndex(i)}

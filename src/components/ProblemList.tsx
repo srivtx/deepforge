@@ -87,7 +87,11 @@ export function ProblemList({
       </div>
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <label htmlFor="problem-search" className="sr-only">
+          Search problems
+        </label>
         <input
+          id="problem-search"
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
@@ -98,14 +102,34 @@ export function ProblemList({
           {["All", ...categories].map((c) => (
             <button
               key={c}
+              type="button"
+              aria-pressed={activeCategory === c}
               onClick={() => onCategoryChange(c)}
               className={cn(
-                "shrink-0 rounded-md border px-2.5 py-1.5 text-xs transition-colors",
+                "inline-flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors",
                 activeCategory === c
                   ? "border-accent/40 bg-accent/5 text-accent"
                   : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
               )}
             >
+              {activeCategory === c && (
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  aria-hidden
+                  className="shrink-0"
+                >
+                  <path
+                    d="M2 5l2 2 4-4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
               {c === "All" ? "All" : c}
             </button>
           ))}
@@ -116,14 +140,34 @@ export function ProblemList({
         {DIFFICULTIES.map((d) => (
           <button
             key={d}
+            type="button"
+            aria-pressed={activeDifficulty === d}
             onClick={() => onDifficultyChange(d)}
             className={cn(
-              "rounded-md border px-2.5 py-1 text-xs transition-colors",
+              "inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition-colors",
               activeDifficulty === d
                 ? "border-accent/40 bg-accent/5 text-accent"
                 : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
             )}
           >
+            {activeDifficulty === d && (
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="none"
+                aria-hidden
+                className="shrink-0"
+              >
+                <path
+                  d="M2 5l2 2 4-4"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
             {d}
           </button>
         ))}

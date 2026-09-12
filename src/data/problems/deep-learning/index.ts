@@ -9,6 +9,7 @@ import { problems as p07 } from "./part-07";
 import { problems as p08 } from "./part-08";
 import { problems as p09 } from "./part-09";
 import { problems as p10 } from "./part-10";
+import { problems as p11 } from "./part-11";
 
 export const deepLearningProblems: Problem[] = [
   ...p01,
@@ -21,4 +22,5 @@ export const deepLearningProblems: Problem[] = [
   ...p08,
   ...p09,
   ...p10,
+  ...p11,
 ];
