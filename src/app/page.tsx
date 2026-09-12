@@ -45,7 +45,15 @@ import { MARKETING_PROBLEM_COUNT } from "@/lib/utils";
 
 export default function Page() {
   const [selected, setSelected] = useState<Problem | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>("All");
+  const [activeCategory, setActiveCategory] = useState<string>(() => {
+    if (typeof window === "undefined") return "All";
+    const category = new URLSearchParams(window.location.search).get(
+      "category",
+    );
+    return category && CATEGORIES.some((c) => c.name === category)
+      ? category
+      : "All";
+  });
   const [activeDifficulty, setActiveDifficulty] = useState<
     Difficulty | "All"
   >("All");
@@ -83,12 +91,12 @@ export default function Page() {
       window.removeEventListener("deepforge:open-problem", onOpenProblem);
   }, []);
 
-  // Deep-link support: /?category=<name> filters the problem list.
+  // Deep-link support: /?category=<name> scrolls to the (already filtered)
+  // problem list. The filter itself is applied in the state initializer.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const category = params.get("category");
     if (category && CATEGORIES.some((c) => c.name === category)) {
-      setActiveCategory(category);
       requestAnimationFrame(() => {
         document
           .getElementById("problems")
