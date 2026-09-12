@@ -322,7 +322,7 @@ export const problems: Problem[] = [
   },
   {
     id: "cv-229",
-    title: "Hamming Loss",
+    title: "Hamming Loss for Segmentation Masks",
     category: "Computer Vision",
     difficulty: "Easy",
     description:

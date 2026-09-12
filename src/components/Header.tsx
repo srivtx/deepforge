@@ -59,6 +59,18 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
             Contests
           </a>
           <a
+            href="#daily"
+            className="rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink sm:px-3"
+          >
+            Daily
+          </a>
+          <a
+            href="#playground"
+            className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink xl:inline-block sm:px-3"
+          >
+            Playground
+          </a>
+          <a
             href="#leaderboard"
             className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink md:inline-block sm:px-3"
           >
@@ -94,6 +106,17 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
               {solvedCount}/{totalCount} solved
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent("deepforge:open-command"))
+            }
+            aria-label="Open command palette"
+            className="ml-1 hidden items-center gap-1.5 rounded-md border border-hairline px-2.5 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink sm:flex"
+          >
+            <span>Search</span>
+            <span className="font-mono text-[10px] text-mute">⌘K</span>
+          </button>
           <div className="ml-1 sm:ml-2">
             <ThemeToggle />
           </div>

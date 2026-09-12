@@ -5,7 +5,8 @@
  * Caches the loaded instance in a module-level promise so subsequent
  * runs are instant. Provides a `runTests` function that executes the
  * user's Python function against a list of test cases and returns
- * pass/fail with expected vs actual.
+ * pass/fail with expected vs actual, plus a `runCode` function that
+ * executes free-form Python and captures its stdout.
  *
  * All of this is browser-only — the file is gated by 'use client' on
  * the importing component.
@@ -172,4 +173,81 @@ export async function runTests(
       },
     ];
   }
+}
+
+export interface RunCodeResult {
+  /** Everything the code printed to stdout before it finished or failed. */
+  stdout: string;
+  /** Python error message (traceback) if the code raised, else null. */
+  error: string | null;
+}
+
+/**
+ * Run free-form Python code and capture its stdout.
+ *
+ * Uses Pyodide's `setStdout` hook with a batched callback when available
+ * (0.26.2 flushes the callback on every newline), falling back to
+ * redirecting `sys.stdout` into a StringIO buffer. Never throws: a Python
+ * error comes back in `error`, and anything printed before the failure is
+ * still returned in `stdout`.
+ */
+export async function runCode(py: any, code: string): Promise<RunCodeResult> {
+  const chunks: string[] = [];
+  let batched = false;
+  let restoreStdout: (() => void) | null = null;
+
+  // Preferred path: Pyodide's built-in stdout hook.
+  if (py && typeof py.setStdout === "function") {
+    try {
+      py.setStdout({
+        batched: (line: string) => {
+          chunks.push(line);
+        },
+      });
+      batched = true;
+      restoreStdout = () => {
+        try {
+          py.setStdout();
+        } catch {
+          /* resetting the stdout handler is best-effort */
+        }
+      };
+    } catch {
+      batched = false;
+      restoreStdout = null;
+    }
+  }
+
+  // Fallback: swap sys.stdout for a StringIO buffer and read it back.
+  if (!restoreStdout && py) {
+    try {
+      const sys = py.pyimport("sys");
+      const io = py.pyimport("io");
+      const previousStdout = sys.stdout;
+      sys.stdout = io.StringIO();
+      restoreStdout = () => {
+        try {
+          chunks.push(sys.stdout.getvalue());
+          sys.stdout = previousStdout;
+        } catch {
+          /* restoring sys.stdout is best-effort */
+        }
+      };
+    } catch {
+      restoreStdout = null;
+    }
+  }
+
+  let error: string | null = null;
+  try {
+    await py.runPythonAsync(code);
+  } catch (e: any) {
+    error = e?.message || String(e);
+  } finally {
+    restoreStdout?.();
+  }
+
+  let stdout = chunks.join(batched ? "\n" : "");
+  if (batched && stdout.length > 0) stdout += "\n";
+  return { stdout, error };
 }

@@ -13,6 +13,9 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { Collections } from "@/components/Collections";
 import { InterviewPrep } from "@/components/InterviewPrep";
 import { PenPaper } from "@/components/PenPaper";
+import { DailyChallenge } from "@/components/DailyChallenge";
+import { Playground } from "@/components/Playground";
+import { CommandPalette } from "@/components/CommandPalette";
 import { About } from "@/components/About";
 import { Footer } from "@/components/Footer";
 import { ProblemView } from "@/components/ProblemView";
@@ -93,6 +96,7 @@ export default function Page() {
           activeCategory={activeCategory as any}
           onSelect={handleCategorySelect}
         />
+        <DailyChallenge />
         <ProblemList
           problems={PROBLEMS}
           progress={progress}
@@ -116,6 +120,7 @@ export default function Page() {
         <Collections />
         <InterviewPrep />
         <PenPaper />
+        <Playground />
         <About />
       </main>
       <Footer />
@@ -126,6 +131,7 @@ export default function Page() {
           onProgressChange={handleProgressChange}
         />
       )}
+      <CommandPalette />
     </div>
   );
 }

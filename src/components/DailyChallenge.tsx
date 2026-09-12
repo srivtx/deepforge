@@ -1,0 +1,185 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { ProblemView } from "@/components/ProblemView";
+import { getProblemProgress } from "@/lib/progress";
+import {
+  DAILY_CHANGE_EVENT,
+  getDailyDateKey,
+  getDailyProblem,
+  getDailyState,
+  markDailySolved,
+  type DailyState,
+} from "@/lib/daily";
+import { cn, difficultyClasses } from "@/lib/utils";
+
+const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
+
+const EMPTY_DAILY_STATE: DailyState = {
+  lastSolvedDate: null,
+  streak: 0,
+  solvedDates: [],
+};
+
+function msUntilMidnight(now: Date): number {
+  const midnight = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1,
+  );
+  return Math.max(0, midnight.getTime() - now.getTime());
+}
+
+function formatHms(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+export function DailyChallenge() {
+  const [now, setNow] = useState<Date | null>(null);
+  const [dailyState, setDailyState] = useState<DailyState>(EMPTY_DAILY_STATE);
+  const [open, setOpen] = useState(false);
+
+  const problem = getDailyProblem(now ?? new Date());
+  const dateKey = getDailyDateKey(now ?? new Date());
+  const solvedToday = dailyState.solvedDates.includes(dateKey);
+
+  const refresh = useCallback(() => {
+    setDailyState(getDailyState());
+  }, []);
+
+  // Live clock — drives the countdown and the day rollover. Starts null so
+  // the server-rendered markup matches the first client render.
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const onChange = () => setDailyState(getDailyState());
+    onChange();
+    window.addEventListener(PROGRESS_CHANGE_EVENT, onChange);
+    window.addEventListener(DAILY_CHANGE_EVENT, onChange);
+    return () => {
+      window.removeEventListener(PROGRESS_CHANGE_EVENT, onChange);
+      window.removeEventListener(DAILY_CHANGE_EVENT, onChange);
+    };
+  }, []);
+
+  const handleProgressChange = useCallback(() => {
+    if (getProblemProgress(problem.id)?.solved) {
+      markDailySolved();
+    }
+    refresh();
+  }, [problem.id, refresh]);
+
+  const remaining = now ? formatHms(msUntilMidnight(now)) : "--:--:--";
+  const streakUnit = dailyState.streak === 1 ? "day" : "days";
+
+  return (
+    <>
+      <section
+        id="daily"
+        className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      >
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+            Daily Challenge
+          </h2>
+          <p className="mt-1 text-sm text-body-mid">
+            One problem picked for everyone each day. Solve it to keep your
+            streak alive.
+          </p>
+        </div>
+
+        <div
+          className={cn(
+            "rounded-lg border bg-canvas-card p-4 sm:p-6",
+            solvedToday ? "border-accent/40" : "border-hairline",
+          )}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-mono text-body-mid">{dateKey}</span>
+                <span className="font-mono text-mute">{problem.id}</span>
+                <span className="text-body-mid">·</span>
+                <span className="text-body">{problem.category}</span>
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                    difficultyClasses(problem.difficulty),
+                  )}
+                >
+                  {problem.difficulty}
+                </span>
+              </div>
+              <h3 className="mt-2 text-base font-semibold text-ink sm:text-lg">
+                {problem.title}
+              </h3>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              {solvedToday && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/5 px-2.5 py-1 text-[10px] font-medium text-accent">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    fill="none"
+                    aria-hidden
+                  >
+                    <path
+                      d="M2 5l2 2 4-4"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Solved today
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
+              >
+                {solvedToday ? "View" : "Solve"}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-hairline bg-canvas p-3">
+              <div className="text-xs text-body-mid">Daily streak</div>
+              <div className="mt-1 font-mono text-xl text-ink">
+                {dailyState.streak}
+                <span className="ml-1.5 text-xs text-body-mid">
+                  {streakUnit}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-lg border border-hairline bg-canvas p-3">
+              <div className="text-xs text-body-mid">Next problem in</div>
+              <div className="mt-1 font-mono text-xl text-ink">{remaining}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {open && (
+        <ProblemView
+          problem={problem}
+          onClose={() => setOpen(false)}
+          onProgressChange={handleProgressChange}
+        />
+      )}
+    </>
+  );
+}
