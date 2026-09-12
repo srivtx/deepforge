@@ -3,7 +3,7 @@ import type { Problem } from "@/types/problem";
 export const problems: Problem[] = [
   {
     id: "ca-141",
-    title: "Gradient of Determinant",
+    title: "Gradient of the Determinant (Matrix Calculus)",
     category: "Calculus",
     difficulty: "Easy",
     description:

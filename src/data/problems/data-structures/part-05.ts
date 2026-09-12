@@ -1665,7 +1665,7 @@ def merge_sort_tree_count(nums, queries):
   },
   {
     id: "ds-216",
-    title: "Jump Consistent Hash",
+    title: "Jump Consistent Hash Bucket Lookup",
     category: "Data Structures",
     difficulty: "Hard",
     description:
