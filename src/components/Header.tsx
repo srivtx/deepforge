@@ -71,6 +71,18 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
             Collections
           </a>
           <a
+            href="#interview"
+            className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink lg:inline-block sm:px-3"
+          >
+            Interview
+          </a>
+          <a
+            href="#math"
+            className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink xl:inline-block sm:px-3"
+          >
+            Math
+          </a>
+          <a
             href="#about"
             className="hidden rounded-md px-2.5 py-1.5 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink sm:inline-block sm:px-3"
           >

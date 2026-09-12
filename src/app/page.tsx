@@ -11,6 +11,8 @@ import { Projects } from "@/components/Projects";
 import { Contests } from "@/components/Contests";
 import { Leaderboard } from "@/components/Leaderboard";
 import { Collections } from "@/components/Collections";
+import { InterviewPrep } from "@/components/InterviewPrep";
+import { PenPaper } from "@/components/PenPaper";
 import { About } from "@/components/About";
 import { Footer } from "@/components/Footer";
 import { ProblemView } from "@/components/ProblemView";
@@ -112,6 +114,8 @@ export default function Page() {
         <Contests />
         <Leaderboard />
         <Collections />
+        <InterviewPrep />
+        <PenPaper />
         <About />
       </main>
       <Footer />
