@@ -5,6 +5,7 @@ import { problems as p03 } from "./part-03";
 import { problems as p04 } from "./part-04";
 import { problems as p05 } from "./part-05";
 import { problems as p06 } from "./part-06";
+import { problems as p07 } from "./part-07";
 
 export const calculusProblems: Problem[] = [
   ...p01,
@@ -13,4 +14,5 @@ export const calculusProblems: Problem[] = [
   ...p04,
   ...p05,
   ...p06,
+  ...p07,
 ];

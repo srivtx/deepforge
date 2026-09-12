@@ -22,7 +22,7 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 
 | Feature | Deep-ML | DeepForge |
 |---|---|---|
-| Problems | 1,200+ | 4,555 |
+| Problems | 1,200+ | 4,690 |
 | Categories | 5 | 15 |
 | Learning paths | Yes | 24 |
 | Projects (multi-step labs) | Yes | 5 labs · 36 steps |
@@ -47,11 +47,11 @@ Community features (leaderboard, discuss) are local-first today — a shared bac
 | Algorithms | 395 | | Optimization | 275 |
 | ML Fundamentals | 315 | | NLP | 320 |
 | Data Structures | 310 | | Statistics | 275 |
-| Computer Vision | 350 | | Probability | 230 |
-| Linear Algebra | 275 | | Calculus | 230 |
+| Computer Vision | 350 | | Probability | 275 |
+| Linear Algebra | 275 | | Calculus | 275 |
 | Deep Learning | 455 | | Graph Algorithms | 270 |
-| Reinforcement Learning | 315 | | Information Theory | 270 |
-| Time Series | 270 | | **Total** | **4,555** |
+| Reinforcement Learning | 315 | | Information Theory | 315 |
+| Time Series | 270 | | **Total** | **4,690** |
 
 ## Features
 
@@ -99,7 +99,7 @@ src/
 │   ├── problems/
 │   │   ├── meta.ts           # 15 categories
 │   │   ├── paths.ts          # 24 learning paths
-│   │   ├── index.ts          # aggregates all 4,555 problems (PROBLEMS, CATEGORIES)
+│   │   ├── index.ts          # aggregates all 4,690 problems (PROBLEMS, CATEGORIES)
 │   │   └── <category>/       # part-NN.ts problem files + per-category index.ts aggregator
 │   ├── contests.ts           # 8 timed contests
 │   ├── projects.ts           # 5 labs · 36 steps
@@ -124,7 +124,7 @@ scripts/
 ## Verification
 
 ```bash
-bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 4,555 solutions
+bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 4,690 solutions
 bunx tsc --noEmit                    # types
 bun run lint                         # ESLint
 bun run build                        # production build

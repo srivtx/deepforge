@@ -59,6 +59,10 @@ export function ProblemView({
     problemId: string;
     mode: EditorMode;
   }>({ problemId: problem.id, mode: "editor" });
+  const [mobileTabState, setMobileTabState] = useState<{
+    problemId: string;
+    tab: "problem" | "code";
+  }>({ problemId: problem.id, tab: "problem" });
   const [notebook, setNotebook] = useState<{
     problemId: string;
     cells: NotebookCell[];
@@ -70,6 +74,7 @@ export function ProblemView({
 
   const pyRef = useRef<any>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
   const cellsRef = useRef<NotebookCell[] | null>(null);
   const pendingCellsRef = useRef<{
     problemId: string;
@@ -82,6 +87,10 @@ export function ProblemView({
   const mode = modeState.problemId === problem.id ? modeState.mode : "editor";
   const cells =
     notebook && notebook.problemId === problem.id ? notebook.cells : null;
+  const mobileTab =
+    mobileTabState.problemId === problem.id ? mobileTabState.tab : "problem";
+  const setMobileTab = (tab: "problem" | "code") =>
+    setMobileTabState({ problemId: problem.id, tab });
 
   // Mark opened on mount; lock body scroll. Re-runs only when the problem
   // changes — `code` here is the initial code, which is fine because this
@@ -118,7 +127,9 @@ export function ProblemView({
       root.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
       ),
-    );
+      // Mobile tabs hide one panel at a time; never trap focus into a
+      // display:none element (all elements are visible at sm+).
+    ).filter((el) => el.getClientRects().length > 0);
     if (focusable.length === 0) return;
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
@@ -237,6 +248,22 @@ export function ProblemView({
   const onCodeChange = (v: string) => {
     setCode(v);
     saveCode(problem.id, v);
+  };
+
+  // Mobile indent row — insert four spaces at the caret in the editor.
+  // Mirrors the Tab-key behavior of handleEditorKey for touch keyboards.
+  const insertIndent = () => {
+    const ta = editorRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart ?? code.length;
+    const end = ta.selectionEnd ?? start;
+    const next = code.slice(0, start) + "    " + code.slice(end);
+    setCode(next);
+    saveCode(problem.id, next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = start + 4;
+    });
   };
 
   const reset = () => {
@@ -394,14 +421,14 @@ export function ProblemView({
       ref={dialogRef}
       tabIndex={-1}
       onKeyDown={trapTab}
-      className="df-fade-in fixed inset-0 z-50 flex items-stretch justify-center bg-canvas/80 backdrop-blur-sm focus:outline-none"
+      className="df-fade-in df-dvh fixed inset-0 z-50 flex items-stretch justify-center bg-canvas/80 backdrop-blur-sm focus:outline-none"
       role="dialog"
       aria-modal="true"
       aria-label={`Problem: ${problem.title}`}
     >
       <div className="flex h-full w-full flex-col">
         {/* Top bar */}
-        <div className="flex items-center justify-between border-b border-hairline px-4 py-3 sm:px-6">
+        <div className="df-safe-top flex items-center justify-between border-b border-hairline px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <span className="font-mono text-[11px] text-mute">
               {problem.id}
@@ -424,7 +451,7 @@ export function ProblemView({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+            className="ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink sm:h-8 sm:w-8"
           >
             <svg
               width="14"
@@ -443,11 +470,59 @@ export function ProblemView({
           </button>
         </div>
 
+        {/* Mobile tab switcher — hidden at sm+ where both panels show */}
+        <div
+          role="tablist"
+          aria-label="Problem and code"
+          className="flex border-b border-hairline bg-canvas px-2 sm:hidden"
+        >
+          <button
+            type="button"
+            role="tab"
+            id="df-tab-problem"
+            aria-controls="df-panel-problem"
+            aria-selected={mobileTab === "problem"}
+            onClick={() => setMobileTab("problem")}
+            className={cn(
+              "min-h-11 flex-1 border-b-2 px-3 text-sm font-medium transition-colors",
+              mobileTab === "problem"
+                ? "border-accent text-ink"
+                : "border-transparent text-body-mid",
+            )}
+          >
+            Problem
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="df-tab-code"
+            aria-controls="df-panel-code"
+            aria-selected={mobileTab === "code"}
+            onClick={() => setMobileTab("code")}
+            className={cn(
+              "min-h-11 flex-1 border-b-2 px-3 text-sm font-medium transition-colors",
+              mobileTab === "code"
+                ? "border-accent text-ink"
+                : "border-transparent text-body-mid",
+            )}
+          >
+            Code
+          </button>
+        </div>
+
         {/* Body — two columns on desktop, single scroll on mobile */}
         <div className="df-scroll flex-1 overflow-y-auto">
           <div className="mx-auto grid max-w-7xl grid-cols-1 gap-px bg-hairline lg:grid-cols-2">
             {/* Left: description */}
-            <div className="bg-canvas px-4 py-5 sm:px-6 sm:py-6">
+            <div
+              id="df-panel-problem"
+              role="tabpanel"
+              aria-labelledby="df-tab-problem"
+              className={cn(
+                "bg-canvas px-4 py-5 sm:px-6 sm:py-6",
+                mobileTab === "problem" ? "block" : "hidden sm:block",
+              )}
+            >
               <h3 className="mb-2 text-xs font-medium text-body-mid">
                 Problem
               </h3>
@@ -514,7 +589,15 @@ export function ProblemView({
             </div>
 
             {/* Right: editor + results */}
-            <div className="flex flex-col bg-canvas">
+            <div
+              id="df-panel-code"
+              role="tabpanel"
+              aria-labelledby="df-tab-code"
+              className={cn(
+                "flex-col bg-canvas",
+                mobileTab === "code" ? "flex" : "hidden sm:flex",
+              )}
+            >
               <div className="flex items-center justify-between gap-2 border-b border-hairline px-4 py-2 sm:px-6">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-medium text-body-mid">
@@ -648,18 +731,18 @@ export function ProblemView({
                         {(cellRunning || output) && (
                           <div className="space-y-1.5 border-t border-hairline bg-canvas-soft px-3 py-2">
                             {cellRunning && (
-                              <div className="flex items-center gap-2 text-[11px] text-body-mid">
+                              <div className="flex items-center gap-2 text-xs text-body-mid sm:text-[11px]">
                                 <span className="df-spin h-3 w-3 rounded-full border-2 border-hairline border-t-accent" />
                                 Running…
                               </div>
                             )}
                             {output?.error && (
-                              <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border border-error/40 bg-error/5 p-2 font-mono text-[11px] text-error">
+                              <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border border-error/40 bg-error/5 p-2 font-mono text-xs text-error sm:text-[11px]">
                                 {output.error}
                               </pre>
                             )}
                             {output?.stdout && (
-                              <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-body">
+                              <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs text-body sm:text-[11px]">
                                 {output.stdout}
                               </pre>
                             )}
@@ -679,6 +762,7 @@ export function ProblemView({
                 </div>
               ) : (
                 <textarea
+                  ref={editorRef}
                   value={code}
                   onChange={(e) => onCodeChange(e.target.value)}
                   onKeyDown={handleEditorKey}
@@ -741,7 +825,7 @@ export function ProblemView({
                   {showSolution ? "Hide solution" : "Show solution"}
                 </button>
                 {pyStatus === "error" && (
-                  <span className="text-[11px] text-error">
+                  <span className="text-xs text-error sm:text-[11px]">
                     Pyodide failed to load
                   </span>
                 )}
@@ -779,10 +863,10 @@ export function ProblemView({
                   <div className="space-y-2">
                     {pyError && (
                       <div className="rounded-md border border-error/40 bg-error/5 p-2.5">
-                        <div className="mb-1 text-[10px] font-medium text-error">
+                        <div className="mb-1 text-xs font-medium text-error sm:text-[10px]">
                           Pyodide error
                         </div>
-                        <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-body">
+                        <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs text-body sm:text-[11px]">
                           {pyError}
                         </pre>
                       </div>
@@ -839,12 +923,12 @@ export function ProblemView({
                               </svg>
                             )}
                           </span>
-                          <span className="font-mono text-[10px] text-mute">
+                          <span className="font-mono text-xs text-mute sm:text-[10px]">
                             case {i + 1}
                           </span>
                           <span
                             className={cn(
-                              "text-[10px] font-medium",
+                              "text-xs font-medium sm:text-[10px]",
                               r.ok ? "text-accent" : "text-error",
                             )}
                           >
@@ -852,17 +936,17 @@ export function ProblemView({
                           </span>
                         </div>
                         {r.error ? (
-                          <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-error">
+                          <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs text-error sm:text-[11px]">
                             {r.error}
                           </pre>
                         ) : (
                           <div className="space-y-1">
-                            <div className="font-mono text-[11px] text-body">
+                            <div className="font-mono text-xs text-body sm:text-[11px]">
                               <span className="text-body-mid">actual: </span>
                               {clipRepr(r.actual, 240)}
                             </div>
                             {!r.ok && (
-                              <div className="font-mono text-[11px] text-body-mid">
+                              <div className="font-mono text-xs text-body-mid sm:text-[11px]">
                                 <span>expected: </span>
                                 {clipRepr(r.expected, 240)}
                               </div>
@@ -875,6 +959,73 @@ export function ProblemView({
                 )}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Mobile footer — indent keys + always-reachable primary actions */}
+        <div className="shrink-0 sm:hidden">
+          {mode === "editor" && (
+            <div
+              role="group"
+              aria-label="Code indentation"
+              className="flex items-center gap-2 border-t border-hairline bg-canvas px-4 py-2"
+            >
+              <button
+                type="button"
+                onClick={insertIndent}
+                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-hairline font-mono text-xs text-body-mid transition-colors active:bg-canvas-soft"
+              >
+                Tab
+              </button>
+              <button
+                type="button"
+                onClick={insertIndent}
+                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-hairline font-mono text-xs text-body-mid transition-colors active:bg-canvas-soft"
+              >
+                4 spaces
+              </button>
+            </div>
+          )}
+          <div className="df-safe-bottom sticky bottom-0 z-10 flex items-center gap-2 border-t border-hairline bg-canvas px-4 py-3">
+            <button
+              onClick={
+                mode === "notebook"
+                  ? () => void executeCells(notebookCells, true)
+                  : runCode
+              }
+              disabled={
+                running || (mode === "notebook" && notebookCells.length === 0)
+              }
+              aria-busy={running}
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-3.5 text-sm font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {running ? (
+                <>
+                  <span className="df-spin h-3 w-3 rounded-full border-2 border-canvas/40 border-t-canvas" />
+                  {pyStatus === "loading" ? "Loading Python…" : "Running…"}
+                </>
+              ) : (
+                <>
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 11 11"
+                    fill="none"
+                    aria-hidden
+                  >
+                    <path d="M2 1.5l7 4-7 4z" fill="currentColor" />
+                  </svg>
+                  {mode === "notebook" ? "Run all" : "Run"}
+                </>
+              )}
+            </button>
+            <button
+              onClick={mode === "notebook" ? resetNotebookMode : reset}
+              disabled={running}
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-hairline px-3 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-50"
+            >
+              Reset
+            </button>
           </div>
         </div>
       </div>

@@ -96,7 +96,7 @@ export function ProblemList({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search by title, id, or description…"
-          className="flex-1 rounded-lg border border-hairline bg-canvas-card px-3 py-2 text-sm text-ink placeholder:text-mute focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30"
+          className="min-h-11 flex-1 rounded-lg border border-hairline bg-canvas-card px-3 py-2 text-sm text-ink placeholder:text-mute focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30 sm:min-h-0"
         />
         <div className="flex items-center gap-1 overflow-x-auto">
           {["All", ...categories].map((c) => (
@@ -106,7 +106,7 @@ export function ProblemList({
               aria-pressed={activeCategory === c}
               onClick={() => onCategoryChange(c)}
               className={cn(
-                "inline-flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors",
+                "inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors sm:min-h-0",
                 activeCategory === c
                   ? "border-accent/40 bg-accent/5 text-accent"
                   : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
@@ -143,9 +143,9 @@ export function ProblemList({
             type="button"
             aria-pressed={activeDifficulty === d}
             onClick={() => onDifficultyChange(d)}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition-colors",
-              activeDifficulty === d
+              className={cn(
+                "inline-flex min-h-11 items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition-colors sm:min-h-0",
+                activeDifficulty === d
                 ? "border-accent/40 bg-accent/5 text-accent"
                 : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
             )}

@@ -210,3 +210,31 @@
     animation: none;
   }
 }
+
+/* ── Mobile / coarse-pointer refinements (additive only) ─────────────────
+   Desktop (fine pointer) and >= sm layouts are intentionally untouched.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* iOS Safari auto-zooms a focused input/textarea whose font-size is below
+   16px. Give code editors the zoom-safe size on touch devices. This rule
+   lives outside Tailwind layers, so it wins over text-* utilities. */
+@media (pointer: coarse) {
+  .df-code-editor {
+    font-size: 16px;
+  }
+}
+
+/* Full-height overlay that tracks the dynamic viewport (mobile URL bar).
+   100vh is the fallback for browsers without dvh support. */
+.df-dvh {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Safe-area helpers — env() resolves to 0px on devices without insets. */
+.df-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.df-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
