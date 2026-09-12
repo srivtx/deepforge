@@ -31,7 +31,7 @@ export const problems: Problem[] = [
   },
   {
     id: "ca-187",
-    title: "Softmax Jacobian",
+    title: "Softmax Jacobian via Chain Rule",
     category: "Calculus",
     difficulty: "Easy",
     description:

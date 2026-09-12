@@ -485,7 +485,7 @@ export const problems: Problem[] = [
   },
   {
     id: "op-161",
-    title: "Variance Reduction Factor",
+    title: "Variance Reduction Factor for Gradient Estimators",
     category: "Optimization",
     difficulty: "Easy",
     description:

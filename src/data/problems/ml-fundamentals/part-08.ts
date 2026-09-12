@@ -751,7 +751,7 @@ def permutation_p_value(treated, control, num_permutations, seed):
   },
   {
     id: "ml-298",
-    title: "Effective Sample Size",
+    title: "Effective Sample Size for Importance Weights",
     category: "ML Fundamentals",
     difficulty: "Easy",
     description:
