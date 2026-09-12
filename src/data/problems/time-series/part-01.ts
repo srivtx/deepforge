@@ -221,7 +221,7 @@ def log_transform(series):
   },
   {
     id: "ts-011",
-    title: "Mean Absolute Error",
+    title: "Mean Absolute Error of Forecasts",
     category: "Time Series",
     difficulty: "Easy",
     description:
@@ -243,7 +243,7 @@ def log_transform(series):
   },
   {
     id: "ts-012",
-    title: "Root Mean Squared Error",
+    title: "Root Mean Squared Error of Forecasts",
     category: "Time Series",
     difficulty: "Easy",
     description:
@@ -923,7 +923,7 @@ def ar1_generate(n, c, phi, seed):
   },
   {
     id: "ts-036",
-    title: "Mean Absolute Percentage Error",
+    title: "Mean Absolute Percentage Error for Forecasts",
     category: "Time Series",
     difficulty: "Medium",
     description:

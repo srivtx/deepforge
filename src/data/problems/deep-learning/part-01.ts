@@ -50,7 +50,7 @@ def sigmoid_vector(z):
   },
   {
     id: "dl-003",
-    title: "Softmax",
+    title: "Numerically Stable Softmax",
     category: "Deep Learning",
     difficulty: "Medium",
     description:

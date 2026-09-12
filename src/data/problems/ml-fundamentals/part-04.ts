@@ -133,7 +133,7 @@ export const problems: Problem[] = [
   },
   {
     id: "ml-096",
-    title: "Dice Coefficient",
+    title: "Dice Coefficient for Binary Labels",
     category: "ML Fundamentals",
     difficulty: "Easy",
     description:
@@ -181,7 +181,7 @@ def mean_squared_log_error(y_true, y_pred):
   },
   {
     id: "ml-098",
-    title: "Mean Absolute Percentage Error",
+    title: "Mean Absolute Percentage Error with Zero Handling",
     category: "ML Fundamentals",
     difficulty: "Medium",
     description:
@@ -261,7 +261,7 @@ def mean_squared_log_error(y_true, y_pred):
   },
   {
     id: "ml-101",
-    title: "Expected Calibration Error",
+    title: "Expected Calibration Error by Probability Bins",
     category: "ML Fundamentals",
     difficulty: "Hard",
     description:

@@ -290,7 +290,7 @@ export const problems: Problem[] = [
   },
   {
     id: "la-025",
-    title: "Cosine Similarity",
+    title: "Cosine Similarity of Vectors",
     category: "Linear Algebra",
     difficulty: "Medium",
     description:

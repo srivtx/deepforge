@@ -731,7 +731,7 @@ def ucb_action(Q, counts, t, c):
   },
   {
     id: "rl-027",
-    title: "Reward Normalization",
+    title: "Reward Scaling by Maximum Absolute Value",
     category: "Reinforcement Learning",
     difficulty: "Easy",
     description:

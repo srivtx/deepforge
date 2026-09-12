@@ -166,9 +166,12 @@ export function Discuss({ problemId }: DiscussProps) {
                 <span className="text-xs font-medium text-ink">
                   {comment.author}
                 </span>
-                <span className="text-[11px] text-mute">
+                <time
+                  dateTime={comment.createdAt}
+                  className="text-[11px] text-mute"
+                >
                   {relativeTime(comment.createdAt)}
-                </span>
+                </time>
               </div>
 
               <div className="mt-2">

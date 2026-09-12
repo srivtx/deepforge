@@ -214,7 +214,7 @@ export const problems: Problem[] = [
   },
   {
     id: "ds-048",
-    title: "Merge Intervals",
+    title: "Interval Merging with Sorted Sweep",
     category: "Data Structures",
     difficulty: "Medium",
     description:
@@ -703,7 +703,7 @@ export const problems: Problem[] = [
   },
   {
     id: "ds-061",
-    title: "Sliding Window Maximum",
+    title: "Monotonic Deque Sliding Window Maximum",
     category: "Data Structures",
     difficulty: "Hard",
     description:

@@ -995,7 +995,7 @@ export const problems: Problem[] = [
   },
   {
     id: "la-136",
-    title: "Conjugate Gradient One Step",
+    title: "Conjugate Gradient Step from Residual",
     category: "Linear Algebra",
     difficulty: "Hard",
     description:

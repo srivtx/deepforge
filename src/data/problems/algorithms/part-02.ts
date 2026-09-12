@@ -379,7 +379,7 @@ def lcm_array(nums):
   },
   {
     id: "al-055",
-    title: "Merge Intervals",
+    title: "Merge Overlapping Intervals",
     category: "Algorithms",
     difficulty: "Medium",
     description:
@@ -935,7 +935,7 @@ def lcm_array(nums):
   },
   {
     id: "al-073",
-    title: "Largest Rectangle in Histogram",
+    title: "Largest Rectangle Area in a Histogram",
     category: "Algorithms",
     difficulty: "Hard",
     description:
@@ -966,7 +966,7 @@ def lcm_array(nums):
   },
   {
     id: "al-074",
-    title: "Sliding Window Maximum",
+    title: "Sliding Window Maximum with Deque",
     category: "Algorithms",
     difficulty: "Hard",
     description:

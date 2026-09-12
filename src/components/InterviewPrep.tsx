@@ -55,6 +55,10 @@ export function InterviewPrep() {
   const startAtRef = useRef(0);
   const endAtRef = useRef(0);
   const finishingRef = useRef(false);
+  const setupDialogRef = useRef<HTMLDivElement | null>(null);
+  const setupReturnFocusRef = useRef<HTMLElement | null>(null);
+  const sessionDialogRef = useRef<HTMLDivElement | null>(null);
+  const sessionReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const problemMap = useMemo(
     () => new Map(PROBLEMS.map((p) => [p.id, p])),
@@ -115,6 +119,38 @@ export function InterviewPrep() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [setupTrack]);
+
+  // Focus the setup dialog, lock background scroll, restore focus on close.
+  useEffect(() => {
+    if (!setupTrack) return;
+    setupReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setupDialogRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      setupReturnFocusRef.current?.focus();
+    };
+  }, [setupTrack]);
+
+  // Focus the session overlay, lock background scroll, restore focus on close.
+  useEffect(() => {
+    if (!activeTrack) return;
+    sessionReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    sessionDialogRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      sessionReturnFocusRef.current?.focus();
+    };
+  }, [activeTrack]);
 
   function startSession(track: InterviewTrack, size: number) {
     const ids = track.problemIds.slice(0, size);
@@ -253,6 +289,7 @@ export function InterviewPrep() {
                 </div>
                 <div className="mt-auto flex items-center justify-end pt-1">
                   <button
+                    type="button"
                     onClick={() => openSetup(track)}
                     className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
                   >
@@ -267,7 +304,9 @@ export function InterviewPrep() {
 
       {setupTrack && (
         <div
-          className="df-fade-in fixed inset-0 z-40 flex items-center justify-center bg-canvas/80 p-3 backdrop-blur-sm sm:p-6"
+          ref={setupDialogRef}
+          tabIndex={-1}
+          className="df-fade-in fixed inset-0 z-40 flex items-center justify-center bg-canvas/80 p-3 backdrop-blur-sm outline-none sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Start ${setupTrack.title}`}
@@ -283,6 +322,7 @@ export function InterviewPrep() {
               {sessionSizesFor(setupTrack).map((size) => (
                 <button
                   key={size}
+                  type="button"
                   onClick={() => setSessionSize(size)}
                   aria-pressed={setupSize === size}
                   className={cn(
@@ -307,12 +347,14 @@ export function InterviewPrep() {
             </div>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setSetupTrack(null)}
                 className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => startSession(setupTrack, setupSize)}
                 className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
               >
@@ -325,7 +367,9 @@ export function InterviewPrep() {
 
       {activeTrack && (
         <div
-          className="df-fade-in fixed inset-0 z-40 flex items-center justify-center bg-canvas/80 p-3 backdrop-blur-sm sm:p-6"
+          ref={sessionDialogRef}
+          tabIndex={-1}
+          className="df-fade-in fixed inset-0 z-40 flex items-center justify-center bg-canvas/80 p-3 backdrop-blur-sm outline-none sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Interview session: ${activeTrack.title}`}
@@ -354,6 +398,7 @@ export function InterviewPrep() {
               </span>
               {!summary && (
                 <button
+                  type="button"
                   onClick={() => finishSession("manual")}
                   className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
                 >
@@ -397,6 +442,7 @@ export function InterviewPrep() {
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={closeOverlay}
                       className="mt-5 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
                     >
@@ -413,6 +459,7 @@ export function InterviewPrep() {
                     return (
                       <button
                         key={id}
+                        type="button"
                         onClick={() => setActiveProblem(problem)}
                         className="flex w-full items-center gap-3 rounded-lg border border-hairline bg-canvas-card px-3 py-2.5 text-left transition-colors hover:bg-canvas-soft"
                       >

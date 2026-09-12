@@ -537,7 +537,7 @@ def embedding_cosine_ranking_topk(query, vectors, k):
   },
   {
     id: "nlp-069",
-    title: "Transformer Block Parameter Count",
+    title: "Transformer Block Parameter Count for Language Models",
     category: "NLP",
     difficulty: "Medium",
     description:
@@ -557,7 +557,7 @@ def embedding_cosine_ranking_topk(query, vectors, k):
   },
   {
     id: "nlp-070",
-    title: "Multi-Head Attention Parameter Count",
+    title: "Multi-Head Attention Projection Parameter Count",
     category: "NLP",
     difficulty: "Medium",
     description:
@@ -838,7 +838,7 @@ def beam_search_two_steps(vocab, step_probs, beam_width):
   },
   {
     id: "nlp-080",
-    title: "Repetition Penalty",
+    title: "Repetition Penalty for Generated Tokens",
     category: "NLP",
     difficulty: "Medium",
     description:

@@ -229,7 +229,7 @@ export const problems: Problem[] = [
   },
   {
     id: "al-009",
-    title: "Factorial",
+    title: "Iterative Factorial",
     category: "Algorithms",
     difficulty: "Easy",
     description:

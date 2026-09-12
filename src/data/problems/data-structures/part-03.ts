@@ -106,7 +106,7 @@ export const problems: Problem[] = [
   },
   {
     id: "ds-089",
-    title: "Largest Rectangle in Histogram",
+    title: "Histogram Largest Rectangle via Monotonic Stack",
     category: "Data Structures",
     difficulty: "Hard",
     description:
@@ -192,7 +192,7 @@ export const problems: Problem[] = [
   },
   {
     id: "ds-092",
-    title: "Remove K Digits",
+    title: "Remove K Digits with Monotonic Stack",
     category: "Data Structures",
     difficulty: "Medium",
     description:

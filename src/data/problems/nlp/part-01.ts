@@ -133,7 +133,7 @@ def tfidf(docs, vocab):
   },
   {
     id: "nlp-005",
-    title: "Cosine Similarity",
+    title: "Cosine Similarity of Token Vectors",
     category: "NLP",
     difficulty: "Medium",
     description:

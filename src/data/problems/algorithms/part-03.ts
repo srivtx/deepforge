@@ -401,7 +401,7 @@ export const problems: Problem[] = [
   },
   {
     id: "al-090",
-    title: "Number of Islands",
+    title: "Island Counting with BFS",
     category: "Algorithms",
     difficulty: "Easy",
     description:

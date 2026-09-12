@@ -112,7 +112,7 @@ def gcd_of_strings(str1, str2):
   },
   {
     id: "al-220",
-    title: "Flood Fill",
+    title: "Flood Fill with BFS or DFS",
     category: "Algorithms",
     difficulty: "Easy",
     description:

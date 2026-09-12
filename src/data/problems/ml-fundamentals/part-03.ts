@@ -162,7 +162,7 @@ export const problems: Problem[] = [
   },
   {
     id: "ml-057",
-    title: "Adjusted R-Squared",
+    title: "Adjusted R-Squared from Predictions",
     category: "ML Fundamentals",
     difficulty: "Medium",
     description:
@@ -390,7 +390,7 @@ def mutual_information(a, b):
   },
   {
     id: "ml-064",
-    title: "Softmax",
+    title: "Softmax of Logits",
     category: "ML Fundamentals",
     difficulty: "Medium",
     description:

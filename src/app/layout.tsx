@@ -17,10 +17,19 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app";
+
+const siteDescription =
+  "Forge your ML skills from scratch. 2,400+ problems across 15 categories with real Python execution in your browser via Pyodide — no account needed, free and MIT-licensed.";
+
 export const metadata: Metadata = {
-  title: "DeepForge · by svx",
-  description:
-    "Forge your ML skills. Build from scratch. 2000+ problems, real in-browser Python execution, no libraries, no shortcuts.",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "DeepForge — Forge your ML skills",
+    template: "%s — DeepForge",
+  },
+  description: siteDescription,
   keywords: [
     "machine learning",
     "deep learning",
@@ -29,24 +38,53 @@ export const metadata: Metadata = {
     "Pyodide",
     "linear algebra",
     "statistics",
+    "probability",
+    "optimization",
+    "NLP",
     "from scratch",
-    "svx",
+    "coding challenges",
+    "MIT licensed",
   ],
   authors: [{ name: "svx", url: "https://github.com/srivtx" }],
   creator: "svx",
   openGraph: {
-    title: "DeepForge · by svx",
-    description:
-      "Forge your ML skills. Build from scratch. 2000+ problems, real in-browser Python execution.",
+    title: "DeepForge — Forge your ML skills",
+    description: siteDescription,
     type: "website",
-    url: "https://github.com/srivtx/deepforge",
+    siteName: "DeepForge",
+    locale: "en_US",
+    url: "/",
   },
   twitter: {
     card: "summary_large_image",
-    title: "DeepForge · by svx",
-    description:
-      "Forge your ML skills. Build from scratch. 2000+ problems, real in-browser Python execution.",
+    title: "DeepForge — Forge your ML skills",
+    description: siteDescription,
   },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  alternates: {
+    canonical: "/",
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      name: "DeepForge",
+      url: siteUrl,
+      description: siteDescription,
+    },
+    {
+      "@type": "EducationalOrganization",
+      name: "DeepForge",
+      url: siteUrl,
+      description: siteDescription,
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -59,6 +97,10 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased bg-canvas text-ink`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <ThemeProvider attribute="class" defaultTheme="dark">
           {children}
         </ThemeProvider>

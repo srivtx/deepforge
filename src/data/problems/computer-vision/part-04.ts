@@ -386,7 +386,7 @@ export const problems: Problem[] = [
   },
   {
     id: "cv-144",
-    title: "Dice Coefficient",
+    title: "Dice Coefficient for Binary Masks",
     category: "Computer Vision",
     difficulty: "Medium",
     description:

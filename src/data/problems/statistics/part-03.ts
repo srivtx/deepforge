@@ -201,7 +201,7 @@ def required_sample_size_mean(z_crit, sigma, margin):
   },
   {
     id: "st-059",
-    title: "Adjusted R-Squared",
+    title: "Adjusted R-Squared from Summary Statistics",
     category: "Statistics",
     difficulty: "Easy",
     description:
@@ -1119,7 +1119,7 @@ def power_one_sided_z(delta, n, sigma, z_alpha):
   },
   {
     id: "st-091",
-    title: "Simpson's Paradox Check",
+    title: "Simpson's Paradox in Risk Tables",
     category: "Statistics",
     difficulty: "Hard",
     description:

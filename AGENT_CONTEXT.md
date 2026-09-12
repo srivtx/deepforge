@@ -2,7 +2,7 @@
 
 > **Goal:** Surpass deep-ml.com in every aspect — more problems, better design, more features, better UX.
 
-This file gives any AI agent (or team of agents) the full context needed to work on DeepForge autonomously. Read this file completely before starting any work.
+This file gives any AI agent (or team of agents) the full context needed to work on DeepForge autonomously. Read this file completely before starting any work. For task-scoped rules (file ownership, verification), also read [`AGENT_BRIEF.md`](./AGENT_BRIEF.md).
 
 ---
 
@@ -18,52 +18,43 @@ DeepForge is a practice platform for machine learning, math, and engineering. Us
 
 ## The Competition: deep-ml.com
 
-Deep-ML is the incumbent. Here's what they have and what we need to beat:
+Deep-ML is the incumbent. Current state:
 
-| Feature | Deep-ML | DeepForge (current) | DeepForge (target) |
-|---|---|---|---|
-| Problems | 1,200+ | 50 | **2,000+** |
-| Categories | 5 | 10 | **10+** |
-| In-browser execution | Yes | Yes (Pyodide) | Yes |
-| Design | Generic dark | svx dark+light | svx (better) |
-| Account required | No | No | No |
-| Open source | No | Yes (MIT) | Yes |
-| Mobile-friendly | Partial | Yes | Yes |
-| Learning paths | Yes | 4 basic | **20+ detailed** |
-| Projects (multi-step labs) | Yes (GPT, RL, CUDA) | No | **15+ projects** |
-| Contests (timed) | Yes | No | **Yes** |
-| Leaderboard | Yes (global, Flame Score) | No | **Yes (local + optional global)** |
-| Discuss / community | Yes (forum) | No | **Yes (comment threads per problem)** |
-| Study assistant (AI) | Yes | No | **Yes (AI hints, not full solutions)** |
-| Collections / playlists | Yes | No | **Yes (user-created problem sets)** |
-| Interview prep | Yes | No | **Yes (curated interview tracks)** |
-| Pen-and-paper math | Yes | No | **Yes (no-code math problems)** |
+| Feature | Deep-ML | DeepForge |
+|---|---|---|
+| Problems | 1,200+ | **2,440** |
+| Categories | 5 | **15** |
+| In-browser execution | Yes | Yes (Pyodide) |
+| Design | Generic dark | svx dark+light |
+| Account required | No | No |
+| Open source | No | Yes (MIT) |
+| Mobile-friendly | Partial | Yes |
+| Learning paths | Yes | **24** |
+| Projects (multi-step labs) | Yes (GPT, RL, CUDA) | **5 labs · 36 steps** |
+| Contests (timed) | Yes | **8 contests (10–60 min)** |
+| Leaderboard | Yes (global, Flame Score) | **Yes (local: Flame Score + streaks + username)** |
+| Discuss / community | Yes (forum) | **Yes (per-problem threads, local)** |
+| Study assistant | Yes (AI) | **Yes (3-tier progressive hints, deterministic)** |
+| Collections / playlists | Yes | **6 premade + user sets + shareable URLs** |
+| Interview prep | Yes | **4 timed tracks** |
+| Pen-and-paper math | Yes | **60 no-code problems** |
 
-### Deep-ML's categories (5):
-1. Machine Learning Fundamentals
-2. Deep Neural Networks
-3. Computer Vision
-4. Natural Language Processing
-5. Linear Algebra for ML
+Honest caveats: leaderboard, comments, and collections are localStorage-backed (single browser, no accounts). Deep-ML's equivalents are server-backed. A shared backend is the main remaining gap.
 
-### DeepForge's categories (10 — already more):
-1. Linear Algebra
-2. Calculus
-3. Statistics
-4. Probability
-5. ML Fundamentals
-6. Deep Learning
-7. NLP
-8. Optimization
-9. Algorithms
-10. Data Structures
+### DeepForge's categories (15)
 
-### Categories we should ADD to surpass them:
-11. Computer Vision (image processing from scratch)
-12. Reinforcement Learning (MDPs, Q-learning, policy gradient)
-13. Time Series (AR, MA, ARMA, forecasting)
-14. Graph Algorithms (PageRank, shortest paths, centrality)
-15. Information Theory (entropy, KL divergence, mutual information)
+| Category | Problems | | Category | Problems |
+|---|---:|---|---|---:|
+| Algorithms | 260 | | Optimization | 95 |
+| ML Fundamentals | 225 | | NLP | 95 |
+| Data Structures | 220 | | Statistics | 95 |
+| Computer Vision | 215 | | Probability | 95 |
+| Linear Algebra | 185 | | Calculus | 95 |
+| Deep Learning | 185 | | Graph Algorithms | 135 |
+| Reinforcement Learning | 180 | | Information Theory | 180 |
+| Time Series | 180 | | **Total** | **2,440** |
+
+Difficulty mix: 874 Easy · 1,081 Medium · 485 Hard.
 
 ---
 
@@ -131,37 +122,71 @@ Deep-ML is the incumbent. Here's what they have and what we need to beat:
 deepforge/
 ├── src/
 │   ├── app/
-│   │   ├── layout.tsx          # Root layout (fonts, ThemeProvider)
-│   │   ├── page.tsx            # Main page (view state)
-│   │   └── globals.css         # CSS variables (dark+light), Tailwind
+│   │   ├── layout.tsx          # Root layout (fonts, metadata, ThemeProvider)
+│   │   ├── page.tsx            # Main page (view state, wires all sections)
+│   │   ├── globals.css         # CSS variables (dark+light), Tailwind
+│   │   ├── manifest.ts         # PWA manifest
+│   │   ├── robots.ts           # robots.txt
+│   │   └── sitemap.ts          # sitemap.xml
 │   ├── components/
-│   │   ├── Header.tsx          # Nav + theme toggle
+│   │   ├── Header.tsx          # Nav + theme toggle + solved counter
 │   │   ├── Footer.tsx          # Minimal footer
 │   │   ├── Hero.tsx            # Landing hero
+│   │   ├── StatsStrip.tsx      # Problem count stats
+│   │   ├── CategoryGrid.tsx    # Category cards on home
 │   │   ├── ProblemCard.tsx     # Problem list item
 │   │   ├── ProblemList.tsx     # Filterable problem grid
-│   │   ├── ProblemView.tsx     # Full-page problem overlay (code editor + Pyodide)
-│   │   ├── CategoryGrid.tsx    # Category cards on home
-│   │   ├── StatsStrip.tsx      # Problem count stats
+│   │   ├── ProblemView.tsx     # Full-screen problem overlay (editor + Pyodide + hints + discuss)
 │   │   ├── Paths.tsx           # Learning paths view
+│   │   ├── Projects.tsx        # Multi-step labs view
+│   │   ├── Contests.tsx        # Timed contests view
+│   │   ├── Leaderboard.tsx     # Flame Score, streaks, username
+│   │   ├── Discuss.tsx         # Per-problem comment threads
+│   │   ├── StudyAssistant.tsx  # 3-tier progressive hints
+│   │   ├── Collections.tsx     # Premade + user collections
+│   │   ├── InterviewPrep.tsx   # Timed interview tracks
+│   │   ├── PenPaper.tsx        # No-code math problems
 │   │   ├── About.tsx           # About page
 │   │   ├── ThemeProvider.tsx   # next-themes wrapper
 │   │   └── ThemeToggle.tsx     # Sun/moon button
 │   ├── data/
-│   │   └── problems.ts         # ALL problems + categories + learning paths
+│   │   ├── problems/
+│   │   │   ├── meta.ts         # CATEGORIES (15)
+│   │   │   ├── paths.ts        # LEARNING_PATHS (24)
+│   │   │   ├── index.ts        # Aggregates PROBLEMS + re-exports, getProblemById, getProblemsByCategory
+│   │   │   └── <category>/     # linear-algebra/, algorithms/, ... each with part-NN.ts + index.ts
+│   │   ├── contests.ts         # CONTESTS (8)
+│   │   ├── projects.ts         # PROJECTS (5) + PROJECT_STEPS (36)
+│   │   ├── interview.ts        # INTERVIEW_TRACKS (4)
+│   │   ├── penpaper.ts         # PENPAPER_PROBLEMS (60)
+│   │   └── collections.ts      # PREMADE_COLLECTIONS (6)
 │   ├── lib/
 │   │   ├── pyodide.ts          # Pyodide loader + code execution
-│   │   ├── progress.ts         # localStorage progress tracking
+│   │   ├── progress.ts         # localStorage progress + saved code
+│   │   ├── leaderboard.ts      # Flame Score, streaks, username
+│   │   ├── comments.ts         # Discuss threads (local)
+│   │   ├── hints.ts            # 3-tier hint generation
+│   │   ├── collections.ts      # User collections + URL encode/decode
+│   │   ├── contestStore.ts     # Contest results (local)
+│   │   ├── interview.ts        # Interview results (local)
+│   │   ├── projects.ts         # Project step progress
 │   │   └── utils.ts            # Helpers
 │   └── types/
-│       └── problem.ts          # TypeScript types (Problem, TestCase, etc.)
+│       └── problem.ts          # Problem, TestCase, Category, LearningPath types
+├── scripts/
+│   ├── verify-problems.ts      # Structural + real-Python verification
+│   ├── py_verify.py            # Python harness (deep equality, 1e-6 tolerance)
+│   └── dump-solutions.ts       # Solution export utility
 ├── package.json
 ├── next.config.ts
 ├── tsconfig.json
 ├── tailwind.config.ts
 ├── postcss.config.mjs
+├── eslint.config.mjs
+├── agent-quickstart.sh         # Environment check script
 ├── README.md
 ├── LICENSE
+├── AGENT_BRIEF.md              # Task-scoped rules for parallel agents
 └── AGENT_CONTEXT.md            # This file
 ```
 
@@ -175,7 +200,7 @@ Every problem follows this exact TypeScript interface:
 interface Problem {
   id: string;                    // e.g., "la-001", "al-015", "ml-022"
   title: string;                 // e.g., "Matrix Multiplication"
-  category: Category;            // one of the 10+ categories
+  category: Category;            // one of the 15 categories
   difficulty: "Easy" | "Medium" | "Hard";
   description: string;           // 2-4 sentences, clear and concise
   starterCode: string;           // Python function template with `pass`
@@ -192,20 +217,21 @@ interface TestCase {
 
 ### ID convention:
 - `la-001` to `la-XXX` — Linear Algebra
-- `cal-001` to `cal-XXX` — Calculus
-- `stat-001` to `stat-XXX` — Statistics
-- `prob-001` to `prob-XXX` — Probability
+- `ca-001` to `ca-XXX` — Calculus
+- `st-001` to `st-XXX` — Statistics
+- `pr-001` to `pr-XXX` — Probability
 - `ml-001` to `ml-XXX` — ML Fundamentals
 - `dl-001` to `dl-XXX` — Deep Learning
 - `nlp-001` to `nlp-XXX` — NLP
 - `op-001` to `op-XXX` — Optimization
 - `al-001` to `al-XXX` — Algorithms
 - `ds-001` to `ds-XXX` — Data Structures
-- `cv-001` to `cv-XXX` — Computer Vision (NEW)
-- `rl-001` to `rl-XXX` — Reinforcement Learning (NEW)
-- `ts-001` to `ts-XXX` — Time Series (NEW)
-- `graph-001` to `graph-XXX` — Graph Algorithms (NEW)
-- `info-001` to `info-XXX` — Information Theory (NEW)
+- `cv-001` to `cv-XXX` — Computer Vision
+- `rl-001` to `rl-XXX` — Reinforcement Learning
+- `ts-001` to `ts-XXX` — Time Series
+- `graph-001` to `graph-XXX` — Graph Algorithms
+- `info-001` to `info-XXX` — Information Theory
+- `proj-001` to `proj-XXX` — Project steps (reserved)
 
 ### Problem quality rules:
 1. Every solution MUST be correct Python — test it mentally
@@ -217,105 +243,59 @@ interface TestCase {
 
 ---
 
-## What Needs to Be Built (Priority Order)
+## Verification
 
-### Phase 1: More Problems (HIGHEST PRIORITY)
-**Target: 2,000+ problems (currently 50)**
+```bash
+bun run scripts/verify-problems.ts            # all problems (structural + real Python)
+bun run scripts/verify-problems.ts <file.ts>  # one data file
+bunx tsc --noEmit                             # types
+bun run lint                                  # ESLint
+bun run build                                 # production build
+```
 
-This is the #1 gap. Deep-ML has 1,200+. We need 2,000+.
+`verify-problems.ts` runs structural checks (ids, fields, categories, test-case count, function-name match) and then executes every solution in real Python via `scripts/py_verify.py`, using the same deep-equality semantics as the browser Pyodide harness (1e-6 tolerance). It must print `ALL GREEN`.
 
-Problem generation approach:
-- Each category should have 100-200 problems
-- Start with the most impactful categories: ML Fundamentals, Linear Algebra, Algorithms, Deep Learning
-- Each problem is a real Python function implemented from scratch
-- Use a script to batch-generate problems and append to `src/data/problems.ts`
-- Verify each solution produces the expected output
+---
 
-### Phase 2: Missing Features
+## Roadmap
 
-**2a. Contests page**
-- Timed challenges (10 min, 30 min, 60 min)
-- Problem sets of 5-10 problems
-- Timer counts down, auto-submits when time is up
-- Score = problems solved × difficulty multiplier
-- Local leaderboard (localStorage)
+### Phase 1: Problems — ✅ Complete
+2,440 verified problems across 15 categories (target was 2,000+, deep-ml has 1,200+). Every solution passes real-Python verification.
 
-**2b. Leaderboard**
-- Local: tracks user's solved problems, streak, total score
-- Display: rank, username (editable), score, problems solved, streak
-- "Flame Score" equivalent: weighted by difficulty (Easy=1, Medium=3, Hard=5)
+### Phase 2: Features — ✅ Complete
+- **Contests** — 8 timed sets (10–60 min), countdown, difficulty-weighted scores, local results
+- **Leaderboard** — Flame Score (Easy=1, Medium=3, Hard=5), solved count, current/longest streak, editable username, local
+- **Projects** — 5 multi-step labs / 36 steps: GPT from scratch, neural network framework, search engine, recommender, CNN
+- **Discuss** — per-problem comment threads with upvotes (local)
+- **Study Assistant** — 3-tier progressive hints (nudge → approach → full solution), deterministic
+- **Collections** — 6 premade sets, user-created sets, shareable encoded URLs
+- **Interview Prep** — 4 timed tracks (FAANG ML, Quant, ML Engineer, Data Scientist), 4 min/problem
+- **Pen-and-paper math** — 60 no-code problems, multiple choice + numeric, with explanations
 
-**2c. Projects (multi-step labs)**
-- Like deep-ML's "Build a GPT" or "RL agent"
-- Each project has 5-15 steps
-- Each step is a problem (with starter code + test cases)
-- Steps build on each other (step 2 uses step 1's output)
-- Final result: a working model/system
-- Project ideas:
-  1. Build a GPT from scratch (tokenization → attention → transformer → text generation)
-  2. Build a neural network framework (autograd → layers → optimizer → train MNIST)
-  3. Build a search engine (TF-IDF → cosine similarity → PageRank → ranking)
-  4. Build a recommender system (collaborative filtering → matrix factorization → evaluation)
-  5. Build a CNN from scratch (conv → pool → relu → flatten → linear → classify)
+### Phase 3: Polish — ✅ Partially complete
+- ✅ SEO: metadata + OpenGraph, PWA manifest, robots.txt, sitemap.xml
+- ✅ Dark/light mode across all views
+- 🔲 Mobile audit at 375px across every new view
+- 🔲 Accessibility pass: keyboard nav, focus management, screen readers
+- 🔲 Performance: code-split heavy views, tighten Pyodide lazy-load
 
-**2d. Discuss / comments**
-- Each problem has a comment thread (localStorage-based for now)
-- Users can post solutions, ask questions, share approaches
-- Upvote/downvote (local only)
-- Code blocks in comments (monospace formatting)
-
-**2e. Study Assistant (AI hints)**
-- "Give me a hint" button on each problem
-- Progressive hints: first vague, then more specific, then show solution
-- Hint chain: 3 levels (nudge → approach → detailed steps)
-- Pre-written hints per problem (not AI-generated — deterministic)
-
-**2f. Collections / playlists**
-- Users can create custom problem sets
-- Name, description, list of problem IDs
-- Shareable via URL (encode in query param)
-- Pre-made collections: "Interview Prep", "Linear Algebra Crash Course", "30-Day Challenge"
-
-**2g. Interview Prep**
-- Curated tracks for ML interviews
-- "FAANG ML Interview" — 50 most common problems
-- "Quant Interview" — probability + statistics + algorithms
-- "ML Engineer Interview" — ML + DL + system design
-- Timed mode: solve under time pressure
-
-**2h. Pen-and-paper math problems**
-- No code required — just math
-- Multiple choice or numeric answer
-- Categories: matrix math, probability, calculus, statistics
-- Good for interview prep where you can't run code
-
-### Phase 3: Polish
-- Consistent design across all pages
-- Mobile audit (375px viewport)
-- Performance: lazy-load Pyodide, code-split heavy components
-- Accessibility: keyboard nav, screen reader support
-- SEO: meta tags, structured data
+### Next steps (sensible order)
+1. **Deepen thin categories** — Calculus, Statistics, Probability, NLP, and Optimization have 95 each; grow toward ~200 like the rest, using the existing part-file workflow and verifier.
+2. **Global accounts backend** — the biggest functional gap vs deep-ml: cross-device progress, real global leaderboard, server-backed comments/collections. Until then, all community data stays local.
+3. **More projects and interview tracks** — cheap once the problem bank grows; add 1-2 labs and 1-2 tracks.
+4. **Mobile + accessibility polish** — 375px audit, keyboard navigation, focus states, reduced motion.
+5. **More pen-and-paper problems** — 60 now; expand to cover every category.
 
 ---
 
 ## How to Run
 
 ```bash
-cd /home/z/my-project/deepforge
 bun install
-bun run dev    # Runs on port 3001
+bun run dev    # http://localhost:3001
 ```
 
-## How to Push
-
-```bash
-cd /home/z/my-project/deepforge
-git add -A
-git commit -m "description of changes"
-git push origin main
-```
-
-Remote is already configured: `https://github.com/srivtx/deepforge.git`
+Do not run `bun install` if the environment already has dependencies. Do not run git commands — the orchestrator commits.
 
 ---
 
@@ -323,11 +303,11 @@ Remote is already configured: `https://github.com/srivtx/deepforge.git`
 
 If you are an AI agent working on DeepForge:
 
-1. **Read this file completely** before starting
-2. **Read the existing code** — especially `src/data/problems.ts`, `src/types/problem.ts`, `src/app/globals.css`
+1. **Read this file and [`AGENT_BRIEF.md`](./AGENT_BRIEF.md) completely** before starting
+2. **Read the existing code** — especially `src/data/problems/index.ts`, `src/types/problem.ts`, `src/app/globals.css`
 3. **Follow the design system** — dark/light mode, Inter font, no noise
-4. **Test your code** — `npx tsc --noEmit` must pass, `curl -s http://localhost:3001/` must return 200
-5. **Commit incrementally** — small commits, clear messages, no version jumps
+4. **Verify before finishing** — `bun run scripts/verify-problems.ts` must print `ALL GREEN`, `bunx tsc --noEmit` must pass, `bun run lint` clean
+5. **Only touch your assigned files** — other agents edit other files in parallel
 6. **Don't break existing features** — if you change a component, verify it still works
 7. **Problems must be correct** — verify solutions produce expected test outputs
 8. **No external Python libraries** — all solutions are pure Python (no numpy, no sklearn)
@@ -335,39 +315,41 @@ If you are an AI agent working on DeepForge:
 ### If adding problems:
 - Follow the exact Problem interface
 - Use the ID convention above
-- Add to the `PROBLEMS` array in `src/data/problems.ts`
-- Also add new categories to `CATEGORIES` array and `Category` type if needed
-- Verify with `npx tsc --noEmit`
+- Add problems to `src/data/problems/<category>/part-NN.ts` (write in chunks of ~15 so truncation is easy to spot)
+- Import the new part in the category's `index.ts` aggregator
+- Add new categories to `src/data/problems/meta.ts` and the `Category` type if needed
+- Verify with `bun run scripts/verify-problems.ts src/data/problems/<category>/part-NN.ts`
 
 ### If adding features:
 - Create new components in `src/components/`
-- Add new view state to `src/app/page.tsx`
-- Add nav items to `src/components/Header.tsx`
+- Add a localStorage store in `src/lib/` with try/catch and a custom event
+- Wire the view into `src/app/page.tsx` and `src/components/Header.tsx` (only if your task allows)
 - Use the design system (dark/light CSS variables, Inter, no noise)
 - Test on mobile (375px viewport)
 
 ### If fixing bugs:
 - Read the component code carefully
-- Use Agent Browser to verify the fix
+- Verify the fix in the browser
 - Don't introduce new noise or design inconsistencies
 
 ---
 
 ## Current Status (as of last update)
 
-- **Problems:** 50 (target: 2,000+)
-- **Categories:** 10 (target: 15)
+- **Problems:** 2,440 (874 Easy · 1,081 Medium · 485 Hard) — ✅ target exceeded
+- **Categories:** 15 — ✅
+- **Learning paths:** 24 — ✅
 - **Light mode:** ✅ Working
 - **Dark mode:** ✅ Working
 - **Pyodide execution:** ✅ Working
-- **Learning paths:** 4 basic (target: 20+)
-- **Contests:** ❌ Not built
-- **Leaderboard:** ❌ Not built
-- **Projects:** ❌ Not built
-- **Discuss:** ❌ Not built
-- **Study assistant:** ❌ Not built
-- **Collections:** ❌ Not built
-- **Interview prep:** ❌ Not built
-- **Pen-and-paper:** ❌ Not built
+- **Contests:** ✅ 8 timed contests
+- **Leaderboard:** ✅ Local, Flame Score + streaks + username
+- **Projects:** ✅ 5 labs · 36 steps
+- **Discuss:** ✅ Per-problem threads (local)
+- **Study assistant:** ✅ 3-tier hints
+- **Collections:** ✅ 6 premade + user sets + shareable URLs
+- **Interview prep:** ✅ 4 timed tracks
+- **Pen-and-paper:** ✅ 60 no-code problems
+- **SEO:** ✅ Metadata, manifest, robots, sitemap
 
-**Next priority:** Add 1,950+ more problems, then build contests + leaderboard + projects.
+**Next priority:** deepen the thinner categories (95-problem Calculus/Statistics/Probability/NLP/Optimization), then a global accounts backend for cross-device progress and community features.

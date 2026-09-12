@@ -744,7 +744,7 @@ export const problems: Problem[] = [
   },
   {
     id: "cv-029",
-    title: "Standardization (Z-Score)",
+    title: "Standardization of Image Pixels",
     category: "Computer Vision",
     difficulty: "Medium",
     description:
@@ -770,7 +770,7 @@ export const problems: Problem[] = [
   },
   {
     id: "cv-030",
-    title: "Flood Fill",
+    title: "Flood Fill Region Replacement",
     category: "Computer Vision",
     difficulty: "Medium",
     description:

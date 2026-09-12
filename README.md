@@ -2,51 +2,122 @@
 
 > Forge your ML skills. Build from scratch.
 
-**by svx** · MIT Licensed · v1.0
+**by svx** · MIT Licensed
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-7FFF9F.svg?style=flat-square)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg?style=flat-square&logo=typescript)
 ![Pyodide](https://img.shields.io/badge/Pyodide-0.26-3776AB.svg?style=flat-square&logo=python)
-![Problems](https://img.shields.io/badge/Problems-50+-7FFF9F.svg?style=flat-square)
-![Categories](https://img.shields.io/badge/Categories-8-507aa4.svg?style=flat-square)
+![Problems](https://img.shields.io/badge/Problems-2%2C440-7FFF9F.svg?style=flat-square)
+![Categories](https://img.shields.io/badge/Categories-15-507aa4.svg?style=flat-square)
+![Learning paths](https://img.shields.io/badge/Learning%20paths-24-507aa4.svg?style=flat-square)
 
 ---
 
 ## What is DeepForge?
 
-A practice platform for machine learning, math, and engineering. Write Python from scratch — no sklearn, no torch, no shortcuts. Every function is one you implement yourself. Real Python execution in your browser via Pyodide. Instant feedback against test cases. Track your progress. All free.
+A practice platform for machine learning, math, and engineering. Write Python from scratch — no sklearn, no torch, no shortcuts. Every function is one you implement yourself. Real Python execution in your browser via Pyodide. Instant feedback against test cases. Progress saves locally, no account required. Free and open source.
 
 ## Why DeepForge over deep-ml?
 
 | Feature | Deep-ML | DeepForge |
 |---|---|---|
-| Problems | 1,200+ | 50+ (growing) |
-| Categories | 5 | 8 |
+| Problems | 1,200+ | 2,440 |
+| Categories | 5 | 15 |
+| Learning paths | Yes | 24 |
+| Projects (multi-step labs) | Yes | 5 labs · 36 steps |
+| Contests (timed) | Yes | 8 contests (10–60 min) |
+| Leaderboard | Yes (global) | Yes (local: Flame Score, streaks, username) |
+| Discuss / community | Yes (forum) | Yes (per-problem threads, local) |
+| Study assistant | Yes | Yes (3 progressive hint tiers per problem) |
+| Collections / playlists | Yes | 6 premade + user sets + shareable URLs |
+| Interview prep | Yes | 4 timed tracks |
+| Pen-and-paper math | Yes | 60 no-code problems |
 | In-browser execution | Yes | Yes (Pyodide) |
-| Design | Generic dark | svx design system |
 | Account required | No | No |
 | Open source | No | Yes (MIT) |
 | Mobile-friendly | Partial | Yes |
 
-## Categories
+Community features (leaderboard, discuss) are local-first today — a shared backend is on the roadmap.
 
-- **Linear Algebra** — Matrix operations, eigenvalues, SVD, projections
-- **Calculus** — Derivatives, gradients, Jacobians, Hessians
-- **Statistics** — Mean, variance, covariance, distributions
-- **Probability** — Bayes, expectation, counting
-- **ML Fundamentals** — Regression, trees, clustering, metrics
-- **Deep Learning** — Activations, forward pass, backprop
-- **NLP** — Tokenization, TF-IDF, cosine similarity
-- **Optimization** — Gradient descent, momentum, Adam
+## Categories (15)
+
+| Category | Problems | | Category | Problems |
+|---|---:|---|---|---:|
+| Algorithms | 260 | | Optimization | 95 |
+| ML Fundamentals | 225 | | NLP | 95 |
+| Data Structures | 220 | | Statistics | 95 |
+| Computer Vision | 215 | | Probability | 95 |
+| Linear Algebra | 185 | | Calculus | 95 |
+| Deep Learning | 185 | | Graph Algorithms | 135 |
+| Reinforcement Learning | 180 | | Information Theory | 180 |
+| Time Series | 180 | | **Total** | **2,440** |
+
+## Features
+
+- **Problems** — code editor, in-browser Pyodide execution, test cases, one-line hints, saved code per problem
+- **Paths** — 24 curated learning paths from math foundations to transformers, with estimated hours
+- **Projects** — 5 multi-step labs: GPT from scratch, neural network framework, search engine, recommender, CNN
+- **Contests** — 8 timed sets (10–60 min) with countdown, difficulty-weighted scoring, and local results
+- **Leaderboard** — Flame Score (Easy 1, Medium 3, Hard 5), solved count, current/longest streak, editable username
+- **Discuss** — per-problem comment threads with upvotes and code-friendly formatting (local)
+- **Study Assistant** — 3-tier progressive hints (nudge → approach → full solution), deterministic per problem
+- **Collections** — 6 premade sets plus user-created collections, shareable via encoded URL
+- **Interview Prep** — 4 timed tracks: FAANG ML, Quant, ML Engineer, Data Scientist
+- **Pen & Paper Math** — 60 no-code problems (multiple choice and numeric answers) with explanations
 
 ## Tech Stack
 
-- Next.js 16 + TypeScript
+- Next.js 16 + TypeScript 5 (App Router)
 - Tailwind CSS 4
-- Pyodide (in-browser Python execution)
-- Inter + JetBrains Mono fonts
-- Dark mode default (#0a0a0a canvas, #7FFF9F accent)
+- Pyodide v0.26 (in-browser Python, lazy-loaded)
+- next-themes (dark default, light toggle)
+- Inter + JetBrains Mono
+- SEO ready: metadata + OpenGraph, `manifest.ts`, `robots.ts`, `sitemap.ts`
+
+## Project Layout
+
+```
+src/
+├── app/                      # App Router: layout, page, globals.css, metadata, manifest, robots, sitemap
+├── components/               # Problems, Paths, Projects, Contests, Leaderboard, Discuss,
+│                             # StudyAssistant, Collections, InterviewPrep, PenPaper, ...
+├── data/
+│   ├── problems/
+│   │   ├── meta.ts           # 15 categories
+│   │   ├── paths.ts          # 24 learning paths
+│   │   ├── index.ts          # aggregates all 2,440 problems (PROBLEMS, CATEGORIES)
+│   │   └── <category>/       # part-NN.ts problem files + per-category index.ts aggregator
+│   ├── contests.ts           # 8 timed contests
+│   ├── projects.ts           # 5 labs · 36 steps
+│   ├── interview.ts          # 4 interview tracks
+│   ├── penpaper.ts           # 60 no-code problems
+│   └── collections.ts        # 6 premade collections
+├── lib/                      # localStorage stores + Pyodide runner
+│   ├── pyodide.ts            # loader + code execution
+│   ├── progress.ts           # solved state + saved code
+│   ├── leaderboard.ts        # Flame Score, streaks, username
+│   ├── comments.ts           # Discuss threads
+│   ├── hints.ts              # 3-tier hints
+│   ├── collections.ts        # user sets + URL encode/decode
+│   ├── contestStore.ts       # contest results
+│   ├── interview.ts          # interview results
+│   └── projects.ts           # project step progress
+└── types/problem.ts          # Problem, TestCase, Category, LearningPath types
+scripts/
+└── verify-problems.ts        # runs every solution in real Python
+```
+
+## Verification
+
+```bash
+bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 2,440 solutions
+bunx tsc --noEmit                    # types
+bun run lint                         # ESLint
+bun run build                        # production build
+```
+
+The verifier executes every solution in real Python with the same deep-equality semantics as the browser harness (1e-6 tolerance).
 
 ## Quick Start
 
@@ -67,13 +138,7 @@ MIT — see [LICENSE](./LICENSE).
 
 ## For AI Agents
 
-If you're an AI agent working on DeepForge:
-
-1. **Read [`AGENT_CONTEXT.md`](./AGENT_CONTEXT.md)** — complete context, goals, design system, and instructions
-2. **Run `./agent-quickstart.sh`** — verifies environment is ready
-3. **Follow the design system** — dark/light mode, Inter font, no noise, minimal x.ai style
-4. **Commit incrementally** — small commits, clear messages
-
-### Current Priority: Add 1,950+ more problems to reach 2,000+ total (surpassing deep-ml's 1,200+)
-
-See `AGENT_CONTEXT.md` for the full roadmap and problem generation guidelines.
+1. Read [`AGENT_CONTEXT.md`](./AGENT_CONTEXT.md) — master context, design system, problem format, roadmap
+2. Run `./agent-quickstart.sh` to verify the environment
+3. Follow the design system — dark/light mode, Inter, no noise
+4. Verify before finishing: `bun run scripts/verify-problems.ts`, `bunx tsc --noEmit`, `bun run lint`, `bun run build`

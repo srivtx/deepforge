@@ -164,7 +164,11 @@ export function PenPaper() {
         </p>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-1.5">
+      <div
+        className="mb-4 flex flex-wrap gap-1.5"
+        role="group"
+        aria-label="Filter problems by category"
+      >
         <button
           type="button"
           aria-pressed={activeCategory === null}

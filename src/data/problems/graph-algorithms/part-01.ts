@@ -411,7 +411,7 @@ export const problems: Problem[] = [
   },
   {
     id: "graph-014",
-    title: "Number of Islands",
+    title: "Number of Islands via Graph Traversal",
     category: "Graph Algorithms",
     difficulty: "Easy",
     description:

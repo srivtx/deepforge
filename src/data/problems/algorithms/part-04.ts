@@ -1268,7 +1268,7 @@ def reorganize_string(s):
   },
   {
     id: "al-169",
-    title: "Remove K Digits",
+    title: "Smallest Number After Removing K Digits",
     category: "Algorithms",
     difficulty: "Hard",
     description:

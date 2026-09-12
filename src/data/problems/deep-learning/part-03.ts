@@ -686,7 +686,7 @@ def top_p_filter(logits, p):
   },
   {
     id: "dl-079",
-    title: "Repetition Penalty",
+    title: "CTRL-Style Repetition Penalty",
     category: "Deep Learning",
     difficulty: "Medium",
     description:
@@ -803,7 +803,7 @@ def distillation_kl(student_logits, teacher_logits, temperature):
   },
   {
     id: "dl-083",
-    title: "Mixup Loss",
+    title: "Mixup Loss from Logits",
     category: "Deep Learning",
     difficulty: "Medium",
     description:
@@ -893,7 +893,7 @@ def mixup_loss(logits, y_a, y_b, lam):
   },
   {
     id: "dl-086",
-    title: "Expected Calibration Error",
+    title: "Expected Calibration Error for Confidence Scores",
     category: "Deep Learning",
     difficulty: "Medium",
     description:
@@ -1091,7 +1091,7 @@ def spectral_norm_step(W, u, v):
   },
   {
     id: "dl-091",
-    title: "Transformer Block Parameter Count",
+    title: "Transformer Encoder Block Parameter Count",
     category: "Deep Learning",
     difficulty: "Hard",
     description:
@@ -1114,7 +1114,7 @@ def spectral_norm_step(W, u, v):
   },
   {
     id: "dl-092",
-    title: "Multi-Head Attention Parameter Count",
+    title: "Multi-Head Attention Parameter Count with Bias",
     category: "Deep Learning",
     difficulty: "Hard",
     description:

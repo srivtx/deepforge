@@ -108,7 +108,7 @@ def binary_entropy(p):
   },
   {
     id: "info-005",
-    title: "Joint Entropy",
+    title: "Joint Entropy of a Distribution",
     category: "Information Theory",
     difficulty: "Easy",
     description:

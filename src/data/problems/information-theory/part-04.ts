@@ -410,7 +410,7 @@ def index_of_coincidence(text):
   },
   {
     id: "info-148",
-    title: "Inverse Permutation",
+    title: "Inverse Permutation for Cipher Decoding",
     category: "Information Theory",
     difficulty: "Easy",
     description:

@@ -341,7 +341,7 @@ def statistical_power(n, delta, sigma, z_alpha):
   },
   {
     id: "ml-194",
-    title: "Simpson's Paradox Check",
+    title: "Simpson's Paradox Across Subgroups",
     category: "ML Fundamentals",
     difficulty: "Medium",
     description:

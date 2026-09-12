@@ -278,7 +278,7 @@ export const problems: Problem[] = [
   },
   {
     id: "la-153",
-    title: "Inverse Permutation",
+    title: "Inverse Permutation of Indices",
     category: "Linear Algebra",
     difficulty: "Easy",
     description:

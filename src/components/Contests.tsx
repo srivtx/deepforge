@@ -55,6 +55,8 @@ export function Contests() {
   const startAtRef = useRef(0);
   const endAtRef = useRef(0);
   const finishingRef = useRef(false);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const problemMap = useMemo(
     () => new Map(PROBLEMS.map((p) => [p.id, p])),
@@ -101,6 +103,23 @@ export function Contests() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [activeContest, activeProblem]);
+
+  // Focus the overlay while it is open, lock background scroll, and hand
+  // focus back to the trigger when it closes.
+  useEffect(() => {
+    if (!activeContest) return;
+    returnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    overlayRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      returnFocusRef.current?.focus();
+    };
+  }, [activeContest]);
 
   const startContest = (contest: Contest) => {
     const now = Date.now();
@@ -185,6 +204,7 @@ export function Contests() {
                     problems
                   </span>
                   <button
+                    type="button"
                     onClick={() => startContest(contest)}
                     className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
                   >
@@ -199,7 +219,9 @@ export function Contests() {
 
       {activeContest && (
         <div
-          className="df-fade-in fixed inset-0 z-40 flex items-center justify-center bg-canvas/80 p-3 backdrop-blur-sm sm:p-6"
+          ref={overlayRef}
+          tabIndex={-1}
+          className="df-fade-in fixed inset-0 z-40 flex items-center justify-center bg-canvas/80 p-3 backdrop-blur-sm outline-none sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Contest: ${activeContest.title}`}
@@ -225,6 +247,7 @@ export function Contests() {
               </span>
               {!summary && (
                 <button
+                  type="button"
                   onClick={() => finishContest("manual")}
                   className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
                 >
@@ -266,6 +289,7 @@ export function Contests() {
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={closeOverlay}
                       className="mt-5 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
                     >
@@ -282,6 +306,7 @@ export function Contests() {
                     return (
                       <button
                         key={id}
+                        type="button"
                         onClick={() => setActiveProblem(problem)}
                         className="flex w-full items-center gap-3 rounded-lg border border-hairline bg-canvas-card px-3 py-2.5 text-left transition-colors hover:bg-canvas-soft"
                       >

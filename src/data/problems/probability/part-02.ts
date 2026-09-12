@@ -3,7 +3,7 @@ import type { Problem } from "@/types/problem";
 export const problems: Problem[] = [
   {
     id: "pr-006",
-    title: "Factorial",
+    title: "Factorial for Counting Outcomes",
     category: "Probability",
     difficulty: "Easy",
     description:

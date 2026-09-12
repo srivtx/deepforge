@@ -1166,7 +1166,7 @@ export const problems: Problem[] = [
   },
   {
     id: "cv-121",
-    title: "Joint Entropy",
+    title: "Joint Entropy of Image Pairs",
     category: "Computer Vision",
     difficulty: "Hard",
     description:

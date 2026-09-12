@@ -557,7 +557,7 @@ export const problems: Problem[] = [
   },
   {
     id: "cv-195",
-    title: "Hard Negative Mining",
+    title: "Hard Negative Mining by Loss Ratio",
     category: "Computer Vision",
     difficulty: "Medium",
     description:

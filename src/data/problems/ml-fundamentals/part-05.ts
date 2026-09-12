@@ -1066,7 +1066,7 @@ def label_smoothed_cross_entropy(y_true, probs, epsilon):
   },
   {
     id: "ml-167",
-    title: "Mixup Loss",
+    title: "Mixup Loss on Mixed Probabilities",
     category: "ML Fundamentals",
     difficulty: "Medium",
     description:
@@ -1175,7 +1175,7 @@ def distillation_loss(student_logits, teacher_logits, temperature):
   },
   {
     id: "ml-171",
-    title: "Hard Negative Mining",
+    title: "Hard Negative Mining by Distance",
     category: "ML Fundamentals",
     difficulty: "Easy",
     description:

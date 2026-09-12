@@ -69,7 +69,7 @@ export const problems: Problem[] = [
   },
   {
     id: "op-054",
-    title: "Conjugate Gradient One Step",
+    title: "Conjugate Gradient Step on a Quadratic",
     category: "Optimization",
     difficulty: "Medium",
     description:

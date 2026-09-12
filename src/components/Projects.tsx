@@ -81,7 +81,14 @@ function ProjectCard({
           </span>
         </div>
         <div className="mt-4 flex items-center gap-3">
-          <div className="h-1 flex-1 overflow-hidden rounded-full bg-canvas-soft">
+          <div
+            className="h-1 flex-1 overflow-hidden rounded-full bg-canvas-soft"
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${project.title} progress`}
+          >
             <div
               className="h-full bg-accent transition-all"
               style={{ width: `${pct}%` }}

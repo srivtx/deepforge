@@ -141,6 +141,7 @@ export function Leaderboard() {
             <button
               type="button"
               onClick={startEditing}
+              aria-label={`Edit display name, currently ${board.name}`}
               className="rounded-md text-sm font-medium text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
             >
               {board.name}
@@ -158,7 +159,10 @@ export function Leaderboard() {
       </div>
 
       <div className="overflow-hidden rounded-lg border border-hairline bg-canvas-card">
-        <table className="w-full table-fixed border-collapse text-left text-sm sm:table-auto">
+        <table
+          aria-label="Leaderboard"
+          className="w-full table-fixed border-collapse text-left text-sm sm:table-auto"
+        >
           <thead>
             <tr className="border-b border-hairline">
               <th

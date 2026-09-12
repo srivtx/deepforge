@@ -90,6 +90,8 @@ export function Collections() {
   const [activeProblem, setActiveProblem] = useState<Problem | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const copiedTimer = useRef<number | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const [sharedIds, setSharedIds] = useState<string[] | null>(null);
   const [sharedImported, setSharedImported] = useState(false);
@@ -134,10 +136,16 @@ export function Collections() {
 
   useEffect(() => {
     if (!openCollection) return;
+    returnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    overlayRef.current?.focus();
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
+      returnFocusRef.current?.focus();
     };
   }, [openCollection]);
 
@@ -476,6 +484,7 @@ export function Collections() {
               value={pickerQuery}
               onChange={(e) => setPickerQuery(e.target.value)}
               placeholder="Search by title or id…"
+              aria-label="Search problems by title or id"
               className="w-full rounded-lg border border-hairline bg-canvas px-3 py-2 text-sm text-ink placeholder:text-mute focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30"
             />
 
@@ -584,7 +593,9 @@ export function Collections() {
 
       {openCollection && (
         <div
-          className="df-fade-in fixed inset-0 z-40 flex items-stretch justify-center bg-canvas/80 backdrop-blur-sm sm:items-center sm:p-6"
+          ref={overlayRef}
+          tabIndex={-1}
+          className="df-fade-in fixed inset-0 z-40 flex items-stretch justify-center bg-canvas/80 backdrop-blur-sm outline-none sm:items-center sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Collection: ${openCollection.name}`}

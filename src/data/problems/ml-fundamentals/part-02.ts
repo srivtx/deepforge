@@ -213,7 +213,7 @@ def binary_cross_entropy(y_true, y_pred):
   },
   {
     id: "ml-018",
-    title: "Mean Absolute Error",
+    title: "Mean Absolute Error for Regression",
     category: "ML Fundamentals",
     difficulty: "Easy",
     description:
@@ -235,7 +235,7 @@ def binary_cross_entropy(y_true, y_pred):
   },
   {
     id: "ml-019",
-    title: "Root Mean Squared Error",
+    title: "Root Mean Squared Error for Regression",
     category: "ML Fundamentals",
     difficulty: "Easy",
     description:
@@ -337,7 +337,7 @@ def shuffled_split_indices(n, test_fraction, seed):
   },
   {
     id: "ml-023",
-    title: "Standardization (Z-Score)",
+    title: "Standardization of Feature Values",
     category: "ML Fundamentals",
     difficulty: "Easy",
     description:
@@ -998,7 +998,7 @@ def bagging_feature_subset(n_features, k, seed):
   },
   {
     id: "ml-046",
-    title: "Cosine Similarity",
+    title: "Cosine Similarity of Feature Vectors",
     category: "ML Fundamentals",
     difficulty: "Easy",
     description:

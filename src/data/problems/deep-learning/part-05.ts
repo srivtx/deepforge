@@ -110,7 +110,7 @@ export const problems: Problem[] = [
   },
   {
     id: "dl-146",
-    title: "Reward Normalization",
+    title: "Reward Z-Score Normalization",
     category: "Deep Learning",
     difficulty: "Easy",
     description:
