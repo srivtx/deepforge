@@ -8,7 +8,7 @@
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg?style=flat-square&logo=typescript)
 ![Pyodide](https://img.shields.io/badge/Pyodide-0.26-3776AB.svg?style=flat-square&logo=python)
-![Problems](https://img.shields.io/badge/Problems-5%2C005-7FFF9F.svg?style=flat-square)
+![Problems](https://img.shields.io/badge/Problems-5%2C050-7FFF9F.svg?style=flat-square)
 ![Categories](https://img.shields.io/badge/Categories-15-507aa4.svg?style=flat-square)
 ![Learning paths](https://img.shields.io/badge/Learning%20paths-24-507aa4.svg?style=flat-square)
 
@@ -22,7 +22,7 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 
 | Feature | Deep-ML | DeepForge |
 |---|---|---|
-| Problems | 1,200+ | 5,005 (every solution Python-verified) |
+| Problems | 1,200+ | 5,050 (every solution Python-verified) |
 | Categories | 5 | 15 |
 | Learning paths | Yes | 24 |
 | Projects | Yes | 5 projects · 36 steps |
@@ -57,12 +57,12 @@ Community features (leaderboard, discuss) are local-first today — a shared bac
 |---|---:|---|---|---:|
 | Algorithms | 395 | | Optimization | 275 |
 | ML Fundamentals | 360 | | NLP | 320 |
-| Data Structures | 355 | | Statistics | 275 |
+| Data Structures | 355 | | Statistics | 320 |
 | Computer Vision | 395 | | Probability | 320 |
 | Linear Algebra | 275 | | Calculus | 275 |
 | Deep Learning | 455 | | Graph Algorithms | 315 |
 | Reinforcement Learning | 360 | | Information Theory | 315 |
-| Time Series | 315 | | **Total** | **5,005** |
+| Time Series | 315 | | **Total** | **5,050** |
 
 ## Features
 
@@ -110,7 +110,7 @@ src/
 │   ├── problems/
 │   │   ├── meta.ts           # 15 categories
 │   │   ├── paths.ts          # 24 learning paths
-│   │   ├── index.ts          # aggregates all 5,005 problems (PROBLEMS, CATEGORIES)
+│   │   ├── index.ts          # aggregates all 5,050 problems (PROBLEMS, CATEGORIES)
 │   │   └── <category>/       # part-NN.ts problem files + per-category index.ts aggregator
 │   ├── contests.ts           # 8 timed contests
 │   ├── projects.ts           # 5 labs · 36 steps
@@ -135,7 +135,7 @@ scripts/
 ## Verification
 
 ```bash
-bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 5,005 solutions
+bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 5,050 solutions
 bunx tsc --noEmit                    # types
 bun run lint                         # ESLint
 bun run build                        # production build
