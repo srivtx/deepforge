@@ -8,7 +8,7 @@
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg?style=flat-square&logo=typescript)
 ![Pyodide](https://img.shields.io/badge/Pyodide-0.26-3776AB.svg?style=flat-square&logo=python)
-![Problems](https://img.shields.io/badge/Problems-2%2C440-7FFF9F.svg?style=flat-square)
+![Problems](https://img.shields.io/badge/Problems-4%2C915-7FFF9F.svg?style=flat-square)
 ![Categories](https://img.shields.io/badge/Categories-15-507aa4.svg?style=flat-square)
 ![Learning paths](https://img.shields.io/badge/Learning%20paths-24-507aa4.svg?style=flat-square)
 
@@ -22,18 +22,29 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 
 | Feature | Deep-ML | DeepForge |
 |---|---|---|
-| Problems | 1,200+ | 4,825 |
+| Problems | 1,200+ | 4,915 (every solution Python-verified) |
 | Categories | 5 | 15 |
 | Learning paths | Yes | 24 |
-| Projects (multi-step labs) | Yes | 5 labs · 36 steps |
-| Contests (timed) | Yes | 8 contests (10–60 min) |
-| Leaderboard | Yes (global) | Yes (local: Flame Score, streaks, username) |
-| Discuss / community | Yes (forum) | Yes (per-problem threads, local) |
-| Study assistant | Yes | Yes (3 progressive hint tiers per problem) |
-| Collections / playlists | Yes | 6 premade + user sets + shareable URLs |
-| Interview prep | Yes | 4 timed tracks |
-| Pen-and-paper math | Yes | 60 no-code problems |
-| In-browser execution | Yes | Yes (Pyodide) |
+| Projects | Yes | 5 projects · 36 steps |
+| Labs (dataset + metric) | Yes (42) | Yes (8, fully in-browser) |
+| Research (beat the baseline) | Yes | Yes (5 hidden-test benchmarks) |
+| Contests (timed) | Yes (live) | 12 contests + Speedrun mode |
+| Speedrun / ghost races | No | Yes (seeded run codes) |
+| Leaderboard | Yes (global) | Yes (local + stats dashboard) |
+| Discuss / community | Yes (forum) | Yes (forum, threads, upvotes) |
+| Study assistant | Yes (Zero) | Yes (Zero: 6 intents, code-aware, offline) |
+| Collections / playlists | Yes | 24 collections + user sets + shareable playlists |
+| Interview prep | Yes (13 tracks) | Yes (13 company tracks + timed mocks) |
+| Pen-and-paper math | Yes | 60 problems + mastery/SM-2 review |
+| Interactive articles | Yes (2) | Yes (5 with live demos) |
+| Sims | No | Yes (optimizer race, NN trainer, Dijkstra) |
+| Notebook mode | Yes | Yes (per-cell execution, run-all) |
+| Submit a problem | Yes | Yes (local validation, TS export) |
+| Badges / XP / quests | Yes | Yes (24 badges, XP, heatmap, daily quests) |
+| Certificates | No | Yes (print + PNG) |
+| In-browser execution | Yes | Yes (Pyodide + notebook + labs + research) |
+| PWA / offline | No | Yes (service worker, installable) |
+| SEO problem pages | 1,380 | 4,915 statically generated + OG images |
 | Account required | No | No |
 | Open source | No | Yes (MIT) |
 | Mobile-friendly | Partial | Yes |
@@ -45,13 +56,13 @@ Community features (leaderboard, discuss) are local-first today — a shared bac
 | Category | Problems | | Category | Problems |
 |---|---:|---|---|---:|
 | Algorithms | 395 | | Optimization | 275 |
-| ML Fundamentals | 315 | | NLP | 320 |
+| ML Fundamentals | 360 | | NLP | 320 |
 | Data Structures | 355 | | Statistics | 275 |
 | Computer Vision | 350 | | Probability | 275 |
 | Linear Algebra | 275 | | Calculus | 275 |
 | Deep Learning | 455 | | Graph Algorithms | 315 |
-| Reinforcement Learning | 315 | | Information Theory | 315 |
-| Time Series | 315 | | **Total** | **4,825** |
+| Reinforcement Learning | 360 | | Information Theory | 315 |
+| Time Series | 315 | | **Total** | **4,915** |
 
 ## Features
 
@@ -99,7 +110,7 @@ src/
 │   ├── problems/
 │   │   ├── meta.ts           # 15 categories
 │   │   ├── paths.ts          # 24 learning paths
-│   │   ├── index.ts          # aggregates all 4,825 problems (PROBLEMS, CATEGORIES)
+│   │   ├── index.ts          # aggregates all 4,915 problems (PROBLEMS, CATEGORIES)
 │   │   └── <category>/       # part-NN.ts problem files + per-category index.ts aggregator
 │   ├── contests.ts           # 8 timed contests
 │   ├── projects.ts           # 5 labs · 36 steps
@@ -124,7 +135,7 @@ scripts/
 ## Verification
 
 ```bash
-bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 4,825 solutions
+bun run scripts/verify-problems.ts   # structural checks + real-Python execution of all 4,915 solutions
 bunx tsc --noEmit                    # types
 bun run lint                         # ESLint
 bun run build                        # production build
