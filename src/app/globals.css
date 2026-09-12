@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+/* ────────────────────────────────────────────────────────────────────────
+   DeepForge design tokens — dark, minimal, x.ai-inspired.
+   Canvas #0a0a0a, phosphor green accent #7FFF9F.
+   Inter for everything, JetBrains Mono for code only.
+   No noise. No uppercase eyebrows. No "//" markers. No ee-mono class.
+   ──────────────────────────────────────────────────────────────────────── */
+
+@theme inline {
+  /* Font aliases — next/font/google sets --font-inter and --font-jetbrains
+     on <body>. We expose them as Tailwind font tokens so utilities like
+     `font-sans` and `font-mono` resolve to the next/font value. */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+
+  /* Color tokens — these generate utilities like `bg-canvas`, `text-accent`,
+     `border-hairline`. */
+  --color-canvas: var(--canvas);
+  --color-canvas-card: var(--canvas-card);
+  --color-canvas-soft: var(--canvas-soft);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-body: var(--body);
+  --color-body-mid: var(--body-mid);
+  --color-mute: var(--mute);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
+
+  /* Radius — single 8px corner for everything. */
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+}
+
+/* ── Dark mode (DEFAULT — no light mode in v1) ── */
+:root {
+  color-scheme: dark;
+  --radius: 8px;
+
+  /* Font CSS variables. The fonts are loaded by next/font/google in
+     layout.tsx, which injects the @font-face rules and sets
+     --font-inter / --font-jetbrains on <body>. We use literal family
+     names here because custom-property inheritance resolves at :root
+     scope, where the body-scoped next/font vars are not yet visible —
+     referencing them here would make --font-sans invalid at :root. The
+     @font-face rules next/font injects make 'Inter' / 'JetBrains Mono'
+     resolvable as literal family names. */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Canvas — near-black with the slightest warm tint. */
+  --canvas:          #0a0a0a;
+  --canvas-card:     #111111;
+  --canvas-soft:     #161616;
+  --hairline:        #1f1f1f;
+
+  /* Ink + body text. */
+  --ink:             #ffffff;
+  --body:            #d4d4d4;
+  --body-mid:        #8b8b8b;
+  --mute:            #5a5a5a;
+
+  /* Accent — phosphor grass green. */
+  --accent:          #7FFF9F;
+  --accent-soft:     #2d5a3a;
+
+  /* Status colors. */
+  --success:         #7FFF9F;
+  --warning:         #FFB347;
+  --error:           #FF6B6B;
+  --info:            #A0C3EC;
+}
+
+@layer base {
+  * {
+    border-color: var(--hairline);
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background-color: rgba(127, 255, 159, 0.25);
+    color: var(--ink);
+  }
+}
+
+/* ── Custom scrollbar for long lists ── */
+.df-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.df-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.df-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--hairline);
+  border-radius: 8px;
+}
+.df-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent-soft);
+}
+
+/* ── Code editor textarea ── */
+.df-code-editor {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 4;
+}
+
+/* ── Subtle fade-in for the problem overlay ── */
+@keyframes df-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes df-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.df-fade-in {
+  animation: df-fade-in 0.18s ease-out;
+}
+.df-slide-up {
+  animation: df-slide-up 0.22s ease-out;
+}
+
+/* ── Spinner ── */
+@keyframes df-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.df-spin {
+  animation: df-spin 0.8s linear infinite;
+}
+
+/* ── Subtle accent dot pulse for the hero ── */
+@keyframes df-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+.df-pulse {
+  animation: df-pulse 2.4s ease-in-out infinite;
+}
