@@ -106,6 +106,35 @@ const jsonLd = {
   ],
 };
 
+const DEV_CACHE_RESET_SCRIPT = `(function(){
+  try {
+    var host = location.hostname;
+    var isLocal = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
+    if (!isLocal) return;
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.getRegistrations().then(function(registrations){
+      if (!registrations.length) return;
+      var controlled = !!navigator.serviceWorker.controller;
+      Promise.all(registrations.map(function(reg){ return reg.unregister(); })).then(function(){
+        var clear = window.caches && caches.keys
+          ? caches.keys().then(function(keys){
+              return Promise.all(
+                keys.filter(function(k){ return k.indexOf("deepforge-") === 0; })
+                    .map(function(k){ return caches.delete(k); })
+              );
+            })
+          : Promise.resolve();
+        clear.catch(function(){}).then(function(){
+          if (controlled && !sessionStorage.getItem("df-dev-sw-reset")) {
+            sessionStorage.setItem("df-dev-sw-reset", "1");
+            location.reload();
+          }
+        });
+      });
+    }).catch(function(){});
+  } catch (error) {}
+})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -116,6 +145,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased bg-canvas text-ink`}
       >
+        <script dangerouslySetInnerHTML={{ __html: DEV_CACHE_RESET_SCRIPT }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
