@@ -1,5 +1,11 @@
 import type { Trait } from "../types";
 
+function sparkPath(cx: number, cy: number, s: number): string {
+  const w = s * 0.18;
+  const k = s * 0.72;
+  return `M ${cx} ${cy - s} Q ${cx + w} ${cy - w} ${cx + k} ${cy} Q ${cx + w} ${cy + w} ${cx} ${cy + s} Q ${cx - w} ${cy + w} ${cx - k} ${cy} Q ${cx - w} ${cy - w} ${cx} ${cy - s} Z`;
+}
+
 /** Accessories: neck/jaw area, above clothing. */
 export const ACCESSORY_TRAITS: Trait[] = [
   {
@@ -648,6 +654,163 @@ export const ACCESSORY_TRAITS: Trait[] = [
           opacity={0.4}
         />
         <circle cx={46.4} cy={71.4} r={0.8} fill={p.light} opacity={0.85} />
+      </>
+    ),
+  },
+  {
+    id: "iced-chain",
+    name: "Iced Chain",
+    weight: 2,
+    render: (p, uid) => (
+      <>
+        <defs>
+          <linearGradient id={`acc-iced-link-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#ffffff" />
+            <stop offset="0.45" stopColor="#c9f0ff" />
+            <stop offset="1" stopColor="#7cc4e8" />
+          </linearGradient>
+          <linearGradient id={`acc-iced-gem-${uid}`} x1="0" y1="0" x2="0.5" y2="1">
+            <stop offset="0" stopColor="#ffffff" />
+            <stop offset="0.5" stopColor="#bdeeff" />
+            <stop offset="1" stopColor="#4a9fca" />
+          </linearGradient>
+        </defs>
+        <path d="M27 66.5 Q48 86.5 69 66.5" fill="none" stroke={p.ink} strokeWidth="5.8" opacity="0.3" />
+        {Array.from({ length: 11 }, (_, i) => {
+          const t = (i + 0.5) / 11;
+          const x = 27 + 42 * t;
+          const y = 66.5 + 40 * t * (1 - t);
+          return (
+            <g key={`link-${i}`}>
+              <path
+                d={`M${x.toFixed(2)} ${(y - 2.7).toFixed(2)} L${(x + 2.7).toFixed(2)} ${y.toFixed(2)} L${x.toFixed(2)} ${(y + 2.7).toFixed(2)} L${(x - 2.7).toFixed(2)} ${y.toFixed(2)} Z`}
+                fill={`url(#acc-iced-link-${uid})`}
+                stroke={p.ink}
+                strokeWidth={1.1}
+                strokeLinejoin="round"
+              />
+              <path
+                d={`M${x.toFixed(2)} ${(y - 1.5).toFixed(2)} L${(x + 1.5).toFixed(2)} ${y.toFixed(2)} L${x.toFixed(2)} ${(y + 1.5).toFixed(2)} L${(x - 1.5).toFixed(2)} ${y.toFixed(2)} Z`}
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth={0.7}
+                opacity={0.9}
+              />
+            </g>
+          );
+        })}
+        <path
+          d="M48 74.5 L53.5 80.5 L48 87 L42.5 80.5 Z"
+          fill={`url(#acc-iced-gem-${uid})`}
+          stroke={p.ink}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path d="M42.5 80.5 H53.5 M48 74.5 V87 M45.2 77.5 L50.8 83.5 M50.8 77.5 L45.2 83.5" fill="none" stroke={p.ink} strokeWidth="0.7" opacity="0.4" />
+        <path d="M45.8 76.6 L47.6 78.2" stroke="#ffffff" strokeWidth="1" opacity="0.95" strokeLinecap="round" />
+        <path d={sparkPath(44.2, 78.6, 2.2)} fill="#ffffff" />
+        <path d={sparkPath(54.4, 83.4, 1.8)} fill="#ffffff" opacity="0.9" />
+        <path d={sparkPath(33.2, 70.4, 1.6)} fill={p.light} opacity="0.9" />
+        <path d={sparkPath(62.8, 70.2, 1.5)} fill="#ffffff" opacity="0.85" />
+        <circle cx={51.2} cy={76.2} r={0.7} fill="#ffffff" opacity="0.9" />
+        <circle cx={39.4} cy={73.8} r={0.7} fill={p.light} opacity="0.85" />
+        <circle cx={57.6} cy={74.8} r={0.6} fill={p.light} opacity="0.85" />
+      </>
+    ),
+  },
+  {
+    id: "pixel-shades",
+    name: "Pixel Shades",
+    weight: 3,
+    render: (p, uid) => (
+      <>
+        <defs>
+          <linearGradient id={`acc-shades-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#2a2a36" />
+            <stop offset="0.5" stopColor="#0c0c14" />
+            <stop offset="1" stopColor="#020207" />
+          </linearGradient>
+        </defs>
+        <path d="M30 43.5 H23.2 M66 43.5 H72.8" stroke={p.ink} strokeWidth="2.4" strokeLinecap="square" />
+        <path d="M30.5 42.5 H45.5 V51.5 H30.5 Z" fill={`url(#acc-shades-${uid})`} stroke={p.ink} strokeWidth="1.4" strokeLinejoin="round" />
+        <path d="M50.5 42.5 H65.5 V51.5 H50.5 Z" fill={`url(#acc-shades-${uid})`} stroke={p.ink} strokeWidth="1.4" strokeLinejoin="round" />
+        <rect x={45.5} y={44.6} width={5} height={2.4} fill={p.ink} />
+        <path d="M30.5 43 H45.5 M50.5 43 H65.5" stroke="#5a5a6e" strokeWidth="0.7" opacity="0.55" />
+        <path d="M32.5 50 H43.5 M52.5 50 H63.5" stroke={p.light} strokeWidth="0.7" opacity="0.25" />
+        <rect x={33} y={44.8} width={2.2} height={2.2} fill="#ffffff" opacity="0.92" />
+        <rect x={53} y={44.8} width={1.4} height={1.4} fill="#ffffff" opacity="0.5" />
+        <path d="M30.5 42.5 L30.5 43.5 M45.5 42.5 L45.5 43.5 M50.5 42.5 L50.5 43.5 M65.5 42.5 L65.5 43.5" stroke={p.ink} strokeWidth="0.8" opacity="0.6" />
+      </>
+    ),
+  },
+  {
+    id: "gas-mask",
+    name: "Gas Mask",
+    weight: 2,
+    render: (p, uid) => (
+      <>
+        <defs>
+          <linearGradient id={`acc-gas-body-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={p.bg[1]} />
+            <stop offset="0.45" stopColor={p.ink} />
+            <stop offset="1" stopColor="#05060a" />
+          </linearGradient>
+          <linearGradient id={`acc-gas-filter-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={p.accent} />
+            <stop offset="0.5" stopColor={p.ink} />
+            <stop offset="1" stopColor="#05060a" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M34 56 L24.5 50.5 M62 56 L71.5 50.5"
+          fill="none"
+          stroke={p.ink}
+          strokeWidth="3.4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M34 56 L24.5 50.5 M62 56 L71.5 50.5"
+          fill="none"
+          stroke={p.light}
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          opacity="0.4"
+        />
+        <g transform="rotate(-18 27 63.5)">
+          <rect x={20.5} y={58} width={11.5} height={11} rx={2.8} fill={`url(#acc-gas-filter-${uid})`} stroke={p.ink} strokeWidth="1.8" />
+          <rect x={22.6} y={60.2} width={7.3} height={6.6} rx={1.7} fill={p.ink} opacity="0.7" />
+          <path d="M22.6 61.4 H29.9 M22.6 63.5 H29.9 M22.6 65.6 H29.9" stroke={p.light} strokeWidth="0.6" opacity="0.4" />
+          <circle cx={26.2} cy={61.8} r={0.8} fill={p.light} opacity="0.55" />
+        </g>
+        <g transform="rotate(18 69 63.5)">
+          <rect x={64} y={58} width={11.5} height={11} rx={2.8} fill={`url(#acc-gas-filter-${uid})`} stroke={p.ink} strokeWidth="1.8" />
+          <rect x={66.1} y={60.2} width={7.3} height={6.6} rx={1.7} fill={p.ink} opacity="0.7" />
+          <path d="M66.1 61.4 H73.4 M66.1 63.5 H73.4 M66.1 65.6 H73.4" stroke={p.light} strokeWidth="0.6" opacity="0.4" />
+          <circle cx={69.7} cy={61.8} r={0.8} fill={p.light} opacity="0.55" />
+        </g>
+        <path
+          d="M33 55.5 C33.5 53.5 62.5 53.5 63 55.5 C66.5 61 65 70 58.5 74 C53.5 77 42.5 77 37.5 74 C31 70 29.5 61 33 55.5 Z"
+          fill={`url(#acc-gas-body-${uid})`}
+          stroke={p.ink}
+          strokeWidth="2.2"
+          strokeLinejoin="round"
+        />
+        <path d="M34.5 56 C41 54.4 55 54.4 61.5 56" fill="none" stroke={p.light} strokeWidth="1.4" opacity="0.5" strokeLinecap="round" />
+        <circle cx={48} cy={66} r={4.6} fill="#10131c" stroke="#1d2130" strokeWidth="2" />
+        <circle cx={48} cy={66} r={3.4} fill="none" stroke={p.light} strokeWidth="0.9" opacity="0.5" />
+        <path d="M48 62.8 V69.2 M44.8 66 H51.2" stroke={p.light} strokeWidth="0.8" opacity="0.5" />
+        <path
+          d="M41.5 60.2 Q44.2 62.6 42.6 65.4 M54.5 60.2 Q51.8 62.6 53.4 65.4"
+          fill="none"
+          stroke={p.ink}
+          strokeWidth="1.2"
+          opacity="0.45"
+        />
+        <path d="M39 71.6 L42.4 70.4 M57 71.6 L53.6 70.4" fill="none" stroke={p.light} strokeWidth="1" opacity="0.4" strokeLinecap="round" />
+        <circle cx={35.5} cy={58.5} r={0.9} fill={p.light} opacity="0.5" />
+        <circle cx={60.5} cy={58.5} r={0.9} fill={p.light} opacity="0.5" />
+        <circle cx={33.5} cy={70} r={0.8} fill={p.light} opacity="0.35" />
+        <circle cx={62.5} cy={70} r={0.8} fill={p.light} opacity="0.35" />
       </>
     ),
   },

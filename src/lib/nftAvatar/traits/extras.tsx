@@ -6,6 +6,21 @@ function starPath(cx: number, cy: number, s: number): string {
   return `M ${cx} ${cy - k} Q ${cx + w} ${cy - w} ${cx + k} ${cy} Q ${cx + w} ${cy + w} ${cx} ${cy + k} Q ${cx - w} ${cy + w} ${cx - k} ${cy} Q ${cx - w} ${cy - w} ${cx} ${cy - k} Z`;
 }
 
+const RAINBOW_BANDS = ["#ff5a5a", "#ffb347", "#ffe066", "#6ee36e", "#41c7ff", "#b491ff"];
+
+const CONFETTI = [
+  { x: 14, y: 14, r: -24, c: "#ff5a5a", s: 3.4 },
+  { x: 82, y: 12, r: 32, c: "#ffe066", s: 3 },
+  { x: 9, y: 40, r: 12, c: "#41c7ff", s: 2.8 },
+  { x: 86, y: 38, r: -18, c: "#6ee36e", s: 3.2 },
+  { x: 26, y: 6, r: 48, c: "#b491ff", s: 2.6 },
+  { x: 69, y: 7, r: -40, c: "#ffb347", s: 3 },
+  { x: 13, y: 62, r: 20, c: "#ffe066", s: 2.6 },
+  { x: 84, y: 60, r: -26, c: "#ff5a5a", s: 2.8 },
+  { x: 33, y: 9, r: -10, c: "#6ee36e", s: 2.4 },
+  { x: 62, y: 11, r: 15, c: "#41c7ff", s: 2.4 },
+];
+
 /** Extras: topmost flourish layer. */
 export const EXTRA_TRAITS: Trait[] = [
   {
@@ -446,6 +461,203 @@ export const EXTRA_TRAITS: Trait[] = [
           <circle cx={67.5} cy={18} r={2.8} fill={p.accent} opacity={0.35} />
           <circle cx={67.5} cy={18} r={1.1} fill={p.light} />
         </g>
+      </>
+    ),
+  },
+  {
+    id: "rainbow-arc",
+    name: "Rainbow Arc",
+    weight: 2,
+    render: (p, uid) => (
+      <>
+        <defs>
+          <linearGradient id={`fx-arc-glow-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={p.light} stopOpacity="0.5" />
+            <stop offset="1" stopColor={p.accent} stopOpacity="0.1" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M16.25 40 A31.75 31.75 0 0 1 79.75 40"
+          fill="none"
+          stroke={`url(#fx-arc-glow-${uid})`}
+          strokeWidth="11"
+          strokeLinecap="round"
+          opacity="0.5"
+        />
+        <path
+          d="M17.5 40 A30.5 30.5 0 0 1 78.5 40"
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth="4"
+          strokeLinecap="round"
+          opacity="0.1"
+        />
+        {RAINBOW_BANDS.map((color, i) => {
+          const r = 32 - i * 1.9;
+          const dx = Math.sqrt(r * r - 16);
+          return (
+            <path
+              key={`arc-band-${i}`}
+              d={`M ${(48 - dx).toFixed(2)} 40 A ${r} ${r} 0 0 1 ${(48 + dx).toFixed(2)} 40`}
+              fill="none"
+              stroke={color}
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              opacity="0.82"
+            />
+          );
+        })}
+        <path d={starPath(48, 8, 2.6)} fill={p.light} />
+        <circle cx={16.8} cy={39.2} r={1.1} fill={p.light} opacity="0.9" />
+        <circle cx={79.2} cy={39.2} r={1.1} fill={p.light} opacity="0.9" />
+      </>
+    ),
+  },
+  {
+    id: "third-eye",
+    name: "Third Eye",
+    weight: 2,
+    render: (p, uid) => (
+      <>
+        <defs>
+          <radialGradient id={`fx-eye-aura-${uid}`} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={p.accent} stopOpacity="0.55" />
+            <stop offset="60%" stopColor={p.accent} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={p.accent} stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx={48} cy={34} r={9.5} fill={`url(#fx-eye-aura-${uid})`} />
+        <path d="M40.2 34 Q48 28 55.8 34 Q48 40 40.2 34 Z" fill={p.ink} stroke={p.ink} strokeWidth="1.7" strokeLinejoin="round" />
+        <path d="M41.6 34 Q48 29.2 54.4 34 Q48 38.8 41.6 34 Z" fill={p.light} opacity="0.9" />
+        <circle cx={48} cy={34} r={3} fill={p.accent} stroke={p.ink} strokeWidth="0.9" />
+        <circle cx={48} cy={34} r={1.25} fill={p.ink} />
+        <circle cx={46.9} cy={32.9} r={0.6} fill="#ffffff" />
+        <path
+          d="M48 27.2 V24.6 M42.3 28.8 L40.8 26.6 M53.7 28.8 L55.2 26.6"
+          stroke={p.light}
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          opacity="0.8"
+        />
+        <path d="M44 40.6 Q48 42.4 52 40.6" fill="none" stroke={p.accent} strokeWidth="1" opacity="0.5" strokeLinecap="round" />
+      </>
+    ),
+  },
+  {
+    id: "angel-wings",
+    name: "Angel Wings",
+    weight: 2,
+    render: (p, uid) => {
+      const wing = (
+        <g>
+          <path
+            d="M71 61.5 C76.5 58 83.2 57.8 86 60.6 C82.4 62.6 77 63.4 72.4 63.6 Z"
+            fill={`url(#fx-wing-${uid})`}
+            stroke={p.ink}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M70.6 65.1 C77.4 63.7 84.2 64.9 86 69 C81.2 70.2 75 69.4 70.8 67.4 Z"
+            fill={`url(#fx-wing-${uid})`}
+            stroke={p.ink}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M70 69.1 C76 69.5 81.3 72.5 82.8 77.4 C77.6 77.3 72.7 74 70 70.7 Z"
+            fill={`url(#fx-wing-${uid})`}
+            stroke={p.ink}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M72.4 62.5 L84.4 59.7 M71.6 66.1 L84.4 66.6 M71.4 70.1 L81.2 75.3"
+            fill="none"
+            stroke={p.ink}
+            strokeWidth="0.8"
+            opacity="0.35"
+          />
+          <ellipse cx={70.8} cy={63.9} rx={2.1} ry={4.1} fill={p.accent} opacity={0.85} stroke={p.ink} strokeWidth="1.2" />
+        </g>
+      );
+      return (
+        <>
+          <defs>
+            <linearGradient id={`fx-wing-${uid}`} x1="0" y1="0" x2="0.4" y2="1">
+              <stop offset="0" stopColor="#ffffff" />
+              <stop offset="0.55" stopColor={p.light} />
+              <stop offset="1" stopColor={p.accent} stopOpacity="0.85" />
+            </linearGradient>
+          </defs>
+          <circle cx={18} cy={67} r={9.5} fill={p.light} opacity="0.15" />
+          <circle cx={78} cy={67} r={9.5} fill={p.light} opacity="0.15" />
+          {wing}
+          <g transform="translate(96 0) scale(-1 1)">{wing}</g>
+        </>
+      );
+    },
+  },
+  {
+    id: "hologram-glitch",
+    name: "Hologram Glitch",
+    weight: 2,
+    render: (p, uid) => (
+      <>
+        <defs>
+          <linearGradient id={`fx-glitch-cy-${uid}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#41c7ff" stopOpacity="0" />
+            <stop offset="0.25" stopColor="#41c7ff" stopOpacity="0.85" />
+            <stop offset="0.75" stopColor="#41c7ff" stopOpacity="0.85" />
+            <stop offset="1" stopColor="#41c7ff" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id={`fx-glitch-mg-${uid}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#ff5ad0" stopOpacity="0" />
+            <stop offset="0.25" stopColor="#ff5ad0" stopOpacity="0.85" />
+            <stop offset="0.75" stopColor="#ff5ad0" stopOpacity="0.85" />
+            <stop offset="1" stopColor="#ff5ad0" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <rect x={13} y={37.4} width={70} height={3.4} fill={`url(#fx-glitch-cy-${uid})`} opacity={0.32} />
+        <rect x={10.5} y={38.6} width={72} height={1} fill={`url(#fx-glitch-mg-${uid})`} opacity={0.42} />
+        <rect x={16} y={51.6} width={68} height={4.6} fill={`url(#fx-glitch-mg-${uid})`} opacity={0.26} />
+        <rect x={12} y={52.8} width={70} height={1.1} fill={`url(#fx-glitch-cy-${uid})`} opacity={0.46} />
+        <rect x={18} y={64.6} width={60} height={2.8} fill={`url(#fx-glitch-cy-${uid})`} opacity={0.3} />
+        <rect x={22} y={65.6} width={52} height={1} fill={`url(#fx-glitch-mg-${uid})`} opacity={0.42} />
+        <rect x={7.5} y={37.4} width={6} height={3.4} fill="#41c7ff" opacity={0.16} />
+        <rect x={82.5} y={51.6} width={6} height={4.6} fill="#ff5ad0" opacity={0.16} />
+        <rect x={14} y={64.6} width={4.5} height={2.8} fill="#ff5ad0" opacity={0.16} />
+        <rect x={79} y={37.8} width={5} height={2.6} fill="#ff5ad0" opacity={0.14} />
+      </>
+    ),
+  },
+  {
+    id: "confetti-burst",
+    name: "Confetti Burst",
+    weight: 3,
+    render: (p) => (
+      <>
+        {CONFETTI.map((piece, i) => (
+          <rect
+            key={`confetti-${i}`}
+            x={piece.x}
+            y={piece.y}
+            width={piece.s}
+            height={piece.s * 0.66}
+            rx={0.7}
+            fill={piece.c}
+            opacity={0.95}
+            transform={`rotate(${piece.r} ${piece.x + piece.s / 2} ${piece.y + piece.s / 3})`}
+          />
+        ))}
+        <circle cx={20.5} cy={27} r={1.3} fill="#41c7ff" opacity={0.95} />
+        <circle cx={75.5} cy={28} r={1.2} fill="#ff5a5a" opacity={0.9} />
+        <circle cx={79} cy={50} r={1.1} fill="#ffe066" opacity={0.95} />
+        <circle cx={16} cy={50} r={1.2} fill="#b491ff" opacity={0.9} />
+        <path d="M56 4.5 L59.5 7.5 L56 10.5 L52.5 7.5 Z" fill="#ffb347" opacity={0.95} />
+        <path d="M38 5 L41 7.6 L38 10.2 L35 7.6 Z" fill="#41c7ff" opacity={0.9} />
+        <path d={starPath(48, 16, 1.9)} fill={p.light} opacity={0.85} />
+        <circle cx={48} cy={24.5} r={0.9} fill={p.light} opacity={0.8} />
       </>
     ),
   },

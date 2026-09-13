@@ -557,4 +557,147 @@ export const HEAD_TRAITS: Trait[] = [
       );
     },
   },
+  {
+    id: "monkey",
+    name: "Cheeky Monkey",
+    weight: 8,
+    render: (p, uid) => {
+      const id = "monkey";
+      return (
+        <>
+          <defs>
+            <radialGradient id={`hd-${id}-base-${uid}`} cx="35%" cy="24%" r="88%">
+              <stop offset="0%" stopColor="#e6bb8c" />
+              <stop offset="34%" stopColor="#bb8659" />
+              <stop offset="74%" stopColor="#8a5c39" />
+              <stop offset="100%" stopColor="#5d3a20" />
+            </radialGradient>
+            <linearGradient id={`hd-${id}-shade-${uid}`} x1="0" y1="0.32" x2="0" y2="1">
+              <stop offset="0%" stopColor={p.ink} stopOpacity="0" />
+              <stop offset="100%" stopColor={p.ink} stopOpacity="0.58" />
+            </linearGradient>
+            <linearGradient id={`hd-${id}-rim-${uid}`} x1="0.05" y1="0" x2="0.72" y2="1">
+              <stop offset="0%" stopColor={p.light} stopOpacity="0.42" />
+              <stop offset="42%" stopColor={p.light} stopOpacity="0" />
+            </linearGradient>
+            <clipPath id={`hd-${id}-clip-${uid}`}>
+              <path d={CIRCLE_26} />
+            </clipPath>
+          </defs>
+          <Neck p={p} />
+          <circle cx={21.8} cy={40.4} r={9.2} fill={`url(#hd-${id}-base-${uid})`} stroke={p.ink} strokeWidth="2.4" />
+          <ellipse cx={22.3} cy={40.6} rx={4.7} ry={5.7} fill="#d9a97c" stroke={p.ink} strokeWidth="1.5" />
+          <path
+            d="M18.7 37.4 Q22 34.8 25.6 37.2"
+            fill="none"
+            stroke="#f2d8b4"
+            strokeWidth="1.3"
+            opacity="0.6"
+            strokeLinecap="round"
+          />
+          <circle cx={74.2} cy={40.4} r={9.2} fill={`url(#hd-${id}-base-${uid})`} stroke={p.ink} strokeWidth="2.4" />
+          <ellipse cx={73.7} cy={40.6} rx={4.7} ry={5.7} fill="#d9a97c" stroke={p.ink} strokeWidth="1.5" />
+          <path
+            d="M77.3 37.4 Q74 34.8 70.4 37.2"
+            fill="none"
+            stroke="#f2d8b4"
+            strokeWidth="1.3"
+            opacity="0.6"
+            strokeLinecap="round"
+          />
+          <circle cx={48} cy={50} r={26} fill={`url(#hd-${id}-base-${uid})`} stroke={p.ink} strokeWidth="2.5" />
+          <circle cx={48} cy={50} r={26} fill={`url(#hd-${id}-shade-${uid})`} />
+          <circle cx={48} cy={50} r={26} fill={`url(#hd-${id}-rim-${uid})`} />
+          <g clipPath={`url(#hd-${id}-clip-${uid})`}>
+            <ellipse cx={48} cy={69} rx={22} ry={11} fill={p.ink} opacity={0.24} />
+            <path
+              d="M48 27.5 C39.5 27.5 32.5 32.6 31.6 40.2 C30.9 45.4 33.6 50.8 37.2 54 C35.2 60.2 39.6 68.2 48 69.6 C56.4 68.2 60.8 60.2 58.8 54 C62.4 50.8 65.1 45.4 64.4 40.2 C63.5 32.6 56.5 27.5 48 27.5 Z"
+              fill="#e8c9a0"
+              stroke={p.ink}
+              strokeWidth="1.8"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M48 29.5 C40.8 29.5 35 33.6 33.8 40"
+              fill="none"
+              stroke="#f8e6ca"
+              strokeWidth="1.6"
+              opacity="0.65"
+              strokeLinecap="round"
+            />
+            <ellipse cx={48} cy={60.4} rx={11.8} ry={8.6} fill="#f4ddb6" stroke={p.ink} strokeWidth="1.6" />
+            <ellipse cx={48} cy={61} rx={9.2} ry={5.6} fill="#fdeed2" opacity="0.6" />
+            <ellipse
+              cx={44.5}
+              cy={57.8}
+              rx={1.25}
+              ry={0.8}
+              fill={p.ink}
+              opacity={0.85}
+              transform="rotate(-14 44.5 57.8)"
+            />
+            <ellipse
+              cx={51.5}
+              cy={57.8}
+              rx={1.25}
+              ry={0.8}
+              fill={p.ink}
+              opacity={0.85}
+              transform="rotate(14 51.5 57.8)"
+            />
+            <path
+              d="M48 59.2 Q49.5 61.4 47.7 62.6"
+              fill="none"
+              stroke={p.ink}
+              strokeWidth="1.3"
+              opacity={0.5}
+              strokeLinecap="round"
+            />
+            <path
+              d="M32 44 Q35 46.2 36.6 44.6 M64 44 Q61 46.2 59.4 44.6"
+              fill="none"
+              stroke={p.ink}
+              strokeWidth="1.3"
+              opacity={0.28}
+              strokeLinecap="round"
+            />
+            <circle cx={36} cy={51.5} r={1} fill={p.ink} opacity={0.24} />
+            <circle cx={60} cy={51.5} r={1} fill={p.ink} opacity={0.24} />
+            <path
+              d="M35.5 40.6 Q41 38.4 45.8 39.4 M60.5 40.6 Q55 38.4 50.2 39.4"
+              fill="none"
+              stroke={p.ink}
+              strokeWidth="2.4"
+              strokeOpacity="0.15"
+              strokeLinecap="round"
+            />
+          </g>
+          <path
+            d="M43.8 25.6 C42.2 20.4 43.4 15.6 46.4 12.2 C46.2 16.4 46.9 19.4 48.1 21.6 C48.7 17 50.6 14.6 53.6 12.8 C52.7 17 52.1 20.2 52.4 23.4 C54 21.8 55.8 21.2 57.8 21.6 C55.6 23.8 53.6 25.8 52.6 28.2 Z"
+            fill="#8a5c39"
+            stroke={p.ink}
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M44.9 23.6 C44 19.6 44.9 16.6 46.6 14.4"
+            fill="none"
+            stroke="#d9a97c"
+            strokeWidth="1.2"
+            opacity="0.7"
+            strokeLinecap="round"
+          />
+          <path
+            d="M50.4 22.6 C50.8 18.6 52.2 16.2 54 14.8"
+            fill="none"
+            stroke="#d9a97c"
+            strokeWidth="1"
+            opacity="0.6"
+            strokeLinecap="round"
+          />
+          <Gloss p={p} cx={36.5} cy={33} rx={6.6} ry={3} rot={-22} />
+        </>
+      );
+    },
+  },
 ];

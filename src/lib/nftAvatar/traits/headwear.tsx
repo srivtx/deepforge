@@ -832,4 +832,174 @@ export const HEADWEAR_TRAITS: Trait[] = [
       </>
     ),
   },
+  {
+    id: "durag",
+    name: "Durag",
+    weight: 4,
+    render: (p, uid) => (
+      <>
+        <defs>
+          <linearGradient id={`hw-durag-${uid}`} x1="0" y1="0" x2="0.25" y2="1">
+            <stop offset="0" stopColor={p.accent} />
+            <stop offset="0.4" stopColor={p.ink} />
+            <stop offset="1" stopColor="#07070c" />
+          </linearGradient>
+          <linearGradient id={`hw-durag-band-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={p.ink} />
+            <stop offset="1" stopColor="#05050a" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M70 34 C76.5 38 78.5 45 76.8 53.5 C74.6 52 72.8 51.2 71 50.8 C73.8 45.2 74 39.5 70 34 Z"
+          fill={`url(#hw-durag-band-${uid})`}
+          stroke={p.ink}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path d="M72.2 36.5 C76 40.8 77.4 46.4 76.6 51.4" fill="none" stroke={p.light} strokeWidth="1" opacity="0.3" strokeLinecap="round" />
+        <path
+          d="M21.5 42.5 C22.5 28.5 33 18.5 48 18.5 C63 18.5 73.5 28.5 74.5 42.5 Q61 38.8 48 38.8 Q35 38.8 21.5 42.5 Z"
+          fill={`url(#hw-durag-${uid})`}
+          stroke={p.ink}
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M30 40 C30.5 31 36.5 23.5 45 20.5 M48 19 C44 24 41 31.5 40.5 39.5 M48 19 C52 24 55 31.5 55.5 39.5 M66 40 C65.5 31 59.5 23.5 51 20.5"
+          fill="none"
+          stroke={p.ink}
+          strokeWidth="1.1"
+          opacity="0.3"
+        />
+        <path
+          d="M27 39.5 C28 29.5 36 21.5 45.5 20 C37.5 23.5 31.5 30.5 30.5 39.8 Z"
+          fill={p.light}
+          opacity="0.22"
+        />
+        <path d="M21.5 42.5 Q48 46.8 74.5 42.5" fill="none" stroke={`url(#hw-durag-band-${uid})`} strokeWidth="5.2" strokeLinecap="round" />
+        <path d="M21.5 42.5 Q48 46.8 74.5 42.5" fill="none" stroke={p.light} strokeWidth="1.1" opacity="0.25" />
+        <path
+          d="M25 43.6 Q48 47.6 71 43.6"
+          fill="none"
+          stroke={p.accent}
+          strokeWidth="0.8"
+          strokeDasharray="1.5 2.5"
+          opacity="0.6"
+        />
+      </>
+    ),
+  },
+  {
+    id: "bandana",
+    name: "Bandana",
+    weight: 4,
+    render: (p, uid) => (
+      <>
+        <defs>
+          <linearGradient id={`hw-bandana-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={p.light} />
+            <stop offset="0.45" stopColor={p.accent} />
+            <stop offset="1" stopColor={p.ink} />
+          </linearGradient>
+        </defs>
+        <path
+          d="M66.5 33.5 C73.5 35.5 77.8 40 79 46.8 C76 45.6 73.8 45.5 71.6 46 C74.4 41.4 72 37.2 66.5 33.5 Z"
+          fill={`url(#hw-bandana-${uid})`}
+          stroke={p.ink}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path d="M68.6 36 C72.8 38.6 75.4 42.2 76.3 45.9" fill="none" stroke={p.ink} strokeWidth="0.9" opacity="0.3" />
+        <path
+          d="M21.5 41 C22.8 31 32.5 25 48 25 C63.5 25 73.2 31 74.5 41 Q61 36.4 48 36.4 Q35 36.4 21.5 41 Z"
+          fill={`url(#hw-bandana-${uid})`}
+          stroke={p.ink}
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M27 37.5 C29 30.5 36.5 27 46 26.8 C38.5 29.5 32.5 34.5 30.5 39.8 Z"
+          fill={p.light}
+          opacity="0.3"
+        />
+        <path d="M22.5 39.8 Q48 43.8 73.5 39.8" fill="none" stroke={p.ink} strokeWidth="1.3" opacity="0.35" />
+        <circle cx={30} cy={32.5} r={1.1} fill={p.ink} opacity="0.35" />
+        <circle cx={39} cy={29.5} r={1.1} fill={p.ink} opacity="0.35" />
+        <circle cx={48} cy={28.6} r={1.1} fill={p.ink} opacity="0.35" />
+        <circle cx={57} cy={29.5} r={1.1} fill={p.ink} opacity="0.35" />
+        <circle cx={66} cy={32.5} r={1.1} fill={p.ink} opacity="0.35" />
+        <circle cx={34.5} cy={34.8} r={1.1} fill={p.ink} opacity="0.35" />
+        <circle cx={61.5} cy={34.8} r={1.1} fill={p.ink} opacity="0.35" />
+        <circle cx={43.5} cy={32.4} r={1.1} fill={p.ink} opacity="0.35" />
+        <circle cx={52.5} cy={32.4} r={1.1} fill={p.ink} opacity="0.35" />
+        <path
+          d="M69.5 31.5 L77 30.5 L73.4 36.8 L68.2 37.4 Z"
+          fill={`url(#hw-bandana-${uid})`}
+          stroke={p.ink}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path d="M70.5 32.6 L74.8 32.2 M69.6 35 L73 34.4" stroke={p.light} strokeWidth="1" opacity="0.5" strokeLinecap="round" />
+      </>
+    ),
+  },
+  {
+    id: "mohawk",
+    name: "Mohawk",
+    weight: 3,
+    render: (p, uid) => (
+      <>
+        <defs>
+          <linearGradient id={`hw-mohawk-${uid}`} x1="0" y1="1" x2="0.2" y2="0">
+            <stop offset="0" stopColor={p.ink} />
+            <stop offset="0.55" stopColor={p.accent} />
+            <stop offset="1" stopColor={p.light} />
+          </linearGradient>
+        </defs>
+        <path
+          d="M27.5 32.5 C26 26.5 26.5 21.5 28.5 17.5 C31 21.5 33.5 26 35.5 30.5 Z"
+          fill={`url(#hw-mohawk-${uid})`}
+          stroke={p.ink}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M35.5 29 C34 23 35 17 37.5 11.5 C40.5 16.5 43.5 22 45.5 27 Z"
+          fill={`url(#hw-mohawk-${uid})`}
+          stroke={p.ink}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M44.5 26.5 C43.5 19.5 44.5 11.5 48 4.5 C51.5 11.5 52.5 19.5 51.5 26.5 Z"
+          fill={`url(#hw-mohawk-${uid})`}
+          stroke={p.ink}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M60.5 29 C62 23 61 17 58.5 11.5 C55.5 16.5 52.5 22 50.5 27 Z"
+          fill={`url(#hw-mohawk-${uid})`}
+          stroke={p.ink}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M68.5 32.5 C70 26.5 69.5 21.5 67.5 17.5 C65 21.5 62.5 26 60.5 30.5 Z"
+          fill={`url(#hw-mohawk-${uid})`}
+          stroke={p.ink}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M29.5 18.5 C31.2 22 33 26 34.4 29.8 M38.4 12.5 C40.6 17.2 42.8 22.2 44.4 26.4 M48 6 C49.6 11.4 50.4 18.8 51.1 25.6 M57.6 12.5 C55.4 17.2 53.2 22.2 51.6 26.4 M66.5 18.5 C64.8 22 63 26 61.6 29.8"
+          fill="none"
+          stroke={p.light}
+          strokeWidth="1"
+          opacity="0.5"
+          strokeLinecap="round"
+        />
+      </>
+    ),
+  },
 ];
