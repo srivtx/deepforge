@@ -94,7 +94,9 @@ export async function fetchGlobalLeaderboard(
   if (!client) return null;
 
   const safeLimit =
-    typeof limit === "number" && Number.isFinite(limit) && limit > 0
+    typeof limit === "number" &&
+    Number.isFinite(limit) &&
+    Math.floor(limit) >= 1
       ? Math.floor(limit)
       : GLOBAL_LEADERBOARD_DEFAULT_LIMIT;
 

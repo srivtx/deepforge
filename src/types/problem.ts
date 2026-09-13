@@ -36,12 +36,28 @@ export interface Problem {
   hint?: string;
 }
 
+export type PathLevel = "Beginner" | "Intermediate" | "Advanced" | "Mixed";
+
+export interface PathStage {
+  id: string;
+  title: string;
+  blurb: string;
+  problemIds: string[];
+}
+
 export interface LearningPath {
   id: string;
   title: string;
   description: string;
   problemIds: string[];
   estimatedHours: number;
+  /** URL-safe unique identifier for detail pages. */
+  slug?: string;
+  level?: PathLevel;
+  tags?: string[];
+  goals?: string[];
+  prerequisites?: string[];
+  stages?: PathStage[];
 }
 
 export interface CategoryMeta {

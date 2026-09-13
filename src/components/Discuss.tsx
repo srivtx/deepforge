@@ -123,9 +123,9 @@ function useSocialSync(): {
           .catch(() => {});
       }
     };
-    void refresh();
+    void refresh().catch(() => {});
     const unsubscribe = subscribeSocial(() => {
-      void refresh();
+      void refresh().catch(() => {});
     });
     return () => {
       cancelled = true;

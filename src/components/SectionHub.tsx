@@ -1,9 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import {
   SECTION_GROUPS,
   SECTIONS_BY_GROUP,
-  openSection,
   type SectionId,
 } from "@/lib/sections";
 
@@ -31,14 +31,6 @@ function SectionIcon({ d }: { d: string }) {
 }
 
 export function SectionHub({ counts, onOpen }: SectionHubProps) {
-  const handleOpen = (id: SectionId) => {
-    if (onOpen) {
-      onOpen(id);
-      return;
-    }
-    openSection(id);
-  };
-
   return (
     <section id="hub" className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
       <div className="mb-8">
@@ -57,10 +49,10 @@ export function SectionHub({ counts, onOpen }: SectionHubProps) {
               {SECTIONS_BY_GROUP[group].map((section) => {
                 const count = counts?.[section.id];
                 return (
-                  <button
+                  <Link
                     key={section.id}
-                    type="button"
-                    onClick={() => handleOpen(section.id)}
+                    href={section.href}
+                    onClick={() => onOpen?.(section.id)}
                     className="group flex flex-col items-start gap-3 rounded-lg border border-hairline bg-canvas-card p-4 text-left transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors group-hover:border-accent/40 group-hover:text-accent">
@@ -79,7 +71,7 @@ export function SectionHub({ counts, onOpen }: SectionHubProps) {
                     <span className="text-xs leading-relaxed text-body-mid">
                       {section.blurb}
                     </span>
-                  </button>
+                  </Link>
                 );
               })}
             </div>

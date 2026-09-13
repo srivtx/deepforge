@@ -32,6 +32,7 @@ export type SectionGroup =
 
 export interface SectionMeta {
   id: SectionId;
+  href: string;
   title: string;
   blurb: string;
   group: SectionGroup;
@@ -50,6 +51,7 @@ export const SECTION_GROUPS: SectionGroup[] = [
 const SECTION_LIST: SectionMeta[] = [
   {
     id: "daily",
+    href: "/daily",
     title: "Daily Challenge",
     blurb:
       "One problem picked for everyone each day. Solve it to keep your streak alive.",
@@ -59,6 +61,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "problems",
+    href: "/problems",
     title: "Problems",
     blurb:
       "Browse the full bank by category and difficulty, then solve in the browser.",
@@ -68,6 +71,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "paths",
+    href: "/paths",
     title: "Learning Paths",
     blurb:
       "Ordered sequences that take you from zero to a working ML primitive.",
@@ -77,6 +81,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "projects",
+    href: "/projects",
     title: "Projects",
     blurb:
       "Multi-step labs that build a working system one problem at a time.",
@@ -86,6 +91,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "labs",
+    href: "/labs",
     title: "Labs",
     blurb: "Dataset-driven challenges scored against a held-out benchmark.",
     group: "Practice",
@@ -94,6 +100,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "contests",
+    href: "/contests",
     title: "Contests",
     blurb: "Timed problem sets with a countdown and a saved best score.",
     group: "Compete",
@@ -102,6 +109,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "speedrun",
+    href: "/speedrun",
     title: "Speedrun",
     blurb: "A seeded solve-a-thon against the clock and your own ghost.",
     group: "Compete",
@@ -110,6 +118,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "research",
+    href: "/research",
     title: "Research",
     blurb: "Beat a baseline model and your code becomes the latest best.",
     group: "Practice",
@@ -118,6 +127,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "leaderboard",
+    href: "/leaderboard",
     title: "Leaderboard",
     blurb: "Flame Score, streaks, and your rank among local solvers.",
     group: "Compete",
@@ -126,6 +136,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "badges",
+    href: "/badges",
     title: "Badges",
     blurb: "Level, quests, and the badges you unlock from progress.",
     group: "You",
@@ -134,6 +145,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "stats",
+    href: "/stats",
     title: "Stats",
     blurb: "Solved counts, accuracy, streaks, and an estimated mastery score.",
     group: "You",
@@ -142,6 +154,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "certificates",
+    href: "/certificates",
     title: "Certificates",
     blurb:
       "Claim printable certificates for paths, collections, and categories.",
@@ -151,6 +164,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "backup",
+    href: "/backup",
     title: "Backup",
     blurb: "Export a backup of your data or move it to another device.",
     group: "You",
@@ -159,6 +173,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "collections",
+    href: "/collections",
     title: "Collections",
     blurb: "Curated sets and your own problem collections.",
     group: "You",
@@ -167,6 +182,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "playlists",
+    href: "/playlists",
     title: "Playlists",
     blurb: "Build, reorder, and share ordered sets of problems.",
     group: "You",
@@ -175,6 +191,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "interview",
+    href: "/interview",
     title: "Interview Prep",
     blurb: "Company-style tracks and timed mocks from warm-up to hard.",
     group: "Learn",
@@ -183,6 +200,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "penpaper",
+    href: "/math",
     title: "Pen & Paper",
     blurb: "No-code math problems answered by hand, with worked explanations.",
     group: "Learn",
@@ -191,6 +209,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "articles",
+    href: "/articles",
     title: "Articles",
     blurb: "Interactive lessons with live demos that run in the page.",
     group: "Learn",
@@ -199,6 +218,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "sims",
+    href: "/sims",
     title: "Sims",
     blurb: "Live simulations you can play, pause, and step through.",
     group: "Practice",
@@ -207,6 +227,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "discuss",
+    href: "/discuss",
     title: "Discuss",
     blurb: "Ask questions and read threads from other solvers.",
     group: "Community",
@@ -215,6 +236,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "submit",
+    href: "/submit",
     title: "Submit a Problem",
     blurb: "Author a problem, validate it locally, and export the snippet.",
     group: "Community",
@@ -223,6 +245,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "playground",
+    href: "/playground",
     title: "Playground",
     blurb: "A scratch pad that runs Python locally via Pyodide.",
     group: "Practice",
@@ -231,6 +254,7 @@ const SECTION_LIST: SectionMeta[] = [
   },
   {
     id: "about",
+    href: "/about",
     title: "About",
     blurb: "What DeepForge is, who built it, and why.",
     group: "Community",
@@ -286,4 +310,15 @@ export function findSectionByHash(hash: string): SectionMeta | undefined {
   return SECTION_LIST.find((section) =>
     section.keywords.some((keyword) => keyword.toLowerCase() === key),
   );
+}
+
+/**
+ * Convert a category name to the slug used by /problems?category= and
+ * /categories/[slug] (lowercase, non-alphanumerics collapsed to dashes).
+ */
+export function categorySlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }

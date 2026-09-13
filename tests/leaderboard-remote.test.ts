@@ -223,12 +223,60 @@ describe("fetchGlobalLeaderboard", () => {
     expect(result?.error).toBe("client exploded");
   });
 
+  test("catches a rejecting query and still resolves", async () => {
+    const db = new FakeDb();
+    db.results.set("leaderboard", new Error("network down"));
+    setRemoteClient(makeClient(db));
+
+    const result = await fetchGlobalLeaderboard();
+
+    expect(result).not.toBeNull();
+    expect(result?.rows).toEqual([]);
+    expect(result?.error).toBe("network down");
+  });
+
+  test("fails soft when the builder has no order/limit methods", async () => {
+    setRemoteClient({
+      auth: {} as RemoteClient["auth"],
+      from: () =>
+        ({
+          select: () => ({ order: undefined, limit: undefined }),
+        }) as unknown as RemoteQuery,
+    });
+
+    const result = await fetchGlobalLeaderboard();
+
+    expect(result).not.toBeNull();
+    expect(result?.rows).toEqual([]);
+    expect(result?.error).toBeTruthy();
+  });
+
   test("falls back to the default limit for invalid input", async () => {
     const db = new FakeDb();
     db.results.set("leaderboard", { data: [], error: null });
     setRemoteClient(makeClient(db));
 
     await fetchGlobalLeaderboard(0);
+
+    expect(db.queries[0].limit).toBe(GLOBAL_LEADERBOARD_DEFAULT_LIMIT);
+  });
+
+  test("floors a fractional limit at or above 1", async () => {
+    const db = new FakeDb();
+    db.results.set("leaderboard", { data: [], error: null });
+    setRemoteClient(makeClient(db));
+
+    await fetchGlobalLeaderboard(10.9);
+
+    expect(db.queries[0].limit).toBe(10);
+  });
+
+  test("falls back to the default for a fractional limit below 1", async () => {
+    const db = new FakeDb();
+    db.results.set("leaderboard", { data: [], error: null });
+    setRemoteClient(makeClient(db));
+
+    await fetchGlobalLeaderboard(0.5);
 
     expect(db.queries[0].limit).toBe(GLOBAL_LEADERBOARD_DEFAULT_LIMIT);
   });

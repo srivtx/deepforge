@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   useEffect,
   useRef,
@@ -8,6 +9,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 export type NavItemId =
   | "problems"
@@ -135,12 +137,6 @@ export const MOBILE_NAV_GROUPS: { label: string; items: NavItemId[] }[] = [
 const MENU_ITEM_CLASS =
   "flex w-full items-center whitespace-nowrap rounded-md px-2 py-1.5 text-[13px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
 
-function openSection(id: NavItemId) {
-  window.dispatchEvent(
-    new CustomEvent("deepforge:open-section", { detail: { id } }),
-  );
-}
-
 export function NavItemLink({
   id,
   onSelect,
@@ -153,18 +149,15 @@ export function NavItemLink({
   className?: string;
 }) {
   return (
-    <a
-      href={`#${id}`}
+    <Link
+      href={SECTIONS_BY_ID[id].href}
       role={role}
       data-nav-item
-      onClick={() => {
-        openSection(id);
-        onSelect?.();
-      }}
+      onClick={() => onSelect?.()}
       className={className}
     >
       {NAV_ITEM_LABELS[id]}
-    </a>
+    </Link>
   );
 }
 

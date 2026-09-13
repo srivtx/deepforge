@@ -680,6 +680,7 @@ export function mergeRemoteUpvoteIds(
 }
 
 export function setThreadUpvoteCount(id: string, count: number): void {
+  if (typeof count !== "number" || !Number.isFinite(count)) return;
   const store = readForum();
   const next = Math.max(0, Math.floor(count));
   let changed = false;
@@ -692,6 +693,7 @@ export function setThreadUpvoteCount(id: string, count: number): void {
 }
 
 export function setReplyUpvoteCount(id: string, count: number): void {
+  if (typeof count !== "number" || !Number.isFinite(count)) return;
   const store = readForum();
   const next = Math.max(0, Math.floor(count));
   let changed = false;

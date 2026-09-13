@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { getForumSnapshot } from "@/lib/comments";
+import { getForumSnapshot, setThreadUpvoteCount } from "@/lib/comments";
 import { setCachedSession } from "@/lib/sync/backend";
 import {
   setRemoteClient,
@@ -123,6 +123,10 @@ class FakeQuery implements PromiseLike<RemoteResult<any>> {
   }
 
   private async run(single: boolean): Promise<RemoteResult<any>> {
+    if (this.db.selectGate) {
+      this.db.selectStarted = true;
+      await this.db.selectGate;
+    }
     const rows = this.db.rows(this.table);
     if (this.action === "insert") {
       if (this.db.insertErrors.has(this.table)) {
@@ -163,6 +167,9 @@ class FakeDb {
   rpcResult: RemoteResult<any> = { data: 1, error: null };
   selectErrors = new Set<string>();
   insertErrors = new Set<string>();
+  rpcGate: Promise<void> | null = null;
+  selectGate: Promise<void> | null = null;
+  selectStarted = false;
 
   rows(table: string): Row[] {
     const existing = this.tables.get(table);
@@ -181,7 +188,10 @@ function makeClient(withRpc = true): { client: RemoteClient; db: FakeDb } {
   if (withRpc) {
     base.rpc = (fn: string, args?: Record<string, unknown>) => {
       db.rpcCalls.push({ fn, args });
-      return Promise.resolve(db.rpcResult);
+      const result = db.rpcResult;
+      return db.rpcGate
+        ? db.rpcGate.then(() => result)
+        : Promise.resolve(result);
     };
   }
   return { client: base as unknown as RemoteClient, db };
@@ -210,12 +220,24 @@ function remoteThread(id: string): Row {
   };
 }
 
-function seedLocalForum(threads: Row[]): void {
+function remoteReply(id: string, threadId: string): Row {
+  return {
+    id,
+    thread_id: threadId,
+    author_id: "someone",
+    author_name: "bob",
+    body: "remote reply",
+    upvote_count: 0,
+    created_at: "2026-01-03T00:00:00.000Z",
+  };
+}
+
+function seedLocalForum(threads: Row[], replies: Row[] = []): void {
   stub.setItem(
     "deepforge:forum",
     JSON.stringify({
       threads,
-      replies: [],
+      replies,
       upvotedThreads: [],
       upvotedReplies: [],
     }),
@@ -409,6 +431,11 @@ describe("configured and signed in", () => {
       db.rows("forum_threads").some((row) => row.id === "ft-local-title"),
     ).toBe(false);
     expect(getForumSnapshot().upvotedThreadIds).toContain("ft-remote");
+
+    await listThreads();
+    expect(
+      db.rows("forum_threads").filter((row) => row.id === "ft-local-only"),
+    ).toHaveLength(1);
   });
 
   test("deleteThread removes the remote row and the local row", async () => {
@@ -513,6 +540,165 @@ describe("upvotes", () => {
     const snapshot = getForumSnapshot();
     expect(snapshot.upvotedThreadIds).not.toContain("ft-1");
     expect(snapshot.threads.find((item) => item.id === "ft-1")!.upvotes).toBe(2);
+  });
+
+  test("rollback restores the exact pre-toggle count when it drifts mid-flight", async () => {
+    configure();
+    signIn();
+    const { client, db } = makeClient();
+    setRemoteClient(client);
+    db.rows("forum_threads").push(remoteThread("ft-1"));
+    await listThreads();
+
+    let release!: () => void;
+    db.rpcGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    db.rpcResult = { data: null, error: { message: "rpc down" } };
+
+    const pending = toggleThreadUpvote("ft-1");
+    for (let i = 0; i < 100 && db.rpcCalls.length === 0; i += 1) {
+      await Promise.resolve();
+    }
+    expect(db.rpcCalls).toHaveLength(1);
+
+    // Simulate a concurrent remote merge lowering the count mid-RPC.
+    setThreadUpvoteCount("ft-1", 1);
+    release();
+    const result = await pending;
+
+    expect(result.error).toBe("rpc down");
+    expect(result.data).toBeNull();
+    const snapshot = getForumSnapshot();
+    expect(snapshot.upvotedThreadIds).not.toContain("ft-1");
+    expect(snapshot.threads.find((item) => item.id === "ft-1")!.upvotes).toBe(2);
+  });
+
+  test("non-finite counts from the wire are ignored", async () => {
+    configure();
+    signIn();
+    const { client, db } = makeClient();
+    setRemoteClient(client);
+    db.rows("forum_threads").push(remoteThread("ft-1"));
+    await listThreads();
+
+    setThreadUpvoteCount("ft-1", Number.NaN);
+
+    expect(getForumSnapshot().threads.find((item) => item.id === "ft-1")!.upvotes).toBe(2);
+  });
+
+  test("reply rollback restores a pre-upvoted state exactly", async () => {
+    configure();
+    signIn();
+    const { client, db } = makeClient();
+    setRemoteClient(client);
+    db.rows("forum_threads").push(remoteThread("ft-1"));
+    db.rows("forum_replies").push({
+      ...remoteReply("fr-1", "ft-1"),
+      upvote_count: 4,
+    });
+    db.rows("forum_reply_upvotes").push({ user_id: "u-1", reply_id: "fr-1" });
+    await listThreads();
+    await listReplies("ft-1");
+
+    db.rpcResult = { data: null, error: { message: "rpc down" } };
+    const result = await toggleReplyUpvote("fr-1");
+
+    expect(result.error).toBe("rpc down");
+    expect(result.data).toBeNull();
+    const snapshot = getForumSnapshot();
+    expect(snapshot.upvotedReplyIds).toContain("fr-1");
+    expect(snapshot.replies.find((item) => item.id === "fr-1")!.upvotes).toBe(4);
+  });
+});
+
+describe("session generation", () => {
+  test("a session change discards an in-flight list response", async () => {
+    configure();
+    signIn();
+    const { client, db } = makeClient();
+    setRemoteClient(client);
+    db.rows("forum_threads").push(remoteThread("ft-remote"));
+
+    let release!: () => void;
+    db.selectGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const pending = listThreads();
+    for (let i = 0; i < 100 && !db.selectStarted; i += 1) {
+      await Promise.resolve();
+    }
+    expect(db.selectStarted).toBe(true);
+
+    setCachedSession({ userId: "u-2", email: "eve@example.com" });
+    release();
+    const result = await pending;
+
+    expect(result.error).toBeNull();
+    expect(result.data?.some((thread) => thread.id === "ft-remote")).toBe(false);
+    expect(
+      getForumSnapshot().threads.some((thread) => thread.id === "ft-remote"),
+    ).toBe(false);
+  });
+});
+
+describe("concurrent lists", () => {
+  test("sibling listReplies calls each merge their own remote replies", async () => {
+    configure();
+    signIn();
+    const { client, db } = makeClient();
+    setRemoteClient(client);
+    db.rows("forum_threads").push(remoteThread("ft-a"), remoteThread("ft-b"));
+    db.rows("forum_replies").push(
+      remoteReply("fr-a", "ft-a"),
+      remoteReply("fr-b", "ft-b"),
+    );
+
+    await Promise.all([listReplies("ft-a"), listReplies("ft-b")]);
+
+    const ids = getForumSnapshot().replies.map((reply) => reply.id);
+    expect(ids).toContain("fr-a");
+    expect(ids).toContain("fr-b");
+  });
+
+  test("listReplies pushes a local-only reply exactly once", async () => {
+    configure();
+    signIn();
+    const { client, db } = makeClient();
+    setRemoteClient(client);
+    db.rows("forum_threads").push(remoteThread("ft-1"));
+    seedLocalForum(
+      [
+        {
+          id: "ft-local",
+          title: "Local",
+          body: "body",
+          category: "General",
+          author: "me",
+          createdAt: "2026-01-05T00:00:00.000Z",
+          upvotes: 0,
+          problemRefs: [],
+        },
+      ],
+      [
+        {
+          id: "fr-local",
+          threadId: "ft-local",
+          author: "me",
+          body: "pending",
+          createdAt: "2026-01-06T00:00:00.000Z",
+          upvotes: 0,
+        },
+      ],
+    );
+
+    await listReplies("ft-local");
+    await listReplies("ft-local");
+
+    expect(
+      db.rows("forum_replies").filter((row) => row.id === "fr-local"),
+    ).toHaveLength(1);
   });
 });
 

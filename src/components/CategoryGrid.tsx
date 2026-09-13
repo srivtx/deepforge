@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { Category, CategoryMeta } from "@/types/problem";
-import { openSection } from "@/lib/sections";
+import { categorySlug } from "@/lib/sections";
 
 interface CategoryGridProps {
   categories: CategoryMeta[];
@@ -16,6 +17,8 @@ export function CategoryGrid({
   activeCategory,
   onSelect,
 }: CategoryGridProps) {
+  const router = useRouter();
+
   return (
     <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
       <div className="mb-8 flex items-end justify-between">
@@ -30,7 +33,7 @@ export function CategoryGrid({
         <button
           onClick={() => {
             onSelect("All");
-            openSection("problems");
+            router.push("/problems");
           }}
           className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
             activeCategory === "All"
@@ -51,9 +54,10 @@ export function CategoryGrid({
               onClick={() => {
                 const next = isActive ? "All" : c.name;
                 onSelect(next);
-                openSection(
-                  "problems",
-                  next === "All" ? undefined : { category: next },
+                router.push(
+                  next === "All"
+                    ? "/problems"
+                    : `/problems?category=${categorySlug(next)}`,
                 );
               }}
               className={`group flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors ${

@@ -1,11 +1,51 @@
 "use client";
 
+import Link from "next/link";
 import type { LearningPath, Problem } from "@/types/problem";
+import type { PathLevel } from "@/lib/paths";
+import {
+  nextProblemInPath,
+  pathExtras,
+  pathProgress,
+  pathSlug,
+  resolveStages,
+} from "@/lib/paths";
 
 interface PathsProps {
   paths: LearningPath[];
   problems: Problem[];
   progress: Record<string, { solved?: boolean }>;
+}
+
+function levelClasses(level: PathLevel): string {
+  switch (level) {
+    case "Beginner":
+      return "border-accent/40 bg-accent/5 text-accent";
+    case "Intermediate":
+      return "border-info/40 bg-info/5 text-info";
+    case "Advanced":
+      return "border-warning/40 bg-warning/5 text-warning";
+    case "Mixed":
+      return "border-hairline bg-canvas-soft text-body-mid";
+  }
+}
+
+function pathMeta(path: LearningPath): {
+  level: string | null;
+  tags: string[];
+  stageCount: number;
+} {
+  const extras = pathExtras(path);
+  const { stages, hasStages } = resolveStages(path);
+  const level = typeof extras.level === "string" ? extras.level : null;
+  const tags = Array.isArray(extras.tags)
+    ? extras.tags.filter((tag): tag is string => typeof tag === "string")
+    : [];
+  return {
+    level,
+    tags,
+    stageCount: hasStages ? stages.length : 0,
+  };
 }
 
 export function Paths({ paths, problems, progress }: PathsProps) {
@@ -27,41 +67,76 @@ export function Paths({ paths, problems, progress }: PathsProps) {
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {paths.map((path) => {
-          const solvedInPath = path.problemIds.filter(
-            (id) => progress[id]?.solved,
-          ).length;
-          const pct =
-            path.problemIds.length === 0
-              ? 0
-              : Math.round((solvedInPath / path.problemIds.length) * 100);
+          const slug = pathSlug(path);
+          const { solved, total, pct } = pathProgress(path, progress);
+          const next = nextProblemInPath(path, progress);
+          const nextProblem = next ? problemMap.get(next.problemId) : undefined;
+          const { level, tags, stageCount } = pathMeta(path);
+          const visibleTags = tags.slice(0, 4);
           return (
             <div
               key={path.id}
               className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-5"
             >
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-base font-semibold text-ink">
-                    {path.title}
+                    <Link
+                      href={`/paths/${slug}`}
+                      className="transition-colors hover:text-accent"
+                    >
+                      {path.title}
+                    </Link>
                   </h3>
                   <p className="mt-1 text-xs text-body-mid">
-                    {path.problemIds.length} problems · ~{path.estimatedHours}h
+                    {total} problems · ~{path.estimatedHours}h
+                    {stageCount > 0 &&
+                      ` · ${stageCount} ${stageCount === 1 ? "stage" : "stages"}`}
                   </p>
                 </div>
-                <span className="font-mono text-xs text-accent">
-                  {solvedInPath}/{path.problemIds.length}
+                <span className="shrink-0 font-mono text-xs text-accent">
+                  {solved}/{total}
                 </span>
               </div>
-              <p className="text-sm leading-relaxed text-body">
+
+              {(level || tags.length > 0) && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {level && (
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${levelClasses(
+                        level as PathLevel,
+                      )}`}
+                    >
+                      {level}
+                    </span>
+                  )}
+                  {visibleTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-hairline bg-canvas-soft px-2 py-0.5 text-[10px] text-body-mid"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                  {tags.length > visibleTags.length && (
+                    <span className="rounded-full border border-hairline px-2 py-0.5 text-[10px] text-mute">
+                      +{tags.length - visibleTags.length}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <p className="line-clamp-3 text-sm leading-relaxed text-body">
                 {path.description}
               </p>
-              <div className="mt-1">
+
+              <div>
                 <div
                   role="progressbar"
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={pct}
-                  aria-valuetext={`${solvedInPath} of ${path.problemIds.length} problems solved (${pct}%)`}
+                  aria-valuetext={`${solved} of ${total} problems solved (${pct}%)`}
                   aria-label={`${path.title} progress`}
                   className="h-1 w-full overflow-hidden rounded-full bg-canvas-mid"
                 >
@@ -71,29 +146,23 @@ export function Paths({ paths, problems, progress }: PathsProps) {
                   />
                 </div>
               </div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {path.problemIds.slice(0, 6).map((id) => {
-                  const p = problemMap.get(id);
-                  if (!p) return null;
-                  const solved = progress[id]?.solved;
-                  return (
-                    <span
-                      key={id}
-                      title={p.title}
-                      className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${
-                        solved
-                          ? "border-accent/40 bg-accent/5 text-accent"
-                          : "border-hairline text-mute"
-                      }`}
-                    >
-                      {p.id}
-                    </span>
-                  );
-                })}
-                {path.problemIds.length > 6 && (
-                  <span className="rounded border border-hairline px-1.5 py-0.5 font-mono text-[10px] text-mute">
-                    +{path.problemIds.length - 6} more
-                  </span>
+
+              <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+                <Link
+                  href={`/paths/${slug}`}
+                  className="rounded-lg border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/10"
+                >
+                  View path
+                </Link>
+                {next && nextProblem && (
+                  <Link
+                    href={`/problems/${next.problemId}`}
+                    aria-label={`Continue ${path.title} with ${nextProblem.title}`}
+                    title={nextProblem.title}
+                    className="rounded-lg border border-hairline px-3 py-1.5 text-sm text-body-mid transition-colors hover:border-accent/40 hover:text-ink"
+                  >
+                    Continue
+                  </Link>
                 )}
               </div>
             </div>

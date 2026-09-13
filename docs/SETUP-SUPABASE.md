@@ -99,3 +99,34 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 - Never commit the **service role key** or the **database password**. They bypass RLS.
 - Clients never write `upvote_count` directly: the `toggle_*_upvote` security-definer
   RPCs update the counter atomically and return the new value.
+
+## 6. Google sign-in (optional)
+
+Magic links work without any of this; Google is opt-in and needs a Google Cloud
+project plus the provider enabled in Supabase.
+
+**Google Cloud Console** ([console.cloud.google.com](https://console.cloud.google.com)):
+
+1. APIs & Services → OAuth consent screen: choose External, set an app name and
+   support email, add the `email` and `profile` scopes, and — while the app is in
+   Testing — add your Google account under Test users.
+2. Credentials → Create credentials → OAuth client ID → **Web application**.
+3. Authorized JavaScript origins — add every app origin:
+   - `http://localhost:3001`
+   - `http://localhost:3099`
+   - your production origin
+4. Authorized redirect URIs — add exactly:
+   - `https://klogjcspyiygnggmugjy.supabase.co/auth/v1/callback`
+5. Create, then copy the **Client ID** and **Client secret**.
+
+**Supabase Dashboard** → Authentication → Providers → Google: enable the
+provider, paste the Client ID and Client secret, and save.
+
+Finally confirm the app origins are allowed to redirect back — Site URL and
+Redirect URLs (see [section 3](#3-auth-setup-email-magic-links)). The client
+sends `redirectTo: window.location.origin`, so every origin that signs in with
+Google must be on that list.
+
+If Google is not enabled in the dashboard, the sign-in call resolves with the
+provider error and the sync panel shows it inline next to the button; magic
+links keep working.

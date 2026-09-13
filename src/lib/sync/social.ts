@@ -81,7 +81,13 @@ const pushingReplies = new Set<string>();
 const pushingComments = new Set<string>();
 const pendingUpvotes = new Set<string>();
 
-let requestGeneration = 0;
+/**
+ * Session generation. It advances only when the cached session changes, so
+ * concurrent list calls (e.g. one `listReplies` per thread) never invalidate
+ * each other's merges. Each list call snapshots it and discards its response
+ * only when the session changed while the request was in flight.
+ */
+let sessionGeneration = 0;
 let sessionWatchInstalled = false;
 
 function notify(): void {
@@ -92,16 +98,15 @@ function notify(): void {
   }
 }
 
-function nextGeneration(): number {
-  requestGeneration += 1;
-  return requestGeneration;
+function currentGeneration(): number {
+  return sessionGeneration;
 }
 
 function ensureSessionWatch(): void {
   if (sessionWatchInstalled) return;
   sessionWatchInstalled = true;
   onSessionChange(() => {
-    requestGeneration += 1;
+    sessionGeneration += 1;
     notify();
   });
 }
@@ -399,11 +404,11 @@ export async function listThreads(): Promise<SocialResult<ForumThread[]>> {
   if (!remote) return { data: local(), error: null };
   if ("error" in remote) return { data: local(), error: remote.error };
   const { client, userId } = remote;
-  const generation = nextGeneration();
+  const generation = currentGeneration();
   try {
     const { data, error } = await client.from("forum_threads").select("*");
     if (error) throw error;
-    if (generation !== requestGeneration) return { data: local(), error: null };
+    if (generation !== currentGeneration()) return { data: local(), error: null };
     const remoteThreads = (Array.isArray(data) ? data : [])
       .map(mapThreadRow)
       .filter((thread): thread is ForumThread => thread !== null);
@@ -418,10 +423,10 @@ export async function listThreads(): Promise<SocialResult<ForumThread[]>> {
       const failure = await pushLocalThread(client, userId, thread);
       if (failure && !pushError) pushError = failure;
     }
-    if (generation !== requestGeneration) return { data: local(), error: null };
+    if (generation !== currentGeneration()) return { data: local(), error: null };
     mergeRemoteThreads(remoteThreads);
     const upvotes = await fetchOwnUpvoteIds(client, userId);
-    if (generation !== requestGeneration) return { data: local(), error: null };
+    if (generation !== currentGeneration()) return { data: local(), error: null };
     mergeRemoteUpvoteIds(upvotes.threadIds, upvotes.replyIds);
     return { data: local(), error: pushError };
   } catch (error) {
@@ -438,14 +443,14 @@ export async function listReplies(
   if (!remote) return { data: local(), error: null };
   if ("error" in remote) return { data: local(), error: remote.error };
   const { client, userId } = remote;
-  const generation = nextGeneration();
+  const generation = currentGeneration();
   try {
     const { data, error } = await client
       .from("forum_replies")
       .select("*")
       .eq("thread_id", threadId);
     if (error) throw error;
-    if (generation !== requestGeneration) return { data: local(), error: null };
+    if (generation !== currentGeneration()) return { data: local(), error: null };
     const remoteReplies = (Array.isArray(data) ? data : [])
       .map(mapReplyRow)
       .filter((reply): reply is ForumReply => reply !== null);
@@ -460,7 +465,7 @@ export async function listReplies(
       const failure = await pushLocalReply(client, userId, reply);
       if (failure && !pushError) pushError = failure;
     }
-    if (generation !== requestGeneration) return { data: local(), error: null };
+    if (generation !== currentGeneration()) return { data: local(), error: null };
     mergeRemoteReplies(remoteReplies);
     return { data: local(), error: pushError };
   } catch (error) {
@@ -606,6 +611,7 @@ async function toggleUpvote(
   }
   const { client } = remote;
   const rpc = rpcCall(client);
+  const before = readState(id);
   pendingUpvotes.add(key);
   try {
     toggleLocal(id);
@@ -623,7 +629,14 @@ async function toggleUpvote(
     notify();
     return { data: readState(id), error: null };
   } catch (error) {
-    toggleLocal(id);
+    // Restore the exact pre-toggle state rather than re-toggling: a concurrent
+    // merge may have changed the count while the RPC was in flight.
+    if (before) {
+      const current = readState(id);
+      if (current && current.upvoted !== before.upvoted) toggleLocal(id);
+      if (kind === "thread") setThreadUpvoteCount(id, before.upvotes);
+      else setReplyUpvoteCount(id, before.upvotes);
+    }
     notify();
     return { data: null, error: errorMessage(error) };
   } finally {
@@ -652,14 +665,14 @@ export async function listComments(
   if (!remote) return { data: local(), error: null };
   if ("error" in remote) return { data: local(), error: remote.error };
   const { client, userId } = remote;
-  const generation = nextGeneration();
+  const generation = currentGeneration();
   try {
     const [rows, upvoteRows] = await Promise.all([
       client.from("comments").select("*").eq("problem_id", problemId),
       client.from("comment_upvotes").select("comment_id").eq("user_id", userId),
     ]);
     if (rows.error) throw rows.error;
-    if (generation !== requestGeneration) return { data: local(), error: null };
+    if (generation !== currentGeneration()) return { data: local(), error: null };
     const upvoted = new Set(upvoteRows.error ? [] : idsFromRows(upvoteRows.data, "comment_id"));
     const remoteComments = (Array.isArray(rows.data) ? rows.data : [])
       .map((row) => mapCommentRow(row, false))
@@ -677,7 +690,7 @@ export async function listComments(
       const failure = await pushLocalComment(client, userId, comment);
       if (failure && !pushError) pushError = failure;
     }
-    if (generation !== requestGeneration) return { data: local(), error: null };
+    if (generation !== currentGeneration()) return { data: local(), error: null };
     mergeRemoteComments(problemId, remoteComments);
     return { data: local(), error: pushError };
   } catch (error) {

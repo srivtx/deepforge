@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   getAuthEmail,
+  isGoogleEnabled,
   onAuthChange,
   signInWithEmail,
+  signInWithGoogle,
   signOut,
 } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/sync/backend";
@@ -83,6 +85,22 @@ function hasAuthParamsInUrl(): boolean {
   );
 }
 
+function GoogleMark() {
+  return (
+    <svg
+      className="h-3.5 w-3.5 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        fill="currentColor"
+        d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
+      />
+    </svg>
+  );
+}
+
 function Spinner() {
   return (
     <svg
@@ -127,6 +145,8 @@ export function SyncPanel({ open, onClose }: SyncPanelProps) {
   const [pending, setPending] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [googlePending, setGooglePending] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -247,6 +267,25 @@ export function SyncPanel({ open, onClose }: SyncPanelProps) {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    if (pending || googlePending) return;
+    setGooglePending(true);
+    setGoogleError(null);
+    setFormError(null);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        setGoogleError(error);
+        setGooglePending(false);
+      }
+    } catch {
+      setGoogleError(
+        "Could not start Google sign-in. Check your connection and try again.",
+      );
+      setGooglePending(false);
+    }
+  };
+
   const handleSyncNow = () => {
     syncNow().catch(() => {});
   };
@@ -331,7 +370,7 @@ export function SyncPanel({ open, onClose }: SyncPanelProps) {
               <div>
                 <p className="text-sm text-ink">Completing sign-in…</p>
                 <p className="mt-0.5 text-xs text-body-mid">
-                  Finishing the magic-link handshake with your account.
+                  Finishing the sign-in handshake with your account.
                 </p>
               </div>
             </div>
@@ -388,55 +427,94 @@ export function SyncPanel({ open, onClose }: SyncPanelProps) {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSendLink} className="mt-4" noValidate>
-                  <label
-                    htmlFor="sync-email"
-                    className="block text-xs font-medium text-body-mid"
-                  >
-                    Email
-                  </label>
-                  <input
-                    id="sync-email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    spellCheck={false}
-                    value={loginEmail}
-                    onChange={(e) => {
-                      setLoginEmail(e.target.value);
-                      if (formError !== null) setFormError(null);
-                    }}
-                    placeholder="you@example.com"
-                    disabled={pending}
-                    className={cn(
-                      FIELD_CLASSES,
-                      "mt-1.5 disabled:cursor-default disabled:opacity-60",
-                    )}
-                  />
-                  {formError !== null && (
-                    <p role="alert" className="mt-2 text-xs text-error">
-                      {formError}
-                    </p>
+                <div className="mt-4">
+                  {isGoogleEnabled() && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleGoogleSignIn}
+                        disabled={pending || googlePending}
+                        aria-busy={googlePending}
+                        className={cn(PRIMARY_BUTTON_CLASSES, "w-full py-2")}
+                      >
+                        {googlePending ? (
+                          <>
+                            <Spinner />
+                            Connecting…
+                          </>
+                        ) : (
+                          <>
+                            <GoogleMark />
+                            Continue with Google
+                          </>
+                        )}
+                      </button>
+                      {googleError !== null && (
+                        <p role="alert" className="mt-2 text-xs text-error">
+                          {googleError}
+                        </p>
+                      )}
+                      <div className="my-4 flex items-center gap-3" aria-hidden>
+                        <span className="h-px flex-1 bg-hairline" />
+                        <span className="text-xs text-mute">or</span>
+                        <span className="h-px flex-1 bg-hairline" />
+                      </div>
+                    </>
                   )}
-                  <button
-                    type="submit"
-                    disabled={pending || loginEmail.trim().length === 0}
-                    className={cn(PRIMARY_BUTTON_CLASSES, "mt-3 w-full py-2")}
-                  >
-                    {pending ? (
-                      <>
-                        <Spinner />
-                        Sending…
-                      </>
-                    ) : (
-                      "Send magic link"
+                  <form onSubmit={handleSendLink} noValidate>
+                    <label
+                      htmlFor="sync-email"
+                      className="block text-xs font-medium text-body-mid"
+                    >
+                      Email
+                    </label>
+                    <input
+                      id="sync-email"
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      spellCheck={false}
+                      value={loginEmail}
+                      onChange={(e) => {
+                        setLoginEmail(e.target.value);
+                        if (formError !== null) setFormError(null);
+                      }}
+                      placeholder="you@example.com"
+                      disabled={pending || googlePending}
+                      className={cn(
+                        FIELD_CLASSES,
+                        "mt-1.5 disabled:cursor-default disabled:opacity-60",
+                      )}
+                    />
+                    {formError !== null && (
+                      <p role="alert" className="mt-2 text-xs text-error">
+                        {formError}
+                      </p>
                     )}
-                  </button>
-                  <p className="mt-2 text-xs text-mute">
-                    We&apos;ll email you a one-time link. Open it on any device
-                    to finish signing in.
-                  </p>
-                </form>
+                    <button
+                      type="submit"
+                      disabled={
+                        pending ||
+                        googlePending ||
+                        loginEmail.trim().length === 0
+                      }
+                      className={cn(PRIMARY_BUTTON_CLASSES, "mt-3 w-full py-2")}
+                    >
+                      {pending ? (
+                        <>
+                          <Spinner />
+                          Sending…
+                        </>
+                      ) : (
+                        "Send magic link"
+                      )}
+                    </button>
+                    <p className="mt-2 text-xs text-mute">
+                      We&apos;ll email you a one-time link. Open it on any
+                      device to finish signing in.
+                    </p>
+                  </form>
+                </div>
               )}
             </div>
           ) : (

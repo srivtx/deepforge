@@ -50,6 +50,54 @@ export async function signInWithEmail(
   }
 }
 
+/**
+ * `remote.ts` keeps a minimal auth surface for sync itself, so the OAuth
+ * method is described locally here. Supabase does not expose per-provider
+ * availability to clients: when the project is configured we offer the
+ * button and any dashboard/provider error resolves through `{ error }`.
+ */
+interface GoogleAuthSurface {
+  signInWithOAuth(args: {
+    provider: "google";
+    options?: { redirectTo?: string };
+  }): Promise<{ error: { message?: string } | null }>;
+}
+
+/**
+ * Start the Google OAuth flow. Resolves once Supabase returns the provider
+ * URL; the browser then redirects. Never throws: unconfigured builds and
+ * provider errors resolve through `{ error }`. Google must be enabled in the
+ * Supabase dashboard (Authentication → Providers → Google).
+ */
+export async function signInWithGoogle(): Promise<{ error: string | null }> {
+  if (!configured()) return { error: "Sync is not configured." };
+  try {
+    await initRemoteSync();
+    const client = await getRemoteClient();
+    if (!client) return { error: "Sync is not configured." };
+    const auth = client.auth as typeof client.auth & GoogleAuthSurface;
+    const redirect =
+      typeof window !== "undefined" ? window.location.origin : undefined;
+    const { error } = await auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: redirect },
+    });
+    return { error: error?.message ?? null };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
+ * Whether Google sign-in is offered in this build. Supabase does not expose
+ * per-provider availability, so this mirrors "configured": the button shows
+ * and a provider that is not enabled in the dashboard comes back as an
+ * inline error from `signInWithGoogle`.
+ */
+export function isGoogleEnabled(): boolean {
+  return configured();
+}
+
 export async function signOut(): Promise<void> {
   await remoteSignOut();
 }
