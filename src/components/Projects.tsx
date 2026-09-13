@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Problem } from "@/types/problem";
 import { PROJECTS, type Project } from "@/data/projects";
 import { getProgress, type ProgressMap } from "@/lib/progress";
+import { problemHref } from "@/lib/problemLinks";
 import {
   getNextStep,
   getProjectProgress,
@@ -171,7 +172,7 @@ export function Projects() {
   );
 
   const openProblem = (problem: Problem) => {
-    router.push(`/problems/${problem.id}`);
+    router.push(problemHref(problem.id, "/projects"));
   };
 
   return (

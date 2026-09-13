@@ -11,6 +11,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { getProgress, type ProgressMap } from "@/lib/progress";
+import { problemHref } from "@/lib/problemLinks";
 import { MARKETING_PROBLEM_COUNT } from "@/lib/utils";
 
 interface PageShellProps {
@@ -67,9 +68,10 @@ export function PageShell({
   // practice browser all announce problems through this event.
   useEffect(() => {
     const onOpenProblem = (event: Event) => {
-      const id = (event as CustomEvent).detail?.id;
+      const detail = (event as CustomEvent).detail;
+      const id = detail?.id;
       if (typeof id !== "string" || id.length === 0) return;
-      router.push(`/problems/${encodeURIComponent(id)}`);
+      router.push(problemHref(id, detail?.from));
     };
     window.addEventListener("deepforge:open-problem", onOpenProblem);
     return () =>
