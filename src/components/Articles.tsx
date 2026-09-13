@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { ARTICLES, type Article } from "@/data/articles";
-import { PROBLEMS } from "@/data/problems";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { DEMOS } from "@/lib/articles-demos";
 
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
@@ -52,7 +52,7 @@ function ArticleReader({
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const problemMap = useMemo(
-    () => new Map(PROBLEMS.map((p) => [p.id, p])),
+    () => new Map(PROBLEM_META.map((p) => [p.id, p])),
     [],
   );
 

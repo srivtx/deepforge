@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CONTESTS, type Contest } from "@/data/contests";
-import { PROBLEMS } from "@/data/problems";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { cn, difficultyClasses } from "@/lib/utils";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import {
@@ -58,7 +58,7 @@ export function Contests() {
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const problemMap = useMemo(
-    () => new Map(PROBLEMS.map((p) => [p.id, p])),
+    () => new Map(PROBLEM_META.map((p) => [p.id, p])),
     [],
   );
 

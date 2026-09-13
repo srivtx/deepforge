@@ -6,10 +6,9 @@
  * key, event, and validation semantics are unchanged.
  */
 
-import { PROBLEMS } from "@/data/problems";
+import { PROBLEM_META, type ProblemMeta } from "@/data/problems/problem-meta";
 import { createStore } from "@/lib/sync/store";
 import type { StoreSpec } from "@/lib/sync/types";
-import type { Problem } from "@/types/problem";
 
 const STORAGE_KEY = "deepforge:daily:v1";
 
@@ -39,14 +38,14 @@ function fnv1a(input: string): number {
   return hash >>> 0;
 }
 
-function compareIds(a: Problem, b: Problem): number {
+function compareIds(a: ProblemMeta, b: ProblemMeta): number {
   if (a.id < b.id) return -1;
   if (a.id > b.id) return 1;
   return 0;
 }
 
 /** Stable id order so the pick never depends on import order. */
-const ORDERED_PROBLEMS: Problem[] = [...PROBLEMS].sort(compareIds);
+const ORDERED_PROBLEMS: ProblemMeta[] = [...PROBLEM_META].sort(compareIds);
 
 function dailyIndex(d: Date): number {
   return fnv1a(getDailyDateKey(d)) % ORDERED_PROBLEMS.length;
@@ -58,7 +57,7 @@ export function getDailyProblemId(d = new Date()): string {
 }
 
 /** Deterministic problem for the given day. */
-export function getDailyProblem(d = new Date()): Problem {
+export function getDailyProblem(d = new Date()): ProblemMeta {
   return ORDERED_PROBLEMS[dailyIndex(d)];
 }
 

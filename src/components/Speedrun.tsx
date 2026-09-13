@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Problem } from "@/types/problem";
-import { CATEGORIES, PROBLEMS } from "@/data/problems";
+import { CATEGORIES } from "@/data/problems/meta";
+import {
+  PROBLEM_META,
+  type ProblemMeta,
+} from "@/data/problems/problem-meta";
 import { cn, difficultyClasses } from "@/lib/utils";
 import { getProgress } from "@/lib/progress";
 import {
@@ -69,7 +72,7 @@ function ProblemRow({
   solvedMs,
   onOpen,
 }: {
-  problem: Problem;
+  problem: ProblemMeta;
   solvedMs: number | null;
   onOpen: () => void;
 }) {
@@ -168,7 +171,7 @@ function ComparisonTable({
   problemMap,
 }: {
   rows: RunComparisonRow[];
-  problemMap: Map<string, Problem>;
+  problemMap: Map<string, ProblemMeta>;
 }) {
   return (
     <div className="df-scroll overflow-x-auto">
@@ -269,7 +272,7 @@ export function Speedrun() {
   const copyTimerRef = useRef<number | null>(null);
 
   const problemMap = useMemo(
-    () => new Map(PROBLEMS.map((p) => [p.id, p])),
+    () => new Map(PROBLEM_META.map((p) => [p.id, p])),
     [],
   );
 

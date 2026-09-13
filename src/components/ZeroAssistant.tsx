@@ -20,8 +20,12 @@ import {
   type Ctx,
   type Msg,
 } from "@/lib/assistant";
-import { getProblemById } from "@/data/problems";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { cn } from "@/lib/utils";
+
+const PROBLEM_TITLES = new Map(
+  PROBLEM_META.map((problem) => [problem.id, problem.title]),
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Module-level context store.
@@ -57,16 +61,16 @@ const PROBLEM_CONTEXT_EVENT = "deepforge:problem-context";
 
 function CitationChip({ id }: { id: string }) {
   const router = useRouter();
-  const problem = getProblemById(id);
+  const title = PROBLEM_TITLES.get(id);
   return (
     <button
       type="button"
       onClick={() => router.push(`/problems/${id}`)}
       aria-label={`Open problem ${id}`}
-      title={problem ? `${problem.id} — ${problem.title}` : id}
+      title={title ? `${id} — ${title}` : id}
       className="max-w-full truncate rounded-md border border-hairline bg-canvas px-1.5 py-0.5 text-left font-mono text-[10px] text-body-mid transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
     >
-      {problem ? `${problem.id} — ${problem.title}` : id}
+      {title ? `${id} — ${title}` : id}
     </button>
   );
 }

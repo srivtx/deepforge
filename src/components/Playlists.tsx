@@ -2,8 +2,10 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { Problem } from "@/types/problem";
-import { PROBLEMS } from "@/data/problems";
+import {
+  PROBLEM_META,
+  type ProblemMeta,
+} from "@/data/problems/problem-meta";
 import {
   PLAYLISTS_CHANGE_EVENT,
   addToPlaylist,
@@ -146,13 +148,13 @@ function ProblemPicker({
     const q = query.trim().toLowerCase();
     if (!q) {
       return {
-        items: PROBLEMS.slice(0, PICKER_LIMIT),
-        total: PROBLEMS.length,
+        items: PROBLEM_META.slice(0, PICKER_LIMIT),
+        total: PROBLEM_META.length,
       };
     }
-    const items: Problem[] = [];
+    const items: ProblemMeta[] = [];
     let total = 0;
-    for (const problem of PROBLEMS) {
+    for (const problem of PROBLEM_META) {
       const matches =
         problem.title.toLowerCase().includes(q) ||
         problem.id.toLowerCase().includes(q) ||
@@ -339,7 +341,7 @@ function ImportForm({ onImport }: { onImport: (code: string) => boolean }) {
 
 export function Playlists() {
   const problemMap = useMemo(
-    () => new Map(PROBLEMS.map((p) => [p.id, p])),
+    () => new Map(PROBLEM_META.map((p) => [p.id, p])),
     [],
   );
 

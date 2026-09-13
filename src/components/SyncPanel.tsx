@@ -10,7 +10,7 @@ import {
   signOut,
 } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/sync/backend";
-import { getSyncState, onSyncStateChange, syncNow } from "@/lib/sync/remote";
+import { loadRemoteSync } from "@/lib/sync/remoteLazy";
 import { cn } from "@/lib/utils";
 
 type SyncStatus = "unconfigured" | "signed-out" | "idle" | "syncing" | "error";
@@ -133,9 +133,7 @@ export function SyncPanel({ open, onClose }: SyncPanelProps) {
     () => true,
     () => false,
   );
-  const [snapshot, setSnapshot] = useState<SyncSnapshot>(() =>
-    typeof window === "undefined" ? EMPTY_SNAPSHOT : getSyncState(),
-  );
+  const [snapshot, setSnapshot] = useState<SyncSnapshot>(EMPTY_SNAPSHOT);
   const [email, setEmail] = useState<string | null>(() =>
     typeof window === "undefined" ? null : getAuthEmail(),
   );
@@ -163,14 +161,31 @@ export function SyncPanel({ open, onClose }: SyncPanelProps) {
   }, [onClose]);
 
   useEffect(() => {
-    const unsubscribe = onSyncStateChange(() => setSnapshot(getSyncState()));
-    return unsubscribe;
-  }, []);
+    if (!visible) return;
+    let active = true;
+    let unsubscribe: (() => void) | null = null;
+    void loadRemoteSync()
+      .then((remote) => {
+        if (!active) return;
+        setSnapshot(remote.getSyncState());
+        unsubscribe = remote.onSyncStateChange(() =>
+          setSnapshot(remote.getSyncState()),
+        );
+      })
+      .catch(() => {
+        /* engine reports its own failures through sync state */
+      });
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [visible]);
 
   useEffect(() => {
+    if (!visible) return;
     const unsubscribe = onAuthChange((next) => setEmail(next));
     return unsubscribe;
-  }, []);
+  }, [visible]);
 
   useEffect(() => {
     if (!hasAuthParamsInUrl()) return;
@@ -287,7 +302,9 @@ export function SyncPanel({ open, onClose }: SyncPanelProps) {
   };
 
   const handleSyncNow = () => {
-    syncNow().catch(() => {});
+    void loadRemoteSync()
+      .then((remote) => remote.syncNow())
+      .catch(() => {});
   };
 
   const handleSignOut = async () => {

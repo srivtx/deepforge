@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Problem } from "@/types/problem";
-import { PROBLEMS } from "@/data/problems";
+import {
+  PROBLEM_META,
+  type ProblemMeta,
+} from "@/data/problems/problem-meta";
 import { PROJECTS, type Project } from "@/data/projects";
 import { INTERVIEW_TRACKS, type InterviewTrack } from "@/data/interview";
 import { cn, difficultyClasses } from "@/lib/utils";
@@ -70,10 +72,10 @@ function ProblemRow({
   solved,
   onOpen,
 }: {
-  problem: Problem;
+  problem: ProblemMeta;
   index?: number;
   solved: boolean;
-  onOpen: (problem: Problem) => void;
+  onOpen: (problem: ProblemMeta) => void;
 }) {
   return (
     <button
@@ -145,7 +147,7 @@ export function InterviewPrep() {
   const sessionReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const problemMap = useMemo(
-    () => new Map(PROBLEMS.map((p) => [p.id, p])),
+    () => new Map(PROBLEM_META.map((p) => [p.id, p])),
     [],
   );
 
@@ -273,7 +275,7 @@ export function InterviewPrep() {
     setSessionIds([]);
   }
 
-  function openProblem(problem: Problem) {
+  function openProblem(problem: ProblemMeta) {
     router.push(`/problems/${problem.id}`);
   }
 

@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Problem } from "@/types/problem";
-import { PROBLEMS } from "@/data/problems";
+import {
+  PROBLEM_META,
+  type ProblemMeta,
+} from "@/data/problems/problem-meta";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import {
   COLLECTIONS_CHANGE_EVENT,
@@ -19,7 +21,7 @@ import { getProgress, type ProgressMap } from "@/lib/progress";
 import { cn, difficultyClasses } from "@/lib/utils";
 
 const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
-const PROBLEM_IDS = new Set(PROBLEMS.map((p) => p.id));
+const PROBLEM_IDS = new Set(PROBLEM_META.map((p) => p.id));
 const PICKER_LIMIT = 60;
 
 interface OpenCollection {
@@ -79,7 +81,7 @@ const dangerButton =
 export function Collections() {
   const router = useRouter();
   const problemMap = useMemo(
-    () => new Map(PROBLEMS.map((p) => [p.id, p])),
+    () => new Map(PROBLEM_META.map((p) => [p.id, p])),
     [],
   );
 
@@ -169,20 +171,20 @@ export function Collections() {
   const picker = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
     const matches = q
-      ? PROBLEMS.filter(
+      ? PROBLEM_META.filter(
           (p) =>
             p.title.toLowerCase().includes(q) ||
             p.id.toLowerCase().includes(q),
         )
-      : PROBLEMS;
+      : PROBLEM_META;
     return { items: matches.slice(0, PICKER_LIMIT), total: matches.length };
   }, [pickerQuery]);
 
-  const openProblems = useMemo<Problem[]>(() => {
+  const openProblems = useMemo<ProblemMeta[]>(() => {
     if (!openCollection) return [];
     return openCollection.problemIds
       .map((id) => problemMap.get(id))
-      .filter((p): p is Problem => Boolean(p));
+      .filter((p): p is ProblemMeta => Boolean(p));
   }, [openCollection, problemMap]);
 
   const solvedCount = (ids: string[]) =>

@@ -9,7 +9,7 @@
  */
 
 import { getProgress } from "@/lib/progress";
-import { getProblemById } from "@/data/problems";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { createStore } from "@/lib/sync/store";
 import type { StoreSpec } from "@/lib/sync/types";
 import type { Contest } from "@/data/contests";
@@ -33,6 +33,8 @@ const DIFFICULTY_POINTS: Record<Difficulty, number> = {
   Medium: 3,
   Hard: 5,
 };
+
+const META_BY_ID = new Map(PROBLEM_META.map((problem) => [problem.id, problem]));
 
 const contestStore = createStore<ContestResult[]>({
   id: "contests",
@@ -67,7 +69,7 @@ export function saveContestResult(
   let solved = 0;
 
   for (const id of contest.problemIds) {
-    const problem = getProblemById(id);
+    const problem = META_BY_ID.get(id);
     if (!problem || !progress[id]?.solved) continue;
     solved += 1;
     score += DIFFICULTY_POINTS[problem.difficulty];

@@ -10,14 +10,7 @@ import {
   getCachedSession,
   isSupabaseConfigured as configured,
 } from "@/lib/sync/backend";
-import {
-  getRemoteClient,
-  getSyncState as getRemoteSyncState,
-  initRemoteSync,
-  onSyncStateChange,
-  remoteSignOut,
-  syncNow as runSyncNow,
-} from "@/lib/sync/remote";
+import { getLoadedRemoteSync, loadRemoteSync } from "@/lib/sync/remoteLazy";
 
 export function isSupabaseConfigured(): boolean {
   return configured();
@@ -35,8 +28,9 @@ export async function signInWithEmail(
   if (!address) return { error: "Enter your email address." };
   if (!configured()) return { error: "Sync is not configured." };
   try {
-    await initRemoteSync();
-    const client = await getRemoteClient();
+    const remote = await loadRemoteSync();
+    await remote.initRemoteSync();
+    const client = await remote.getRemoteClient();
     if (!client) return { error: "Sync is not configured." };
     const redirect =
       typeof window !== "undefined" ? window.location.origin : undefined;
@@ -72,8 +66,9 @@ interface GoogleAuthSurface {
 export async function signInWithGoogle(): Promise<{ error: string | null }> {
   if (!configured()) return { error: "Sync is not configured." };
   try {
-    await initRemoteSync();
-    const client = await getRemoteClient();
+    const remote = await loadRemoteSync();
+    await remote.initRemoteSync();
+    const client = await remote.getRemoteClient();
     if (!client) return { error: "Sync is not configured." };
     const auth = client.auth as typeof client.auth & GoogleAuthSurface;
     const redirect =
@@ -99,25 +94,68 @@ export function isGoogleEnabled(): boolean {
 }
 
 export async function signOut(): Promise<void> {
-  await remoteSignOut();
+  const remote = await loadRemoteSync();
+  await remote.remoteSignOut();
+}
+
+/**
+ * Auth changes are delivered from the remote engine's sync state. The engine
+ * is loaded lazily, so subscribers are buffered locally until the module
+ * resolves and the engine boots: subscription first, then `initRemoteSync`,
+ * which keeps the existing "no emitted state is missed" ordering.
+ */
+const emailListeners = new Set<(email: string | null) => void>();
+let bridgePromise: Promise<void> | null = null;
+let bridgeUnsubscribe: (() => void) | null = null;
+
+function ensureRemoteBridge(): Promise<void> {
+  if (bridgePromise === null) {
+    bridgePromise = loadRemoteSync()
+      .then((remote) => {
+        if (bridgeUnsubscribe === null) {
+          bridgeUnsubscribe = remote.onSyncStateChange((state) => {
+            for (const listener of [...emailListeners]) {
+              try {
+                listener(state.email);
+              } catch {
+                /* listener errors must not break the sync path */
+              }
+            }
+          });
+        }
+        return remote.initRemoteSync();
+      })
+      .catch(() => {
+        if (bridgeUnsubscribe === null) bridgePromise = null;
+        /* engine reports its own failures through sync state */
+      });
+  }
+  return bridgePromise;
 }
 
 export function onAuthChange(
   callback: (email: string | null) => void,
 ): () => void {
-  const unsubscribe = onSyncStateChange((state) => callback(state.email));
-  void initRemoteSync().catch(() => {
-    /* engine reports its own failures through sync state */
-  });
-  return unsubscribe;
+  emailListeners.add(callback);
+  void ensureRemoteBridge();
+  return () => {
+    emailListeners.delete(callback);
+  };
 }
 
 export function syncNow(): Promise<void> {
-  return runSyncNow();
+  return loadRemoteSync().then((remote) => remote.syncNow());
 }
 
 export function getSyncState(): ReturnType<
   typeof import("./sync/remote").getSyncState
 > {
-  return getRemoteSyncState();
+  const remote = getLoadedRemoteSync();
+  if (remote !== null) return remote.getSyncState();
+  return {
+    status: "unconfigured",
+    email: null,
+    lastSyncedAt: null,
+    error: null,
+  };
 }

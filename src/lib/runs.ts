@@ -11,7 +11,7 @@
  * the clock is local, so treat codes as a fun comparison, not proof.
  */
 
-import { PROBLEMS, getProblemById } from "@/data/problems";
+import { PROBLEM_META, type ProblemMeta } from "@/data/problems/problem-meta";
 import type { Difficulty, Problem } from "@/types/problem";
 
 const STORAGE_KEY = "deepforge:runs:v1";
@@ -98,21 +98,23 @@ function shuffled<T>(items: T[], rand: () => number): T[] {
   return out;
 }
 
-function compareIds(a: Problem, b: Problem): number {
+function compareIds(a: ProblemMeta, b: ProblemMeta): number {
   if (a.id < b.id) return -1;
   if (a.id > b.id) return 1;
   return 0;
 }
 
 /** Stable order so the pick never depends on import order. */
-const ORDERED_PROBLEMS: Problem[] = [...PROBLEMS].sort(compareIds);
+const ORDERED_PROBLEMS: ProblemMeta[] = [...PROBLEM_META].sort(compareIds);
+
+const META_BY_ID = new Map(PROBLEM_META.map((problem) => [problem.id, problem]));
 
 /** Draw the next unused problem, preferring a category not used yet. */
 function takeProblem(
-  list: Problem[],
+  list: ProblemMeta[],
   usedIds: Set<string>,
   usedCategories: Set<string>,
-): Problem | null {
+): ProblemMeta | null {
   for (const p of list) {
     if (usedIds.has(p.id)) continue;
     if (usedCategories.has(p.category)) continue;
@@ -135,7 +137,7 @@ export function seededRunProblems(
   seed: string,
   count: number,
   category?: string,
-): Problem[] {
+): ProblemMeta[] {
   const total = Math.max(1, Math.floor(count));
   const pool =
     category && category !== "All"
@@ -144,7 +146,7 @@ export function seededRunProblems(
   if (pool.length === 0) return [];
 
   const rand = lcg(fnv1a(seed));
-  const buckets: Record<Difficulty, Problem[]> = {
+  const buckets: Record<Difficulty, ProblemMeta[]> = {
     Easy: [],
     Medium: [],
     Hard: [],
@@ -162,7 +164,7 @@ export function seededRunProblems(
     ...Array<Difficulty>(hardTarget).fill("Hard"),
   ];
 
-  const chosen: Problem[] = [];
+  const chosen: ProblemMeta[] = [];
   const usedIds = new Set<string>();
   const usedCategories = new Set<string>();
   for (const difficulty of shuffled(plan, rand)) {
@@ -187,7 +189,7 @@ export function seededRunProblems(
 /* ── Scoring ── */
 
 /** Par solve time in seconds by difficulty. */
-export function parSeconds(problem: Problem): number {
+export function parSeconds(problem: Pick<Problem, "difficulty">): number {
   return PAR_SECONDS[problem.difficulty];
 }
 
@@ -196,7 +198,10 @@ export function parSeconds(problem: Problem): number {
  * seconds, scaling linearly to a 50% floor at twice par and beyond.
  * Rounded to two decimals.
  */
-export function solveScore(problem: Problem, solveSeconds: number): number {
+export function solveScore(
+  problem: Pick<Problem, "difficulty">,
+  solveSeconds: number,
+): number {
   const par = parSeconds(problem);
   const seconds = Number.isFinite(solveSeconds)
     ? Math.max(0, solveSeconds)
@@ -349,7 +354,7 @@ export function recordSolve(
   if (state.status !== "active") return state;
   if (state.solvedIds.includes(problemId)) return state;
   if (!state.problemIds.includes(problemId)) return state;
-  const problem = getProblemById(problemId);
+  const problem = META_BY_ID.get(problemId);
   if (!problem) return state;
 
   const cap = Math.max(0, state.endsAt - state.startedAt);

@@ -1,4 +1,4 @@
-import { PROBLEMS } from "@/data/problems";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { createStore } from "@/lib/sync/store";
 import type { StoreSpec } from "@/lib/sync/types";
@@ -35,7 +35,7 @@ const usernameStore = createStore<string>({
 
 export function getFlameScore(progress: ProgressMap): number {
   let score = 0;
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     if (progress[problem.id]?.solved) {
       score += DIFFICULTY_WEIGHTS[problem.difficulty];
     }
@@ -45,7 +45,7 @@ export function getFlameScore(progress: ProgressMap): number {
 
 export function getSolvedCount(progress: ProgressMap): number {
   let solved = 0;
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     if (progress[problem.id]?.solved) solved += 1;
   }
   return solved;
@@ -123,7 +123,7 @@ const BOT_DEFINITIONS: BotDefinition[] = [
 
 export function getLeaderboard(): LeaderboardEntry[] {
   const progress = getProgress();
-  const totalPoints = PROBLEMS.reduce(
+  const totalPoints = PROBLEM_META.reduce(
     (sum, problem) => sum + DIFFICULTY_WEIGHTS[problem.difficulty],
     0,
   );
@@ -132,7 +132,7 @@ export function getLeaderboard(): LeaderboardEntry[] {
     id: `bot-${index + 1}`,
     name: bot.name,
     score: Math.round(totalPoints * bot.fraction),
-    solved: Math.round(PROBLEMS.length * bot.fraction),
+    solved: Math.round(PROBLEM_META.length * bot.fraction),
     streak: bot.streak,
   }));
 
