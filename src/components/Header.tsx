@@ -66,8 +66,8 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
       <header
         className={`sticky top-0 z-40 w-full border-b transition-colors ${
           scrolled
-            ? "border-hairline bg-canvas/85 backdrop-blur-md"
-            : "border-transparent bg-canvas"
+            ? "border-hairline bg-canvas/70 backdrop-blur-md"
+            : "border-transparent bg-transparent"
         }`}
       >
         <div className="mx-auto flex h-12 w-full max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">

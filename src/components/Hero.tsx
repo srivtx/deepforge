@@ -8,9 +8,9 @@ interface HeroProps {
 
 export function Hero({ problemCount, categoryCount }: HeroProps) {
   return (
-    <section className="relative isolate w-full overflow-hidden">
+    <section className="relative isolate -mt-12 w-full overflow-hidden">
       <Aurora />
-      <div className="relative mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 pt-20 pb-16 sm:px-6 sm:pt-28 sm:pb-24">
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 pt-32 pb-16 sm:px-6 sm:pt-40 sm:pb-24">
         <div className="flex items-center gap-2.5">
           <span className="df-pulse h-2 w-2 rounded-full bg-accent" />
           <span className="text-sm text-body-mid">
