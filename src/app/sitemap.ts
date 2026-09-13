@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { ARTICLES } from "@/data/articles";
 import { POSTS } from "@/data/blog";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { CATEGORIES } from "@/data/problems/meta";
@@ -106,6 +107,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
     ...PREMADE_COLLECTIONS.map((collection) => ({
       url: `${siteUrl}/collections/${collection.id}`,
+      lastModified: LAST_MODIFIED,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
+    ...ARTICLES.map((article) => ({
+      url: `${siteUrl}/articles/${article.slug}`,
       lastModified: LAST_MODIFIED,
       changeFrequency: "monthly" as const,
       priority: 0.6,
