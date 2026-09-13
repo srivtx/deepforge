@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { cn } from "@/lib/utils";
 import { getDailyDateKey } from "@/lib/daily";
+import { getUserName, setUserName } from "@/lib/leaderboard";
+import { Avatar } from "@/components/Avatar";
+import { AvatarPicker } from "@/components/AvatarPicker";
+import { StreakCard } from "@/components/StreakCard";
 import {
   BADGE_CATALOG,
   QUESTS_CHANGE_EVENT,
@@ -26,6 +36,7 @@ import {
 /* ─────────────────────────────── profile store ──────────────────────────── */
 
 interface ProfileData {
+  name: string;
   xp: XpInfo;
   totals: Totals;
   earned: EarnedBadge[];
@@ -35,6 +46,7 @@ interface ProfileData {
 }
 
 const EMPTY_PROFILE: ProfileData = {
+  name: "you",
   xp: { xp: 0, level: 1, title: "Novice", nextLevelXp: 100, progress: 0 },
   totals: { solved: 0, xp: 0, level: 1, badges: 0, streak: 0, longestStreak: 0 },
   earned: [],
@@ -49,6 +61,7 @@ const PROFILE_EVENTS = [
   "deepforge:lab-change",
   "deepforge:research-change",
   "deepforge:contest-change",
+  "deepforge:username-change",
   QUESTS_CHANGE_EVENT,
 ];
 
@@ -60,6 +73,7 @@ function buildProfile(): ProfileData {
   const earned = earnedBadges(snapshot);
   const totals = getTotals(snapshot);
   return {
+    name: getUserName(),
     xp,
     totals: { ...totals, xp: xp.xp, level: xp.level, badges: earned.length },
     earned,
@@ -279,6 +293,24 @@ function QuestCheck({ done }: { done: boolean }) {
 
 export function Badges() {
   const profile = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const skipNameCommit = useRef(false);
+
+  const startEditingName = () => {
+    setNameDraft(profile.name);
+    skipNameCommit.current = false;
+    setEditingName(true);
+  };
+
+  const commitName = () => {
+    if (skipNameCommit.current) {
+      skipNameCommit.current = false;
+    } else {
+      setUserName(nameDraft);
+    }
+    setEditingName(false);
+  };
 
   // Labs have no timestamps in their store, so the lab quest is marked on
   // the change event instead of being derived.
@@ -305,15 +337,72 @@ export function Badges() {
       id="profile"
       className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-8 sm:px-6 sm:py-12"
     >
-      <div className="mb-6">
-        <h2 className="text-sm font-medium text-body-mid">
-          {profile.earned.length}/{TOTAL_BADGES} badges · level{" "}
-          {profile.xp.level} {profile.xp.title} · {completedQuests}/3 quests
-          today
-        </h2>
+      {/* Profile header: identity + streak */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5 lg:col-span-2">
+          <div className="flex items-center gap-4 sm:gap-5">
+            <Avatar size="xl" label={`${profile.name} avatar`} />
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold tracking-tight text-ink">
+                Profile
+              </h2>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                {editingName ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={nameDraft}
+                    maxLength={24}
+                    onChange={(event) => setNameDraft(event.target.value)}
+                    onBlur={commitName}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") commitName();
+                      if (event.key === "Escape") {
+                        skipNameCommit.current = true;
+                        setEditingName(false);
+                      }
+                    }}
+                    aria-label="Display name"
+                    className="min-h-11 w-40 rounded-md border border-hairline bg-canvas px-3 text-sm text-ink focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/40"
+                  />
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={startEditingName}
+                      aria-label={`Edit display name, currently ${profile.name}`}
+                      className="inline-flex min-h-11 items-center rounded-md text-sm font-medium text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0"
+                    >
+                      {profile.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={startEditingName}
+                      aria-label="Edit username"
+                      className="inline-flex min-h-11 items-center rounded-md border border-hairline px-3 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0 sm:py-1.5"
+                    >
+                      Edit
+                    </button>
+                  </>
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-body-mid">
+                {profile.earned.length}/{TOTAL_BADGES} badges · level{" "}
+                {profile.xp.level} {profile.xp.title} · {completedQuests}/3
+                quests today
+              </p>
+            </div>
+          </div>
+        </div>
+        <StreakCard />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      {/* Your look */}
+      <div className="mt-3">
+        <AvatarPicker />
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* Level + XP */}
         <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <div className="flex items-center gap-4">

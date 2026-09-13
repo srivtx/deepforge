@@ -13,6 +13,7 @@ import {
   type DailyState,
 } from "@/lib/daily";
 import { cn, difficultyClasses } from "@/lib/utils";
+import { FlameGlyph } from "@/components/SolvedBanner";
 
 const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
 
@@ -160,6 +161,19 @@ export function DailyChallenge() {
               <div className="mt-1.5 font-mono text-xl text-ink">{remaining}</div>
             </div>
           </div>
+
+          {solvedToday && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-4 flex flex-wrap items-center gap-1.5 text-xs text-accent"
+            >
+              <FlameGlyph className="h-3.5 w-3.5 shrink-0" />
+              <span>
+                Streak: {dailyState.streak} {streakUnit} — see you tomorrow
+              </span>
+            </div>
+          )}
         </div>
       </section>
     </>

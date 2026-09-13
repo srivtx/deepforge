@@ -28,6 +28,7 @@ import {
   type TrendDay,
 } from "@/lib/stats";
 import { cn } from "@/lib/utils";
+import { FlameGlyph } from "@/components/SolvedBanner";
 import type { Difficulty } from "@/types/problem";
 
 /* ─────────────────────────────── data store ─────────────────────────────── */
@@ -172,6 +173,67 @@ function StatTile({
         {value}
       </div>
       <div className="mt-0.5 truncate text-[10px] text-body-mid">{detail}</div>
+    </div>
+  );
+}
+
+function StreakTile({
+  current,
+  longest,
+  days,
+}: {
+  current: number;
+  longest: number;
+  days: TrendDay[];
+}) {
+  const recent = days.slice(-7);
+  const summary = recent
+    .map(
+      (day) =>
+        `${day.date}: ${day.count} ${day.count === 1 ? "solve" : "solves"}`,
+    )
+    .join(", ");
+
+  return (
+    <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+      <div className="text-xs text-body-mid">Current streak</div>
+      <div className="mt-0.5 flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5">
+          <FlameGlyph
+            className={cn(
+              "h-4 w-4 shrink-0",
+              current > 0 ? "text-accent" : "text-body-mid",
+            )}
+          />
+          <span className="font-mono text-lg font-medium text-ink">
+            {current}d
+          </span>
+        </span>
+        <span className="truncate font-mono text-[10px] text-body-mid">
+          longest {longest}d
+        </span>
+      </div>
+      {recent.length > 0 && (
+        <div
+          role="img"
+          aria-label={`Last 7 days: ${summary}`}
+          className="mt-2 flex items-center gap-1"
+        >
+          {recent.map((day) => (
+            <span
+              key={day.date}
+              aria-hidden
+              title={`${day.date}: ${day.count} ${
+                day.count === 1 ? "solve" : "solves"
+              }`}
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                day.count > 0 ? "bg-accent" : "bg-canvas-soft",
+              )}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -732,10 +794,10 @@ export function StatsDashboard() {
           value={`${overview.solvedToday}`}
           detail={`${overview.solvedThisWeek} this week`}
         />
-        <StatTile
-          label="Current streak"
-          value={`${overview.currentStreak}d`}
-          detail={`longest ${overview.longestStreak}d`}
+        <StreakTile
+          current={overview.currentStreak}
+          longest={overview.longestStreak}
+          days={trend}
         />
         <StatTile
           label="Level"

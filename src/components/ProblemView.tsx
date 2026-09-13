@@ -26,10 +26,13 @@ import {
   type NotebookCell,
 } from "@/lib/notebook";
 import { StudyAssistant } from "@/components/StudyAssistant";
+import { SolvedBanner } from "@/components/SolvedBanner";
 import { Discuss } from "@/components/Discuss";
 import { ProblemComments } from "@/components/ProblemComments";
+import { getCurrentStreak } from "@/lib/leaderboard";
 import {
   getProblemProgress,
+  getProgress,
   markOpened,
   markSolved,
   saveCode,
@@ -89,6 +92,11 @@ export function ProblemView({
     {},
   );
   const [runningCellId, setRunningCellId] = useState<string | null>(null);
+  const [solveFeedback, setSolveFeedback] = useState<{
+    problemId: string;
+    kind: "first" | "again";
+    streak: number;
+  } | null>(null);
 
   const pyRef = useRef<any>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -228,7 +236,13 @@ export function ProblemView({
       setResults(r);
       const allPass = r.length > 0 && r.every((x) => x.ok);
       if (allPass) {
+        const wasSolved = getProblemProgress(problem.id).solved === true;
         markSolved(problem.id);
+        setSolveFeedback({
+          problemId: problem.id,
+          kind: wasSolved ? "again" : "first",
+          streak: getCurrentStreak(getProgress()),
+        });
       }
       onProgressChange?.();
     } catch (e: any) {
@@ -386,7 +400,13 @@ export function ProblemView({
           setResults(r);
           const allPass = r.length > 0 && r.every((x) => x.ok);
           if (allPass) {
+            const wasSolved = getProblemProgress(problem.id).solved === true;
             markSolved(problem.id);
+            setSolveFeedback({
+              problemId: problem.id,
+              kind: wasSolved ? "again" : "first",
+              streak: getCurrentStreak(getProgress()),
+            });
           }
           onProgressChange?.();
         }
@@ -434,6 +454,10 @@ export function ProblemView({
 
   const allPass =
     results !== null && results.length > 0 && results.every((r) => r.ok);
+  const solveNotice =
+    solveFeedback && solveFeedback.problemId === problem.id
+      ? solveFeedback
+      : null;
   const passCount = results !== null ? results.filter((r) => r.ok).length : 0;
   const notebookCells = cells ?? [];
 
@@ -964,6 +988,16 @@ export function ProblemView({
                   </span>
                 )}
               </div>
+
+              {allPass && solveNotice && (
+                <div className="px-4 py-4 sm:px-6">
+                  <SolvedBanner
+                    kind={solveNotice.kind}
+                    passed={passCount}
+                    streak={solveNotice.streak}
+                  />
+                </div>
+              )}
 
               {/* Results */}
               <div
