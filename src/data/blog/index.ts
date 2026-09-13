@@ -11,8 +11,13 @@ import {
   post as routesMigration,
   Content as RoutesMigrationContent,
 } from "./from-one-long-page-to-24-routes";
+import {
+  post as avatarEngine,
+  Content as AvatarEngineContent,
+} from "./building-a-150-trait-avatar-engine";
 
 const ENTRIES: BlogEntry[] = [
+  { post: avatarEngine, Content: AvatarEngineContent },
   { post: verifyingProblems, Content: VerifyingProblemsContent },
   { post: offlineFirstSync, Content: OfflineFirstSyncContent },
   { post: routesMigration, Content: RoutesMigrationContent },
