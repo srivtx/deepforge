@@ -16,9 +16,9 @@ import { timeSeriesProblems } from "./time-series";
 import { graphAlgorithmsProblems } from "./graph-algorithms";
 import { informationTheoryProblems } from "./information-theory";
 
-import { CATEGORIES } from "./meta";
+import { CATEGORIES } from "./categories";
 
-export { CATEGORIES } from "./meta";
+export { CATEGORIES } from "./categories";
 export { LEARNING_PATHS } from "./paths";
 
 export const PROBLEMS: Problem[] = [

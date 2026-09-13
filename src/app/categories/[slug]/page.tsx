@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/PageShell";
-import { CATEGORIES, getProblemsByCategory } from "@/data/problems";
+import { CATEGORIES } from "@/data/problems/meta";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 import type { CategoryMeta, Difficulty } from "@/types/problem";
 import { cn, difficultyClasses } from "@/lib/utils";
 
@@ -25,8 +26,12 @@ function categoryFromSlug(slug: string): CategoryMeta | undefined {
   return CATEGORIES.find((category) => categorySlug(category.name) === slug);
 }
 
+function categoryProblems(category: CategoryMeta) {
+  return PROBLEM_META.filter((problem) => problem.category === category.name);
+}
+
 function categoryMetaDescription(category: CategoryMeta): string {
-  const count = getProblemsByCategory(category.name).length;
+  const count = categoryProblems(category).length;
   return `${category.blurb} ${count} ${category.name} practice problems with browser-based Python execution on DeepForge — free, no account needed.`;
 }
 
@@ -44,7 +49,7 @@ export async function generateMetadata({
   if (!category) return { title: "Category not found" };
 
   const description = categoryMetaDescription(category);
-  const count = getProblemsByCategory(category.name).length;
+  const count = categoryProblems(category).length;
   const ogImage = {
     url: `${siteUrl}/og?title=${encodeURIComponent(
       category.name,
@@ -82,7 +87,7 @@ export default async function CategoryPage({
   const category = categoryFromSlug(slug);
   if (!category) notFound();
 
-  const problems = getProblemsByCategory(category.name);
+  const problems = categoryProblems(category);
   const listed = problems.slice(0, MAX_LISTED);
   const difficultyCounts: Record<Difficulty, number> = {
     Easy: 0,

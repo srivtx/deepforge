@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CATEGORIES, PROBLEMS, getCategoryCounts } from "@/data/problems";
+import { CATEGORIES } from "@/data/problems/meta";
+import { PROBLEM_META, getCategoryCounts } from "@/data/problems/problem-meta";
 import type { Difficulty } from "@/types/problem";
 import { PageShell } from "@/components/PageShell";
 import { PracticeBrowser } from "@/components/PracticeBrowser";
@@ -16,7 +17,7 @@ function categorySlug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-const description = `Browse all ${PROBLEMS.length} DeepForge problems across ${CATEGORIES.length} categories — linear algebra, calculus, statistics, probability, machine learning, deep learning, and more. Every problem runs Python in your browser.`;
+const description = `Browse all ${PROBLEM_META.length} DeepForge problems across ${CATEGORIES.length} categories — linear algebra, calculus, statistics, probability, machine learning, deep learning, and more. Every problem runs Python in your browser.`;
 
 export const metadata: Metadata = {
   title: "All problems",
@@ -40,7 +41,7 @@ export default function ProblemsPage() {
     Medium: 0,
     Hard: 0,
   };
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     difficultyCounts[problem.difficulty] += 1;
   }
 
@@ -111,13 +112,13 @@ export default function ProblemsPage() {
             All problems
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-body">
-            {PROBLEMS.length} problems across {CATEGORIES.length} categories, from
+            {PROBLEM_META.length} problems across {CATEGORIES.length} categories, from
             vectors and gradients to backprop, attention, and Q-learning. Each one
             is a self-contained Python exercise with tests that run in your
             browser — no account needed.
           </p>
           <div className="flex flex-wrap items-center gap-3 text-xs text-body-mid">
-            <span className="font-mono">{PROBLEMS.length} total</span>
+            <span className="font-mono">{PROBLEM_META.length} total</span>
             <span className="text-mute">·</span>
             <span className="font-mono text-accent">
               {difficultyCounts.Easy} Easy

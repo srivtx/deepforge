@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { CATEGORIES, PROBLEMS } from "@/data/problems";
+import { CATEGORIES } from "@/data/problems/meta";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getAllPaths, pathSlug } from "@/lib/paths";
 
 const siteUrl = (
@@ -66,7 +67,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly" as const,
       priority: 0.8,
     })),
-    ...PROBLEMS.map((problem) => ({
+    ...PROBLEM_META.map((problem) => ({
       url: `${siteUrl}/problems/${problem.id}`,
       lastModified: LAST_MODIFIED,
       changeFrequency: "monthly" as const,

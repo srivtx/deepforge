@@ -14,6 +14,7 @@ import {
   mergeRemoteUpvoteIds,
   setReplyUpvoteCount,
   setThreadUpvoteCount,
+  toggleUpvote as toggleLocalCommentVote,
   upvoteReply as upvoteLocalReply,
   upvoteThread as upvoteLocalThread,
   type Comment,
@@ -739,4 +740,123 @@ export async function createComment(
   } finally {
     pushingComments.delete(comment.id);
   }
+}
+
+export const MAX_COMMENT_LENGTH = 2000;
+
+const COMMENT_STORAGE_KEY = "deepforge:comments:v1";
+
+const commentProblems = new Map<string, string>();
+
+function storedCommentProblem(commentId: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(COMMENT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    for (const [problemId, list] of Object.entries(
+      parsed as Record<string, unknown>,
+    )) {
+      if (!Array.isArray(list)) continue;
+      for (const item of list) {
+        if (item && typeof item === "object" && (item as Row).id === commentId) {
+          return problemId;
+        }
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function commentProblemId(commentId: string): string | null {
+  const cached = commentProblems.get(commentId);
+  if (cached) return cached;
+  const found = storedCommentProblem(commentId);
+  if (found) commentProblems.set(commentId, found);
+  return found;
+}
+
+function commentUpvoteState(commentId: string): SocialUpvoteState | null {
+  const problemId = commentProblemId(commentId);
+  if (!problemId) return null;
+  const comment = getComments(problemId).find((item) => item.id === commentId);
+  if (!comment) return null;
+  return { upvoted: comment.upvotedByMe, upvotes: comment.upvotes };
+}
+
+function toggleLocalCommentUpvote(commentId: string): void {
+  const problemId = commentProblemId(commentId);
+  if (!problemId) return;
+  toggleLocalCommentVote(problemId, commentId);
+}
+
+function adoptCommentUpvoteCount(commentId: string, count: number): void {
+  if (typeof count !== "number" || !Number.isFinite(count)) return;
+  const problemId = commentProblemId(commentId);
+  if (!problemId) return;
+  const comment = getComments(problemId).find((item) => item.id === commentId);
+  if (!comment) return;
+  mergeRemoteComments(problemId, [
+    { ...comment, upvotes: Math.max(0, Math.floor(count)) },
+  ]);
+}
+
+async function toggleCommentUpvoteById(
+  commentId: string,
+): Promise<SocialResult<SocialUpvoteState>> {
+  ensureSessionWatch();
+  const key = `comment:${commentId}`;
+  if (pendingUpvotes.has(key)) {
+    return { data: commentUpvoteState(commentId), error: null };
+  }
+  const remote = await acquireRemote().catch(() => null);
+  if (!remote) {
+    toggleLocalCommentUpvote(commentId);
+    notify();
+    return { data: commentUpvoteState(commentId), error: null };
+  }
+  if ("error" in remote) {
+    toggleLocalCommentUpvote(commentId);
+    notify();
+    return { data: commentUpvoteState(commentId), error: remote.error };
+  }
+  const { client } = remote;
+  const rpc = rpcCall(client);
+  const before = commentUpvoteState(commentId);
+  pendingUpvotes.add(key);
+  try {
+    toggleLocalCommentUpvote(commentId);
+    notify();
+    if (!rpc) throw new Error("Upvote sync is unavailable.");
+    const { data, error } = await rpc("toggle_comment_upvote", {
+      p_comment_id: commentId,
+    });
+    if (error) throw error;
+    if (typeof data === "number") adoptCommentUpvoteCount(commentId, data);
+    notify();
+    return { data: commentUpvoteState(commentId), error: null };
+  } catch (error) {
+    if (before) {
+      const current = commentUpvoteState(commentId);
+      if (current && current.upvoted !== before.upvoted) {
+        toggleLocalCommentUpvote(commentId);
+      }
+      adoptCommentUpvoteCount(commentId, before.upvotes);
+    }
+    notify();
+    return { data: null, error: errorMessage(error) };
+  } finally {
+    pendingUpvotes.delete(key);
+  }
+}
+
+export function toggleCommentUpvote(
+  commentId: string,
+): Promise<SocialResult<SocialUpvoteState>> {
+  return toggleCommentUpvoteById(commentId);
 }

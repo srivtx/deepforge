@@ -25,6 +25,7 @@ import {
 } from "@/lib/notebook";
 import { StudyAssistant } from "@/components/StudyAssistant";
 import { Discuss } from "@/components/Discuss";
+import { ProblemComments } from "@/components/ProblemComments";
 import {
   getProblemProgress,
   markOpened,
@@ -1094,6 +1095,23 @@ export function ProblemView({
               </div>
             </div>
           </div>
+
+          {isPage && (
+            <section
+              aria-labelledby="df-discussion-heading"
+              className="mt-10 border-t border-hairline pt-8 sm:mt-12 sm:pt-12"
+            >
+              <h2
+                id="df-discussion-heading"
+                className="text-lg font-semibold tracking-tight text-ink"
+              >
+                Discussion
+              </h2>
+              <div className="mt-4">
+                <ProblemComments problemId={problem.id} />
+              </div>
+            </section>
+          )}
         </div>
 
         {/* Mobile footer — indent keys + always-reachable primary actions */}

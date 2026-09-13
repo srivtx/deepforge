@@ -4,7 +4,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProblemList } from "@/components/ProblemList";
 import { categorySlug } from "@/lib/sections";
-import { CATEGORIES, PROBLEMS } from "@/data/problems";
+import { CATEGORIES } from "@/data/problems/meta";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import type { Difficulty } from "@/types/problem";
 
@@ -65,7 +66,7 @@ function PracticeBrowserContent() {
 
   return (
     <ProblemList
-      problems={PROBLEMS}
+      problems={PROBLEM_META}
       progress={progress}
       activeCategory={activeCategory}
       activeDifficulty={activeDifficulty}

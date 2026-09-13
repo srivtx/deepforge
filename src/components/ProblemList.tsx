@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Problem, Difficulty } from "@/types/problem";
+import type { ProblemMeta } from "@/data/problems/problem-meta";
 import { ProblemCard } from "./ProblemCard";
 import { cn } from "@/lib/utils";
 
 interface ProblemListProps {
-  problems: Problem[];
+  problems: ProblemMeta[];
   progress: Record<
     string,
     { solved?: boolean; attempted?: boolean }
@@ -17,7 +18,7 @@ interface ProblemListProps {
   onCategoryChange: (c: string) => void;
   onDifficultyChange: (d: Difficulty | "All") => void;
   onSearchChange: (s: string) => void;
-  onOpen: (p: Problem) => void;
+  onOpen: (p: ProblemMeta) => void;
   categories: string[];
   initialCategory?: string;
 }
@@ -65,8 +66,7 @@ export function ProblemList({
       if (q) {
         if (
           !p.title.toLowerCase().includes(q) &&
-          !p.id.toLowerCase().includes(q) &&
-          !p.description.toLowerCase().includes(q)
+          !p.id.toLowerCase().includes(q)
         )
           return false;
       }
@@ -105,7 +105,7 @@ export function ProblemList({
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search by title, id, or description…"
+          placeholder="Search by title or id…"
           className="min-h-11 flex-1 rounded-lg border border-hairline bg-canvas-card px-3 py-2 text-sm text-ink placeholder:text-mute focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30 sm:min-h-0"
         />
         <div className="flex items-center gap-1 overflow-x-auto">
@@ -195,7 +195,7 @@ export function ProblemList({
               return (
                 <ProblemCard
                   key={p.id}
-                  problem={p}
+                  problem={p as unknown as Problem}
                   solved={prog.solved}
                   attempted={prog.attempted}
                   onClick={() => onOpen(p)}
