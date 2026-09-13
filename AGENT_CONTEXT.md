@@ -1,6 +1,6 @@
 # DeepForge — Master Agent Context
 
-> **Goal:** Surpass deep-ml.com in every aspect — more problems, better design, more features, better UX.
+> **Goal:** The best place to practice ML and math from scratch — more problems, better design, more features, better UX.
 
 This file gives any AI agent (or team of agents) the full context needed to work on DeepForge autonomously. Read this file completely before starting any work. For task-scoped rules (file ownership, verification), also read [`AGENT_BRIEF.md`](./AGENT_BRIEF.md).
 
@@ -16,30 +16,29 @@ DeepForge is a practice platform for machine learning, math, and engineering. Us
 
 ---
 
-## The Competition: deep-ml.com
+## Product targets
 
-Deep-ML is the incumbent. Current state:
+| Area | DeepForge today |
+|---|---|
+| Problems | **5,050**, every solution Python-verified |
+| Categories | **15** |
+| In-browser execution | Yes (Pyodide) |
+| Design | svx dark + light; see [`docs/DESIGN-SYSTEM.md`](./docs/DESIGN-SYSTEM.md) |
+| Account required | No — local-first, sync is optional |
+| Open source | Yes (MIT) |
+| Mobile-friendly | Yes |
+| Learning paths | **28** with stages, goals, prerequisites, hours |
+| Projects (multi-step labs) | **5 labs · 36 steps** |
+| Contests (timed) | **12 sets (10–60 min)** + Speedrun |
+| Leaderboard | Flame Score + streaks + username; global view when signed in |
+| Discuss / community | Threads, replies, upvotes, problem refs; server-backed when signed in |
+| Study assistant | Zero: 6 intents, catalogue-grounded, code-aware |
+| Collections / playlists | **24 premade** + user sets + shareable playlists |
+| Interview prep | **13 company tracks** + timed mocks |
+| Pen-and-paper math | **60 no-code problems** + SM-2 mastery review |
+| Blog | Engineering write-ups with SVG diagrams + RSS (`/blog`) |
 
-| Feature | Deep-ML | DeepForge |
-|---|---|---|
-| Problems | 1,200+ | **5,050** |
-| Categories | 5 | **15** |
-| In-browser execution | Yes | Yes (Pyodide) |
-| Design | Generic dark | svx dark+light |
-| Account required | No | No |
-| Open source | No | Yes (MIT) |
-| Mobile-friendly | Partial | Yes |
-| Learning paths | Yes | **24** |
-| Projects (multi-step labs) | Yes (GPT, RL, CUDA) | **5 labs · 36 steps** |
-| Contests (timed) | Yes | **8 contests (10–60 min)** |
-| Leaderboard | Yes (global, Flame Score) | **Yes (local: Flame Score + streaks + username)** |
-| Discuss / community | Yes (forum) | **Yes (per-problem threads, local)** |
-| Study assistant | Yes (AI) | **Yes (3-tier progressive hints, deterministic)** |
-| Collections / playlists | Yes | **6 premade + user sets + shareable URLs** |
-| Interview prep | Yes | **4 timed tracks** |
-| Pen-and-paper math | Yes | **60 no-code problems** |
-
-Honest caveats: leaderboard, comments, and collections are localStorage-backed (single browser, no accounts). Deep-ML's equivalents are server-backed. A shared backend is the main remaining gap.
+Honest caveats: without an account everything stays on one device. Signing in with a magic link or Google syncs progress, streaks, leaderboard and community data through Supabase.
 
 ### DeepForge's categories (15)
 
@@ -260,31 +259,34 @@ bun run build                                 # production build
 ## Roadmap
 
 ### Phase 1: Problems — ✅ Complete
-5,050 verified problems across 15 categories (target was 2,000+, deep-ml has 1,200+). Every solution passes real-Python verification.
+5,050 verified problems across 15 categories. Every solution passes real-Python verification.
 
 ### Phase 2: Features — ✅ Complete
-- **Contests** — 8 timed sets (10–60 min), countdown, difficulty-weighted scores, local results
-- **Leaderboard** — Flame Score (Easy=1, Medium=3, Hard=5), solved count, current/longest streak, editable username, local
+- **Contests** — 12 timed sets (10–60 min), countdown, difficulty-weighted scores, local results
+- **Leaderboard** — Flame Score (Easy=1, Medium=3, Hard=5), solved count, current/longest streak, editable username; global Supabase view when signed in
 - **Projects** — 5 multi-step labs / 36 steps: GPT from scratch, neural network framework, search engine, recommender, CNN
-- **Discuss** — per-problem comment threads with upvotes (local)
-- **Study Assistant** — 3-tier progressive hints (nudge → approach → full solution), deterministic
-- **Collections** — 6 premade sets, user-created sets, shareable encoded URLs
-- **Interview Prep** — 4 timed tracks (FAANG ML, Quant, ML Engineer, Data Scientist), 4 min/problem
-- **Pen-and-paper math** — 60 no-code problems, multiple choice + numeric, with explanations
+- **Discuss** — threads, replies, upvotes, problem references; server-backed when signed in
+- **Study Assistant** — Zero: 6 intents, catalogue-grounded, code-aware
+- **Collections** — 24 premade sets with detail pages, user-created sets, shareable URLs
+- **Interview Prep** — 13 company tracks + timed mocks
+- **Pen-and-paper math** — 60 no-code problems, multiple choice + numeric, SM-2 mastery review
+- **Sync/social backend** — Supabase (projects klogjcspyiygnggmugjy): local-first sync, magic link + Google, RLS
+- **Blog** — `/blog` engineering write-ups with SVG diagrams and RSS
 
 ### Phase 3: Polish — ✅ Partially complete
 - ✅ SEO: metadata + OpenGraph, PWA manifest, robots.txt, sitemap.xml
 - ✅ Dark/light mode across all views
-- 🔲 Mobile audit at 375px across every new view
-- 🔲 Accessibility pass: keyboard nav, focus management, screen readers
-- 🔲 Performance: code-split heavy views, tighten Pyodide lazy-load
+- ✅ Bundle split: light problem index; home 283 KB gzip (from 1,553 KB)
+- ✅ Mobile audits at 375px across new views
+- 🔲 Formal accessibility pass: screen reader sweep, keyboard traps, contrast in every dialog
+- 🔲 PWA offline verification for every route (worker exists and is localhost-safe)
 
 ### Next steps (sensible order)
-1. **Deepen thin categories** — Calculus, Statistics, Probability, NLP, and Optimization have 95 each; grow toward ~200 like the rest, using the existing part-file workflow and verifier.
-2. **Global accounts backend** — the biggest functional gap vs deep-ml: cross-device progress, real global leaderboard, server-backed comments/collections. Until then, all community data stays local.
-3. **More projects and interview tracks** — cheap once the problem bank grows; add 1-2 labs and 1-2 tracks.
-4. **Mobile + accessibility polish** — 375px audit, keyboard navigation, focus states, reduced motion.
-5. **More pen-and-paper problems** — 60 now; expand to cover every category.
+1. **Path upgrades** — implement [`docs/research/path-curation.md`](./docs/research/path-curation.md): per-stage checkpoints, mixed-kind steps (problems + labs + math + projects), capstone per path, 5 new paths.
+2. **Content growth** — +500 problems, rebalancing the thinnest categories (Linear Algebra, Calculus, Optimization at 275) and the level mix.
+3. **Production hardening** — Vercel deploy, custom SMTP for magic links, rate limits, two-account RLS spot check.
+4. **Social scale** — realtime subscriptions and pagination for forum/comments; global leaderboard polish.
+5. **E2E in CI** — wire `scripts/e2e-smoke.mjs` into the pipeline; keep 252+ tests green.
 
 ---
 

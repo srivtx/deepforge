@@ -1,6 +1,6 @@
 # DeepForge — Next Wave Plan
 
-Branch `surpass-deepml` · commit `486d209` · written 2026-09-13.
+Written 2026-09-13.
 Scope: deploy, performance, comments UI, e2e smoke, social scale, SEO, content growth, a11y, Supabase hardening, PWA.
 No code changes in this document — it is the working plan handed to the next wave of agents.
 

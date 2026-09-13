@@ -3,21 +3,21 @@
 **Date:** 2026-09-13
 **Author:** research agent (read-only; no code or data modified)
 **Scope:** how leading platforms structure curated learning paths; a structural audit of our 28 paths in `src/data/problems/paths.ts`; and a prioritised set of improvements with verified problem ids.
-**Method:** (a) read `AGENT_CONTEXT.md`, `src/data/problems/paths.ts`, `src/lib/paths.ts`, `src/data/problems/problem-meta.ts` (5,050 problems), `src/app/paths/[slug]/PathDetail.tsx`, `src/components/Paths.tsx`, `src/types/problem.ts`, `src/data/labs.ts`, `src/data/projects.ts`, `src/data/collections.ts`, `src/lib/progress.ts`, `scripts/verify-paths-content.ts`; (b) ran read-only analysis scripts against the real catalogue (pacing, difficulty ordering, cross-path overlap, stage inversions, category coverage); (c) fetched deep-ml's live path data model from its public Firestore `tracks` collection and `/get-collections` endpoint; (d) read platform documentation for fast.ai, Kaggle Learn, Hugging Face, MLOps Zoomcamp, DeepLearning.AI, NeetCode, LeetCode; (e) reviewed the learning-science literature on sequencing and practice. All URLs accessed 2026-09-13 unless noted.
+**Method:** (a) read `AGENT_CONTEXT.md`, `src/data/problems/paths.ts`, `src/lib/paths.ts`, `src/data/problems/problem-meta.ts` (5,050 problems), `src/app/paths/[slug]/PathDetail.tsx`, `src/components/Paths.tsx`, `src/types/problem.ts`, `src/data/labs.ts`, `src/data/projects.ts`, `src/data/collections.ts`, `src/lib/progress.ts`, `scripts/verify-paths-content.ts`; (b) ran read-only analysis scripts against the real catalogue (pacing, difficulty ordering, cross-path overlap, stage inversions, category coverage); (c) fetched the incumbent's live path data model from its public Firestore `tracks` collection and `/get-collections` endpoint; (d) read platform documentation for fast.ai, Kaggle Learn, Hugging Face, MLOps Zoomcamp, DeepLearning.AI, NeetCode, LeetCode; (e) reviewed the learning-science literature on sequencing and practice. All URLs accessed 2026-09-13 unless noted.
 
 ---
 
 ## TL;DR
 
-1. **Our paths are structurally valid but pedagogically thin.** The verifier enforces 3–5 stages × 6–15 problems (`scripts/verify-paths-content.ts:77-101`), but paths contain only problems (`PathStage.problemIds`, `src/types/problem.ts:41-46`) — no labs, projects, sims, math, checkpoints, or milestones. Deep-ML's path model interleaves `problem | lab | math | project` steps and ends every tier with a capstone project.
+1. **Our paths are structurally valid but pedagogically thin.** The verifier enforces 3–5 stages × 6–15 problems (`scripts/verify-paths-content.ts:77-101`), but paths contain only problems (`PathStage.problemIds`, `src/types/problem.ts:41-46`) — no labs, projects, sims, math, checkpoints, or milestones. The incumbent's path model interleaves `problem | lab | math | project` steps and ends every tier with a capstone project.
 2. **Only 596 of 5,050 problems (11.8%) appear in any path.** Computer Vision (6.6%), Reinforcement Learning (7.5%), Data Structures (7.6%), Algorithms (8.6%), and Information Theory (9.5%) are the least-covered categories, despite 275–455 problems each.
 3. **Redundancy is real:** `math-foundations` and `math-for-machine-learning` share 20 ids (Jaccard 0.56); `probability-foundations`/`quant-interview-track` share 16; `statistics-mastery`/`data-scientist-track` share 15.
 4. **Difficulty ordering has measurable inversions** in 8 of 28 paths at the stage level (e.g., `generative-models-primer`: GANs stage avg 2.5 → diffusion 1.9) and one hard→easy flip inside a stage (`time-series-and-forecasting`: `ts-037` Hard → `ts-294` Easy).
 5. **Estimated hours are uncalibrated:** 9.3 min/problem for `llm-engineering` (45 problems in 7h) vs 34.6 for `algorithms-interview-grind` (26 in 15h).
 6. **Prerequisites are displayed as raw ids** and are not links (`PathDetail.tsx:328-346` renders `"ml-from-scratch"`, not "ML From Scratch"), and the verifier only checks the count (≤4), not that the ids exist (`scripts/verify-paths-content.ts:73-75`).
 7. **The research says:** practice testing and distributed practice are the two highest-utility techniques (Dunlosky et al. 2013); interleaving during *review* roughly doubles-to-triples delayed test scores but depresses practice accuracy (Rohrer & Taylor 2007; Taylor & Rohrer 2010); worked examples must fade as expertise grows or they reverse (worked-example/expertise-reversal effect). Our paths are blocked-by-topic with no review interleaving and no spaced re-review, even though `ProblemProgress.solvedAt` already stores timestamps (`src/lib/progress.ts:22-23`).
-8. **Five paths we should add** (all ids verified against `problem-meta.ts`): Computer Vision Deep Learning, Production ML (serving + monitoring), Data Pipelines & Feature Engineering, Build a Transformer from Scratch (capstone), Causal Inference & Uplift. Two of these map directly to live deep-ml paths (`inference-engineering`, `quantization`) where we currently have zero coverage.
-9. **deep-ml does 3 things better** (mixed-kind steps + capstone per tier; activity-labelled sections with tier blurbs; 72 collections with resources/badges/sections). **We do 3 things better** (5,050 vs ~1,390 problems; 15 vs 5 categories; declared path metadata — goals/level/hours/prerequisites — plus MIT-licensed file-based content).
+8. **Five paths we should add** (all ids verified against `problem-meta.ts`): Computer Vision Deep Learning, Production ML (serving + monitoring), Data Pipelines & Feature Engineering, Build a Transformer from Scratch (capstone), Causal Inference & Uplift. Two of these map directly to two of the incumbent's live paths (`inference-engineering`, `quantization`) where we currently have zero coverage.
+9. **the incumbent does 3 things better** (mixed-kind steps + capstone per tier; activity-labelled sections with tier blurbs; 72 collections with resources/badges/sections). **We do 3 things better** (5,050 vs ~1,390 problems; 15 vs 5 categories; declared path metadata — goals/level/hours/prerequisites — plus MIT-licensed file-based content).
 10. **Highest-impact fix:** a stage checkpoint model — 3 "boss" problems (2 Medium + 1 Hard from the stage) with hints disabled, plus one Lab/Project/Sim as the mini-project, soft-gated by stage completion. This is the missing retrieval-practice layer and maps cleanly onto features we already ship.
 
 ---
@@ -28,7 +28,7 @@
 
 | Platform | Path granularity | Stage structure | Prerequisites | Milestones / checkpoints | Progress model | What we can steal |
 |---|---|---|---|---|---|---|
-| **deep-ml** (`deep-ml.com/paths`, Firestore `tracks` fetched 2026-09-13) | 9 live tracks (sitemap lists 10 URLs incl. legacy `/paths/foundations`); each track is "a book" | 3 tiers always (`basics` → `advanced` → `pro`), 178 sections total, section titles activity-prefixed (`Math:`, `Test:`, `Lab:`, `Capstone project:`); median 3 steps/section (min 1, max 19) | None declared; 5 tracks list `related` collections instead (e.g., `llms` → "Build GPT from Scratch: Karpathy Walkthrough") | Capstone project closes the advanced tier of every track; labs scattered as checkpoints (e.g., Deep Learning: "Lab: design your own activation" after the activation problems; "Capstone project: trainable CNN from scratch") | Per-step solved count, tier-complete messages ("Tier complete. Try the next one.", "Track complete. Every tier, every step."); no hard gating found in the client bundle | Mixed-kind steps, tier blurbs that state purpose, capstone per path, sections as teach→test→build rhythm |
+| **the incumbent** (`the incumbent's site/paths`, Firestore `tracks` fetched 2026-09-13) | 9 live tracks (sitemap lists 10 URLs incl. legacy `/paths/foundations`); each track is "a book" | 3 tiers always (`basics` → `advanced` → `pro`), 178 sections total, section titles activity-prefixed (`Math:`, `Test:`, `Lab:`, `Capstone project:`); median 3 steps/section (min 1, max 19) | None declared; 5 tracks list `related` collections instead (e.g., `llms` → "Build GPT from Scratch: Karpathy Walkthrough") | Capstone project closes the advanced tier of every track; labs scattered as checkpoints (e.g., Deep Learning: "Lab: design your own activation" after the activation problems; "Capstone project: trainable CNN from scratch") | Per-step solved count, tier-complete messages ("Tier complete. Try the next one.", "Track complete. Every tier, every step."); no hard gating found in the client bundle | Mixed-kind steps, tier blurbs that state purpose, capstone per path, sections as teach→test→build rhythm |
 | **fast.ai** (`course.fast.ai`, `course19.fast.ai/part2`) | 2 parts: Part 1 (9 lessons, ~90 min each) → Part 2 (>30h) | Lesson = video + notebook + book chapter; no topic micro-sections | Part 2 states explicitly: "Before starting this part, you need to have completed Part 1" | Notebooks are the exercises; no quizzes/checkpoints; models built end-to-end each lesson | Self-directed; no tracked progress beyond notebooks | Top-down sequencing: train a SOTA model in lesson 1, theory later; explicit part-to-part prerequisite |
 | **Kaggle Learn** (`kaggle.com/learn`) | Micro-courses 2–5h (e.g., Python 5h/7 lessons, Intro to ML 3h/7 lessons) | Lesson = tutorial + exercise, one concept per lesson | Each course lists "Builds on" and "Preparation for" links (e.g., Intermediate ML builds on Intro to ML + Pandas) | Certificate per course on completion; no quizzes | Per-lesson completion → certificate | Short units, explicit before/after course graph, per-course hour estimates |
 | **Hugging Face Learn** (`huggingface.co/learn/agents-course`; `.../deep-rl-course/communication/certification`) | Course = 4 units + bonus units | Unit = theory chapters → hands-on → quiz | Stated skills, not locked: "Basic knowledge of Python; basic knowledge of LLMs" | Unit quiz at 80% pass; final benchmark project (Agents: GAIA subset, need ≥30%); Deep RL: certificate at 80% of assignments, excellence at 100% | Quiz scores, assignment pass counts, leaderboard; self-paced | Pass thresholds, benchmark-based final project, bonus units as optional look-ahead |
@@ -39,20 +39,20 @@
 
 ### 1.2 Structural patterns worth naming
 
-- **Stage sizes.** Deep-ML's median section is **3 steps**, and 83 of 178 sections have ≤2. Ours are 6–15 by verifier rule. Deep-ML atomises more aggressively; our stage granularity is closer to NeetCode topic blocks. Neither is wrong, but atomised sections let learners finish something in a sitting, which is the completion loop deep-ml optimises for.
-- **Milestone projects are the norm, not the exception.** Deep-ML ends every track's advanced tier with a capstone project; MLOps Zoomcamp ends with a graded, peer-reviewed project; HF ends with a benchmark assignment; Kaggle ends with a certificate-gated course project (competition lesson). Our 28 paths end with a `ProgressBar` and the string "Path complete. Nice work." (`PathDetail.tsx:294-297`) — no artifact.
-- **Checkpoints are quizzes, not gates.** DL.AI weekly quizzes, HF unit quizzes at 80%, LeetCode badges. Deep-ML has essentially no gating (soft congratulatory completion only, confirmed by the absence of lock/unlock strings in its client bundle and by a data model with no `required` field). Math Academy is the outlier that hard-gates on prerequisite mastery.
-- **"Why this order" is conveyed by titles and blurbs, not essays.** Deep-ML section titles encode the activity and the reason (`Math: matrix calculus for attention and blocks` → `Test: attention from first principles` → `Capstone project: Tiny GPT from scratch`). Tier blurbs state the phase goal. There is exactly **1** per-step note across all 642 steps in 9 tracks — so prose notes are not the mechanism; naming is.
-- **Prerequisites come in two flavours.** Kaggle's course-to-course graph ("Builds on", "Preparation for") is the clearest cheap pattern. fast.ai uses a hard part boundary. Deep-ML skips prerequisites entirely and links `related` collections instead.
-- **Progress models range from counters to credentials.** Counters (NeetCode, deep-ml), completion gates (Kaggle certificates, HF quizzes), and credentials (badges/certificates). Ours is currently a counter.
+- **Stage sizes.** The incumbent's median section is **3 steps**, and 83 of 178 sections have ≤2. Ours are 6–15 by verifier rule. The incumbent atomises more aggressively; our stage granularity is closer to NeetCode topic blocks. Neither is wrong, but atomised sections let learners finish something in a sitting, which is the completion loop the incumbent optimises for.
+- **Milestone projects are the norm, not the exception.** the incumbent platform ends every track's advanced tier with a capstone project; MLOps Zoomcamp ends with a graded, peer-reviewed project; HF ends with a benchmark assignment; Kaggle ends with a certificate-gated course project (competition lesson). Our 28 paths end with a `ProgressBar` and the string "Path complete. Nice work." (`PathDetail.tsx:294-297`) — no artifact.
+- **Checkpoints are quizzes, not gates.** DL.AI weekly quizzes, HF unit quizzes at 80%, LeetCode badges. The incumbent has essentially no gating (soft congratulatory completion only, confirmed by the absence of lock/unlock strings in its client bundle and by a data model with no `required` field). Math Academy is the outlier that hard-gates on prerequisite mastery.
+- **"Why this order" is conveyed by titles and blurbs, not essays.** the incumbent platform section titles encode the activity and the reason (`Math: matrix calculus for attention and blocks` → `Test: attention from first principles` → `Capstone project: Tiny GPT from scratch`). Tier blurbs state the phase goal. There is exactly **1** per-step note across all 642 steps in 9 tracks — so prose notes are not the mechanism; naming is.
+- **Prerequisites come in two flavours.** Kaggle's course-to-course graph ("Builds on", "Preparation for") is the clearest cheap pattern. fast.ai uses a hard part boundary. the incumbent platform skips prerequisites entirely and links `related` collections instead.
+- **Progress models range from counters to credentials.** Counters (NeetCode, the incumbent), completion gates (Kaggle certificates, HF quizzes), and credentials (badges/certificates). Ours is currently a counter.
 
 ---
 
-## 2. Deep dive: deep-ml
+## 2. Deep dive: the incumbent
 
 ### 2.1 Exactly how their paths/collections are organised
 
-**Tracks ("paths").** Deep-ML stores tracks in Firestore (project `deep-machine-learning-9d7d0`, collection `tracks`; public read; client module in `layout-a8adb56e3701ec12.js` defines the schema). I fetched all documents directly on 2026-09-13. The canonical shape:
+**Tracks ("paths").** the incumbent platform stores tracks in Firestore (project `deep-machine-learning-9d7d0`, collection `tracks`; public read; client module in `layout-a8adb56e3701ec12.js` defines the schema). I fetched all documents directly on 2026-09-13. The canonical shape:
 
 ```
 track = {
@@ -79,23 +79,23 @@ Live data, 2026-09-13: **9 tracks, 3 tiers each, 178 sections, 642 steps** = 463
 - **pro** — "Optional look-ahead after Tiny GPT: one math idea (KL), then short tests for RoPE, KV cache, and beam search."
   - Math: KL divergence and reference models [1]; Test: RoPE and KV cache [3]; Test: a bit more decoding [2]
 
-**Collections.** 72 collections fetched from `api.deep-ml.com/get-collections`; 14 are premium, 39 carry an external resource link, and all have a badge image. Shape: `{ sections: { "<section title>": [problemId, ...] }, description, resource?, premium?, type }`. Types observed: `papers`, `books`, `libraries`, `interview prep`, `video`, `topic`, `all`, `other`. Largest: "Hands-On Machine Learning with Scikit-Learn and PyTorch" (214 problems / 20 sections), "Reinforcement Learning: An Introduction" (155/64). Section arrays are ordered, but there are no per-item notes and no prerequisites.
+**Collections.** 72 collections fetched from `the incumbent's public collections API`; 14 are premium, 39 carry an external resource link, and all have a badge image. Shape: `{ sections: { "<section title>": [problemId, ...] }, description, resource?, premium?, type }`. Types observed: `papers`, `books`, `libraries`, `interview prep`, `video`, `topic`, `all`, `other`. Largest: "Hands-On Machine Learning with Scikit-Learn and PyTorch" (214 problems / 20 sections), "Reinforcement Learning: An Introduction" (155/64). Section arrays are ordered, but there are no per-item notes and no prerequisites.
 
-**What makes a deep-ml path "curated":** a hard 3-phase tier structure with stated phase goals; sections labelled by activity (teach → test → build); labs and one capstone injected at the point of need; `related` collections for optional reading; an `order` field that sequences the tracks in the catalog; per-step `note` support that is defined but essentially unused. **No gating, no quizzes, no hours, no goals, no prerequisites.**
+**What makes a the incumbent path "curated":** a hard 3-phase tier structure with stated phase goals; sections labelled by activity (teach → test → build); labs and one capstone injected at the point of need; `related` collections for optional reading; an `order` field that sequences the tracks in the catalog; per-step `note` support that is defined but essentially unused. **No gating, no quizzes, no hours, no goals, no prerequisites.**
 
-### 2.2 Three things deep-ml does better than us
+### 2.2 Three things the incumbent does better than us
 
 1. **Mixed-kind steps inside paths.** Every track interleaves problems with math (pen-and-paper), labs, and projects (642 steps: 463/124/36/19). Our `PathStage` can only hold `problemIds` (`src/types/problem.ts:41-46`) and `PathDetail` renders problems only (`PathDetail.tsx:139-187`); our 8 labs (`src/data/labs.ts`), 5 projects (`src/data/projects.ts:1378+`), 3 sims (`src/components/Sims.tsx:5-7`), and 60 pen-and-paper problems are invisible from every path.
-2. **Capstone per path and activity-labelled sections.** Every deep-ml track's advanced tier ends with a named capstone (Tiny GPT, trainable CNN, MLP in JAX). Section titles carry the pedagogy ("Math: ..." then "Test: ..." then "Capstone project: ..."). Our stage blurbs describe content ("...entropy, Gini, information gain, and AdaBoost's reweighting rule."), not the learning move, and no path ends in an artifact.
-3. **A collection ecosystem with sections, external resources, and badges.** 72 collections vs our 6 premade (`src/data/collections.ts:10+`); deep-ml collections have titled sections, a source paper/book/video link (39 of 72), a completion badge, and are surfaced from paths via `related`. Ours are flat id lists with a description.
+2. **Capstone per path and activity-labelled sections.** Every the incumbent track's advanced tier ends with a named capstone (Tiny GPT, trainable CNN, MLP in JAX). Section titles carry the pedagogy ("Math: ..." then "Test: ..." then "Capstone project: ..."). Our stage blurbs describe content ("...entropy, Gini, information gain, and AdaBoost's reweighting rule."), not the learning move, and no path ends in an artifact.
+3. **A collection ecosystem with sections, external resources, and badges.** 72 collections vs our 6 premade (`src/data/collections.ts:10+`); the incumbent collections have titled sections, a source paper/book/video link (39 of 72), a completion badge, and are surfaced from paths via `related`. Ours are flat id lists with a description.
 
 ### 2.3 Three things we already do better
 
-1. **Scale and breadth.** 5,050 problems / 15 categories vs deep-ml's ~1,390 sitemap problem URLs and 5 site categories (Linear Algebra, ML, DL, NLP, CV). We also have 28 paths vs 9 tracks.
-2. **Declared path metadata: goals, level, hours, tags, prerequisites.** `LearningPath` carries all of these (`src/types/problem.ts:48-61`, `src/lib/paths.ts:199-220`). Deep-ML tracks have none of hours/goals/prerequisites/level — only `title`, `blurb`, `tiers`, `related`, `order`.
-3. **Open, versioned, local-first content.** Paths are TypeScript in an MIT repo, diffable and testable (`scripts/verify-paths-content.ts` prints `ALL GREEN`; we ran it), with no account required. Deep-ML's path definitions live in a Firestore console (proprietary), and premium gates 14 collections plus advanced interview tracks (`deep-ml.com/premium`). Our progress is localStorage-first (`src/lib/progress.ts:1-13`).
+1. **Scale and breadth.** 5,050 problems / 15 categories vs the incumbent's ~1,390 sitemap problem URLs and 5 site categories (Linear Algebra, ML, DL, NLP, CV). We also have 28 paths vs 9 tracks.
+2. **Declared path metadata: goals, level, hours, tags, prerequisites.** `LearningPath` carries all of these (`src/types/problem.ts:48-61`, `src/lib/paths.ts:199-220`). the incumbent platform tracks have none of hours/goals/prerequisites/level — only `title`, `blurb`, `tiers`, `related`, `order`.
+3. **Open, versioned, local-first content.** Paths are TypeScript in an MIT repo, diffable and testable (`scripts/verify-paths-content.ts` prints `ALL GREEN`; we ran it), with no account required. the incumbent platform's path definitions live in a Firestore console (proprietary), and premium gates 14 collections plus advanced interview tracks (`the incumbent's site/premium`). Our progress is localStorage-first (`src/lib/progress.ts:1-13`).
 
-*Honest caveat:* deep-ml's server-backed progress, comments, and leaderboard remain a real advantage over our localStorage equivalents (already acknowledged in `AGENT_CONTEXT.md:42`).
+*Honest caveat:* the incumbent's server-backed progress, comments, and leaderboard remain a real advantage over our localStorage equivalents (already acknowledged in `AGENT_CONTEXT.md:42`).
 
 ---
 
@@ -122,7 +122,7 @@ One in-stage hard→easy flip: `time-series-and-forecasting` places `ts-294 STL 
 
 ### 3.2 Stages lack a "why now"
 
-The schema has `blurb` but no rationale field (`src/types/problem.ts:41-46`). Most blurbs describe *what* is in the stage, not *why it comes now*. Examples: `optimization-mastery/schedules-and-stability` explains what a schedule is but not why it precedes momentum; `information-theory/source-coding` is described as content ("Compress messages down to their entropy...") with no link back to the divergences that precede it. Deep-ML encodes the reason in activity-prefixed section titles and a tier blurb that names the phase goal; Kaggle encodes it as "Builds on"/"Preparation for". We encode it nowhere.
+The schema has `blurb` but no rationale field (`src/types/problem.ts:41-46`). Most blurbs describe *what* is in the stage, not *why it comes now*. Examples: `optimization-mastery/schedules-and-stability` explains what a schedule is but not why it precedes momentum; `information-theory/source-coding` is described as content ("Compress messages down to their entropy...") with no link back to the divergences that precede it. the incumbent platform encodes the reason in activity-prefixed section titles and a tier blurb that names the phase goal; Kaggle encodes it as "Builds on"/"Preparation for". We encode it nowhere.
 
 ### 3.3 Prerequisites are under-specified and mis-rendered
 
@@ -136,7 +136,7 @@ The schema has `blurb` but no rationale field (`src/types/problem.ts:41-46`). Mo
 - no per-stage pass/fail or checkpoint, so a learner can guess through a stage and still see 100%;
 - no "boss" problem or mini-project;
 - no hint restriction at any point (the 3-tier Study Assistant is always available, `src/lib/hints.ts`);
-- no artifact to show at the end, while Kaggle/HF/MLOps Zoomcamp all produce a certificate or graded project and deep-ml produces capstone projects.
+- no artifact to show at the end, while Kaggle/HF/MLOps Zoomcamp all produce a certificate or graded project and the incumbent produces capstone projects.
 
 ### 3.5 Coverage: 88% of the catalogue is unreachable from any path
 
@@ -183,14 +183,14 @@ Two pairs are effectively the same product: `math-foundations` vs `math-for-mach
 
 All ids below were resolved against `src/data/problems/problem-meta.ts` (read-only script, 2026-09-13). None are typos; every stage is sized 5–8 to satisfy the existing verifier (`scripts/verify-paths-content.ts:99-101`). Effort applies to authoring + verification.
 
-#### P1. Computer Vision Deep Learning — *Advanced; prereq: `computer-vision-starter`, `deep-learning-essentials`* (covers CV's unused 355 problems; deep-ml has no dedicated advanced CV track)
+#### P1. Computer Vision Deep Learning — *Advanced; prereq: `computer-vision-starter`, `deep-learning-essentials`* (covers CV's unused 355 problems; the incumbent has no dedicated advanced CV track)
 
 - **Stage 1 — Convolution at Scale** (8): `cv-084` Conv Output Size, `cv-087` Conv Parameter Count, `cv-110` Conv FLOPs Count, `cv-223` Dilated Conv Output Size, `cv-238` Depthwise Conv Output, `cv-239` Group Conv Output, `cv-242` Conv+ReLU Fusion, `cv-357` 3D Conv FLOPs
 - **Stage 2 — Normalisation and Augmentation** (7): `cv-111` Batch-Norm Inference, `cv-240` BatchNorm Fold into Weights, `cv-277` Augmentation Policy Random Choice, `cv-278` RandAugment Magnitude Schedule, `cv-279` TrivialAugment Pick, `cv-347` RandAugment Sampled Ops, `cv-232` Random Resized Crop (Seeded)
 - **Stage 3 — Detection and Segmentation** (8): `cv-109` Anchor IoU Matching, `cv-148` Anchor Grid Generation, `cv-199` ROI Pool Bins, `cv-313` Pairwise IoU Matrix, `cv-319` mAP at IoU Threshold, `cv-229` Hamming Loss for Segmentation Masks, `cv-331` Segmentation IoU with Ignore Label, `cv-333` Class-Weighted Segmentation Loss
 - **Stage 4 — Vision Transformers and 3D** (7): `cv-171` ViT Patchify, `cv-188` Conv Patch Embedding, `cv-192` Patch Merging Downsample, `cv-342` Unpatchify Image, `cv-393` Masked Patch Reconstruction Loss, `cv-185` Depth from Disparity, `cv-385` Scale-Invariant Depth Error
 
-#### P2. Production ML: Serving, Quantization and Monitoring — *Advanced; prereq: `ml-engineer-track` or `deep-learning-essentials`* (zero current coverage; maps to deep-ml's `inference-engineering` + `quantization` tracks, which are among its most active)
+#### P2. Production ML: Serving, Quantization and Monitoring — *Advanced; prereq: `ml-engineer-track` or `deep-learning-essentials`* (zero current coverage; maps to the incumbent's `inference-engineering` + `quantization` tracks, which are among its most active)
 
 - **Stage 1 — Training Systems and Cost** (6): `dl-100` Micro-Batch Count, `dl-101` Throughput Estimate, `dl-102` Latency Estimate, `dl-120` Gradient Checkpointing Memory, `dl-196` Parameter Shard Range, `dl-283` FSDP Shard Size
 - **Stage 2 — Quantization and Compression** (6): `dl-301` Quantized Inference Latency, `dl-325` MXFP4 Block Quantization Error, `dl-332` Quantization Step Size, `dl-334` Quantization Error Variance, `dl-348` Quantization Memory Savings Ratio, `dl-365` Quantized KV Cache Size
@@ -224,8 +224,8 @@ All ids below were resolved against `src/data/problems/problem-meta.ts` (read-on
 
 ### 3.8 Honesty notes
 
-- Deep-ML's UI could still gate steps in a way not visible in the JS strings I searched; I verified the *data model* has no required/lock field and the UI strings are congratulatory, so "soft gating" is a fair characterisation but not a certainty.
-- deep-ml's premium page claims "All five learning paths" while the live `tracks` collection has 9; the sitemap has 10 path URLs (including legacy `/paths/foundations`). Marketing and product drifted there too.
+- the incumbent platform's UI could still gate steps in a way not visible in the JS strings I searched; I verified the *data model* has no required/lock field and the UI strings are congratulatory, so "soft gating" is a fair characterisation but not a certainty.
+- the incumbent's premium page claims "All five learning paths" while the live `tracks` collection has 9; the sitemap has 10 path URLs (including legacy `/paths/foundations`). Marketing and product drifted there too.
 - Our in-path coverage stats count ids once per path; overlapping ids are counted each time they appear. The 596 unique figure is deduplicated across all paths.
 
 ---
@@ -236,7 +236,7 @@ Each item states what, why (with evidence), the files to touch, and effort (S �
 
 **1. Add a per-stage checkpoint: 3 "boss" problems + one artefact, hints disabled, soft gate. (M)**
 *What:* every stage gets an optional `checkpoint: { problemIds: string[] (2 Medium + 1 Hard), passRatio: 0.67, artifact?: {kind, ref} }`; completing N% of a stage surfaces it; pass requires 2/3 without opening tier-3 hints; a passed checkpoint marks the stage complete even if 1–2 stage problems remain.
-*Why:* retrieval practice is one of only two high-utility techniques in Dunlosky et al. 2013 (practice testing; DOI 10.1177/1529100612453266); we have no retrieval layer at all (`PathDetail.tsx:271-303` shows only % progress). Deep-ML's capstones and HF's 80% quizzes are the same move.
+*Why:* retrieval practice is one of only two high-utility techniques in Dunlosky et al. 2013 (practice testing; DOI 10.1177/1529100612453266); we have no retrieval layer at all (`PathDetail.tsx:271-303` shows only % progress). the incumbent platform's capstones and HF's 80% quizzes are the same move.
 *Files:* `src/types/problem.ts:41-46` (schema), `src/data/problems/paths.ts` (28 paths), `src/lib/paths.ts:149-190` (resolve/validate), `src/app/paths/[slug]/PathDetail.tsx` (render + pass state), `scripts/verify-paths-content.ts` (checkpoint ids exist).
 
 **2. Introduce spaced review using `solvedAt` timestamps: surface "Review due" and mix old problems into checkpoints. (L)**
@@ -246,12 +246,12 @@ Each item states what, why (with evidence), the files to touch, and effort (S �
 
 **3. Extend paths to mixed-kind steps: `problem | lab | project | math | sim`. (L)**
 *What:* add `steps: { kind, ref, note? }[]` alongside `problemIds` (deprecated but kept for compatibility), render in `PathDetail`, and sprinkle our 8 labs (`src/data/labs.ts:510+`), 5 projects (`src/data/projects.ts:1378+`), 3 sims (`src/components/Sims.tsx:5-7`), and 60 pen-and-paper items into existing paths.
-*Why:* deep-ml's single biggest structural advantage — 642 steps spanning 4 kinds, labs injected where needed, capstone projects per track. Our labs/projects/sims are unreachable from all 28 paths today; `PathStage` has no field for them (`src/types/problem.ts:41-46`).
+*Why:* the incumbent's single biggest structural advantage — 642 steps spanning 4 kinds, labs injected where needed, capstone projects per track. Our labs/projects/sims are unreachable from all 28 paths today; `PathStage` has no field for them (`src/types/problem.ts:41-46`).
 *Files:* `src/types/problem.ts`, `src/lib/paths.ts`, `src/app/paths/[slug]/PathDetail.tsx`, `src/components/Paths.tsx`, `scripts/verify-paths.ts` / `verify-paths-content.ts`, `src/data/problems/paths.ts`.
 
 **4. Ship the five new paths in §3.7, starting with P2 (Production ML) and P1 (CV). (M)**
 *What:* add them to `LEARNING_PATHS` with the exact ids listed; required because CV coverage is 6.6% and serving/quantization/monitoring coverage is 0%.
-*Why:* deep-ml's most recently touched tracks by sitemap `lastmod` are `/paths` (2026-08-01), plus active `inference-engineering`, `quantization`, and `ai-safety-governance` tracks in the live data — the market is moving toward deployment skills, and our catalogue already has the problems (`dl-301`–`dl-444`).
+*Why:* the incumbent's most recently touched tracks by sitemap `lastmod` are `/paths` (2026-08-01), plus active `inference-engineering`, `quantization`, and `ai-safety-governance` tracks in the live data — the market is moving toward deployment skills, and our catalogue already has the problems (`dl-301`–`dl-444`).
 *Files:* `src/data/problems/paths.ts`, `scripts/verify-paths-content.ts`.
 
 **5. Resolve prerequisite ids to titles, link them, and validate them in CI. (S)**
@@ -261,7 +261,7 @@ Each item states what, why (with evidence), the files to touch, and effort (S �
 
 **6. Add a per-stage `rationale` ("why now") and call it in the UI. (S)**
 *What:* one sentence per stage explaining the dependency ("Momentum before Adam: adaptive methods are per-parameter momentum with a second-moment scale"), rendered above the stage blurb or as a caption.
-*Why:* deep-ml encodes this in activity-prefixed section titles and tier blurbs (e.g., `llms` tier blurb: "Teach the next-token objective... then test yourself on tokenization"); our blurbs describe content, not order. This costs ~28 path edits and is cheap to verify.
+*Why:* the incumbent encodes this in activity-prefixed section titles and tier blurbs (e.g., `llms` tier blurb: "Teach the next-token objective... then test yourself on tokenization"); our blurbs describe content, not order. This costs ~28 path edits and is cheap to verify.
 *Files:* `src/types/problem.ts`, `src/lib/paths.ts:149-162`, `src/app/paths/[slug]/PathDetail.tsx`, `src/data/problems/paths.ts`.
 
 **7. Calibrate `estimatedHours` and enforce a pacing guardrail. (S)**
@@ -271,17 +271,17 @@ Each item states what, why (with evidence), the files to touch, and effort (S �
 
 **8. De-duplicate the two near-identical path pairs and position samplers explicitly. (M)**
 *What:* merge `math-for-machine-learning` into `math-foundations` (or demote it to an explicit "condensed" variant with a cross-link), and rename/reposition `time-series-and-forecasting` as "Applied Time Series & Ops" with a stated prerequisite on `time-series-forecasting`. Make `thirty-day-full-curriculum` / `fast-track-essentials` declare that they intentionally re-sample other paths.
-*Why:* 20 shared ids / Jaccard 0.56 for the math pair; near-identical titles for the time-series pair; samplers duplicate the paths they sample (15 shared ids between the two samplers). Deep-ML never ships two tracks with the same job — each has a distinct blurb and one of nine ordered slots.
+*Why:* 20 shared ids / Jaccard 0.56 for the math pair; near-identical titles for the time-series pair; samplers duplicate the paths they sample (15 shared ids between the two samplers). the incumbent platform never ships two tracks with the same job — each has a distinct blurb and one of nine ordered slots.
 *Files:* `src/data/problems/paths.ts`, `scripts/verify-paths-content.ts` (e.g., warn if Jaccard > 0.5 between two paths without an explicit `variantOf` field).
 
 **9. Add a checkpoint quiz mode that interleaves prior stages and disables hints. (M/L)**
 *What:* at each checkpoint, serve 5 mixed items (2 from the current stage, 3 drawn from earlier stages in the same path), 80% to pass, tier-3 hints unavailable during the attempt.
-*Why:* interleaving boosts delayed test performance (Rohrer & Taylor 2007; Taylor & Rohrer 2010, `Applied Cognitive Psychology` 24:837–848) and deep-ml/HF/DL.AI all have an assessment step; our hint system is always on (`src/lib/hints.ts`), which undercuts retrieval. Use `src/data/penpaper.ts` for pen-and-paper checkpoints and existing problems for code checkpoints.
+*Why:* interleaving boosts delayed test performance (Rohrer & Taylor 2007; Taylor & Rohrer 2010, `Applied Cognitive Psychology` 24:837–848) and the incumbent/HF/DL.AI all have an assessment step; our hint system is always on (`src/lib/hints.ts`), which undercuts retrieval. Use `src/data/penpaper.ts` for pen-and-paper checkpoints and existing problems for code checkpoints.
 *Files:* new `src/lib/pathCheckpoints.ts`, `src/app/paths/[slug]/PathDetail.tsx`, `src/data/penpaper.ts`, `src/lib/hints.ts` (attempt-scoped suppression).
 
 **10. Award a path credential on checkpoint completion and fix docs drift. (S/M)**
 *What:* on 100% of stages + all checkpoints, issue a shareable path badge (reuse the existing badges infrastructure: `src/lib/badges.ts`, `src/components/Badges.tsx`); reword the completion copy; add the path-authoring checklist to `docs/`; update `AGENT_CONTEXT.md` (it still says 24 paths at lines 32 and 263; the file has 28).
-*Why:* LeetCode study plans award a badge, Kaggle issues per-course certificates, HF issues completion/excellence certificates, and deep-ml badges every collection — credentials are the standard completion loop we lack. The stale count is a live docs bug.
+*Why:* LeetCode study plans award a badge, Kaggle issues per-course certificates, HF issues completion/excellence certificates, and the incumbent badges every collection — credentials are the standard completion loop we lack. The stale count is a live docs bug.
 *Files:* `src/lib/badges.ts`, `src/components/Badges.tsx`, `src/app/paths/[slug]/PathDetail.tsx`, `AGENT_CONTEXT.md`, new `docs/path-authoring.md`.
 
 ---
@@ -293,10 +293,10 @@ Each item states what, why (with evidence), the files to touch, and effort (S �
 Per stage, add a **checkpoint** with three parts:
 
 1. **Boss set (retrieval, no full solutions):** 3 real problems — 2 Medium + 1 Hard — chosen as the stage's integrative problems. Pass = 2/3 with tier-3 hints disabled (`src/lib/hints.ts` controls hint tiers today). This is the practice-testing layer Dunlosky et al. rate highest-utility.
-2. **Mini-project (transfer):** one artefact from an existing feature — a Lab (scored against a held-out target, `src/data/labs.ts:507-520`), a Project step or capstone (`src/data/projects.ts:1378+`), or a Sim (`OptimizerRace`, `NeuralNetTrainer`, `DijkstraStep`). This is the "make it real" step deep-ml gets from capstone projects and MLOps Zoomcamp gets from its final project.
+2. **Mini-project (transfer):** one artefact from an existing feature — a Lab (scored against a held-out target, `src/data/labs.ts:507-520`), a Project step or capstone (`src/data/projects.ts:1378+`), or a Sim (`OptimizerRace`, `NeuralNetTrainer`, `DijkstraStep`). This is the "make it real" step the incumbent gets from capstone projects and MLOps Zoomcamp gets from its final project.
 3. **Spaced review (retention):** 2 due problems pulled from earlier stages using `solvedAt` (already stored at `src/lib/progress.ts:22-23`) at 2/7/21-day intervals. Optional field `reviewIds` computed at render time, not stored in the path file.
 
-**Gating policy:** soft, not hard. A checkpoint failure recommends review and does not lock later stages (deep-ml has no hard gating; Math Academy's hard mastery gating is the outlier, and Bjork & Bjork 2020 warn that a difficulty the learner cannot meet becomes an *undesirable* difficulty). Mark the stage complete when either all stage problems are solved or the checkpoint is passed, so faster learners are not held back.
+**Gating policy:** soft, not hard. A checkpoint failure recommends review and does not lock later stages (the incumbent has no hard gating; Math Academy's hard mastery gating is the outlier, and Bjork & Bjork 2020 warn that a difficulty the learner cannot meet becomes an *undesirable* difficulty). Mark the stage complete when either all stage problems are solved or the checkpoint is passed, so faster learners are not held back.
 
 ### 5.2 Feature mapping
 
@@ -335,7 +335,7 @@ Because `PathStage` currently only carries `problemIds` (`src/types/problem.ts:4
 ## 6. Sources
 
 **Platforms (all accessed 2026-09-13):**
-- deep-ml paths: https://www.deep-ml.com/paths, https://www.deep-ml.com/paths/llms, https://www.deep-ml.com/paths/foundations (client-shell only); live track data from `https://firestore.googleapis.com/v1/projects/deep-machine-learning-9d7d0/databases/(default)/documents/tracks` (public read); collections from `https://api.deep-ml.com/get-collections`; sitemap https://www.deep-ml.com/sitemap.xml; premium https://www.deep-ml.com/premium; problem bank https://github.com/Open-Deep-ML/DML-OpenProblem.
+- the incumbent paths: https://www.the incumbent's site/paths, https://www.the incumbent's site/paths/llms, https://www.the incumbent's site/paths/foundations (client-shell only); live track data from `https://firestore.googleapis.com/v1/projects/deep-machine-learning-9d7d0/databases/(default)/documents/tracks` (public read); collections from `https://the incumbent's public collections API`; sitemap https://www.the incumbent's site/sitemap.xml; premium https://www.the incumbent's site/premium; problem bank https://github.com/Open-the incumbent platform/DML-OpenProblem.
 - fast.ai: https://course.fast.ai/ (9 lessons), https://course.fast.ai/Lessons/part2.html and https://course19.fast.ai/part2 (Part 2 requires Part 1).
 - Kaggle Learn: https://www.kaggle.com/learn, https://www.kaggle.com/learn/intro-to-machine-learning, https://www.kaggle.com/learn/intermediate-machine-learning (course hours, "Builds on"/"Preparation for").
 - Hugging Face: https://huggingface.co/learn/agents-course/en/unit0/introduction (units, audit vs certificate), https://huggingface.co/learn/agents-course/unit1/get-your-certificate (80% quiz), https://huggingface.co/learn/agents-course/en/unit4/introduction (GAIA ≥30% final project, leaderboard), https://huggingface.co/learn/deep-rl-course/communication/certification (80%/100% certificates), https://github.com/huggingface/agents-course.
@@ -343,7 +343,7 @@ Because `PathStage` currently only carries `problemIds` (`src/types/problem.ts:4
 - DeepLearning.AI: https://www.deeplearning.ai/specializations/deep-learning, https://www.deeplearning.ai/courses/machine-learning-specialization (weekly modules, quizzes, programming assignments, 5h/week pacing).
 - NeetCode: https://neetcode.io/roadmap (recommended topic order, 150 = 28 Easy/101 Medium/21 Hard), https://github.com/neetcode-gh/leetcode/blob/main/.problemSiteData.json (pattern tags).
 - LeetCode: https://leetcode.com/studyplan/top-interview-150 (150 problems, 23 topic groups, "Best for 3+ months of prep time", completion badge).
-- Math Academy (referenced by deep-ml's math problems as inspiration): https://www.mathacademy.com/how-it-works, https://mathacademy.com/pedagogy, https://mathacademy.com/how-our-ai-works, https://www.justinmath.com/how-math-academy-creates-its-knowledge-graph (worked example → up to 5 problems → 2-correct-to-advance; mastery gating; handcrafted knowledge graph, ~2,500 topics, 3–4 knowledge points each; FIRe spaced repetition).
+- Math Academy (referenced by the incumbent's math problems as inspiration): https://www.mathacademy.com/how-it-works, https://mathacademy.com/pedagogy, https://mathacademy.com/how-our-ai-works, https://www.justinmath.com/how-math-academy-creates-its-knowledge-graph (worked example → up to 5 problems → 2-correct-to-advance; mastery gating; handcrafted knowledge graph, ~2,500 topics, 3–4 knowledge points each; FIRe spaced repetition).
 
 **Learning science:**
 - Dunlosky, Rawson, Marsh, Nathan & Willingham (2013). *Improving Students' Learning With Effective Learning Techniques.* Psychological Science in the Public Interest 14(1), 4–58. DOI 10.1177/1529100612453266. (Practice testing + distributed practice = high utility; interleaving = moderate.)
