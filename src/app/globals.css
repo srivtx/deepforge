@@ -348,3 +348,28 @@
 .df-safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* ── One-shot accent ring on the first-solve banner — transform/opacity only,
+   no layout impact, disabled under reduced motion. ── */
+.df-solve-pulse {
+  position: relative;
+}
+.df-solve-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--accent);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  animation: df-solve-ring 0.9s ease-out 0.12s both;
+}
+@keyframes df-solve-ring {
+  0%   { opacity: 0.55; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.015); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .df-solve-pulse::after {
+    animation: none;
+  }
+}

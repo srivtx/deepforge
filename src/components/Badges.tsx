@@ -9,7 +9,12 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 import { getDailyDateKey } from "@/lib/daily";
-import { getUserName, setUserName } from "@/lib/leaderboard";
+import { getUserName, setUserName, validateUsername } from "@/lib/leaderboard";
+import {
+  getCachedSession,
+  isSupabaseConfigured,
+} from "@/lib/sync/backend";
+import { loadRemoteSync } from "@/lib/sync/remoteLazy";
 import { Avatar } from "@/components/Avatar";
 import { AvatarPicker } from "@/components/AvatarPicker";
 import { StreakCard } from "@/components/StreakCard";
@@ -107,6 +112,81 @@ function subscribe(onStoreChange: () => void): () => void {
     }
     window.removeEventListener("storage", onChange);
   };
+}
+
+/* ─────────────────────── username remote (best effort) ──────────────────── */
+
+const USERNAME_TAKEN_ERROR = "That username is taken — try another.";
+const USERNAME_AVAILABLE_STATUS = "Available.";
+const USERNAME_CHECKING_STATUS = "Checking availability…";
+const USERNAME_OFFLINE_HINT = "Saved locally — will sync later";
+const USERNAME_CHECK_DEBOUNCE_MS = 450;
+
+interface RemoteProfileRow {
+  id?: unknown;
+  username?: unknown;
+}
+
+function canSyncUsername(): boolean {
+  return isSupabaseConfigured() && getCachedSession() !== null;
+}
+
+/** Best-effort live availability check; "unknown" means the check didn't run. */
+async function checkUsernameRemote(
+  name: string,
+): Promise<"available" | "taken" | "unknown"> {
+  try {
+    const remote = await loadRemoteSync();
+    const client = await remote.getRemoteClient();
+    const session = getCachedSession();
+    if (!client || !session) return "unknown";
+    const { data, error } = await client
+      .from("profiles")
+      .select("id")
+      .eq("username", name)
+      .maybeSingle();
+    if (error) return "unknown";
+    if (!data) return "available";
+    const ownerId = (data as RemoteProfileRow).id;
+    if (typeof ownerId !== "string" || ownerId.length === 0) return "unknown";
+    return ownerId === session.userId ? "available" : "taken";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * Persist the username to `profiles.username` for the signed-in user.
+ * Never throws: network problems report "offline" so the local value wins.
+ */
+async function syncUsernameRemote(
+  name: string,
+): Promise<"ok" | "taken" | "offline"> {
+  try {
+    const remote = await loadRemoteSync();
+    const client = await remote.getRemoteClient();
+    const session = getCachedSession();
+    if (!client || !session) return "offline";
+    const { data, error: readError } = await client
+      .from("profiles")
+      .select("id")
+      .eq("username", name)
+      .maybeSingle();
+    if (!readError && data) {
+      const ownerId = (data as RemoteProfileRow).id;
+      if (typeof ownerId === "string" && ownerId !== session.userId) {
+        return "taken";
+      }
+    }
+    const { error } = await client
+      .from("profiles")
+      .update({ username: name, updated_at: new Date().toISOString() })
+      .eq("id", session.userId);
+    if (error) return error.code === "23505" ? "taken" : "offline";
+    return "ok";
+  } catch {
+    return "offline";
+  }
 }
 
 /* ──────────────────────────────── helpers ───────────────────────────────── */
@@ -295,22 +375,130 @@ export function Badges() {
   const profile = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
-  const skipNameCommit = useRef(false);
+  const [nameTaken, setNameTaken] = useState<string | null>(null);
+  const [nameNotice, setNameNotice] = useState<{
+    name: string;
+    text: string;
+  } | null>(null);
+  const [savingName, setSavingName] = useState(false);
+  const [savedLocally, setSavedLocally] = useState(false);
+  const nameCheckId = useRef(0);
+  const nameCheckTimer = useRef<number | null>(null);
+
+  const cancelPendingCheck = () => {
+    nameCheckId.current += 1;
+    if (nameCheckTimer.current !== null) {
+      window.clearTimeout(nameCheckTimer.current);
+      nameCheckTimer.current = null;
+    }
+  };
+
+  useEffect(() => cancelPendingCheck, []);
+
+  const scheduleAvailabilityCheck = (name: string) => {
+    cancelPendingCheck();
+    if (!canSyncUsername()) {
+      setNameNotice(null);
+      return;
+    }
+    const checkId = nameCheckId.current;
+    setNameNotice({ name, text: USERNAME_CHECKING_STATUS });
+    nameCheckTimer.current = window.setTimeout(() => {
+      nameCheckTimer.current = null;
+      void checkUsernameRemote(name).then((outcome) => {
+        if (nameCheckId.current !== checkId) return;
+        if (outcome === "taken") {
+          setNameTaken(name);
+          setNameNotice(null);
+          return;
+        }
+        setNameNotice(
+          outcome === "available"
+            ? { name, text: USERNAME_AVAILABLE_STATUS }
+            : null,
+        );
+      });
+    }, USERNAME_CHECK_DEBOUNCE_MS);
+  };
+
+  // Live validation: messages derive from the draft during render; the
+  // debounced remote availability check runs from the change handler.
+  const handleDraftChange = (raw: string) => {
+    setNameDraft(raw);
+    const value = validateUsername(raw).value;
+    if (nameTaken !== null && nameTaken !== value) setNameTaken(null);
+    if (!value || value === profile.name || nameTaken === value) {
+      cancelPendingCheck();
+      setNameNotice(null);
+      return;
+    }
+    scheduleAvailabilityCheck(value);
+  };
+
+  const closeNameEditor = () => {
+    cancelPendingCheck();
+    setNameTaken(null);
+    setNameNotice(null);
+    setEditingName(false);
+  };
 
   const startEditingName = () => {
     setNameDraft(profile.name);
-    skipNameCommit.current = false;
+    setSavedLocally(false);
+    setNameTaken(null);
+    setNameNotice(null);
     setEditingName(true);
   };
 
-  const commitName = () => {
-    if (skipNameCommit.current) {
-      skipNameCommit.current = false;
-    } else {
-      setUserName(nameDraft);
+  const saveName = async () => {
+    if (savingName) return;
+    const result = validateUsername(nameDraft);
+    if (!result.value) {
+      setNameTaken(null);
+      setNameNotice(null);
+      return;
     }
-    setEditingName(false);
+    const next = result.value;
+    const previous = profile.name;
+    if (next === previous) {
+      closeNameEditor();
+      return;
+    }
+    cancelPendingCheck();
+    setNameTaken(null);
+    setNameNotice(null);
+    setUserName(next);
+    setSavedLocally(false);
+    if (!canSyncUsername()) {
+      closeNameEditor();
+      return;
+    }
+    setSavingName(true);
+    const outcome = await syncUsernameRemote(next);
+    setSavingName(false);
+    if (outcome === "taken") {
+      setNameTaken(next);
+      setUserName(previous);
+      return;
+    }
+    if (outcome === "offline") {
+      closeNameEditor();
+      setSavedLocally(true);
+      return;
+    }
+    closeNameEditor();
   };
+
+  const validation = editingName ? validateUsername(nameDraft) : null;
+  const nameError =
+    validation?.error ??
+    (validation?.value && validation.value === nameTaken
+      ? USERNAME_TAKEN_ERROR
+      : null);
+  const nameStatus =
+    nameNotice && validation?.value === nameNotice.name
+      ? nameNotice.text
+      : null;
 
   // Labs have no timestamps in their store, so the lab quest is marked on
   // the change event instead of being derived.
@@ -342,50 +530,93 @@ export function Badges() {
         <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5 lg:col-span-2">
           <div className="flex items-center gap-4 sm:gap-5">
             <Avatar size="xl" label={`${profile.name} avatar`} />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h2 className="text-lg font-semibold tracking-tight text-ink">
                 Profile
               </h2>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                {editingName ? (
-                  <input
-                    autoFocus
-                    type="text"
-                    value={nameDraft}
-                    maxLength={24}
-                    onChange={(event) => setNameDraft(event.target.value)}
-                    onBlur={commitName}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") commitName();
-                      if (event.key === "Escape") {
-                        skipNameCommit.current = true;
-                        setEditingName(false);
+              {editingName ? (
+                <form
+                  className="mt-1"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void saveName();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      closeNameEditor();
+                    }
+                  }}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={nameDraft}
+                      maxLength={24}
+                      readOnly={savingName}
+                      onChange={(event) => handleDraftChange(event.target.value)}
+                      aria-label="Username"
+                      aria-invalid={nameError ? true : undefined}
+                      aria-describedby={
+                        nameError || nameStatus ? "username-feedback" : undefined
                       }
-                    }}
-                    aria-label="Display name"
-                    className="min-h-11 w-40 rounded-md border border-hairline bg-canvas px-3 text-sm text-ink focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/40"
-                  />
-                ) : (
-                  <>
+                      placeholder="3–24 characters"
+                      className={cn(
+                        "min-h-11 w-full max-w-56 rounded-lg border border-hairline bg-canvas px-3 text-sm text-ink transition-colors focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/40 sm:min-h-9",
+                        nameError && "border-error/50",
+                      )}
+                    />
                     <button
-                      type="button"
-                      onClick={startEditingName}
-                      aria-label={`Edit display name, currently ${profile.name}`}
-                      className="inline-flex min-h-11 items-center rounded-md text-sm font-medium text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0"
+                      type="submit"
+                      disabled={savingName}
+                      className="inline-flex min-h-11 items-center rounded-lg border border-accent/40 bg-accent/5 px-3 text-xs font-medium text-accent transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:pointer-events-none disabled:opacity-60 sm:min-h-0 sm:py-1.5"
                     >
-                      {profile.name}
+                      {savingName ? "Saving…" : "Save"}
                     </button>
                     <button
                       type="button"
+                      onClick={closeNameEditor}
+                      className="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0 sm:py-1.5"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {(nameError || nameStatus) && (
+                    <p
+                      id="username-feedback"
+                      role={nameError ? "alert" : "status"}
+                      className={cn(
+                        "mt-1.5 text-xs",
+                        nameError ? "text-error" : "text-body-mid",
+                      )}
+                    >
+                      {nameError ?? nameStatus}
+                    </p>
+                  )}
+                </form>
+              ) : (
+                <>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="truncate text-base font-medium text-ink">
+                      {profile.name}
+                    </span>
+                    <button
+                      type="button"
                       onClick={startEditingName}
-                      aria-label="Edit username"
-                      className="inline-flex min-h-11 items-center rounded-md border border-hairline px-3 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0 sm:py-1.5"
+                      aria-label={`Edit username, currently ${profile.name}`}
+                      className="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0 sm:py-1.5"
                     >
                       Edit
                     </button>
-                  </>
-                )}
-              </div>
+                  </div>
+                  {savedLocally && (
+                    <p role="status" className="mt-1 text-xs text-body-mid">
+                      {USERNAME_OFFLINE_HINT}
+                    </p>
+                  )}
+                </>
+              )}
               <p className="mt-1.5 text-xs text-body-mid">
                 {profile.earned.length}/{TOTAL_BADGES} badges · level{" "}
                 {profile.xp.level} {profile.xp.title} · {completedQuests}/3

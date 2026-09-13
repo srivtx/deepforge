@@ -24,6 +24,21 @@ const USERNAME_CHANGE_EVENT = "deepforge:username-change";
 const DEFAULT_USERNAME = "you";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+export const USERNAME_MIN_LENGTH = 3;
+export const USERNAME_MAX_LENGTH = 24;
+
+const RESERVED_USERNAMES = new Set([
+  "anon",
+  "anonymous",
+  "admin",
+  "deepforge",
+  "zero",
+]);
+
+function normalizeUsername(raw: string): string {
+  return raw.replace(/\s+/g, " ").trim();
+}
+
 const usernameStore = createStore<string>({
   id: "username",
   storageKey: USERNAME_KEY,
@@ -92,12 +107,44 @@ export function getLongestStreak(progress: ProgressMap): number {
   return longest;
 }
 
+/**
+ * Validate and normalize a display username.
+ *
+ * Rules: trimmed; 3–24 characters; letters, digits, `_`, `-`, and single
+ * internal spaces only; no leading/trailing `_` or `-`; not a reserved name.
+ * Returns the normalized value (repeated whitespace collapsed) or a friendly
+ * error suitable for inline display.
+ */
+export function validateUsername(raw: string): {
+  value: string | null;
+  error: string | null;
+} {
+  const value = normalizeUsername(raw);
+  if (!value) return { value: null, error: "Enter a username." };
+  if (value.length < USERNAME_MIN_LENGTH || value.length > USERNAME_MAX_LENGTH) {
+    return {
+      value: null,
+      error: `Username must be ${USERNAME_MIN_LENGTH}–${USERNAME_MAX_LENGTH} characters.`,
+    };
+  }
+  if (!/^[A-Za-z0-9_ -]+$/.test(value)) {
+    return { value: null, error: "Use only letters, numbers, spaces, _ and -." };
+  }
+  if (/^[_-]|[_-]$/.test(value)) {
+    return { value: null, error: "Username can't start or end with _ or -." };
+  }
+  if (RESERVED_USERNAMES.has(value.toLowerCase())) {
+    return { value: null, error: "That username is reserved." };
+  }
+  return { value, error: null };
+}
+
 export function getUserName(): string {
   return usernameStore.get();
 }
 
 export function setUserName(name: string): void {
-  usernameStore.set(name.trim() || DEFAULT_USERNAME);
+  usernameStore.set(normalizeUsername(name) || DEFAULT_USERNAME);
 }
 
 interface BotDefinition {

@@ -283,7 +283,7 @@ export function NeuralNetTrainer({ active = true }: { active?: boolean }) {
     const y = 8 + ((hi - Math.log10(Math.max(v, 1e-4))) / span) * 104;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
-  const secondary = "rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40";
+  const secondary = "min-h-11 rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0";
 
   return (
     <figure className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
@@ -299,7 +299,7 @@ export function NeuralNetTrainer({ active = true }: { active?: boolean }) {
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <canvas ref={canvasRef} width={W} height={H} role="img" aria-label={ariaLabel}
-          className="block w-full min-w-0 rounded-lg bg-canvas sm:flex-1" />
+          className="block h-auto w-full min-w-0 rounded-lg bg-canvas sm:flex-1" />
         <div className="flex w-full flex-col gap-2 sm:w-60 sm:shrink-0">
           <div className="rounded-lg border border-hairline bg-canvas px-3 py-2">
             <div className="flex items-center justify-between text-[10px] text-mute">
@@ -333,7 +333,7 @@ export function NeuralNetTrainer({ active = true }: { active?: boolean }) {
             onClick={() => applyStructure(id, hidden)}
             className={
               datasetId === id
-                ? "rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-canvas"
+                ? "min-h-11 rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-canvas focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0"
                 : secondary
             }
           >
@@ -347,7 +347,7 @@ export function NeuralNetTrainer({ active = true }: { active?: boolean }) {
             else if (prefersReducedMotion()) runEpochs(200);
             else setRunning(true);
           }}
-          className="ml-auto rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90">
+          className="ml-auto min-h-11 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0">
           {running ? "Pause" : "Run"}
         </button>
         <button type="button" onClick={() => runEpochs(1)} className={secondary}>
@@ -366,7 +366,7 @@ export function NeuralNetTrainer({ active = true }: { active?: boolean }) {
           <input id="nn-lr" type="range" min={0.01} max={3} step={0.01} value={lr}
             onChange={(e) => setLr(Number(e.target.value))} aria-label="Learning rate"
             aria-valuetext={`learning rate ${lr.toFixed(2)}`}
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-canvas-soft"
+            className="box-content h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-canvas-soft bg-clip-content py-[19px] sm:py-0"
             style={{ accentColor: "var(--accent)" }} />
           <span className="w-10 shrink-0 font-mono text-xs text-ink">
             {lr.toFixed(2)}
@@ -379,7 +379,7 @@ export function NeuralNetTrainer({ active = true }: { active?: boolean }) {
           <input id="nn-h" type="range" min={2} max={16} step={1} value={hidden}
             onChange={(e) => applyStructure(datasetId, Number(e.target.value))}
             aria-label="Hidden units" aria-valuetext={`${hidden} hidden units`}
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-canvas-soft"
+            className="box-content h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-canvas-soft bg-clip-content py-[19px] sm:py-0"
             style={{ accentColor: "var(--accent)" }} />
           <span className="w-10 shrink-0 font-mono text-xs text-ink">
             {hidden}

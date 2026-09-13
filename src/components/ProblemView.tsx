@@ -27,6 +27,7 @@ import {
 } from "@/lib/notebook";
 import { StudyAssistant } from "@/components/StudyAssistant";
 import { SolvedBanner } from "@/components/SolvedBanner";
+import { Celebration } from "@/components/Celebration";
 import { Discuss } from "@/components/Discuss";
 import { ProblemComments } from "@/components/ProblemComments";
 import { getCurrentStreak } from "@/lib/leaderboard";
@@ -97,8 +98,10 @@ export function ProblemView({
     kind: "first" | "again";
     streak: number;
   } | null>(null);
+  const [celebrationNonce, setCelebrationNonce] = useState(0);
 
   const pyRef = useRef<any>(null);
+  const celebratedRef = useRef<Set<string>>(new Set());
   const dialogRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const cellsRef = useRef<NotebookCell[] | null>(null);
@@ -227,6 +230,19 @@ export function ProblemView({
     return pyRef.current;
   };
 
+  const maybeCelebrate = (id: string) => {
+    if (celebratedRef.current.has(id)) return;
+    celebratedRef.current.add(id);
+    if (
+      typeof window.matchMedia !== "function" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    navigator.vibrate?.(10);
+    setCelebrationNonce((n) => n + 1);
+  };
+
   const runCode = async () => {
     setRunning(true);
     setResults(null);
@@ -238,6 +254,7 @@ export function ProblemView({
       if (allPass) {
         const wasSolved = getProblemProgress(problem.id).solved === true;
         markSolved(problem.id);
+        if (!wasSolved) maybeCelebrate(problem.id);
         setSolveFeedback({
           problemId: problem.id,
           kind: wasSolved ? "again" : "first",
@@ -402,6 +419,7 @@ export function ProblemView({
           if (allPass) {
             const wasSolved = getProblemProgress(problem.id).solved === true;
             markSolved(problem.id);
+            if (!wasSolved) maybeCelebrate(problem.id);
             setSolveFeedback({
               problemId: problem.id,
               kind: wasSolved ? "again" : "first",
@@ -997,6 +1015,13 @@ export function ProblemView({
                     streak={solveNotice.streak}
                   />
                 </div>
+              )}
+
+              {celebrationNonce > 0 && (
+                <Celebration
+                  key={celebrationNonce}
+                  onDone={() => setCelebrationNonce(0)}
+                />
               )}
 
               {/* Results */}

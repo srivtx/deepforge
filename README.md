@@ -57,12 +57,12 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Pen & Paper Math** — 60 no-code problems (multiple choice + numeric) with SM-2 mastery review
 - **Notebook mode** — per-cell Python execution with run-all and test validation, persisted per problem
 - **Sims** — optimizer race, neural-net trainer with decision boundary, Dijkstra step-through
-- **Articles** — 5 interactive lessons with live demos (softmax temperature, eigenvectors, gradient descent, k-means, attention)
+- **Articles** — 8 interactive lessons with live demos (softmax temperature, eigenvectors, gradient descent, k-means, attention, BPE tokenization, embeddings, quantization) and a figure for every topic
 - **Blog** — engineering write-ups with SVG diagrams and RSS at `/blog`
 - **Discuss** — forum with threads, replies, upvotes, problem references; server-backed when signed in
 - **Problem comments** — per-problem discussion with upvotes, live on the problem page
 - **Zero assistant** — catalogue-grounded study coach: recommends problems, explains concepts, reviews your code, builds playlists
-- **Profile & badges** — 24 badges, XP/levels, 52-week heatmap, deterministic daily quests
+- **Profile & badges** — 24 badges, XP/levels, 52-week heatmap, deterministic daily quests, streak card, username editing, and generative avatars with photo upload (synced to Supabase Storage when signed in)
 - **Stats & Certificates** — personal dashboard with trends, records, mastery estimate; printable/PNG certificates
 - **Submit a Problem** — author problems locally, validate with real Python, export ready-to-paste TS
 - **Leaderboard** — Flame Score (Easy 1, Medium 3, Hard 5), streaks, username; global view when signed in

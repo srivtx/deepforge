@@ -55,7 +55,7 @@ export function SolvedBanner({ kind, passed, streak }: SolvedBannerProps) {
       className={cn(
         "flex items-start gap-3 rounded-lg border p-4 sm:p-5",
         first
-          ? "df-slide-up border-accent/40 bg-accent/5"
+          ? "df-slide-up df-solve-pulse border-accent/40 bg-accent/5"
           : "border-hairline bg-canvas",
       )}
     >

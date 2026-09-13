@@ -10,8 +10,14 @@ import { cn } from "@/lib/utils";
 import { getUserName } from "@/lib/leaderboard";
 import { Avatar } from "@/components/Avatar";
 import {
+  removeAvatarImage,
+  uploadAvatarImage,
+} from "@/lib/avatarStorage";
+import { getCachedSession } from "@/lib/sync/backend";
+import {
   AVATAR_CHANGE_EVENT,
   AVATAR_PRESETS,
+  buildUploadedAvatar,
   generateAvatarSvg,
   getAvatar,
   readUpload,
@@ -74,6 +80,7 @@ export function AvatarPicker() {
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncNote, setSyncNote] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const name = snapshot.name.trim() || "you";
@@ -82,17 +89,22 @@ export function AvatarPicker() {
 
   const choosePreset = (presetId: string) => {
     setError(null);
+    setSyncNote(null);
     setAvatar({ kind: "preset", presetId });
   };
 
   const useGenerated = () => {
     setError(null);
+    setSyncNote(null);
     setAvatar({ kind: "preset", presetId: generated.id });
   };
 
   const reset = () => {
     setError(null);
+    setSyncNote(null);
     setAvatar(null);
+    const session = getCachedSession();
+    if (session) void removeAvatarImage(session.userId);
   };
 
   const openFilePicker = () => {
@@ -104,10 +116,23 @@ export function AvatarPicker() {
     event.target.value = "";
     if (!file) return;
     setError(null);
+    setSyncNote(null);
     setPending(true);
     try {
       const dataUrl = await readUpload(file);
-      setAvatar({ kind: "upload", dataUrl });
+      setAvatar(buildUploadedAvatar(dataUrl));
+      const session = getCachedSession();
+      if (!session) {
+        setSyncNote("Saved on this device — sign in to sync");
+        return;
+      }
+      const { url } = await uploadAvatarImage(dataUrl, session.userId);
+      if (url) {
+        setAvatar(buildUploadedAvatar(dataUrl, url));
+        setSyncNote("Synced to your account");
+      } else {
+        setSyncNote("Saved on this device — sign in to sync");
+      }
     } catch (uploadError) {
       setError(
         uploadError instanceof Error
@@ -216,7 +241,7 @@ export function AvatarPicker() {
           aria-live="polite"
           className="text-xs text-body-mid"
         >
-          {pending ? "Downscaling your photo…" : ""}
+          {pending ? "Downscaling your photo…" : syncNote ?? ""}
         </span>
       </div>
 

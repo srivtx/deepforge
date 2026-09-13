@@ -48,9 +48,17 @@ export interface AvatarPreset {
   style?: AvatarStyle;
 }
 
+export interface AvatarUpload {
+  kind: "upload";
+  /** Downscaled JPEG data URL — the instant/offline preview. */
+  dataUrl: string;
+  /** Cache-busted public Storage URL once the photo is synced. */
+  remoteUrl?: string;
+}
+
 export type AvatarState =
   | { kind: "preset"; presetId: string }
-  | { kind: "upload"; dataUrl: string }
+  | AvatarUpload
   | null;
 
 /* ─────────────────────────────── presets ────────────────────────────────── */
@@ -346,6 +354,25 @@ function isPresetId(value: string): boolean {
   return AVATAR_PRESETS.some((preset) => preset.id === value);
 }
 
+/** Public Storage URLs written by `avatarStorage` (http(s), modest length). */
+function isRemoteAvatarUrl(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    (value.startsWith("https://") || value.startsWith("http://")) &&
+    value.length <= 2048
+  );
+}
+
+/** Build an upload state; `remoteUrl` is kept only when present. */
+export function buildUploadedAvatar(
+  dataUrl: string,
+  remoteUrl?: string,
+): AvatarUpload {
+  const state: AvatarUpload = { kind: "upload", dataUrl };
+  if (typeof remoteUrl === "string" && remoteUrl) state.remoteUrl = remoteUrl;
+  return state;
+}
+
 /** Validate a stored value; anything malformed reads as "no choice". */
 export function parseAvatarState(raw: string | null): AvatarState {
   if (!raw) return null;
@@ -362,11 +389,18 @@ export function parseAvatarState(raw: string | null): AvatarState {
         : null;
     }
     if (record.kind === "upload") {
-      return typeof record.dataUrl === "string" &&
-        record.dataUrl.startsWith("data:image/") &&
-        record.dataUrl.length <= MAX_STORED_AVATAR_BYTES * 2
-        ? { kind: "upload", dataUrl: record.dataUrl }
-        : null;
+      if (
+        typeof record.dataUrl !== "string" ||
+        !record.dataUrl.startsWith("data:image/") ||
+        record.dataUrl.length > MAX_STORED_AVATAR_BYTES * 2
+      ) {
+        return null;
+      }
+      const state: AvatarUpload = { kind: "upload", dataUrl: record.dataUrl };
+      if (isRemoteAvatarUrl(record.remoteUrl)) {
+        state.remoteUrl = record.remoteUrl;
+      }
+      return state;
     }
     return null;
   } catch {

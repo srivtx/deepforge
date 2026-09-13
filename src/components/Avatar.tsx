@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { getUserName } from "@/lib/leaderboard";
 import {
@@ -76,6 +76,7 @@ export function Avatar({ seed, size = "md", className, label }: AvatarProps) {
     getSnapshot,
     getServerSnapshot,
   );
+  const [failedRemoteUrl, setFailedRemoteUrl] = useState<string | null>(null);
   const px = SIZE_PX[size];
 
   const trimmedSeed = seed?.trim() ?? "";
@@ -89,12 +90,19 @@ export function Avatar({ seed, size = "md", className, label }: AvatarProps) {
   const avatar = snapshot.avatar;
   let body: ReactNode;
   if (isSelf && avatar?.kind === "upload") {
+    const remoteUrl = avatar.remoteUrl;
+    const useRemote = Boolean(remoteUrl && remoteUrl !== failedRemoteUrl);
     body = (
       <img
-        src={avatar.dataUrl}
+        src={useRemote ? (remoteUrl as string) : avatar.dataUrl}
         alt={label ?? ""}
         draggable={false}
         className="h-full w-full object-cover"
+        onError={() => {
+          if (remoteUrl && failedRemoteUrl !== remoteUrl) {
+            setFailedRemoteUrl(remoteUrl);
+          }
+        }}
       />
     );
   } else {

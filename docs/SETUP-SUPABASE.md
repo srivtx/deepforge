@@ -130,3 +130,49 @@ Google must be on that list.
 If Google is not enabled in the dashboard, the sign-in call resolves with the
 provider error and the sync panel shows it inline next to the button; magic
 links keep working.
+
+## 7. Storage (avatars)
+
+Uploaded profile photos are stored in a public Storage bucket named `avatars`
+at the path convention **`{user_id}/avatar.jpg`** (one object per user, the
+upload upserts in place). The downscaled data URL stays in localStorage as the
+instant/offline preview, so signed-out and unconfigured users never touch
+Storage — the UI just notes "Saved on this device — sign in to sync".
+
+The bucket and its policies come from
+[`migrations/20260914000000_avatars.sql`](migrations/20260914000000_avatars.sql),
+applied the same way as the schema — `supabase db push` (or paste it into the
+dashboard SQL editor). It is re-runnable: the bucket insert uses
+`on conflict do nothing` and every policy is dropped before creation.
+
+| Policy | Operation | Rule |
+| --- | --- | --- |
+| `avatars_select_public` | SELECT | `bucket_id = 'avatars'` — anyone can view |
+| `avatars_insert_own` | INSERT (authenticated) | `(storage.foldername(name))[1] = auth.uid()::text` |
+| `avatars_update_own` | UPDATE (authenticated) | same own-folder check (needed for `upsert: true`) |
+| `avatars_delete_own` | DELETE (authenticated) | same own-folder check |
+
+The public URL is:
+
+```
+https://klogjcspyiygnggmugjy.supabase.co/storage/v1/object/public/avatars/{user_id}/avatar.jpg
+```
+
+After each upload the client appends a `?v=<timestamp>` cache-buster, because
+the object path is stable. `getPublicUrl` only builds this string, so
+`fetchAvatarUrl()` can restore an avatar uploaded on another device without a
+network call.
+
+Verify:
+
+```sql
+select id, name, public from storage.buckets where id = 'avatars';
+select policyname, cmd, roles from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects'
+  and policyname like 'avatars_%';
+```
+
+When the Supabase env vars are unset the app is unchanged: uploads live only
+in localStorage, no bucket is required, and every Storage helper resolves as a
+no-op.

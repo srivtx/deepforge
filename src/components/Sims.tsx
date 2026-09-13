@@ -77,7 +77,7 @@ export function Sims() {
             tabIndex={active === i ? 0 : -1}
             onClick={() => setActive(i)}
             className={cn(
-              "rounded-lg px-3.5 py-2.5 text-xs font-medium transition-colors",
+              "inline-flex min-h-11 items-center justify-center rounded-lg px-3.5 py-2.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0",
               active === i
                 ? "bg-accent text-canvas"
                 : "border border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",

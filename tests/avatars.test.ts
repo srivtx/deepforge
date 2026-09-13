@@ -4,6 +4,7 @@ import {
   AVATAR_PRESETS,
   AVATAR_STORAGE_KEY,
   MAX_UPLOAD_BYTES,
+  buildUploadedAvatar,
   generateAvatarSvg,
   getAvatar,
   onAvatarChange,
@@ -13,6 +14,15 @@ import {
   setAvatar,
   validateAvatarUpload,
 } from "@/lib/avatars";
+import {
+  AVATAR_BUCKET,
+  avatarObjectPath,
+  fetchAvatarUrl,
+  removeAvatarImage,
+  uploadAvatarImage,
+} from "@/lib/avatarStorage";
+import { setCachedSession } from "@/lib/sync/backend";
+import { setRemoteClient, type RemoteClient } from "@/lib/sync/remote";
 
 type Listener = (event: Event) => void;
 
@@ -63,17 +73,99 @@ function createWindowStub() {
 const globalScope = globalThis as unknown as { window?: unknown };
 let originalWindow: unknown;
 let hadWindow = false;
+let savedSupabaseUrl: string | undefined;
+let savedSupabaseKey: string | undefined;
+let originalFetch: typeof fetch;
 
 beforeEach(() => {
   hadWindow = "window" in globalScope;
   originalWindow = globalScope.window;
   globalScope.window = createWindowStub();
+  savedSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  savedSupabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  originalFetch = globalThis.fetch;
+  setCachedSession(null);
+  setRemoteClient(null);
 });
 
 afterEach(() => {
+  globalThis.fetch = originalFetch;
+  setRemoteClient(null);
+  setCachedSession(null);
+  if (savedSupabaseUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  else process.env.NEXT_PUBLIC_SUPABASE_URL = savedSupabaseUrl;
+  if (savedSupabaseKey === undefined) {
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  } else {
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = savedSupabaseKey;
+  }
   if (hadWindow) globalScope.window = originalWindow;
   else delete globalScope.window;
 });
+
+/* ─────────────────────────── fake storage client ────────────────────────── */
+
+interface RecordedUpload {
+  path: string;
+  file: Blob;
+  options?: { upsert?: boolean; contentType?: string };
+}
+
+class FakeBucket {
+  uploads: RecordedUpload[] = [];
+  removals: string[][] = [];
+  uploadError: { message?: string } | null = null;
+  removeError: { message?: string } | null = null;
+  requested: string[] = [];
+
+  async upload(
+    path: string,
+    file: Blob,
+    options?: { upsert?: boolean; contentType?: string },
+  ): Promise<{ error: { message?: string } | null }> {
+    this.uploads.push({ path, file, options });
+    return { error: this.uploadError };
+  }
+
+  async remove(paths: string[]): Promise<{ error: { message?: string } | null }> {
+    this.removals.push(paths);
+    return { error: this.removeError };
+  }
+
+  getPublicUrl(path: string): { data: { publicUrl: string } } {
+    return {
+      data: {
+        publicUrl: `https://example.supabase.co/storage/v1/object/public/avatars/${path}`,
+      },
+    };
+  }
+}
+
+function makeFakeStorageClient(bucket: FakeBucket): RemoteClient {
+  return {
+    auth: {},
+    from: () => {
+      throw new Error("database not used by avatar storage");
+    },
+    storage: {
+      from: (name: string) => {
+        bucket.requested.push(name);
+        return bucket;
+      },
+    },
+  } as unknown as RemoteClient;
+}
+
+function stubFetch(blob = new Blob(["jpeg-bytes"], { type: "image/jpeg" })): void {
+  globalThis.fetch = (async () => ({
+    blob: async () => blob,
+  })) as unknown as typeof fetch;
+}
+
+const DATA_URL = "data:image/jpeg;base64,AAAA";
+const USER_ID = "u-1";
 
 describe("generateAvatarSvg", () => {
   test("same seed and preset produce identical SVG", () => {
@@ -153,6 +245,54 @@ describe("avatar store", () => {
     const dataUrl = "data:image/jpeg;base64,AAAA";
     setAvatar({ kind: "upload", dataUrl });
     expect(getAvatar()).toEqual({ kind: "upload", dataUrl });
+  });
+
+  test("round-trips an upload with a remote URL", () => {
+    const remoteUrl =
+      "https://example.supabase.co/storage/v1/object/public/avatars/u-1/avatar.jpg?v=2";
+    const state = buildUploadedAvatar(DATA_URL, remoteUrl);
+    setAvatar(state);
+    expect(getAvatar()).toEqual(state);
+  });
+
+  test("buildUploadedAvatar omits an absent or empty remote URL", () => {
+    expect(buildUploadedAvatar(DATA_URL)).toEqual({
+      kind: "upload",
+      dataUrl: DATA_URL,
+    });
+    expect(buildUploadedAvatar(DATA_URL, "")).toEqual({
+      kind: "upload",
+      dataUrl: DATA_URL,
+    });
+    expect(buildUploadedAvatar(DATA_URL, "https://x/avatar.jpg?v=2")).toEqual({
+      kind: "upload",
+      dataUrl: DATA_URL,
+      remoteUrl: "https://x/avatar.jpg?v=2",
+    });
+  });
+
+  test("parseAvatarState keeps valid remote URLs and drops malformed ones", () => {
+    const remoteUrl =
+      "https://example.supabase.co/storage/v1/object/public/avatars/u-1/avatar.jpg?v=2";
+    expect(
+      parseAvatarState(
+        JSON.stringify({ kind: "upload", dataUrl: DATA_URL, remoteUrl }),
+      ),
+    ).toEqual({ kind: "upload", dataUrl: DATA_URL, remoteUrl });
+    expect(
+      parseAvatarState(
+        JSON.stringify({
+          kind: "upload",
+          dataUrl: DATA_URL,
+          remoteUrl: "javascript:alert(1)",
+        }),
+      ),
+    ).toEqual({ kind: "upload", dataUrl: DATA_URL });
+    expect(
+      parseAvatarState(
+        JSON.stringify({ kind: "upload", dataUrl: DATA_URL, remoteUrl: 42 }),
+      ),
+    ).toEqual({ kind: "upload", dataUrl: DATA_URL });
   });
 
   test("null clears the stored entry", () => {
@@ -255,5 +395,94 @@ describe("upload validation", () => {
       rejected = true;
     }
     expect(rejected).toBe(true);
+  });
+});
+
+describe("avatar storage", () => {
+  test("uses the avatars bucket at {userId}/avatar.jpg", () => {
+    expect(AVATAR_BUCKET).toBe("avatars");
+    expect(avatarObjectPath(USER_ID)).toBe("u-1/avatar.jpg");
+  });
+
+  test("upload is a silent no-op when signed out", async () => {
+    const bucket = new FakeBucket();
+    setRemoteClient(makeFakeStorageClient(bucket));
+    const result = await uploadAvatarImage(DATA_URL, USER_ID);
+    expect(result).toEqual({ url: null, error: null });
+    expect(bucket.requested).toHaveLength(0);
+    expect(bucket.uploads).toHaveLength(0);
+  });
+
+  test("upload is a silent no-op when no client is available", async () => {
+    setCachedSession({ userId: USER_ID, email: null });
+    const result = await uploadAvatarImage(DATA_URL, USER_ID);
+    expect(result).toEqual({ url: null, error: null });
+  });
+
+  test("uploads with upsert + contentType and returns a cache-busted URL", async () => {
+    setCachedSession({ userId: USER_ID, email: null });
+    const bucket = new FakeBucket();
+    setRemoteClient(makeFakeStorageClient(bucket));
+    stubFetch();
+    const result = await uploadAvatarImage(DATA_URL, USER_ID);
+    expect(bucket.requested).toEqual(["avatars"]);
+    expect(bucket.uploads).toHaveLength(1);
+    expect(bucket.uploads[0].path).toBe("u-1/avatar.jpg");
+    expect(bucket.uploads[0].options).toEqual({
+      upsert: true,
+      contentType: "image/jpeg",
+    });
+    expect(result.error).toBeNull();
+    expect(result.url).toContain(
+      "https://example.supabase.co/storage/v1/object/public/avatars/u-1/avatar.jpg",
+    );
+    expect(result.url).toMatch(/[?&]v=\d+/);
+  });
+
+  test("maps upload failures to an error and never throws", async () => {
+    setCachedSession({ userId: USER_ID, email: null });
+    const bucket = new FakeBucket();
+    bucket.uploadError = { message: "row-level security policy violation" };
+    setRemoteClient(makeFakeStorageClient(bucket));
+    stubFetch();
+    const result = await uploadAvatarImage(DATA_URL, USER_ID);
+    expect(result.url).toBeNull();
+    expect(result.error).toBe("row-level security policy violation");
+  });
+
+  test("remove deletes the user's object and maps failures", async () => {
+    setCachedSession({ userId: USER_ID, email: null });
+    const bucket = new FakeBucket();
+    setRemoteClient(makeFakeStorageClient(bucket));
+    expect(await removeAvatarImage(USER_ID)).toEqual({ error: null });
+    expect(bucket.removals).toEqual([["u-1/avatar.jpg"]]);
+    bucket.removeError = { message: "permission denied" };
+    expect(await removeAvatarImage(USER_ID)).toEqual({
+      error: "permission denied",
+    });
+  });
+
+  test("remove is a silent no-op when signed out", async () => {
+    const bucket = new FakeBucket();
+    setRemoteClient(makeFakeStorageClient(bucket));
+    expect(await removeAvatarImage(USER_ID)).toEqual({ error: null });
+    expect(bucket.removals).toHaveLength(0);
+  });
+
+  test("fetchAvatarUrl builds a cache-busted URL without uploading", async () => {
+    const bucket = new FakeBucket();
+    setRemoteClient(makeFakeStorageClient(bucket));
+    const url = await fetchAvatarUrl(USER_ID);
+    expect(url).toContain(
+      "https://example.supabase.co/storage/v1/object/public/avatars/u-1/avatar.jpg",
+    );
+    expect(url).toMatch(/[?&]v=\d+/);
+    expect(bucket.uploads).toHaveLength(0);
+    expect(bucket.requested).toEqual(["avatars"]);
+  });
+
+  test("fetchAvatarUrl returns null with no client or no userId", async () => {
+    expect(await fetchAvatarUrl(USER_ID)).toBeNull();
+    expect(await fetchAvatarUrl("")).toBeNull();
   });
 });

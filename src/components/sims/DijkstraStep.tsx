@@ -168,9 +168,9 @@ export function DijkstraStep({ active = true }: { active?: boolean }) {
     `${visitedCount} of ${N} nodes finalized, ${frontierCount} in the frontier. ` +
     `Distances: ${NODES.map((n, i) => `${n.name} ${fmt(sim.dist[i])}`).join(", ")}.`;
 
-  const cell = "px-3 py-1.5";
+  const cell = "px-2.5 py-1.5 sm:px-3";
   const secondary =
-    "rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40";
+    "min-h-11 rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0";
 
   return (
     <figure className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
@@ -189,7 +189,7 @@ export function DijkstraStep({ active = true }: { active?: boolean }) {
             role="img"
             aria-label={ariaLabel}
             viewBox="0 0 640 380"
-            className="w-full rounded-lg border border-hairline bg-canvas"
+            className="h-auto w-full rounded-lg border border-hairline bg-canvas"
           >
             {EDGES.map((e, i) => {
               const a = NODES[e.a];
@@ -266,16 +266,16 @@ export function DijkstraStep({ active = true }: { active?: boolean }) {
         </div>
 
         <div className="df-scroll max-h-[420px] overflow-auto rounded-lg border border-hairline">
-          <table className="w-full min-w-[280px] text-left text-xs">
+          <table className="w-full text-left text-xs">
             <caption className="sr-only">
               Dijkstra distances, parents, and states for every node
             </caption>
             <thead className="sticky top-0 bg-canvas-card">
               <tr className="border-b border-hairline text-[10px] uppercase tracking-wide text-mute">
-                <th className="px-3 py-2 font-medium">Node</th>
-                <th className="px-3 py-2 font-medium">Distance</th>
-                <th className="px-3 py-2 font-medium">Parent</th>
-                <th className="px-3 py-2 font-medium">State</th>
+                <th className="px-2.5 py-2 font-medium sm:px-3">Node</th>
+                <th className="px-2.5 py-2 font-medium sm:px-3">Distance</th>
+                <th className="px-2.5 py-2 font-medium sm:px-3">Parent</th>
+                <th className="px-2.5 py-2 font-medium sm:px-3">State</th>
               </tr>
             </thead>
             <tbody className="font-mono">
@@ -309,7 +309,7 @@ export function DijkstraStep({ active = true }: { active?: boolean }) {
             else setRunning(true);
           }}
           disabled={sim.done}
-          className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="min-h-11 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0"
         >
           {playing ? "Pause" : "Play"}
         </button>
@@ -336,7 +336,7 @@ export function DijkstraStep({ active = true }: { active?: boolean }) {
             setStart(s);
             reset(s);
           }}
-          className="rounded-lg border border-hairline bg-canvas px-2 py-1 text-xs text-ink"
+          className="min-h-11 rounded-lg border border-hairline bg-canvas px-2 py-1 text-xs text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0"
         >
           {NODES.map((n, i) => (
             <option key={n.name} value={i}>
@@ -358,7 +358,7 @@ export function DijkstraStep({ active = true }: { active?: boolean }) {
           onChange={(e) => setSpeed(Number(e.target.value))}
           aria-label="Playback speed"
           aria-valuetext={`${speed.toFixed(1)} times`}
-          className="h-1.5 w-full max-w-[120px] cursor-pointer appearance-none rounded-full bg-canvas-soft"
+          className="box-content h-1.5 w-full min-w-0 max-w-[120px] cursor-pointer appearance-none rounded-full bg-canvas-soft bg-clip-content py-[19px] sm:py-0"
           style={{ accentColor: "var(--accent)" }}
         />
         <span className="w-8 shrink-0 font-mono text-xs text-ink">

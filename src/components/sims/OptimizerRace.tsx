@@ -273,7 +273,7 @@ export function OptimizerRace({ active = true }: { active?: boolean }) {
       )
       .join(". ") +
     `. Lowest loss: ${leaderName}.`;
-  const secondary = "rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40";
+  const secondary = "min-h-11 rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0";
 
   return (
     <figure className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
@@ -293,7 +293,7 @@ export function OptimizerRace({ active = true }: { active?: boolean }) {
         height={H}
         role="img"
         aria-label={ariaLabel}
-        className="block w-full rounded-lg bg-canvas"
+        className="block h-auto w-full rounded-lg bg-canvas"
       />
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -305,7 +305,7 @@ export function OptimizerRace({ active = true }: { active?: boolean }) {
             else setRunning(true);
           }}
           disabled={allDone}
-          className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="min-h-11 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0"
         >
           {running ? "Pause" : "Play"}
         </button>
@@ -348,7 +348,7 @@ export function OptimizerRace({ active = true }: { active?: boolean }) {
           onChange={(e) => setLr(Number(e.target.value))}
           aria-label="Learning rate"
           aria-valuetext={`learning rate ${lr.toFixed(2)}`}
-          className="h-1.5 w-full max-w-sm cursor-pointer appearance-none rounded-full bg-canvas-soft"
+          className="box-content h-1.5 w-full min-w-0 max-w-sm cursor-pointer appearance-none rounded-full bg-canvas-soft bg-clip-content py-[19px] sm:py-0"
           style={{ accentColor: "var(--accent)" }}
         />
         <span className="w-10 shrink-0 font-mono text-xs text-ink">
@@ -357,22 +357,22 @@ export function OptimizerRace({ active = true }: { active?: boolean }) {
       </div>
 
       <div className="df-scroll mt-4 overflow-x-auto rounded-lg border border-hairline">
-        <table className="w-full min-w-[420px] text-left text-xs">
+        <table className="w-full text-left text-xs">
           <caption className="sr-only">
             Current optimizer state: steps, loss, and status
           </caption>
           <thead>
             <tr className="border-b border-hairline text-[10px] uppercase tracking-wide text-mute">
-              <th className="px-3 py-2 font-medium">Optimizer</th>
-              <th className="px-3 py-2 font-medium">Steps</th>
-              <th className="px-3 py-2 font-medium">Loss</th>
-              <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-2.5 py-2 font-medium sm:px-3">Optimizer</th>
+              <th className="px-2.5 py-2 font-medium sm:px-3">Steps</th>
+              <th className="px-2.5 py-2 font-medium sm:px-3">Loss</th>
+              <th className="px-2.5 py-2 font-medium sm:px-3">Status</th>
             </tr>
           </thead>
           <tbody className="font-mono">
             {sim.map((o, i) => (
               <tr key={SPECS[i].id} className="border-b border-hairline last:border-b-0">
-                <td className="px-3 py-1.5">
+                <td className="px-2.5 py-1.5 sm:px-3">
                   <span className="inline-flex items-center gap-2 font-sans text-ink">
                     <span
                       className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
@@ -382,11 +382,11 @@ export function OptimizerRace({ active = true }: { active?: boolean }) {
                     {SPECS[i].name}
                   </span>
                 </td>
-                <td className="px-3 py-1.5 text-body">
+                <td className="px-2.5 py-1.5 text-body sm:px-3">
                   {o.steps === 0 ? "\u2014" : o.steps}
                 </td>
-                <td className="px-3 py-1.5 text-body">{formatLoss(loss(o.x, o.y))}</td>
-                <td className="px-3 py-1.5 text-body-mid">{statusOf(o)}</td>
+                <td className="px-2.5 py-1.5 text-body sm:px-3">{formatLoss(loss(o.x, o.y))}</td>
+                <td className="px-2.5 py-1.5 text-body-mid sm:px-3">{statusOf(o)}</td>
               </tr>
             ))}
           </tbody>
