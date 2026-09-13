@@ -576,24 +576,24 @@ export function Speedrun() {
     <>
       <section
         id="speedrun"
-        className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+        className="mx-auto max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
       >
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            Speedrun
+        <div className="mb-6">
+          <h2 className="text-sm font-medium text-body-mid">
+            {history.length} finished runs saved locally
           </h2>
-          <p className="mt-1 text-sm text-body-mid">
-            A seeded solve-a-thon against the clock. The same seed always picks
-            the same problems, so you can race a friend&apos;s run code — or
-            your own ghost. Scores are local and honor-system.
+          <p className="mt-1 text-xs text-mute">
+            The same seed always picks the same problems, so you can race a
+            friend&apos;s run code — or your own ghost. Scores are local and
+            honor-system.
           </p>
         </div>
 
         <form
           onSubmit={handleStart}
-          className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-6"
+          className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
         >
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div>
               <label
                 htmlFor="speedrun-seed"
@@ -752,7 +752,7 @@ export function Speedrun() {
           </div>
         )}
 
-        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
           <form
             onSubmit={handleImport}
             className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
@@ -914,7 +914,7 @@ export function Speedrun() {
         <div className="mt-3 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <h3 className="text-sm font-semibold text-ink">Recent runs</h3>
           {history.length === 0 ? (
-            <p className="mt-2 text-xs text-mute">
+            <p className="mt-2 py-2 text-center text-xs text-mute">
               No finished runs yet. Start one above — the last 20 runs stay in
               this browser.
             </p>
@@ -1042,7 +1042,7 @@ export function Speedrun() {
                 type="button"
                 onClick={closeOverlay}
                 aria-label="Minimize"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
               >
                 <svg
                   width="14"

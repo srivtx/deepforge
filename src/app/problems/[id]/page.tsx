@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PageShell } from "@/components/PageShell";
 import {
   PROBLEMS,
   getProblemById,
   getProblemsByCategory,
 } from "@/data/problems";
 import type { Problem } from "@/types/problem";
-import { cn, difficultyClasses } from "@/lib/utils";
+import { cn, clipRepr, difficultyClasses } from "@/lib/utils";
+import { ProblemWorkspace } from "./ProblemWorkspace";
 
 const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app"
@@ -156,7 +158,7 @@ export default async function ProblemPage({
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10 sm:px-6 sm:py-14">
+    <PageShell>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -164,141 +166,231 @@ export default async function ProblemPage({
         }}
       />
 
-      <nav
-        aria-label="Breadcrumb"
-        className="flex flex-wrap items-center gap-1.5 text-xs text-body-mid"
-      >
-        <Link href="/" className="transition-colors hover:text-ink">
-          Home
-        </Link>
-        <span className="text-mute">/</span>
-        <Link href="/problems" className="transition-colors hover:text-ink">
-          Problems
-        </Link>
-        <span className="text-mute">/</span>
-        <Link
-          href={`/categories/${slug}`}
-          className="transition-colors hover:text-ink"
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-6 pb-12 sm:px-6 sm:pt-8 sm:pb-16">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-body-mid"
         >
-          {problem.category}
-        </Link>
-        <span className="text-mute">/</span>
-        <span className="text-body">{problem.title}</span>
-      </nav>
-
-      <header className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              "rounded-full border px-2 py-0.5 text-xs font-medium",
-              difficultyClasses(problem.difficulty),
-            )}
+          <Link
+            href="/"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
-            {problem.difficulty}
+            Home
+          </Link>
+          <span aria-hidden className="text-mute">
+            /
+          </span>
+          <Link
+            href="/problems"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
+            Problems
+          </Link>
+          <span aria-hidden className="text-mute">
+            /
           </span>
           <Link
             href={`/categories/${slug}`}
-            className="rounded-full border border-hairline bg-canvas-card px-2 py-0.5 text-xs text-body-mid transition-colors hover:border-accent/40 hover:text-accent"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
             {problem.category}
           </Link>
-          <span className="font-mono text-xs text-mute">{problem.id}</span>
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          {problem.title}
-        </h1>
-      </header>
+          <span aria-hidden className="text-mute">
+            /
+          </span>
+          <span className="min-w-0 max-w-full truncate text-body">
+            {problem.title}
+          </span>
+        </nav>
 
-      <section className="flex flex-col gap-3">
-        {paragraphs.map((paragraph, index) => (
-          <p
-            key={index}
-            className="whitespace-pre-wrap text-sm leading-relaxed text-body"
+        <ProblemWorkspace problem={problem}>
+          {/*
+            Server-rendered workspace. It is the page for crawlers and no-JS
+            readers and the pre-hydration paint; once React mounts, it is
+            replaced in place by the interactive ProblemView (page variant).
+          */}
+          <article
+            aria-label="Problem workspace"
+            className="flex scroll-mt-16 flex-col gap-6"
           >
-            {paragraph}
-          </p>
-        ))}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="overflow-hidden rounded-lg border border-hairline bg-canvas-card">
-          <div className="flex items-center justify-between border-b border-hairline px-4 py-2">
-            <span className="text-xs text-body-mid">Starter code</span>
-            <span className="font-mono text-[10px] text-mute">Python</span>
-          </div>
-          <pre className="df-scroll overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-body">
-            <code>{problem.starterCode}</code>
-          </pre>
-        </div>
-        <p className="text-xs text-body-mid">
-          {problem.testCases.length}{" "}
-          {problem.testCases.length === 1 ? "test case" : "test cases"}
-        </p>
-      </section>
-
-      {problem.hint && (
-        <details className="rounded-lg border border-hairline bg-canvas-card px-4 py-3">
-          <summary className="cursor-pointer text-sm text-body-mid transition-colors hover:text-ink">
-            Show hint
-          </summary>
-          <p className="mt-2 text-sm leading-relaxed text-body">
-            {problem.hint}
-          </p>
-        </details>
-      )}
-
-      <div>
-        <Link
-          href={`/?p=${problem.id}`}
-          className="inline-flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/5 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/10"
-        >
-          Solve in the editor
-        </Link>
-      </div>
-
-      {related.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold tracking-tight text-ink">
-            Related problems
-          </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {related.map((item) => (
+            <div className="flex flex-col gap-5">
               <Link
-                key={item.id}
-                href={`/problems/${item.id}`}
-                className="group flex items-center justify-between gap-3 rounded-lg border border-hairline bg-canvas-card p-3 transition-colors hover:border-accent/40 hover:bg-canvas-soft"
+                href="/problems"
+                className="inline-flex min-h-11 w-fit items-center gap-1.5 rounded-md text-sm text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0"
               >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-ink group-hover:text-accent">
-                    {item.title}
-                  </div>
-                  <div className="font-mono text-[11px] text-mute">
-                    {item.id}
-                  </div>
-                </div>
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
-                    difficultyClasses(item.difficulty),
-                  )}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  aria-hidden
                 >
-                  {item.difficulty}
-                </span>
+                  <path
+                    d="M8.5 2.5L4 7l4.5 4.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                All problems
               </Link>
-            ))}
-          </div>
-        </section>
-      )}
 
-      <footer className="border-t border-hairline pt-4 text-xs text-body-mid">
-        <Link href="/problems" className="transition-colors hover:text-ink">
-          Browse all {PROBLEMS.length} problems
-        </Link>
-        <span className="px-2 text-mute">·</span>
-        <Link href="/" className="transition-colors hover:text-ink">
-          DeepForge home
-        </Link>
-      </footer>
-    </main>
+              <header className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={cn(
+                      "rounded-full border px-2 py-0.5 text-xs font-medium",
+                      difficultyClasses(problem.difficulty),
+                    )}
+                  >
+                    {problem.difficulty}
+                  </span>
+                  <Link
+                    href={`/categories/${slug}`}
+                    className="rounded-full border border-hairline bg-canvas-card px-2 py-0.5 text-xs text-body-mid transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                  >
+                    {problem.category}
+                  </Link>
+                  <span className="font-mono text-xs text-mute">
+                    {problem.id}
+                  </span>
+                </div>
+                <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                  {problem.title}
+                </h1>
+              </header>
+            </div>
+
+            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+              <section className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+                <h2 className="mb-2 text-sm font-medium text-body-mid">
+                  Problem
+                </h2>
+                <div className="space-y-3">
+                  {paragraphs.map((paragraph, index) => (
+                    <p
+                      key={index}
+                      className="whitespace-pre-wrap break-words text-sm leading-relaxed text-body"
+                    >
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+
+                {problem.hint && (
+                  <details className="mt-5 rounded-lg border border-hairline bg-canvas-soft">
+                    <summary className="cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40">
+                      Hint
+                    </summary>
+                    <p className="border-t border-hairline px-3 py-2 text-sm leading-relaxed text-body">
+                      {problem.hint}
+                    </p>
+                  </details>
+                )}
+
+                <h2 className="mb-2 mt-5 text-sm font-medium text-body-mid">
+                  Test cases
+                </h2>
+                <div className="space-y-2">
+                  {problem.testCases.map((tc, i) => (
+                    <div
+                      key={i}
+                      className="rounded-md border border-hairline bg-canvas-soft p-2.5"
+                    >
+                      <div className="mb-1 font-mono text-[10px] text-mute">
+                        case {i + 1}
+                      </div>
+                      <div className="break-words font-mono text-xs text-body">
+                        <span className="text-body-mid">in:</span>{" "}
+                        {clipRepr(JSON.stringify(tc.input), 160)}
+                      </div>
+                      <div className="break-words font-mono text-xs text-body">
+                        <span className="text-body-mid">expected:</span>{" "}
+                        {clipRepr(JSON.stringify(tc.expected), 160)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section
+                aria-label="Starter code"
+                className="overflow-hidden rounded-lg border border-hairline bg-canvas-card"
+              >
+                <div className="flex items-center justify-between border-b border-hairline px-4 py-2">
+                  <span className="text-xs font-medium text-body-mid">
+                    Starter code
+                  </span>
+                  <span className="font-mono text-[10px] text-mute">
+                    Python
+                  </span>
+                </div>
+                <pre className="df-scroll overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-body">
+                  <code>{problem.starterCode}</code>
+                </pre>
+                <p className="border-t border-hairline px-4 py-2 text-xs text-body-mid">
+                  {problem.testCases.length}{" "}
+                  {problem.testCases.length === 1 ? "test case" : "test cases"}{" "}
+                  · run your code against them in the editor
+                </p>
+              </section>
+            </div>
+          </article>
+        </ProblemWorkspace>
+
+        {related.length > 0 && (
+          <section className="flex flex-col gap-3">
+            <h2 className="text-lg font-semibold tracking-tight text-ink">
+              Related problems
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {related.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/problems/${item.id}`}
+                  className="group flex items-center justify-between gap-3 rounded-lg border border-hairline bg-canvas-card p-3 transition-colors hover:border-accent/40 hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-ink group-hover:text-accent">
+                      {item.title}
+                    </div>
+                    <div className="font-mono text-[11px] text-mute">
+                      {item.id}
+                    </div>
+                  </div>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+                      difficultyClasses(item.difficulty),
+                    )}
+                  >
+                    {item.difficulty}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <footer className="border-t border-hairline pt-4 text-xs text-body-mid">
+          <Link
+            href="/problems"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
+            Browse all {PROBLEMS.length} problems
+          </Link>
+          <span aria-hidden className="px-2 text-mute">
+            ·
+          </span>
+          <Link
+            href="/"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
+            DeepForge home
+          </Link>
+        </footer>
+      </div>
+    </PageShell>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Problem } from "@/types/problem";
+import { useRouter } from "next/navigation";
 import { CONTESTS, type Contest } from "@/data/contests";
 import { PROBLEMS } from "@/data/problems";
 import { cn, difficultyClasses } from "@/lib/utils";
@@ -12,7 +12,6 @@ import {
   saveContestResult,
   type ContestResult,
 } from "@/lib/contestStore";
-import { ProblemView } from "./ProblemView";
 
 const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
 
@@ -42,11 +41,11 @@ function bestResultFor(
 }
 
 export function Contests() {
+  const router = useRouter();
   const [results, setResults] = useState<ContestResult[]>([]);
   const [progress, setProgress] = useState<ProgressMap>({});
   const [activeContest, setActiveContest] = useState<Contest | null>(null);
   const [remaining, setRemaining] = useState(0);
-  const [activeProblem, setActiveProblem] = useState<Problem | null>(null);
   const [summary, setSummary] = useState<ContestResult | null>(null);
   const [summaryReason, setSummaryReason] = useState<"timeout" | "manual" | null>(
     null,
@@ -94,15 +93,15 @@ export function Contests() {
     return () => window.clearInterval(id);
   }, [activeContest, summary]);
 
-  // Escape closes the overlay, unless ProblemView is stacked on top of it.
+  // Escape closes the overlay.
   useEffect(() => {
     if (!activeContest) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !activeProblem) closeOverlay();
+      if (e.key === "Escape") closeOverlay();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeContest, activeProblem]);
+  }, [activeContest]);
 
   // Focus the overlay while it is open, lock background scroll, and hand
   // focus back to the trigger when it closes.
@@ -129,7 +128,6 @@ export function Contests() {
     setRemaining(contest.durationMinutes * 60);
     setSummary(null);
     setSummaryReason(null);
-    setActiveProblem(null);
     setActiveContest(contest);
   };
 
@@ -146,13 +144,11 @@ export function Contests() {
     setSummaryReason(reason);
     setRemaining(Math.max(0, totalSeconds - used));
     setResults(getContestResults());
-    setActiveProblem(null);
   }
 
   function closeOverlay() {
     finishingRef.current = false;
     setActiveContest(null);
-    setActiveProblem(null);
     setSummary(null);
     setSummaryReason(null);
   }
@@ -165,25 +161,21 @@ export function Contests() {
     <>
       <section
         id="contests"
-        className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+        className="mx-auto max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
       >
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            Contests
+        <div className="mb-6">
+          <h2 className="text-sm font-medium text-body-mid">
+            {CONTESTS.length} timed sets · best scores saved in this browser
           </h2>
-          <p className="mt-1 text-sm text-body-mid">
-            Timed problem sets. Start the clock, solve what you can, and your
-            best score stays saved in this browser.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {CONTESTS.map((contest) => {
             const best = bestResultFor(results, contest.id);
             return (
               <div
                 key={contest.id}
-                className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-5"
+                className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="text-base font-semibold text-ink">
@@ -307,7 +299,7 @@ export function Contests() {
                       <button
                         key={id}
                         type="button"
-                        onClick={() => setActiveProblem(problem)}
+                        onClick={() => router.push(`/problems/${problem.id}`)}
                         className="flex w-full items-center gap-3 rounded-lg border border-hairline bg-canvas-card px-3 py-2.5 text-left transition-colors hover:bg-canvas-soft"
                       >
                         <span
@@ -358,14 +350,6 @@ export function Contests() {
             </div>
           </div>
         </div>
-      )}
-
-      {activeProblem && (
-        <ProblemView
-          problem={activeProblem}
-          onClose={() => setActiveProblem(null)}
-          onProgressChange={() => setProgress(getProgress())}
-        />
       )}
     </>
   );

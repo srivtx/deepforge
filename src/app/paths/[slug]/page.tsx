@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PageShell } from "@/components/PageShell";
 import { getProblemById } from "@/data/problems";
 import type { Problem } from "@/types/problem";
 import type { ResolvedLearningPath } from "@/lib/paths";
@@ -131,7 +132,7 @@ export default async function LearningPathPage({
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10 sm:px-6 sm:py-14">
+    <PageShell>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -139,32 +140,52 @@ export default async function LearningPathPage({
         }}
       />
 
-      <nav
-        aria-label="Breadcrumb"
-        className="flex flex-wrap items-center gap-1.5 text-xs text-body-mid"
-      >
-        <Link href="/" className="transition-colors hover:text-ink">
-          Home
-        </Link>
-        <span className="text-mute">/</span>
-        <Link href="/paths" className="transition-colors hover:text-ink">
-          Learning paths
-        </Link>
-        <span className="text-mute">/</span>
-        <span className="text-body">{path.title}</span>
-      </nav>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 sm:py-14">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex flex-wrap items-center gap-1.5 text-xs text-body-mid"
+        >
+          <Link
+            href="/"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
+            Home
+          </Link>
+          <span aria-hidden className="text-mute">
+            /
+          </span>
+          <Link
+            href="/paths"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
+            Learning paths
+          </Link>
+          <span aria-hidden className="text-mute">
+            /
+          </span>
+          <span className="text-body">{path.title}</span>
+        </nav>
 
-      <PathDetail path={path} problems={problems} prev={prev} next={next} />
+        <PathDetail path={path} problems={problems} prev={prev} next={next} />
 
-      <footer className="border-t border-hairline pt-4 text-xs text-body-mid">
-        <Link href="/paths" className="transition-colors hover:text-ink">
-          All learning paths
-        </Link>
-        <span className="px-2 text-mute">·</span>
-        <Link href="/" className="transition-colors hover:text-ink">
-          DeepForge home
-        </Link>
-      </footer>
-    </main>
+        <footer className="border-t border-hairline pt-4 text-xs text-body-mid">
+          <Link
+            href="/paths"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
+            All learning paths
+          </Link>
+          <span aria-hidden className="px-2 text-mute">
+            ·
+          </span>
+          <Link
+            href="/"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
+            DeepForge home
+          </Link>
+        </footer>
+      </div>
+    </PageShell>
   );
 }

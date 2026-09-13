@@ -145,36 +145,33 @@ export function Leaderboard() {
   return (
     <section
       id="leaderboard"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-8 sm:px-6 sm:py-12"
     >
-      <div className="mb-8 flex flex-col gap-1">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Leaderboard
-        </h2>
-        <p className="text-sm text-body-mid">
-          Flame score weights Easy 1, Medium 3, Hard 5.
-        </p>
-      </div>
+      <p className="mb-6 text-sm text-body-mid">
+        Flame score weights Easy 1, Medium 3, Hard 5.
+      </p>
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <div className="rounded-lg border border-hairline bg-canvas-card px-3 py-3 sm:px-4">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <div className="text-xs text-body-mid">Flame score</div>
-          <div className="mt-1 font-mono text-lg font-medium text-accent sm:text-xl">
+          <div className="mt-1.5 font-mono text-lg font-medium text-accent sm:text-xl">
             {score}
           </div>
         </div>
-        <div className="rounded-lg border border-hairline bg-canvas-card px-3 py-3 sm:px-4">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <div className="text-xs text-body-mid">Solved</div>
-          <div className="mt-1 font-mono text-lg font-medium text-ink sm:text-xl">
+          <div className="mt-1.5 font-mono text-lg font-medium text-ink sm:text-xl">
             {solved}
           </div>
         </div>
-        <div className="rounded-lg border border-hairline bg-canvas-card px-3 py-3 sm:px-4">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <div className="text-xs text-body-mid">Streak</div>
-          <div className="mt-1 font-mono text-lg font-medium text-ink sm:text-xl">
+          <div className="mt-1.5 font-mono text-lg font-medium text-ink sm:text-xl">
             {streak}
           </div>
-          <div className="text-xs text-body-mid">best {board.longestStreak}</div>
+          <div className="mt-0.5 text-xs text-body-mid">
+            best {board.longestStreak}
+          </div>
         </div>
       </div>
 
@@ -196,7 +193,7 @@ export function Leaderboard() {
               }
             }}
             aria-label="Display name"
-            className="w-40 rounded-md border border-hairline bg-canvas px-2 py-1 text-sm text-ink focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30"
+            className="min-h-11 w-40 rounded-md border border-hairline bg-canvas px-3 text-sm text-ink focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/40"
           />
         ) : (
           <>
@@ -204,7 +201,7 @@ export function Leaderboard() {
               type="button"
               onClick={startEditing}
               aria-label={`Edit display name, currently ${board.name}`}
-              className="rounded-md text-sm font-medium text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+              className="inline-flex min-h-11 items-center rounded-md text-sm font-medium text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
             >
               {board.name}
             </button>
@@ -212,7 +209,7 @@ export function Leaderboard() {
               type="button"
               onClick={startEditing}
               aria-label="Edit username"
-              className="rounded-md border border-hairline px-2 py-0.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+              className="inline-flex min-h-11 items-center rounded-md border border-hairline px-3 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
             >
               Edit
             </button>
@@ -221,18 +218,18 @@ export function Leaderboard() {
       </div>
 
       {globalAvailable && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div
             role="group"
             aria-label="Leaderboard scope"
-            className="inline-flex rounded-lg border border-hairline bg-canvas-card p-0.5"
+            className="inline-flex rounded-lg border border-hairline bg-canvas-card p-1"
           >
             <button
               type="button"
               aria-pressed={tab === "local"}
               onClick={() => openTab("local")}
               className={cn(
-                "rounded-md px-3 py-1 text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+                "inline-flex min-h-11 items-center rounded-md px-4 text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
                 tab === "local"
                   ? "bg-canvas-soft font-medium text-ink"
                   : "text-body-mid hover:text-ink",
@@ -245,7 +242,7 @@ export function Leaderboard() {
               aria-pressed={tab === "global"}
               onClick={() => openTab("global")}
               className={cn(
-                "rounded-md px-3 py-1 text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+                "inline-flex min-h-11 items-center rounded-md px-4 text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
                 tab === "global"
                   ? "bg-canvas-soft font-medium text-ink"
                   : "text-body-mid hover:text-ink",
@@ -260,7 +257,7 @@ export function Leaderboard() {
               onClick={refreshGlobal}
               disabled={globalLoading}
               aria-label="Refresh global leaderboard"
-              className="inline-flex items-center justify-center rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:cursor-default disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-hairline px-3.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:cursor-default disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
             >
               Refresh
             </button>
@@ -268,7 +265,7 @@ export function Leaderboard() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-hairline bg-canvas-card">
+      <div className="overflow-x-auto rounded-lg border border-hairline bg-canvas-card">
         <table
           aria-label="Leaderboard"
           className="w-full table-fixed border-collapse text-left text-sm sm:table-auto"
@@ -331,7 +328,7 @@ export function Leaderboard() {
                     <button
                       type="button"
                       onClick={refreshGlobal}
-                      className="mt-3 inline-flex items-center justify-center rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                      className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg border border-hairline px-3.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                     >
                       Try again
                     </button>

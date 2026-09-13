@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Contests } from "@/components/Contests";
-import { SectionShell } from "@/components/SectionShell";
+import { PageShell } from "@/components/PageShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Timed problem sets from 10 to 60 minutes with a countdown, difficulty-weighted scores, and best results saved in your browser.";
@@ -20,10 +21,12 @@ export const metadata: Metadata = {
   },
 };
 
+const { title, blurb } = SECTIONS_BY_ID.contests;
+
 export default function ContestsPage() {
   return (
-    <SectionShell>
+    <PageShell title={title} description={blurb}>
       <Contests />
-    </SectionShell>
+    </PageShell>
   );
 }

@@ -1,14 +1,23 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ProblemList } from "@/components/ProblemList";
-import { ProblemView } from "@/components/ProblemView";
+import { categorySlug } from "@/lib/sections";
 import { CATEGORIES, PROBLEMS } from "@/data/problems";
 import { getProgress, type ProgressMap } from "@/lib/progress";
-import type { Difficulty, Problem } from "@/types/problem";
+import type { Difficulty } from "@/types/problem";
 
 const CATEGORY_NAMES: string[] = CATEGORIES.map((category) => category.name);
+
+// Accept either the display name ("Linear Algebra") or the URL slug
+// ("linear-algebra") — CategoryGrid, CommandPalette, and the legacy home
+// redirect all produce slugs.
+const CATEGORY_BY_PARAM = new Map<string, string>();
+for (const category of CATEGORIES) {
+  CATEGORY_BY_PARAM.set(category.name.toLowerCase(), category.name);
+  CATEGORY_BY_PARAM.set(categorySlug(category.name), category.name);
+}
 
 function browserLoading() {
   return (
@@ -28,12 +37,12 @@ function browserLoading() {
 }
 
 function PracticeBrowserContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get("category");
-  const initialCategory =
-    categoryParam && CATEGORY_NAMES.includes(categoryParam)
-      ? categoryParam
-      : undefined;
+  const initialCategory = categoryParam
+    ? CATEGORY_BY_PARAM.get(categoryParam.toLowerCase())
+    : undefined;
 
   const [activeCategory, setActiveCategory] = useState<string>(
     initialCategory ?? "All",
@@ -43,7 +52,6 @@ function PracticeBrowserContent() {
   );
   const [search, setSearch] = useState("");
   const [progress, setProgress] = useState<ProgressMap>(() => getProgress());
-  const [selected, setSelected] = useState<Problem | null>(null);
 
   useEffect(() => {
     const onChange = () => setProgress(getProgress());
@@ -56,28 +64,19 @@ function PracticeBrowserContent() {
   }, []);
 
   return (
-    <>
-      <ProblemList
-        problems={PROBLEMS}
-        progress={progress}
-        activeCategory={activeCategory}
-        activeDifficulty={activeDifficulty}
-        search={search}
-        onCategoryChange={setActiveCategory}
-        onDifficultyChange={setActiveDifficulty}
-        onSearchChange={setSearch}
-        onOpen={setSelected}
-        categories={CATEGORY_NAMES}
-        initialCategory={initialCategory}
-      />
-      {selected && (
-        <ProblemView
-          problem={selected}
-          onClose={() => setSelected(null)}
-          onProgressChange={() => setProgress(getProgress())}
-        />
-      )}
-    </>
+    <ProblemList
+      problems={PROBLEMS}
+      progress={progress}
+      activeCategory={activeCategory}
+      activeDifficulty={activeDifficulty}
+      search={search}
+      onCategoryChange={setActiveCategory}
+      onDifficultyChange={setActiveDifficulty}
+      onSearchChange={setSearch}
+      onOpen={(problem) => router.push(`/problems/${problem.id}`)}
+      categories={CATEGORY_NAMES}
+      initialCategory={initialCategory}
+    />
   );
 }
 

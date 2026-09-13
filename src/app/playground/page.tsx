@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { PageShell } from "@/components/PageShell";
 import { Playground } from "@/components/Playground";
-import { SectionShell } from "@/components/SectionShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "A scratch pad that runs Python locally via Pyodide — test an idea without leaving the page.";
@@ -22,8 +23,11 @@ export const metadata: Metadata = {
 
 export default function PlaygroundPage() {
   return (
-    <SectionShell>
+    <PageShell
+      title={SECTIONS_BY_ID.playground.title}
+      description={SECTIONS_BY_ID.playground.blurb}
+    >
       <Playground />
-    </SectionShell>
+    </PageShell>
   );
 }

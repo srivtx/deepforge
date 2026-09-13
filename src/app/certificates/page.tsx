@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Certificates } from "@/components/Certificates";
-import { SectionShell } from "@/components/SectionShell";
+import { PageShell } from "@/components/PageShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Claim printable certificates for completed paths, collections, and categories. Free, no account needed.";
@@ -22,8 +23,11 @@ export const metadata: Metadata = {
 
 export default function CertificatesPage() {
   return (
-    <SectionShell>
+    <PageShell
+      title={SECTIONS_BY_ID.certificates.title}
+      description={SECTIONS_BY_ID.certificates.blurb}
+    >
       <Certificates />
-    </SectionShell>
+    </PageShell>
   );
 }

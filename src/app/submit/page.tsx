@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { SectionShell } from "@/components/SectionShell";
+import { PageShell } from "@/components/PageShell";
 import { SubmitProblem } from "@/components/SubmitProblem";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Author a problem, validate it locally against the test runner, and export a ready-to-paste snippet.";
@@ -22,8 +23,11 @@ export const metadata: Metadata = {
 
 export default function SubmitPage() {
   return (
-    <SectionShell>
+    <PageShell
+      title={SECTIONS_BY_ID.submit.title}
+      description={SECTIONS_BY_ID.submit.blurb}
+    >
       <SubmitProblem />
-    </SectionShell>
+    </PageShell>
   );
 }

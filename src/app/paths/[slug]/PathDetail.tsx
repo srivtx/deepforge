@@ -117,7 +117,7 @@ function StageSection({
             </span>
           </div>
           {stage.blurb && (
-            <p className="text-sm leading-relaxed text-body-mid">
+            <p className="max-w-3xl text-sm leading-relaxed text-body-mid">
               {stage.blurb}
             </p>
           )}
@@ -149,7 +149,7 @@ function StageSection({
                     {problem ? (
                       <Link
                         href={`/problems/${problem.id}`}
-                        className="block truncate text-sm font-medium text-ink transition-colors hover:text-accent"
+                        className="block truncate rounded-sm text-sm font-medium text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                       >
                         {problem.title}
                       </Link>
@@ -165,7 +165,7 @@ function StageSection({
                       {problem && (
                         <Link
                           href={`/categories/${slugify(problem.category)}`}
-                          className="text-[11px] text-body-mid transition-colors hover:text-accent"
+                          className="rounded-sm text-[11px] text-body-mid transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                         >
                           {problem.category}
                         </Link>
@@ -259,7 +259,10 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
           ))}
         </div>
         {paragraphs.map((paragraph, index) => (
-          <p key={index} className="text-sm leading-relaxed text-body">
+          <p
+            key={index}
+            className="max-w-3xl text-sm leading-relaxed text-body"
+          >
             {paragraph}
           </p>
         ))}
@@ -282,7 +285,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
           <Link
             href={`/problems/${nextStep.problemId}`}
             aria-label={`Continue ${path.title} with ${nextProblem.title}`}
-            className="mt-1 inline-flex w-fit max-w-full items-center gap-2 rounded-lg border border-accent/40 bg-accent/5 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/10"
+            className="mt-1 inline-flex w-fit max-w-full items-center gap-2 rounded-lg border border-accent/40 bg-accent/5 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
             <span className="truncate">
               Continue path · {nextProblem.title}
@@ -302,7 +305,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
       {(path.goals.length > 0 || path.prerequisites.length > 0) && (
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {path.goals.length > 0 && (
-            <div className="rounded-lg border border-hairline bg-canvas-card p-4">
+            <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
               <h2 className="text-sm font-medium text-ink">
                 What you will learn
               </h2>
@@ -323,7 +326,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
             </div>
           )}
           {path.prerequisites.length > 0 && (
-            <div className="rounded-lg border border-hairline bg-canvas-card p-4">
+            <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
               <h2 className="text-sm font-medium text-ink">Before you start</h2>
               <ul className="mt-2 flex flex-col gap-1.5">
                 {path.prerequisites.map((item) => (
@@ -375,7 +378,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
           {prev ? (
             <Link
               href={`/paths/${prev.slug}`}
-              className="group flex min-w-0 flex-col rounded-lg border border-hairline bg-canvas-card px-4 py-3 transition-colors hover:border-accent/40 sm:max-w-[48%]"
+              className="group flex min-w-0 flex-col rounded-lg border border-hairline bg-canvas-card px-4 py-3 transition-colors hover:border-accent/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:max-w-[48%]"
             >
               <span className="text-[11px] text-mute">Previous path</span>
               <span className="truncate text-sm font-medium text-ink group-hover:text-accent">
@@ -388,7 +391,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
           {next ? (
             <Link
               href={`/paths/${next.slug}`}
-              className="group flex min-w-0 flex-col rounded-lg border border-hairline bg-canvas-card px-4 py-3 transition-colors hover:border-accent/40 sm:max-w-[48%] sm:items-end sm:text-right"
+              className="group flex min-w-0 flex-col rounded-lg border border-hairline bg-canvas-card px-4 py-3 transition-colors hover:border-accent/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:max-w-[48%] sm:items-end sm:text-right"
             >
               <span className="text-[11px] text-mute">Next path</span>
               <span className="truncate text-sm font-medium text-ink group-hover:text-accent">

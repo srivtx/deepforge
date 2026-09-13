@@ -50,24 +50,19 @@ export function Sims() {
   return (
     <section
       id="sims"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
     >
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Interactive Sims
+      <div className="mb-4">
+        <h2 className="text-sm font-medium text-body-mid">
+          {TABS.length} simulations · everything runs locally
         </h2>
-        <p className="mt-1 max-w-3xl text-sm text-body-mid">
-          Three live simulations that run entirely in this page — no libraries,
-          no server, just math on the main thread. Play, pause, and step
-          through each one; break them on purpose with the controls.
-        </p>
       </div>
 
       <div
         role="tablist"
         aria-label="Interactive simulations"
         onKeyDown={onTabKeyDown}
-        className="flex flex-wrap gap-1.5 border-b border-hairline pb-2"
+        className="flex flex-wrap gap-2 border-b border-hairline pb-2"
       >
         {TABS.map((tab, i) => (
           <button
@@ -82,7 +77,7 @@ export function Sims() {
             tabIndex={active === i ? 0 : -1}
             onClick={() => setActive(i)}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+              "rounded-lg px-3.5 py-2.5 text-xs font-medium transition-colors",
               active === i
                 ? "bg-accent text-canvas"
                 : "border border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",

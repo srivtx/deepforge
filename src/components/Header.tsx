@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { SyncPanel } from "./SyncPanel";
-import { ThemeToggle } from "./ThemeToggle";
 import { MOBILE_NAV_GROUPS, NavItemLink, NavMenus } from "./NavMenus";
 
 interface HeaderProps {
@@ -38,6 +39,7 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -68,19 +70,28 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
             : "border-transparent bg-canvas"
         }`}
       >
-        <div className="mx-auto flex h-12 max-w-6xl items-center justify-between gap-2 px-4 lg:px-6">
+        <div className="mx-auto flex h-12 w-full max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
-            <a href="#top" className="flex items-baseline gap-2">
+            <Link
+              href="/"
+              onClick={() => {
+                if (pathname === "/") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              className="flex items-baseline gap-2 rounded-md focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+              aria-label="DeepForge home"
+            >
               <span className="text-[15px] font-semibold tracking-tight text-ink">
                 DeepForge
               </span>
               <span className="text-xs text-body-mid">by svx</span>
-            </a>
+            </Link>
             <NavMenus />
           </div>
 
           <div className="flex items-center gap-1 sm:gap-1.5">
-            <div className="ml-1 hidden items-center gap-1.5 rounded-md border border-hairline px-2 py-1 text-xs text-body-mid md:flex">
+            <div className="ml-1 hidden h-8 items-center gap-1.5 rounded-md border border-hairline px-2 text-xs text-body-mid md:flex">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" />
               <span className="font-mono">
                 {solvedCount}/{totalCount} solved
@@ -92,7 +103,7 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
                 window.dispatchEvent(new CustomEvent("deepforge:open-command"))
               }
               aria-label="Open command palette"
-              className="ml-1 hidden items-center gap-1.5 rounded-md border border-hairline px-2 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 md:flex"
+              className="ml-1 hidden h-8 items-center gap-1.5 rounded-md border border-hairline px-2 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 md:flex"
             >
               <span>Search</span>
               <span className="font-mono text-[10px] text-mute">⌘K</span>
@@ -106,9 +117,6 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
               <SyncIcon />
               <span>Sync</span>
             </button>
-            <div className="ml-1 [&>button]:h-11 [&>button]:w-11 sm:ml-1.5 sm:[&>button]:h-8 sm:[&>button]:w-8">
-              <ThemeToggle />
-            </div>
             <button
               ref={menuButtonRef}
               type="button"
@@ -162,11 +170,19 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
           >
             <nav
               aria-label="Mobile navigation"
-              className="mx-auto flex max-w-6xl flex-col px-2 pb-2 pt-1"
+              className="mx-auto flex w-full max-w-6xl flex-col px-2 pb-3 pt-2"
             >
+              <Link
+                href="/"
+                onClick={() => setMenuOpen(false)}
+                aria-current={pathname === "/" ? "page" : undefined}
+                className={MOBILE_LINK_CLASS}
+              >
+                Home
+              </Link>
               {MOBILE_NAV_GROUPS.map((group) => (
-                <div key={group.label} className="flex flex-col">
-                  <p className="px-3 pb-1 pt-3 text-xs font-medium text-mute">
+                <div key={group.label} className="flex flex-col pt-2 pb-3">
+                  <p className="px-3 pb-1 text-xs font-medium text-mute">
                     {group.label}
                   </p>
                   {group.items.map((id) => (
@@ -179,7 +195,7 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
                   ))}
                 </div>
               ))}
-              <div className="mt-1 border-t border-hairline pt-1">
+              <div className="mt-1 border-t border-hairline pt-2">
                 <button
                   type="button"
                   onClick={() => {

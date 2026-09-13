@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   ASSISTANT_CHANGE_EVENT,
   appendMessage,
@@ -52,21 +53,15 @@ function getContextSnapshot(): Ctx {
   return assistantContext;
 }
 
-const OPEN_PROBLEM_EVENT = "deepforge:open-problem";
 const PROBLEM_CONTEXT_EVENT = "deepforge:problem-context";
 
-function openProblem(id: string): void {
-  window.dispatchEvent(
-    new CustomEvent(OPEN_PROBLEM_EVENT, { detail: { id } }),
-  );
-}
-
 function CitationChip({ id }: { id: string }) {
+  const router = useRouter();
   const problem = getProblemById(id);
   return (
     <button
       type="button"
-      onClick={() => openProblem(id)}
+      onClick={() => router.push(`/problems/${id}`)}
       aria-label={`Open problem ${id}`}
       title={problem ? `${problem.id} — ${problem.title}` : id}
       className="max-w-full truncate rounded-md border border-hairline bg-canvas px-1.5 py-0.5 text-left font-mono text-[10px] text-body-mid transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"

@@ -4,9 +4,10 @@ import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 
 /**
- * Sun / moon toggle for the header. Renders a stable placeholder until the
- * client mounts (avoids the next-themes hydration mismatch), then swaps in
- * the icon that matches the active theme.
+ * Minimal theme control for the page footer (x.ai placement). A single ghost
+ * icon — sun in dark mode, moon in light mode — that crossfades with a gentle
+ * rotation. Renders a stable placeholder until the client mounts so the
+ * server and first client render match.
  */
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -17,52 +18,53 @@ export function ThemeToggle() {
   );
 
   const isDark = resolvedTheme === "dark";
+  const label = mounted
+    ? isDark
+      ? "Switch to light mode"
+      : "Switch to dark mode"
+    : "Toggle theme";
 
   return (
     <button
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className="flex h-8 w-8 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus:ring-1 focus:ring-accent/30"
+      aria-label={label}
+      title={label}
+      className="group relative flex h-8 w-8 items-center justify-center rounded-md text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
     >
-      {mounted ? (
-        isDark ? (
-          // Sun icon — shown in dark mode, click to go light.
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-          </svg>
-        ) : (
-          // Moon icon — shown in light mode, click to go dark.
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        )
-      ) : (
-        // Stable placeholder during SSR / first paint — same dimensions.
-        <span className="block h-3.5 w-3.5" aria-hidden />
-      )}
+      <span className="relative block h-4 w-4" aria-hidden>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`absolute inset-0 h-4 w-4 transition-all duration-200 motion-reduce:transition-none ${
+            mounted && isDark
+              ? "rotate-0 scale-100 opacity-100"
+              : "-rotate-90 scale-75 opacity-0"
+          }`}
+        >
+          <circle cx="12" cy="12" r="4.5" />
+          <path d="M12 2.5v2M12 19.5v2M4.34 4.34l1.42 1.42M18.24 18.24l1.42 1.42M2.5 12h2M19.5 12h2M4.34 19.66l1.42-1.42M18.24 5.76l1.42-1.42" />
+        </svg>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`absolute inset-0 h-4 w-4 transition-all duration-200 motion-reduce:transition-none ${
+            mounted && !isDark
+              ? "rotate-0 scale-100 opacity-100"
+              : "rotate-90 scale-75 opacity-0"
+          }`}
+        >
+          <path d="M20.5 14.2A8.6 8.6 0 1 1 9.8 3.5a7 7 0 0 0 10.7 10.7z" />
+        </svg>
+      </span>
     </button>
   );
 }

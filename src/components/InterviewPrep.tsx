@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Problem } from "@/types/problem";
 import { PROBLEMS } from "@/data/problems";
@@ -13,7 +15,6 @@ import {
   saveInterviewResult,
   type InterviewResult,
 } from "@/lib/interview";
-import { ProblemView } from "./ProblemView";
 
 const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
 const SESSION_SIZES = [5, 10, 20];
@@ -123,6 +124,7 @@ function ProblemRow({
 }
 
 export function InterviewPrep() {
+  const router = useRouter();
   const [progress, setProgress] = useState<ProgressMap>({});
   const [best, setBest] = useState<Record<string, InterviewResult | null>>({});
   const [setupTrack, setSetupTrack] = useState<InterviewTrack | null>(null);
@@ -132,7 +134,6 @@ export function InterviewPrep() {
   const [activeTrack, setActiveTrack] = useState<InterviewTrack | null>(null);
   const [sessionIds, setSessionIds] = useState<string[]>([]);
   const [remaining, setRemaining] = useState(0);
-  const [activeProblem, setActiveProblem] = useState<Problem | null>(null);
   const [summary, setSummary] = useState<InterviewSummary | null>(null);
 
   const startAtRef = useRef(0);
@@ -184,20 +185,20 @@ export function InterviewPrep() {
   useEffect(() => {
     if (!activeTrack) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !activeProblem) closeOverlay();
+      if (e.key === "Escape") closeOverlay();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeTrack, activeProblem]);
+  }, [activeTrack]);
 
   useEffect(() => {
     if (!setupTrack) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !activeProblem) setSetupTrack(null);
+      if (e.key === "Escape") setSetupTrack(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setupTrack, activeProblem]);
+  }, [setupTrack]);
 
   useEffect(() => {
     if (!setupTrack) return;
@@ -237,7 +238,6 @@ export function InterviewPrep() {
     setSessionIds(ids);
     setRemaining(ids.length * SECONDS_PER_PROBLEM);
     setSummary(null);
-    setActiveProblem(null);
     setActiveTrack(track);
     setSetupTrack(null);
   }
@@ -264,15 +264,17 @@ export function InterviewPrep() {
       reason,
     });
     setRemaining(Math.max(0, limitSeconds - seconds));
-    setActiveProblem(null);
   }
 
   function closeOverlay() {
     finishingRef.current = false;
     setActiveTrack(null);
-    setActiveProblem(null);
     setSummary(null);
     setSessionIds([]);
+  }
+
+  function openProblem(problem: Problem) {
+    router.push(`/problems/${problem.id}`);
   }
 
   function openSetup(track: InterviewTrack, mode: SetupMode, phase = 0) {
@@ -344,20 +346,16 @@ export function InterviewPrep() {
     <>
       <section
         id="interview"
-        className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+        className="mx-auto max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
       >
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            Interview Prep
+        <div className="mb-6">
+          <h2 className="text-sm font-medium text-body-mid">
+            {INTERVIEW_TRACKS.length} company tracks · paced practice or timed
+            mock
           </h2>
-          <p className="mt-1 text-sm text-body-mid">
-            Company-specific tracks with a paced path from warm-up to hard, plus
-            a timed mock drawn from the toughest problems. Your best run stays
-            saved in this browser.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {INTERVIEW_TRACKS.map((track) => {
             const allIds = [...fullPathIds(track), ...track.mockProblemIds];
             const spread = difficultySpread(allIds);
@@ -368,7 +366,7 @@ export function InterviewPrep() {
             return (
               <div
                 key={track.id}
-                className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-5"
+                className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -403,7 +401,7 @@ export function InterviewPrep() {
                     {track.style}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 gap-2">
                   {track.phases.map((phase, index) => (
                     <button
                       key={phase.name}
@@ -430,13 +428,13 @@ export function InterviewPrep() {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-[10px] text-mute">Projects</span>
                     {projectLinks.map((project) => (
-                      <a
+                      <Link
                         key={project.id}
-                        href="#projects"
+                        href="/projects"
                         className="rounded-full border border-hairline px-2 py-0.5 text-[10px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
                       >
                         {project.title}
-                      </a>
+                      </Link>
                     ))}
                   </div>
                 )}
@@ -610,7 +608,7 @@ export function InterviewPrep() {
                             problem={problem}
                             index={index + 1}
                             solved={Boolean(progress[id]?.solved)}
-                            onOpen={setActiveProblem}
+                            onOpen={openProblem}
                           />
                         );
                       })}
@@ -736,7 +734,7 @@ export function InterviewPrep() {
                         problem={problem}
                         index={index + 1}
                         solved={Boolean(progress[id]?.solved)}
-                        onOpen={setActiveProblem}
+                        onOpen={openProblem}
                       />
                     );
                   })}
@@ -745,14 +743,6 @@ export function InterviewPrep() {
             </div>
           </div>
         </div>
-      )}
-
-      {activeProblem && (
-        <ProblemView
-          problem={activeProblem}
-          onClose={() => setActiveProblem(null)}
-          onProgressChange={() => setProgress(getProgress())}
-        />
       )}
     </>
   );

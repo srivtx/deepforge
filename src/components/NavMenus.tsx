@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -135,7 +136,7 @@ export const MOBILE_NAV_GROUPS: { label: string; items: NavItemId[] }[] = [
 ];
 
 const MENU_ITEM_CLASS =
-  "flex w-full items-center whitespace-nowrap rounded-md px-2 py-1.5 text-[13px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
+  "flex w-full items-center whitespace-nowrap rounded-md px-2 py-1.5 text-[13px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:bg-canvas-soft focus:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
 
 export function NavItemLink({
   id,
@@ -172,12 +173,53 @@ function triggerClass(isOpen: boolean) {
 export function NavMenus() {
   const [open, setOpen] = useState<NavMenu["id"] | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
+  const wrapperRefs = useRef<
+    Partial<Record<NavMenu["id"], HTMLDivElement | null>>
+  >({});
   const triggerRefs = useRef<
     Partial<Record<NavMenu["id"], HTMLButtonElement | null>>
   >({});
   const panelRefs = useRef<
     Partial<Record<NavMenu["id"], HTMLDivElement | null>>
   >({});
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const closeMenu = useCallback(
+    (menuId: NavMenu["id"]) => {
+      clearCloseTimer();
+      setOpen((current) => (current === menuId ? null : current));
+    },
+    [clearCloseTimer],
+  );
+
+  // A tiny close delay keeps a hover-opened panel from flickering when the
+  // pointer crosses the gap between two triggers.
+  const scheduleClose = useCallback(
+    (menuId: NavMenu["id"]) => {
+      clearCloseTimer();
+      closeTimerRef.current = window.setTimeout(() => {
+        closeTimerRef.current = null;
+        if (wrapperRefs.current[menuId]?.contains(document.activeElement)) {
+          return;
+        }
+        setOpen((current) => (current === menuId ? null : current));
+      }, 120);
+    },
+    [clearCloseTimer],
+  );
+
+  useEffect(() => {
+    return () => {
+      clearCloseTimer();
+    };
+  }, [clearCloseTimer]);
 
   const focusItem = (menuId: NavMenu["id"], edge: "first" | "last") => {
     window.requestAnimationFrame(() => {
@@ -196,11 +238,15 @@ export function NavMenus() {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      clearCloseTimer();
       triggerRefs.current[open]?.focus();
       setOpen(null);
     };
     const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(null);
+      if (!rootRef.current?.contains(event.target as Node)) {
+        clearCloseTimer();
+        setOpen(null);
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("pointerdown", onPointerDown);
@@ -208,7 +254,7 @@ export function NavMenus() {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [open]);
+  }, [open, clearCloseTimer]);
 
   const handleTriggerKeyDown = (
     event: ReactKeyboardEvent<HTMLButtonElement>,
@@ -217,6 +263,7 @@ export function NavMenus() {
   ) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
+      clearCloseTimer();
       setOpen(menuId);
       focusItem(menuId, event.key === "ArrowDown" ? "first" : "last");
       return;
@@ -262,7 +309,9 @@ export function NavMenus() {
     event: ReactPointerEvent<HTMLDivElement>,
     menuId: NavMenu["id"],
   ) => {
-    if (event.pointerType === "mouse") setOpen(menuId);
+    if (event.pointerType !== "mouse") return;
+    clearCloseTimer();
+    setOpen(menuId);
   };
 
   const handleWrapperPointerLeave = (
@@ -272,7 +321,7 @@ export function NavMenus() {
     if (event.pointerType !== "mouse") return;
     // Keep a click- or keyboard-opened panel alive while focus stays inside.
     if (event.currentTarget.contains(document.activeElement)) return;
-    setOpen((current) => (current === menuId ? null : current));
+    scheduleClose(menuId);
   };
 
   const handleWrapperBlur = (
@@ -280,16 +329,19 @@ export function NavMenus() {
     menuId: NavMenu["id"],
   ) => {
     if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-    setOpen((current) => (current === menuId ? null : current));
+    closeMenu(menuId);
   };
 
   return (
-    <div ref={rootRef} className="hidden items-center gap-0.5 sm:flex">
+    <div ref={rootRef} className="hidden items-center gap-1 sm:flex">
       {NAV_MENUS.map((menu, index) => {
         const isOpen = open === menu.id;
         return (
           <div
             key={menu.id}
+            ref={(element) => {
+              wrapperRefs.current[menu.id] = element;
+            }}
             className="relative"
             onPointerEnter={(event) =>
               handleWrapperPointerEnter(event, menu.id)
@@ -308,9 +360,10 @@ export function NavMenus() {
               aria-haspopup="menu"
               aria-expanded={isOpen}
               aria-controls={`nav-panel-${menu.id}`}
-              onClick={() =>
-                setOpen((current) => (current === menu.id ? null : menu.id))
-              }
+              onClick={() => {
+                clearCloseTimer();
+                setOpen((current) => (current === menu.id ? null : menu.id));
+              }}
               onKeyDown={(event) =>
                 handleTriggerKeyDown(event, menu.id, index)
               }
@@ -347,7 +400,7 @@ export function NavMenus() {
                 onKeyDown={(event) => handlePanelKeyDown(event, menu.id)}
                 className="absolute left-0 top-full z-50 pt-2"
               >
-                <div className="min-w-52 rounded-md border border-hairline bg-canvas p-1.5">
+                <div className="min-w-52 rounded-md border border-hairline bg-canvas p-2">
                   {menu.groups.map((group, groupIndex) => (
                     <div
                       key={group.label ?? groupIndex}
@@ -370,7 +423,7 @@ export function NavMenus() {
                             key={itemId}
                             id={itemId}
                             role="menuitem"
-                            onSelect={() => setOpen(null)}
+                            onSelect={() => closeMenu(menu.id)}
                             className={MENU_ITEM_CLASS}
                           />
                         ))}

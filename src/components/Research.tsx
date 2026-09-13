@@ -144,9 +144,9 @@ function ChallengeCard({
   return (
     <div
       className={cn(
-        "flex flex-col rounded-lg border bg-canvas-card p-5 transition-colors",
+        "flex flex-col rounded-lg border bg-canvas-card p-4 transition-colors sm:p-5",
         active
-          ? "border-accent/40 sm:col-span-2 lg:col-span-3"
+          ? "border-accent/40 md:col-span-2 lg:col-span-3"
           : "border-hairline hover:border-accent/30",
       )}
     >
@@ -393,7 +393,7 @@ function ChallengeCard({
                   Recent attempts
                 </h4>
                 {recent.length === 0 ? (
-                  <p className="mt-2 text-xs text-mute">
+                  <p className="mt-2 py-2 text-center text-xs text-mute">
                     No attempts yet.
                   </p>
                 ) : (
@@ -500,26 +500,20 @@ export function Research() {
   return (
     <section
       id="research"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
     >
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Research
-        </h2>
-        <p className="mt-1 text-sm text-body-mid">
-          Beat the baseline and your code becomes the latest best.
-        </p>
-        <p
+      <div className="mb-6">
+        <h2
           className={cn(
-            "mt-2 font-mono text-xs",
+            "text-sm font-medium",
             beatenCount > 0 ? "text-accent" : "text-body-mid",
           )}
         >
           {beatenCount} / {RESEARCH_CHALLENGES.length} baselines beaten
-        </p>
+        </h2>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {RESEARCH_CHALLENGES.map((challenge) => {
           const active = activeId === challenge.id;
           const running = runningId === challenge.id;

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Articles } from "@/components/Articles";
-import { SectionShell } from "@/components/SectionShell";
+import { PageShell } from "@/components/PageShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Interactive lessons with live demos that run Python in the page — learn a concept, then try it.";
@@ -20,10 +21,12 @@ export const metadata: Metadata = {
   },
 };
 
+const { title, blurb } = SECTIONS_BY_ID.articles;
+
 export default function ArticlesPage() {
   return (
-    <SectionShell>
+    <PageShell title={title} description={blurb}>
       <Articles />
-    </SectionShell>
+    </PageShell>
   );
 }

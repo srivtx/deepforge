@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Badges } from "@/components/Badges";
-import { SectionShell } from "@/components/SectionShell";
+import { PageShell } from "@/components/PageShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Level up as you solve. Quests and badges unlocked from your DeepForge progress.";
@@ -22,8 +23,11 @@ export const metadata: Metadata = {
 
 export default function BadgesPage() {
   return (
-    <SectionShell>
+    <PageShell
+      title={SECTIONS_BY_ID.badges.title}
+      description={SECTIONS_BY_ID.badges.blurb}
+    >
       <Badges />
-    </SectionShell>
+    </PageShell>
   );
 }

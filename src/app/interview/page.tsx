@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { InterviewPrep } from "@/components/InterviewPrep";
-import { SectionShell } from "@/components/SectionShell";
+import { PageShell } from "@/components/PageShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Company-style tracks and timed mocks, from warm-up problems to hard interview questions.";
@@ -20,10 +21,12 @@ export const metadata: Metadata = {
   },
 };
 
+const { title, blurb } = SECTIONS_BY_ID.interview;
+
 export default function InterviewPage() {
   return (
-    <SectionShell>
+    <PageShell title={title} description={blurb}>
       <InterviewPrep />
-    </SectionShell>
+    </PageShell>
   );
 }

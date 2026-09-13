@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Problem } from "@/types/problem";
 import { PROBLEMS } from "@/data/problems";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
@@ -16,7 +17,6 @@ import {
 } from "@/lib/collections";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { cn, difficultyClasses } from "@/lib/utils";
-import { ProblemView } from "./ProblemView";
 
 const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
 const PROBLEM_IDS = new Set(PROBLEMS.map((p) => p.id));
@@ -77,6 +77,7 @@ const dangerButton =
   "rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-error";
 
 export function Collections() {
+  const router = useRouter();
   const problemMap = useMemo(
     () => new Map(PROBLEMS.map((p) => [p.id, p])),
     [],
@@ -87,7 +88,6 @@ export function Collections() {
   const [openCollection, setOpenCollection] = useState<OpenCollection | null>(
     null,
   );
-  const [activeProblem, setActiveProblem] = useState<Problem | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const copiedTimer = useRef<number | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -152,11 +152,11 @@ export function Collections() {
   useEffect(() => {
     if (!openCollection) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !activeProblem) setOpenCollection(null);
+      if (e.key === "Escape") setOpenCollection(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openCollection, activeProblem]);
+  }, [openCollection]);
 
   useEffect(() => {
     return () => {
@@ -665,7 +665,7 @@ export function Collections() {
                     <button
                       key={p.id}
                       type="button"
-                      onClick={() => setActiveProblem(p)}
+                      onClick={() => router.push(`/problems/${p.id}`)}
                       className="flex w-full items-center gap-3 border-b border-hairline px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-canvas-soft focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent sm:px-6"
                     >
                       <span
@@ -704,14 +704,6 @@ export function Collections() {
             </div>
           </div>
         </div>
-      )}
-
-      {activeProblem && (
-        <ProblemView
-          problem={activeProblem}
-          onClose={() => setActiveProblem(null)}
-          onProgressChange={() => setProgress(getProgress())}
-        />
       )}
     </section>
   );

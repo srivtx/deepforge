@@ -9,10 +9,10 @@ interface Status {
 }
 
 const PRIMARY_BUTTON =
-  "rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
+  "inline-flex min-h-11 items-center justify-center rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0";
 
 const SECONDARY_BUTTON =
-  "rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0";
 
 function todayStamp(): string {
   const d = new Date();
@@ -82,56 +82,58 @@ export function ProgressBackup() {
   return (
     <section
       aria-label="Your data"
-      className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
+      className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-8 sm:px-6 sm:py-12"
     >
-      <h2 className="text-sm font-semibold text-ink">Your data</h2>
-      <p className="mt-1 text-xs text-body-mid">
-        Everything is stored in your browser. Export a backup or move it to
-        another device.
-      </p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={handleExport}
-          aria-label="Export progress as a JSON backup file"
-          className={PRIMARY_BUTTON}
+      <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+        <h2 className="text-sm font-semibold text-ink">Your data</h2>
+        <p className="mt-1 text-xs text-body-mid">
+          Everything is stored in your browser. Export a backup or move it to
+          another device.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExport}
+            aria-label="Export progress as a JSON backup file"
+            className={PRIMARY_BUTTON}
+          >
+            Export
+          </button>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            aria-label="Import progress from a JSON backup file"
+            className={SECONDARY_BUTTON}
+          >
+            Import
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            aria-label="Delete all DeepForge progress in this browser"
+            className={SECONDARY_BUTTON}
+          >
+            Reset
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/json"
+            onChange={handleImportFile}
+            aria-label="Backup file to import"
+            className="hidden"
+          />
+        </div>
+        <p
+          role="status"
+          aria-live="polite"
+          className={`mt-2 min-h-4 text-xs ${
+            status?.isError ? "text-error" : "text-body-mid"
+          }`}
         >
-          Export
-        </button>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          aria-label="Import progress from a JSON backup file"
-          className={SECONDARY_BUTTON}
-        >
-          Import
-        </button>
-        <button
-          type="button"
-          onClick={handleReset}
-          aria-label="Delete all DeepForge progress in this browser"
-          className={SECONDARY_BUTTON}
-        >
-          Reset
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="application/json"
-          onChange={handleImportFile}
-          aria-label="Backup file to import"
-          className="hidden"
-        />
+          {status?.text ?? ""}
+        </p>
       </div>
-      <p
-        role="status"
-        aria-live="polite"
-        className={`mt-2 min-h-4 text-xs ${
-          status?.isError ? "text-error" : "text-body-mid"
-        }`}
-      >
-        {status?.text ?? ""}
-      </p>
     </section>
   );
 }

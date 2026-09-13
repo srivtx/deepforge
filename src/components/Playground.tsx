@@ -87,26 +87,21 @@ export function Playground() {
   return (
     <section
       id="playground"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
     >
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Python Playground
-        </h2>
-        <p className="mt-1 text-sm text-body-mid">
-          Runs Python locally in your browser via Pyodide. Nothing leaves your
-          device.
-        </p>
-      </div>
-
       <div className="overflow-hidden rounded-lg border border-hairline bg-canvas-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline px-4 py-2 sm:px-5">
-          <label
-            htmlFor="playground-code"
-            className="text-xs font-medium text-body-mid"
-          >
-            Code
-          </label>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline px-4 py-2.5 sm:px-5">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <label
+              htmlFor="playground-code"
+              className="text-xs font-medium text-body-mid"
+            >
+              Code
+            </label>
+            <span className="text-[11px] text-mute">
+              Runs locally — nothing leaves your device.
+            </span>
+          </div>
           <span className="font-mono text-[10px] text-mute">
             Ctrl/⌘+Enter to run
           </span>
@@ -129,7 +124,7 @@ export function Playground() {
             type="button"
             onClick={handleRun}
             disabled={running}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 sm:min-h-0"
           >
             {running ? (
               <>
@@ -158,7 +153,7 @@ export function Playground() {
             type="button"
             onClick={handleClear}
             disabled={running}
-            className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 sm:min-h-0"
           >
             Clear
           </button>

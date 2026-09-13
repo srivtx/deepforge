@@ -81,6 +81,10 @@ for (const path of LEARNING_PATHS) {
     error(`${label}: ${stages.length} stages (expected 3-5)`);
   } else {
     for (const [index, stage] of stages.entries()) {
+      if (!stage || typeof stage !== "object") {
+        error(`${label}/stage-${index + 1}: stage is not an object`);
+        continue;
+      }
       const where = `${label}/${stage.id || `stage-${index + 1}`}`;
       if (!stage.id?.trim()) error(`${where}: empty stage id`);
       else if (stageIds.has(stage.id)) error(`${where}: duplicate stage id`);

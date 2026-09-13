@@ -24,13 +24,13 @@ import { cn, clipRepr, difficultyClasses } from "@/lib/utils";
 const DIFFICULTIES: Difficulty[] = ["Easy", "Medium", "Hard"];
 
 const PRIMARY_BUTTON =
-  "inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-50";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 sm:min-h-0";
 
 const SECONDARY_BUTTON =
-  "rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-50";
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 sm:min-h-0";
 
 const DANGER_BUTTON =
-  "rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:border-error/40 hover:bg-error/5 hover:text-error focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-50";
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:border-error/40 hover:bg-error/5 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 sm:min-h-0";
 
 const FIELD_CLASS =
   "w-full rounded-lg border border-hairline bg-canvas px-3 py-2 text-sm text-ink placeholder:text-mute focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
@@ -374,20 +374,8 @@ export function SubmitProblem() {
   return (
     <section
       id="submit-problem"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
     >
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Submit a Problem
-        </h2>
-        <p className="mt-1 text-sm text-body-mid">
-          Author a problem, validate it locally against the same test runner
-          that judges every problem, then paste the exported snippet into the
-          repo. {plural(drafts.length, "draft")} saved in this browser — honor
-          system, nothing is uploaded.
-        </p>
-      </div>
-
       <form
         className="rounded-lg border border-hairline bg-canvas-card"
         onSubmit={(event) => event.preventDefault()}
@@ -552,7 +540,7 @@ export function SubmitProblem() {
             {form.testCases.map((testCase, index) => (
               <div
                 key={index}
-                className="rounded-lg border border-hairline bg-canvas p-3"
+                className="rounded-lg border border-hairline bg-canvas p-4"
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="font-mono text-[10px] text-mute">
@@ -563,7 +551,7 @@ export function SubmitProblem() {
                     onClick={() => removeCase(index)}
                     disabled={form.testCases.length <= 3}
                     aria-label={`Remove test case ${index + 1}`}
-                    className="rounded-lg px-2 py-0.5 text-[11px] text-body-mid transition-colors hover:text-error focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-40 disabled:hover:text-body-mid"
+                    className="inline-flex min-h-11 items-center rounded-lg px-2 py-0.5 text-[11px] text-body-mid transition-colors hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-40 disabled:hover:text-body-mid sm:min-h-0"
                   >
                     Remove
                   </button>
@@ -853,11 +841,18 @@ export function SubmitProblem() {
       </form>
 
       <div className="mt-10">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-base font-semibold text-ink">
-            Your drafts{" "}
-            <span className="font-normal text-body-mid">({drafts.length})</span>
-          </h3>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-ink">
+              Your drafts{" "}
+              <span className="font-normal text-body-mid">
+                ({drafts.length})
+              </span>
+            </h3>
+            <p className="mt-1 text-[11px] text-mute">
+              Saved in this browser — nothing is uploaded.
+            </p>
+          </div>
           <div className="flex gap-2">
             <button
               type="button"
@@ -881,7 +876,7 @@ export function SubmitProblem() {
         {importOpen && (
           <div
             id="submit-import-panel"
-            className="mb-4 rounded-lg border border-hairline bg-canvas-card p-4"
+            className="mb-4 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
           >
             <label
               htmlFor="submit-import"
@@ -921,7 +916,7 @@ export function SubmitProblem() {
         )}
 
         {drafts.length === 0 ? (
-          <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+          <div className="rounded-lg border border-dashed border-hairline bg-canvas-card p-4 text-center sm:p-5">
             <p className="text-sm text-body-mid">
               No drafts yet. Fill in the editor above, hit Validate to run the
               tests locally, then save or export the TS snippet.
@@ -933,7 +928,7 @@ export function SubmitProblem() {
               <div
                 key={draft.id}
                 className={cn(
-                  "flex flex-col gap-3 rounded-lg border bg-canvas-card p-4",
+                  "flex flex-col gap-3 rounded-lg border bg-canvas-card p-4 sm:p-5",
                   form.id === draft.id ? "border-accent/40" : "border-hairline",
                 )}
               >

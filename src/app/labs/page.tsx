@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Labs } from "@/components/Labs";
-import { SectionShell } from "@/components/SectionShell";
+import { PageShell } from "@/components/PageShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Dataset-driven machine learning labs where your implementation is scored against a held-out benchmark. Tune, iterate, and climb the leaderboard.";
@@ -20,10 +21,12 @@ export const metadata: Metadata = {
   },
 };
 
+const { title, blurb } = SECTIONS_BY_ID.labs;
+
 export default function LabsPage() {
   return (
-    <SectionShell>
+    <PageShell title={title} description={blurb}>
       <Labs />
-    </SectionShell>
+    </PageShell>
   );
 }

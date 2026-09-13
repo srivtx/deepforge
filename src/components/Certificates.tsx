@@ -19,16 +19,16 @@ import {
 /* ──────────────────────────────── chrome ────────────────────────────────── */
 
 const PRIMARY_BUTTON =
-  "rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
+  "inline-flex min-h-11 items-center justify-center rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0";
 
 const SECONDARY_BUTTON =
-  "rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0";
 
 const DANGER_BUTTON =
-  "rounded-lg border border-error/30 px-3 py-1.5 text-xs text-error transition-colors hover:bg-error/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-error/40";
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-error/30 px-3 py-1.5 text-xs text-error transition-colors hover:bg-error/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-error/40 sm:min-h-0";
 
 const DANGER_CONFIRM_BUTTON =
-  "rounded-lg border border-error/60 bg-error/10 px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error/20 focus:outline-none focus-visible:ring-1 focus-visible:ring-error/40";
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-error/60 bg-error/10 px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error/20 focus:outline-none focus-visible:ring-1 focus-visible:ring-error/40 sm:min-h-0";
 
 const KIND_LABELS: Record<CertificateKind, string> = {
   path: "Path",
@@ -471,7 +471,7 @@ function CertificateCard({
         </div>
       </article>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={() => onPrint(cert)}
@@ -586,16 +586,12 @@ export function Certificates() {
   return (
     <section
       id="certificates"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-8 sm:px-6 sm:py-12"
     >
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Certificates
+      <div className="mb-6">
+        <h2 className="text-sm font-medium text-body-mid">
+          {claimable.length} ready to claim · {state.issued.length} issued
         </h2>
-        <p className="mt-1 text-sm text-body-mid">
-          Finish a learning path, complete a curated collection, or reach 80% of
-          a category to claim a certificate you can print, copy, or export.
-        </p>
       </div>
 
       <p
@@ -618,7 +614,7 @@ export function Certificates() {
         </div>
         {claimable.length === 0 ? (
           loaded && (
-            <div className="rounded-lg border border-hairline bg-canvas-card p-5 text-sm text-body-mid">
+            <div className="rounded-lg border border-hairline bg-canvas-card p-4 text-center text-sm text-body-mid sm:p-5">
               Nothing ready yet. Complete every problem in a learning path or a
               curated collection, or solve 80% of any category to unlock a
               certificate.
@@ -629,7 +625,7 @@ export function Certificates() {
             {claimable.map((entry) => (
               <li
                 key={`${entry.kind}:${entry.refId}`}
-                className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-5"
+                className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -675,12 +671,12 @@ export function Certificates() {
         </div>
         {state.issued.length === 0 ? (
           loaded && (
-            <div className="rounded-lg border border-hairline bg-canvas-card p-5 text-sm text-body-mid">
+            <div className="rounded-lg border border-hairline bg-canvas-card p-4 text-center text-sm text-body-mid sm:p-5">
               No certificates yet. Claim one above when a milestone is ready.
             </div>
           )
         ) : (
-          <ul className="grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {state.issued.map((cert) => (
               <CertificateCard
                 key={cert.id}

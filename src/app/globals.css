@@ -198,6 +198,102 @@
   animation: df-pulse 2.4s ease-in-out infinite;
 }
 
+/* ── Ambient aurora — slow transform-only drift behind the hero. Two soft
+   radial layers tinted from the accent tokens, drifting on long loops. The
+   component sets [data-paused] when the tab or the hero is off-screen. ── */
+.df-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 60%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 60%, transparent 100%);
+}
+.df-aurora-layer {
+  position: absolute;
+  inset: -20%;
+  opacity: 0.75;
+}
+.df-aurora-a {
+  background:
+    radial-gradient(46% 60% at 18% 16%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
+    radial-gradient(38% 48% at 80% 10%, color-mix(in srgb, var(--info) 16%, transparent), transparent 72%);
+  animation: df-aurora-drift-a 26s ease-in-out infinite;
+}
+.df-aurora-b {
+  background:
+    radial-gradient(52% 66% at 74% 84%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 72%),
+    radial-gradient(34% 46% at 26% 88%, color-mix(in srgb, var(--accent-soft) 55%, transparent), transparent 70%);
+  animation: df-aurora-drift-b 34s ease-in-out infinite;
+}
+@keyframes df-aurora-drift-a {
+  0%, 100% { transform: translate3d(-3%, -2%, 0) scale(1); }
+  50%      { transform: translate3d(4%, 3%, 0) scale(1.06); }
+}
+@keyframes df-aurora-drift-b {
+  0%, 100% { transform: translate3d(3%, 2%, 0) scale(1.04); }
+  50%      { transform: translate3d(-4%, -3%, 0) scale(1); }
+}
+.df-aurora[data-paused] .df-aurora-layer {
+  animation-play-state: paused;
+}
+
+/* ── Hover shimmer for the primary hero CTA — one finite sweep per hover. ── */
+.df-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.df-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%);
+}
+.df-shimmer:hover::after,
+.df-shimmer:focus-visible::after {
+  animation: df-shimmer-sweep 0.8s ease-out;
+}
+@keyframes df-shimmer-sweep {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  10%  { opacity: 0.8; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+/* ── Scroll reveal. Content is visible by default (SSR / no JS); the
+   component adds .df-reveal-hidden only when it will animate it back in,
+   so content can never be stranded hidden. ── */
+.df-reveal {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 500ms ease-out, transform 500ms ease-out;
+}
+.df-reveal-hidden {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+/* ── Hover lift guard — cancels the translate under reduced motion even
+   though colour/border transitions still read as instant feedback. ── */
+@media (prefers-reduced-motion: reduce) {
+  .df-lift:hover {
+    translate: none;
+  }
+}
+
+/* ── Footer top edge — one restrained static accent touch. ── */
+.df-footer-edge {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--accent) 55%, transparent) 50%,
+    transparent 100%
+  );
+  opacity: 0.6;
+}
+
 /* ── Respect reduced-motion preferences ── */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -208,6 +304,20 @@
   .df-spin,
   .df-pulse {
     animation: none;
+  }
+  .df-aurora-layer {
+    animation: none;
+  }
+  .df-shimmer:hover::after,
+  .df-shimmer:focus-visible::after {
+    animation: none;
+  }
+  .df-reveal {
+    transition: none;
+  }
+  .df-reveal-hidden {
+    opacity: 1;
+    transform: none;
   }
 }
 

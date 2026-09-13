@@ -110,7 +110,7 @@ function ArticleReader({
           })}
         </div>
 
-        <div className="mt-8 rounded-lg border border-hairline bg-canvas-card p-5">
+        <div className="mt-8 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <h4 className="text-sm font-semibold text-ink">Practice this</h4>
           <p className="mt-1 text-xs text-body-mid">
             Open a problem and implement the idea from scratch. Progress saves
@@ -204,20 +204,15 @@ export function Articles() {
     <>
       <section
         id="articles"
-        className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+        className="mx-auto max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
       >
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            Articles
+        <div className="mb-6">
+          <h2 className="text-sm font-medium text-body-mid">
+            {ARTICLES.length} lessons · every demo runs locally
           </h2>
-          <p className="mt-1 text-sm text-body-mid">
-            {ARTICLES.length} interactive lessons. Read the math, drag the
-            sliders, and watch each idea move — every demo runs locally in
-            this page.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {ARTICLES.map((article) => {
             const demoCount = article.sections.filter(
               (s) => s.kind === "demo",
@@ -228,7 +223,7 @@ export function Articles() {
                 type="button"
                 onClick={() => setActive(article)}
                 aria-label={`Read ${article.title}, ${article.readMinutes} minute read`}
-                className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-5 text-left transition-colors hover:bg-canvas-soft"
+                className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 text-left transition-colors hover:bg-canvas-soft sm:p-5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="rounded-full border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid">

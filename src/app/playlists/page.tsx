@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { PageShell } from "@/components/PageShell";
 import { Playlists } from "@/components/Playlists";
-import { SectionShell } from "@/components/SectionShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Build, reorder, and share ordered problem playlists for a focused study session.";
@@ -22,8 +23,11 @@ export const metadata: Metadata = {
 
 export default function PlaylistsPage() {
   return (
-    <SectionShell>
+    <PageShell
+      title={SECTIONS_BY_ID.playlists.title}
+      description={SECTIONS_BY_ID.playlists.blurb}
+    >
       <Playlists />
-    </SectionShell>
+    </PageShell>
   );
 }

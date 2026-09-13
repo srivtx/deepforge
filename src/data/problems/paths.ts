@@ -66,7 +66,7 @@ export const LEARNING_PATHS: LearningPath[] = [
       "Build boosting and matrix-factorization update steps from the maths",
     ],
     prerequisites: ["math-foundations"],
-    problemIds: ["ml-008", "ml-017", "ml-023", "ml-026", "ml-029", "ml-021", "ml-010", "ml-002", "ml-001", "ml-004", "ml-009", "ml-012", "ml-014", "ml-083", "ml-006", "ml-007", "ml-032", "ml-034", "ml-003", "ml-005", "ml-035", "ml-013", "ml-038", "ml-042", "ml-043", "ml-045", "ml-137", "ml-220"],
+    problemIds: ["ml-008", "ml-017", "ml-023", "ml-026", "ml-029", "ml-021", "ml-010", "ml-002", "ml-001", "ml-004", "ml-009", "ml-012", "ml-014", "ml-083", "ml-006", "ml-007", "ml-032", "ml-034", "ml-003", "ml-005", "ml-035", "ml-137", "ml-013", "ml-038", "ml-042", "ml-043", "ml-045", "ml-220"],
     stages: [
       {
         id: "data-and-metrics",
@@ -87,14 +87,14 @@ export const LEARNING_PATHS: LearningPath[] = [
         title: "Trees, Clusters, and Ensembles",
         blurb:
           "Split data by impurity, group it with k-means, and combine weak learners. Entropy, Gini, information gain, and AdaBoost's reweighting rule.",
-        problemIds: ["ml-006", "ml-007", "ml-032", "ml-034", "ml-003", "ml-005", "ml-035"],
+        problemIds: ["ml-006", "ml-007", "ml-032", "ml-034", "ml-003", "ml-005", "ml-035", "ml-137"],
       },
       {
         id: "regularization-latent-bayes",
         title: "Regularization, Latent Structure, and Bayes",
         blurb:
           "Control model complexity and find structure: ridge regression, naive Bayes, covariance matrices, power iteration, explained variance, and matrix-factorization SGD.",
-        problemIds: ["ml-013", "ml-038", "ml-042", "ml-043", "ml-045", "ml-137", "ml-220"],
+        problemIds: ["ml-013", "ml-038", "ml-042", "ml-043", "ml-045", "ml-220"],
       },
     ],
   },
@@ -170,7 +170,7 @@ export const LEARNING_PATHS: LearningPath[] = [
         id: "schedules-and-stability",
         title: "Schedules and Stability",
         blurb:
-          "The learning-rate policy decides whether training converges. Implement exponential, step, warmup, polynomial, and cosine schedules, plus value and norm gradient clipping.",
+          "The learning-rate policy decides whether training converges. Implement exponential, step, warmup, and polynomial schedules, plus value and norm gradient clipping.",
         problemIds: ["op-005", "op-014", "op-016", "op-019", "op-021", "op-022", "op-024"],
       },
       {
@@ -348,7 +348,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "statistics-mastery",
     title: "Statistics Mastery",
     description:
-      "Turn data into decisions: descriptive statistics, sampling distributions, hypothesis tests, and robust methods. You will implement t-tests, ANOVA, bootstrap intervals, rank correlations, and multiple-comparison corrections. Best for aspiring data scientists and analysts who need to defend their conclusions.",
+      "Turn data into decisions: descriptive statistics, sampling distributions, hypothesis tests, and robust methods. You will implement t-tests, confidence intervals, bootstrap resampling, rank correlations, and multiple-comparison corrections. Best for aspiring data scientists and analysts who need to defend their conclusions.",
     estimatedHours: 11,
     slug: "statistics-mastery",
     level: "Intermediate",
@@ -373,14 +373,14 @@ export const LEARNING_PATHS: LearningPath[] = [
         id: "relationships",
         title: "Relationships Between Variables",
         blurb:
-          "How variables move together: covariance, Pearson correlation, correlation matrices, trimmed means and variances, quartiles, percentiles, skewness, and rolling means.",
+          "How variables move together: covariance, Pearson correlation, correlation matrices, trimmed means, quartiles, percentiles, skewness, and rolling means.",
         problemIds: ["st-003", "st-004", "st-022", "st-023", "st-024", "st-025", "st-028", "st-029"],
       },
       {
         id: "inference",
         title: "Inference from Samples",
         blurb:
-          "Draw conclusions from data: one-sample and Welch t-statistics, degrees of freedom, confidence intervals with known and unknown sigma, KS statistics, permutation p-values, and bootstrap intervals.",
+          "Draw conclusions from data: one-sample and Welch t-statistics, degrees of freedom, confidence intervals with unknown sigma, KS statistics, permutation p-values, and bootstrap intervals.",
         problemIds: ["st-037", "st-077", "st-082", "st-044", "st-045", "st-047", "st-048"],
       },
       {
@@ -691,7 +691,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "graph-algorithms",
     title: "Graph Algorithms",
     description:
-      "Networks traversed properly: BFS, DFS, shortest paths, MSTs, PageRank, and max flow. You will implement Dijkstra, Kruskal, Tarjan-style components, centrality measures, and matching from scratch. Great preparation for both interviews and data-centric engineering work.",
+      "Networks traversed properly: BFS, DFS, shortest paths, MSTs, PageRank, and max flow. You will implement Dijkstra, Kruskal, Kosaraju-style components, centrality measures, and matching from scratch. Great preparation for both interviews and data-centric engineering work.",
     estimatedHours: 12,
     slug: "graph-algorithms",
     level: "Intermediate",
@@ -740,7 +740,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "information-theory",
     title: "Information Theory",
     description:
-      "How much does a message tell you? Build entropy, KL divergence, mutual information, channel capacity, and source coding from scratch. You will finish with Huffman codes, rate-distortion, and privacy mechanisms that show up across modern ML. Perfect for the mathematically curious.",
+      "How much does a message tell you? Build entropy, KL divergence, mutual information, channel capacity, and source coding from scratch. You will finish with Huffman and Shannon codes, Kraft's inequality, and arithmetic coding. Perfect for the mathematically curious.",
     estimatedHours: 11,
     slug: "information-theory",
     level: "Advanced",
@@ -789,7 +789,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "deep-learning-advanced",
     title: "Deep Learning Advanced",
     description:
-      "Beyond the basics: modern activations, normalization variants, efficient attention, and quantization. You will implement GELU, group norm, multi-query attention, KV caching, and BPTT by hand, then compute the memory and FLOPs budgets of real models. Take it once you are comfortable with backprop.",
+      "Beyond the basics: modern activations, normalization variants, efficient attention, and quantization. You will implement GELU, group norm, multi-query attention, int8 quantization, and BPTT by hand, then compute the memory and FLOPs budgets of real models. Take it once you are comfortable with backprop.",
     estimatedHours: 14,
     slug: "deep-learning-advanced",
     level: "Advanced",
@@ -838,7 +838,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "ml-engineer-track",
     title: "ML Engineer Track",
     description:
-      "The production-minded sequence: solid fundamentals, training dynamics, evaluation, and the systems math behind serving models. You will move from standard scalers and loss functions to backprop, class-weighted objectives, and memory accounting. Built for engineers who ship models, not just notebooks.",
+      "The production-minded sequence: solid fundamentals, training dynamics, evaluation, and the systems math behind serving models. You will move from standard scalers and loss functions to backprop, model diagnostics, and memory accounting. Built for engineers who ship models, not just notebooks.",
     estimatedHours: 15,
     slug: "ml-engineer-track",
     level: "Advanced",
@@ -887,7 +887,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "data-scientist-track",
     title: "Data Scientist Track",
     description:
-      "From summary statistics to causal inference, the full analyst toolkit. You will compute robust descriptives, run hypothesis tests, build regression and classification pipelines, and finish with uplift and causal estimators. The right path if your job is turning messy data into defensible decisions.",
+      "From summary statistics to causal inference, the full analyst toolkit. You will compute robust descriptives, run hypothesis tests, build regression and classification pipelines, and finish with causal estimators and ranking curves. The right path if your job is turning messy data into defensible decisions.",
     estimatedHours: 14,
     slug: "data-scientist-track",
     level: "Intermediate",
@@ -936,7 +936,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "quant-interview-track",
     title: "Quant Interview Track",
     description:
-      "Probability brainteasers, statistics, and fast algorithms, sequenced the way trading interviews ask them. You will drill counting, Bayes, distributions, gambler's ruin, and sliding-window classics until they are automatic. Timed practice recommended once you finish.",
+      "Probability brainteasers, statistics, and fast algorithms, sequenced the way trading interviews ask them. You will drill counting, Bayes, distributions, gambler's ruin, and algorithmic classics until they are automatic. Timed practice recommended once you finish.",
     estimatedHours: 16,
     slug: "quant-interview-track",
     level: "Advanced",
@@ -985,13 +985,13 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "thirty-day-full-curriculum",
     title: "30-Day Full Curriculum",
     description:
-      "A month-long sampler that touches every category on the platform, roughly one sitting per day. You will meet vectors, derivatives, distributions, regressions, neural nets, algorithms, graphs, and information theory in a single sweep. Ideal if you are new and want to discover which track to commit to next.",
+      "A month-long sampler that touches nearly every category on the platform, roughly one sitting per day. You will meet vectors, derivatives, distributions, regressions, neural nets, algorithms, graphs, and information theory in a single sweep. Ideal if you are new and want to discover which track to commit to next.",
     estimatedHours: 30,
     slug: "thirty-day-full-curriculum",
     level: "Mixed",
     tags: ["full-curriculum", "sampler", "math", "machine-learning", "breadth"],
     goals: [
-      "Sample every category with one focused sitting per day",
+      "Sample nearly every category with one focused sitting per day",
       "Build a mental map of the whole platform",
       "Finish with a synthesis week across maths, models, and evaluation",
     ],
@@ -1040,7 +1040,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "fast-track-essentials",
     title: "Fast Track (Essentials)",
     description:
-      "The shortest route to a working mental model of ML: twelve problems that cover what the rest of the platform builds on. In a single evening you will implement scaling, matrix products, a derivative, expectation, linear regression, softmax, gradient descent, and one backprop pass. Perfect for a first taste of DeepForge.",
+      "The shortest route to a working mental model of ML: eighteen problems that cover what the rest of the platform builds on. In a single evening you will implement scaling, matrix products, a derivative, expectation, linear regression, softmax, gradient descent, and one backprop pass. Perfect for a first taste of DeepForge.",
     estimatedHours: 4,
     slug: "fast-track-essentials",
     level: "Beginner",

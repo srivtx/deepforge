@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Collections } from "@/components/Collections";
-import { SectionShell } from "@/components/SectionShell";
+import { PageShell } from "@/components/PageShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Curated problem sets plus your own collections. Build a set, share it with a link, and track completion.";
@@ -22,8 +23,11 @@ export const metadata: Metadata = {
 
 export default function CollectionsPage() {
   return (
-    <SectionShell>
+    <PageShell
+      title={SECTIONS_BY_ID.collections.title}
+      description={SECTIONS_BY_ID.collections.blurb}
+    >
       <Collections />
-    </SectionShell>
+    </PageShell>
   );
 }

@@ -283,18 +283,6 @@ export const SECTIONS_BY_GROUP = SECTION_GROUPS.reduce<
   { Learn: [], Practice: [], Compete: [], You: [], Community: [] },
 );
 
-export const OPEN_SECTION_EVENT = "deepforge:open-section";
-
-export function openSection(
-  id: SectionId,
-  params?: Record<string, string>,
-): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent(OPEN_SECTION_EVENT, { detail: { id, params } }),
-  );
-}
-
 export function getSectionById(id: string): SectionMeta | undefined {
   if (!Object.prototype.hasOwnProperty.call(SECTIONS_BY_ID, id)) {
     return undefined;

@@ -166,7 +166,7 @@ function StatTile({
   detail: string;
 }) {
   return (
-    <div className="rounded-lg border border-hairline bg-canvas-card px-3 py-2.5">
+    <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
       <div className="text-xs text-body-mid">{label}</div>
       <div className="mt-0.5 font-mono text-lg font-medium text-ink">
         {value}
@@ -316,7 +316,7 @@ function CategoryBars({ categories }: { categories: CategoryStat[] }) {
   return (
     <div className="mt-4">
       {top.length === 0 ? (
-        <p className="text-xs text-body-mid">
+        <p className="rounded-lg border border-hairline bg-canvas px-4 py-6 text-center text-xs text-body-mid">
           Category coverage appears once your local progress loads.
         </p>
       ) : (
@@ -377,7 +377,7 @@ function DifficultyBar({ items }: { items: DifficultyStat[] }) {
   return (
     <div className="mt-4">
       {items.length === 0 ? (
-        <p className="text-xs text-body-mid">
+        <p className="rounded-lg border border-hairline bg-canvas px-4 py-6 text-center text-xs text-body-mid">
           Difficulty data appears once your local progress loads.
         </p>
       ) : (
@@ -397,7 +397,7 @@ function DifficultyBar({ items }: { items: DifficultyStat[] }) {
               })}
             </div>
           </div>
-          <ul className="mt-3 space-y-1.5">
+          <ul className="mt-3 space-y-3">
             {items.map((item) => (
               <li
                 key={item.difficulty}
@@ -438,7 +438,7 @@ function TimeOfDayChart({ buckets }: { buckets: TimeOfDayBucket[] }) {
   return (
     <div className="mt-4">
       {buckets.length === 0 ? (
-        <p className="text-xs text-body-mid">
+        <p className="rounded-lg border border-hairline bg-canvas px-4 py-6 text-center text-xs text-body-mid">
           Time-of-day data appears once your local progress loads.
         </p>
       ) : (
@@ -526,11 +526,11 @@ function RecordsPanel({ records }: { records: Records }) {
   ];
 
   return (
-    <dl className="mt-4 space-y-2">
+    <dl className="mt-4 space-y-3">
       {rows.map((row) => (
         <div
           key={row.label}
-          className="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-canvas px-3 py-2.5"
+          className="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-canvas p-4"
         >
           <dt className="text-xs text-body-mid">{row.label}</dt>
           <dd className="min-w-0 text-right">
@@ -608,7 +608,7 @@ function MasteryGauge({ value }: { value: number }) {
 
 function MasteryCard({ mastery }: { mastery: MasteryEstimate }) {
   return (
-    <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+    <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
       <h3 className="text-sm font-medium text-ink">Estimated mastery</h3>
       <p className="mt-1 text-xs text-body-mid">
         Weighted from coverage, difficulty depth, and recent activity.
@@ -663,7 +663,7 @@ function PracticeMix({ overview }: { overview: Overview }) {
   ];
 
   return (
-    <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+    <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
       <h3 className="text-sm font-medium text-ink">Practice mix</h3>
       <ul className="mt-4 space-y-3">
         {items.map((item) => (
@@ -706,16 +706,14 @@ export function StatsDashboard() {
   return (
     <section
       id="stats"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-8 sm:px-6 sm:py-12"
     >
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Your Stats
+      <div className="mb-6">
+        <h2 className="text-sm font-medium text-body-mid">
+          {overview.solved}/{overview.total} solved ·{" "}
+          {formatPercent(overview.accuracy)} accuracy ·{" "}
+          {overview.currentStreak}d streak · mastery {mastery.value}
         </h2>
-        <p className="mt-1 text-sm text-body-mid">
-          Solved counts, accuracy, streaks, and an estimated mastery score —
-          derived from progress saved in this browser.
-        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -752,7 +750,7 @@ export function StatsDashboard() {
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <div className="rounded-lg border border-hairline bg-canvas-card p-5 lg:col-span-2">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5 lg:col-span-2">
           <h3 className="text-sm font-medium text-ink">Activity trend</h3>
           <p className="mt-1 text-xs text-body-mid">
             Problems solved per day, last {TREND_DAYS} days.
@@ -763,25 +761,25 @@ export function StatsDashboard() {
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <div className="rounded-lg border border-hairline bg-canvas-card p-5 lg:col-span-2">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5 lg:col-span-2">
           <h3 className="text-sm font-medium text-ink">Category coverage</h3>
           <p className="mt-1 text-xs text-body-mid">
             Top 8 categories by percent solved.
           </p>
           <CategoryBars categories={categories} />
         </div>
-        <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <h3 className="text-sm font-medium text-ink">Personal records</h3>
           <RecordsPanel records={records} />
         </div>
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <h3 className="text-sm font-medium text-ink">Difficulty split</h3>
           <DifficultyBar items={difficulty} />
         </div>
-        <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <h3 className="text-sm font-medium text-ink">Time of day</h3>
           <TimeOfDayChart buckets={timeOfDay} />
         </div>

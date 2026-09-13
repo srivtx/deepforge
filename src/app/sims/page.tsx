@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { SectionShell } from "@/components/SectionShell";
+import { PageShell } from "@/components/PageShell";
 import { Sims } from "@/components/Sims";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Live simulations you can play, pause, and step through to build intuition for ML algorithms.";
@@ -20,10 +21,12 @@ export const metadata: Metadata = {
   },
 };
 
+const { title, blurb } = SECTIONS_BY_ID.sims;
+
 export default function SimsPage() {
   return (
-    <SectionShell>
+    <PageShell title={title} description={blurb}>
       <Sims />
-    </SectionShell>
+    </PageShell>
   );
 }

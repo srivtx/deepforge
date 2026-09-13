@@ -303,21 +303,19 @@ export function Badges() {
   return (
     <section
       id="profile"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-8 sm:px-6 sm:py-12"
     >
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Profile
+      <div className="mb-6">
+        <h2 className="text-sm font-medium text-body-mid">
+          {profile.earned.length}/{TOTAL_BADGES} badges · level{" "}
+          {profile.xp.level} {profile.xp.title} · {completedQuests}/3 quests
+          today
         </h2>
-        <p className="mt-1 text-sm text-body-mid">
-          Your level, daily quests, and {TOTAL_BADGES} badges — computed from
-          progress saved in this browser.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* Level + XP */}
-        <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <div className="flex items-center gap-4">
             <LevelRing level={profile.xp.level} progress={profile.xp.progress} />
             <div className="min-w-0">
@@ -348,29 +346,29 @@ export function Badges() {
         </div>
 
         {/* Totals */}
-        <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <h3 className="text-sm font-medium text-ink">Totals</h3>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-lg border border-hairline bg-canvas px-3 py-2.5">
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-hairline bg-canvas p-4">
               <div className="text-xs text-body-mid">Solved</div>
               <div className="mt-0.5 font-mono text-lg font-medium text-ink">
                 {profile.totals.solved}
               </div>
             </div>
-            <div className="rounded-lg border border-hairline bg-canvas px-3 py-2.5">
+            <div className="rounded-lg border border-hairline bg-canvas p-4">
               <div className="text-xs text-body-mid">Badges</div>
               <div className="mt-0.5 font-mono text-lg font-medium text-accent">
                 {profile.totals.badges}
                 <span className="text-xs text-body-mid">/{TOTAL_BADGES}</span>
               </div>
             </div>
-            <div className="rounded-lg border border-hairline bg-canvas px-3 py-2.5">
+            <div className="rounded-lg border border-hairline bg-canvas p-4">
               <div className="text-xs text-body-mid">Streak</div>
               <div className="mt-0.5 font-mono text-lg font-medium text-ink">
                 {profile.totals.streak}d
               </div>
             </div>
-            <div className="rounded-lg border border-hairline bg-canvas px-3 py-2.5">
+            <div className="rounded-lg border border-hairline bg-canvas p-4">
               <div className="text-xs text-body-mid">Longest</div>
               <div className="mt-0.5 font-mono text-lg font-medium text-ink">
                 {profile.totals.longestStreak}d
@@ -380,23 +378,23 @@ export function Badges() {
         </div>
 
         {/* Daily quests */}
-        <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-ink">Daily quests</h3>
             <span className="font-mono text-[10px] text-body-mid">
               {completedQuests}/3
             </span>
           </div>
-          <ul className="mt-4 space-y-2">
+          <ul className="mt-4 space-y-3">
             {profile.quests.length === 0 ? (
-              <li className="rounded-lg border border-hairline bg-canvas px-3 py-2.5 text-xs text-body-mid">
+              <li className="rounded-lg border border-hairline bg-canvas p-4 text-xs text-body-mid">
                 Quests unlock once your local progress loads.
               </li>
             ) : (
               profile.quests.map((quest) => (
                 <li
                   key={quest.id}
-                  className="rounded-lg border border-hairline bg-canvas px-3 py-2.5"
+                  className="rounded-lg border border-hairline bg-canvas p-4"
                 >
                   <div className="flex items-center gap-2">
                     <QuestCheck done={quest.done} />
@@ -450,7 +448,7 @@ export function Badges() {
             <span>More</span>
           </div>
         </div>
-        <div className="df-scroll overflow-x-auto rounded-lg border border-hairline bg-canvas-card p-4">
+        <div className="df-scroll overflow-x-auto rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           {profile.heatmap.length === 0 ? (
             <div className="h-3 w-3 rounded-[3px] bg-canvas-soft" aria-hidden />
           ) : (
@@ -489,7 +487,7 @@ export function Badges() {
       {/* Badge grid */}
       <div className="mt-10">
         <div className="mb-4">
-          <h3 className="text-base font-semibold text-ink">Badges</h3>
+          <h3 className="text-base font-semibold text-ink">All badges</h3>
           <p className="mt-0.5 text-xs text-body-mid">
             {profile.earned.length} of {TOTAL_BADGES} earned
           </p>
@@ -504,7 +502,7 @@ export function Badges() {
               <div
                 key={badge.id}
                 className={cn(
-                  "flex flex-col gap-3 rounded-lg border p-4",
+                  "flex flex-col gap-3 rounded-lg border p-4 sm:p-5",
                   earned
                     ? "border-accent/50 bg-accent/5"
                     : "border-hairline bg-canvas-card",

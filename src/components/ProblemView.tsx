@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { Problem } from "@/types/problem";
+import { categorySlug } from "@/lib/sections";
 import { cn, clipRepr, difficultyClasses } from "@/lib/utils";
 import {
   extractFuncName,
@@ -32,8 +34,16 @@ import {
 
 interface ProblemViewProps {
   problem: Problem;
-  onClose: () => void;
+  /** Overlay variant only; the page variant navigates with links instead. */
+  onClose?: () => void;
   onProgressChange?: () => void;
+  /**
+   * "overlay" (default) is the full-screen dialog transient surfaces mount.
+   * "page" renders the workspace in normal document flow for /problems/[id]:
+   * no dialog semantics, no scroll lock, and a labelled back control instead
+   * of the ✕.
+   */
+  variant?: "overlay" | "page";
 }
 
 type PyStatus = "idle" | "loading" | "ready" | "error";
@@ -44,7 +54,10 @@ export function ProblemView({
   problem,
   onClose,
   onProgressChange,
+  variant = "overlay",
 }: ProblemViewProps) {
+  const isPage = variant === "page";
+
   const initialCode =
     getProblemProgress(problem.id).savedCode || problem.starterCode;
 
@@ -92,35 +105,38 @@ export function ProblemView({
   const setMobileTab = (tab: "problem" | "code") =>
     setMobileTabState({ problemId: problem.id, tab });
 
-  // Mark opened on mount; lock body scroll. Re-runs only when the problem
-  // changes — `code` here is the initial code, which is fine because this
-  // effect is meant to fire on problem switch, not on every keystroke.
+  // Mark opened on mount; lock body scroll in the overlay variant only. Re-runs
+  // only when the problem changes — `code` here is the initial code, which is
+  // fine because this effect is meant to fire on problem switch, not on every
+  // keystroke.
   useEffect(() => {
     markOpened(problem.id, code);
+    if (isPage) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [problem.id]);
+  }, [problem.id, isPage]);
 
   // Move focus into the dialog when it mounts or the problem changes.
   useEffect(() => {
-    dialogRef.current?.focus();
-  }, [problem.id]);
+    if (!isPage) dialogRef.current?.focus();
+  }, [problem.id, isPage]);
 
-  // Close on Escape.
+  // Close on Escape — overlay only; the page is a normal route.
   useEffect(() => {
+    if (isPage) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onClose?.();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, isPage]);
 
   // Keep Tab focus cycling inside the dialog.
   const trapTab = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Tab") return;
+    if (isPage || e.key !== "Tab") return;
     const root = dialogRef.current;
     if (!root) return;
     const focusable = Array.from(
@@ -416,65 +432,129 @@ export function ProblemView({
   const passCount = results !== null ? results.filter((r) => r.ok).length : 0;
   const notebookCells = cells ?? [];
 
+  // In page mode the route owns the single H1, so panel titles become h2.
+  const SectionHeading = isPage ? "h2" : "h3";
+
   return (
     <div
       ref={dialogRef}
-      tabIndex={-1}
-      onKeyDown={trapTab}
-      className="df-fade-in df-dvh fixed inset-0 z-50 flex items-stretch justify-center bg-canvas/80 backdrop-blur-sm focus:outline-none"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Problem: ${problem.title}`}
+      tabIndex={isPage ? undefined : -1}
+      onKeyDown={isPage ? undefined : trapTab}
+      role={isPage ? undefined : "dialog"}
+      aria-modal={isPage ? undefined : true}
+      aria-label={isPage ? undefined : `Problem: ${problem.title}`}
+      className={cn(
+        "focus:outline-none",
+        isPage
+          ? "scroll-mt-16"
+          : "df-fade-in df-dvh fixed inset-0 z-50 flex items-stretch justify-center bg-canvas/80 backdrop-blur-sm",
+      )}
     >
-      <div className="flex h-full w-full flex-col">
-        {/* Top bar */}
-        <div className="df-safe-top flex items-center justify-between border-b border-hairline px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="font-mono text-[11px] text-mute">
-              {problem.id}
-            </span>
-            <span className="truncate text-sm font-semibold text-ink">
-              {problem.title}
-            </span>
-            <span className="hidden shrink-0 text-xs text-body-mid sm:inline">
-              {problem.category}
-            </span>
-            <span
-              className={cn(
-                "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
-                difficultyClasses(problem.difficulty),
-              )}
+      <div className={cn("flex w-full flex-col", !isPage && "h-full")}>
+        {isPage ? (
+          <>
+            {/* Back control — the workspace is a route, not a modal */}
+            <Link
+              href="/problems"
+              className="inline-flex min-h-11 w-fit items-center gap-1.5 rounded-md text-sm text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0"
             >
-              {problem.difficulty}
-            </span>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d="M8.5 2.5L4 7l4.5 4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              All problems
+            </Link>
+
+            {/* The single H1 for the route — PageShell renders no title here */}
+            <header className="mt-5 flex flex-col gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-xs font-medium",
+                    difficultyClasses(problem.difficulty),
+                  )}
+                >
+                  {problem.difficulty}
+                </span>
+                <Link
+                  href={`/categories/${categorySlug(problem.category)}`}
+                  className="rounded-full border border-hairline bg-canvas-card px-2 py-0.5 text-xs text-body-mid transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                >
+                  {problem.category}
+                </Link>
+                <span className="font-mono text-xs text-mute">
+                  {problem.id}
+                </span>
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                {problem.title}
+              </h1>
+            </header>
+          </>
+        ) : (
+          /* Top bar */
+          <div className="df-safe-top flex items-center justify-between border-b border-hairline px-4 py-3 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="font-mono text-[11px] text-mute">
+                {problem.id}
+              </span>
+              <span className="truncate text-sm font-semibold text-ink">
+                {problem.title}
+              </span>
+              <span className="hidden shrink-0 text-xs text-body-mid sm:inline">
+                {problem.category}
+              </span>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+                  difficultyClasses(problem.difficulty),
+                )}
+              >
+                {problem.difficulty}
+              </span>
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:h-8 sm:w-8"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d="M2 2l10 10M12 2L2 12"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink sm:h-8 sm:w-8"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              aria-hidden
-            >
-              <path
-                d="M2 2l10 10M12 2L2 12"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-        </div>
+        )}
 
         {/* Mobile tab switcher — hidden at sm+ where both panels show */}
         <div
           role="tablist"
           aria-label="Problem and code"
-          className="flex border-b border-hairline bg-canvas px-2 sm:hidden"
+          className={cn(
+            "flex border-b border-hairline bg-canvas px-2 sm:hidden",
+            isPage && "mt-5",
+          )}
         >
           <button
             type="button"
@@ -484,7 +564,7 @@ export function ProblemView({
             aria-selected={mobileTab === "problem"}
             onClick={() => setMobileTab("problem")}
             className={cn(
-              "min-h-11 flex-1 border-b-2 px-3 text-sm font-medium transition-colors",
+              "min-h-11 flex-1 border-b-2 px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/40",
               mobileTab === "problem"
                 ? "border-accent text-ink"
                 : "border-transparent text-body-mid",
@@ -500,7 +580,7 @@ export function ProblemView({
             aria-selected={mobileTab === "code"}
             onClick={() => setMobileTab("code")}
             className={cn(
-              "min-h-11 flex-1 border-b-2 px-3 text-sm font-medium transition-colors",
+              "min-h-11 flex-1 border-b-2 px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/40",
               mobileTab === "code"
                 ? "border-accent text-ink"
                 : "border-transparent text-body-mid",
@@ -511,79 +591,117 @@ export function ProblemView({
         </div>
 
         {/* Body — two columns on desktop, single scroll on mobile */}
-        <div className="df-scroll flex-1 overflow-y-auto">
-          <div className="mx-auto grid max-w-7xl grid-cols-1 gap-px bg-hairline lg:grid-cols-2">
+        <div className={cn(isPage ? "mt-6" : "df-scroll flex-1 overflow-y-auto")}>
+          <div
+            className={cn(
+              "grid grid-cols-1",
+              isPage
+                ? "items-start gap-6 lg:grid-cols-2"
+                : "mx-auto max-w-7xl gap-px bg-hairline lg:grid-cols-2",
+            )}
+          >
             {/* Left: description */}
             <div
               id="df-panel-problem"
               role="tabpanel"
               aria-labelledby="df-tab-problem"
               className={cn(
-                "bg-canvas px-4 py-5 sm:px-6 sm:py-6",
-                mobileTab === "problem" ? "block" : "hidden sm:block",
+                "scroll-mt-16",
+                isPage
+                  ? "flex-col"
+                  : "bg-canvas px-4 py-5 sm:px-6 sm:py-6",
+                mobileTab === "problem"
+                  ? isPage
+                    ? "flex"
+                    : "block"
+                  : isPage
+                    ? "hidden sm:flex"
+                    : "hidden sm:block",
               )}
             >
-              <h3 className="mb-2 text-xs font-medium text-body-mid">
-                Problem
-              </h3>
-              <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-body">
-                {problem.description}
-              </pre>
-
-              {problem.hint && (
-                <div className="mt-5">
-                  <button
-                    onClick={() => setShowHint((v) => !v)}
-                    className="text-xs text-accent transition-opacity hover:opacity-80"
-                  >
-                    {showHint ? "Hide hint" : "Show hint"}
-                  </button>
-                  {showHint && (
-                    <p className="mt-2 rounded-md border border-hairline bg-canvas-card p-3 text-xs leading-relaxed text-body">
-                      {problem.hint}
-                    </p>
+              <div
+                className={cn(
+                  isPage &&
+                    "rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5",
+                )}
+              >
+                <SectionHeading
+                  className={cn(
+                    "mb-2 font-medium text-body-mid",
+                    isPage ? "text-sm" : "text-xs",
                   )}
-                </div>
-              )}
+                >
+                  Problem
+                </SectionHeading>
+                <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-body">
+                  {problem.description}
+                </pre>
 
-              <StudyAssistant key={problem.id} problem={problem} />
-
-              <div className="mt-5">
-                <h3 className="mb-2 text-xs font-medium text-body-mid">
-                  Test cases
-                </h3>
-                <div className="space-y-2">
-                  {problem.testCases.map((tc, i) => (
-                    <div
-                      key={i}
-                      className="rounded-md border border-hairline bg-canvas-card p-2.5"
+                {problem.hint && (
+                  <div className="mt-5">
+                    <button
+                      onClick={() => setShowHint((v) => !v)}
+                      className="rounded-md text-xs text-accent transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                     >
-                      <div className="mb-1 font-mono text-[10px] text-mute">
-                        case {i + 1}
-                      </div>
-                      <div className="font-mono text-xs text-body">
-                        <span className="text-body-mid">in:</span>{" "}
-                        {clipRepr(JSON.stringify(tc.input), 160)}
-                      </div>
-                      <div className="font-mono text-xs text-body">
-                        <span className="text-body-mid">expected:</span>{" "}
-                        {clipRepr(JSON.stringify(tc.expected), 160)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                      {showHint ? "Hide hint" : "Show hint"}
+                    </button>
+                    {showHint && (
+                      <p className="mt-2 rounded-md border border-hairline bg-canvas-card p-3 text-xs leading-relaxed text-body">
+                        {problem.hint}
+                      </p>
+                    )}
+                  </div>
+                )}
 
-              {showSolution && (
+                <StudyAssistant key={problem.id} problem={problem} />
+
                 <div className="mt-5">
-                  <h3 className="mb-2 text-xs font-medium text-body-mid">
-                    Reference solution
-                  </h3>
-                  <pre className="overflow-x-auto rounded-md border border-hairline bg-canvas-card p-3 font-mono text-xs leading-relaxed text-body">
-                    {problem.solution}
-                  </pre>
+                  <SectionHeading
+                    className={cn(
+                      "mb-2 font-medium text-body-mid",
+                      isPage ? "text-sm" : "text-xs",
+                    )}
+                  >
+                    Test cases
+                  </SectionHeading>
+                  <div className="space-y-2">
+                    {problem.testCases.map((tc, i) => (
+                      <div
+                        key={i}
+                        className="rounded-md border border-hairline bg-canvas-card p-2.5"
+                      >
+                        <div className="mb-1 font-mono text-[10px] text-mute">
+                          case {i + 1}
+                        </div>
+                        <div className="break-words font-mono text-xs text-body">
+                          <span className="text-body-mid">in:</span>{" "}
+                          {clipRepr(JSON.stringify(tc.input), 160)}
+                        </div>
+                        <div className="break-words font-mono text-xs text-body">
+                          <span className="text-body-mid">expected:</span>{" "}
+                          {clipRepr(JSON.stringify(tc.expected), 160)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
+
+                {showSolution && (
+                  <div className="mt-5">
+                    <SectionHeading
+                      className={cn(
+                        "mb-2 font-medium text-body-mid",
+                        isPage ? "text-sm" : "text-xs",
+                      )}
+                    >
+                      Reference solution
+                    </SectionHeading>
+                    <pre className="df-scroll overflow-x-auto rounded-md border border-hairline bg-canvas-card p-3 font-mono text-xs leading-relaxed text-body">
+                      {problem.solution}
+                    </pre>
+                  </div>
+                )}
+              </div>
 
               <Discuss key={problem.id} problemId={problem.id} />
             </div>
@@ -594,7 +712,10 @@ export function ProblemView({
               role="tabpanel"
               aria-labelledby="df-tab-code"
               className={cn(
-                "flex-col bg-canvas",
+                "flex-col",
+                isPage
+                  ? "df-scroll overflow-hidden rounded-lg border border-hairline bg-canvas-card lg:sticky lg:top-16 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto"
+                  : "bg-canvas",
                 mobileTab === "code" ? "flex" : "hidden sm:flex",
               )}
             >
@@ -613,7 +734,7 @@ export function ProblemView({
                       aria-pressed={mode === "editor"}
                       onClick={() => switchMode("editor")}
                       className={cn(
-                        "px-2.5 py-1 text-[11px] font-medium transition-colors",
+                        "px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
                         mode === "editor"
                           ? "bg-canvas-soft text-ink"
                           : "text-body-mid hover:bg-canvas-soft hover:text-ink",
@@ -626,7 +747,7 @@ export function ProblemView({
                       aria-pressed={mode === "notebook"}
                       onClick={() => switchMode("notebook")}
                       className={cn(
-                        "border-l border-hairline px-2.5 py-1 text-[11px] font-medium transition-colors",
+                        "border-l border-hairline px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
                         mode === "notebook"
                           ? "bg-canvas-soft text-ink"
                           : "text-body-mid hover:bg-canvas-soft hover:text-ink",
@@ -641,7 +762,12 @@ export function ProblemView({
                 </span>
               </div>
               {mode === "notebook" ? (
-                <div className="df-scroll min-h-[260px] flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6">
+                <div
+                  className={cn(
+                    "df-scroll min-h-[260px] flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6",
+                    isPage && "sm:min-h-[360px] lg:min-h-[420px]",
+                  )}
+                >
                   {notebookCells.length === 0 && (
                     <p className="text-xs text-mute">
                       No cells yet. Add one below to start experimenting.
@@ -663,7 +789,7 @@ export function ProblemView({
                             type="button"
                             onClick={() => void executeCells([cell], false)}
                             disabled={running}
-                            className="rounded-md border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40"
+                            className="rounded-md border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-40"
                           >
                             Run
                           </button>
@@ -676,7 +802,7 @@ export function ProblemView({
                               )
                             }
                             disabled={running}
-                            className="rounded-md border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40"
+                            className="rounded-md border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-40"
                           >
                             Run above
                           </button>
@@ -685,7 +811,7 @@ export function ProblemView({
                             aria-label={`Move cell ${i + 1} up`}
                             onClick={() => moveNotebookCellBy(cell.id, "up")}
                             disabled={running || i === 0}
-                            className="flex h-6 w-6 items-center justify-center rounded-md border border-hairline text-[10px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40"
+                            className="flex h-6 w-6 items-center justify-center rounded-md border border-hairline text-[10px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-40"
                           >
                             ↑
                           </button>
@@ -694,7 +820,7 @@ export function ProblemView({
                             aria-label={`Move cell ${i + 1} down`}
                             onClick={() => moveNotebookCellBy(cell.id, "down")}
                             disabled={running || i === notebookCells.length - 1}
-                            className="flex h-6 w-6 items-center justify-center rounded-md border border-hairline text-[10px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40"
+                            className="flex h-6 w-6 items-center justify-center rounded-md border border-hairline text-[10px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-40"
                           >
                             ↓
                           </button>
@@ -702,7 +828,7 @@ export function ProblemView({
                             type="button"
                             onClick={() => insertCellBelow(i)}
                             disabled={running}
-                            className="rounded-md border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-40"
+                            className="rounded-md border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-40"
                           >
                             Insert below
                           </button>
@@ -710,7 +836,7 @@ export function ProblemView({
                             type="button"
                             onClick={() => deleteCell(cell.id)}
                             disabled={running}
-                            className="rounded-md border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid transition-colors hover:bg-canvas-soft hover:text-error disabled:opacity-40"
+                            className="rounded-md border border-hairline px-2 py-0.5 text-[10px] font-medium text-body-mid transition-colors hover:bg-canvas-soft hover:text-error focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-40"
                           >
                             Delete
                           </button>
@@ -755,7 +881,7 @@ export function ProblemView({
                     type="button"
                     onClick={addCellAtEnd}
                     disabled={running}
-                    className="w-full rounded-lg border border-dashed border-hairline px-3 py-2 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-50"
+                    className="w-full rounded-lg border border-dashed border-hairline px-3 py-2 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-50"
                   >
                     + Add cell
                   </button>
@@ -769,7 +895,10 @@ export function ProblemView({
                   spellCheck={false}
                   autoCapitalize="off"
                   autoCorrect="off"
-                  className="df-code-editor df-scroll min-h-[260px] flex-1 resize-none bg-canvas px-4 py-4 text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/40 sm:px-6"
+                  className={cn(
+                    "df-code-editor df-scroll min-h-[260px] flex-1 resize-none bg-canvas px-4 py-4 text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/40 sm:px-6",
+                    isPage && "sm:min-h-[360px] lg:min-h-[420px]",
+                  )}
                   aria-label="Code editor"
                 />
               )}
@@ -787,7 +916,7 @@ export function ProblemView({
                     (mode === "notebook" && notebookCells.length === 0)
                   }
                   aria-busy={running}
-                  className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50"
                 >
                   {running ? (
                     <>
@@ -814,13 +943,13 @@ export function ProblemView({
                 <button
                   onClick={mode === "notebook" ? resetNotebookMode : reset}
                   disabled={running}
-                  className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-50"
+                  className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-50"
                 >
                   Reset
                 </button>
                 <button
                   onClick={() => setShowSolution((v) => !v)}
-                  className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+                  className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                 >
                   {showSolution ? "Hide solution" : "Show solution"}
                 </button>
@@ -837,9 +966,14 @@ export function ProblemView({
                 aria-live="polite"
               >
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-xs font-medium text-body-mid">
+                  <SectionHeading
+                    className={cn(
+                      "font-medium text-body-mid",
+                      isPage ? "text-sm" : "text-xs",
+                    )}
+                  >
                     Results
-                  </h3>
+                  </SectionHeading>
                   {results !== null && (
                     <span
                       className={cn(
@@ -941,12 +1075,12 @@ export function ProblemView({
                           </pre>
                         ) : (
                           <div className="space-y-1">
-                            <div className="font-mono text-xs text-body sm:text-[11px]">
+                            <div className="break-words font-mono text-xs text-body sm:text-[11px]">
                               <span className="text-body-mid">actual: </span>
                               {clipRepr(r.actual, 240)}
                             </div>
                             {!r.ok && (
-                              <div className="font-mono text-xs text-body-mid sm:text-[11px]">
+                              <div className="break-words font-mono text-xs text-body-mid sm:text-[11px]">
                                 <span>expected: </span>
                                 {clipRepr(r.expected, 240)}
                               </div>
@@ -973,14 +1107,14 @@ export function ProblemView({
               <button
                 type="button"
                 onClick={insertIndent}
-                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-hairline font-mono text-xs text-body-mid transition-colors active:bg-canvas-soft"
+                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-hairline font-mono text-xs text-body-mid transition-colors active:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
               >
                 Tab
               </button>
               <button
                 type="button"
                 onClick={insertIndent}
-                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-hairline font-mono text-xs text-body-mid transition-colors active:bg-canvas-soft"
+                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-hairline font-mono text-xs text-body-mid transition-colors active:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
               >
                 4 spaces
               </button>
@@ -997,7 +1131,7 @@ export function ProblemView({
                 running || (mode === "notebook" && notebookCells.length === 0)
               }
               aria-busy={running}
-              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-3.5 text-sm font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-3.5 text-sm font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50"
             >
               {running ? (
                 <>
@@ -1022,7 +1156,7 @@ export function ProblemView({
             <button
               onClick={mode === "notebook" ? resetNotebookMode : reset}
               disabled={running}
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-hairline px-3 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:opacity-50"
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-hairline px-3 text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-50"
             >
               Reset
             </button>

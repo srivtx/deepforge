@@ -9,9 +9,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import type { Problem } from "@/types/problem";
-import { CATEGORIES, PROBLEMS } from "@/data/problems";
-import { ProblemView } from "@/components/ProblemView";
+import type { CategoryMeta, Problem } from "@/types/problem";
 import { SECTIONS_BY_ID, categorySlug, type SectionId } from "@/lib/sections";
 import { cn, difficultyClasses } from "@/lib/utils";
 
@@ -61,11 +59,29 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
-  const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
+  // The problem bank is only fetched when the palette is actually opened, so
+  // routes that mount this component stay lean until the user searches.
+  const [catalog, setCatalog] = useState<{
+    problems: Problem[];
+    categories: CategoryMeta[];
+  } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open || catalog) return;
+    let alive = true;
+    void import("@/data/problems").then((mod) => {
+      if (alive) {
+        setCatalog({ problems: mod.PROBLEMS, categories: mod.CATEGORIES });
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, catalog]);
 
   const rows = useMemo<Row[]>(() => {
     const q = query.trim().toLowerCase();
@@ -78,11 +94,13 @@ export function CommandPalette() {
       }));
     }
 
+    const problems = catalog?.problems ?? [];
+    const categories = catalog?.categories ?? [];
     const out: Row[] = [];
     let problemCount = 0;
     let categoryCount = 0;
 
-    for (const p of PROBLEMS) {
+    for (const p of problems) {
       if (problemCount >= MAX_PROBLEM_RESULTS) break;
       if (
         p.title.toLowerCase().includes(q) ||
@@ -93,7 +111,7 @@ export function CommandPalette() {
       }
     }
 
-    for (const c of CATEGORIES) {
+    for (const c of categories) {
       if (categoryCount >= MAX_CATEGORY_RESULTS) break;
       if (c.name.toLowerCase().includes(q)) {
         out.push({
@@ -118,7 +136,7 @@ export function CommandPalette() {
     }
 
     return out.slice(0, MAX_RESULTS);
-  }, [query]);
+  }, [query, catalog]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -135,11 +153,11 @@ export function CommandPalette() {
   const choose = useCallback(
     (row: Row | undefined) => {
       if (!row) return;
+      close();
       if (row.kind === "problem") {
-        setSelectedProblem(row.problem);
+        router.push(`/problems/${row.problem.id}`);
         return;
       }
-      close();
       if (row.kind === "category") {
         router.push(`/problems?category=${categorySlug(row.name)}`);
         return;
@@ -159,16 +177,12 @@ export function CommandPalette() {
     [rows.length],
   );
 
-  const noop = useCallback(() => {}, []);
-
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         if (!open) {
           openPalette();
-        } else if (selectedProblem) {
-          setSelectedProblem(null);
         } else {
           close();
         }
@@ -176,12 +190,10 @@ export function CommandPalette() {
       }
       if (!open) return;
       if (e.key === "Escape") {
-        if (selectedProblem) return;
         e.preventDefault();
         close();
         return;
       }
-      if (selectedProblem) return;
       if (e.key === "ArrowDown") {
         e.preventDefault();
         move(1);
@@ -200,7 +212,7 @@ export function CommandPalette() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("deepforge:open-command", onOpenEvent);
     };
-  }, [open, selectedProblem, rows, activeIndex, close, openPalette, move, choose]);
+  }, [open, rows, activeIndex, close, openPalette, move, choose]);
 
   useEffect(() => {
     if (!open) return;
@@ -218,8 +230,8 @@ export function CommandPalette() {
   }, [open]);
 
   useEffect(() => {
-    if (open && !selectedProblem) inputRef.current?.focus();
-  }, [open, selectedProblem]);
+    if (open) inputRef.current?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -321,7 +333,7 @@ export function CommandPalette() {
                 placeholder="Search problems, categories, pages…"
                 aria-label="Search problems, categories, and pages"
                 role="combobox"
-                aria-expanded={!selectedProblem}
+                aria-expanded={rows.length > 0}
                 aria-controls="command-palette-listbox"
                 aria-autocomplete="list"
                 aria-activedescendant={
@@ -385,14 +397,6 @@ export function CommandPalette() {
             </div>
           </div>
         </div>
-      )}
-
-      {selectedProblem && (
-        <ProblemView
-          problem={selectedProblem}
-          onClose={() => setSelectedProblem(null)}
-          onProgressChange={noop}
-        />
       )}
     </>
   );

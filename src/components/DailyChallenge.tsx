@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ProblemView } from "@/components/ProblemView";
+import { useRouter } from "next/navigation";
 import { getProblemProgress } from "@/lib/progress";
 import {
   DAILY_CHANGE_EVENT,
@@ -39,9 +39,9 @@ function formatHms(ms: number): string {
 }
 
 export function DailyChallenge() {
+  const router = useRouter();
   const [now, setNow] = useState<Date | null>(null);
   const [dailyState, setDailyState] = useState<DailyState>(EMPTY_DAILY_STATE);
-  const [open, setOpen] = useState(false);
 
   const problem = getDailyProblem(now ?? new Date());
   const dateKey = getDailyDateKey(now ?? new Date());
@@ -61,21 +61,20 @@ export function DailyChallenge() {
   }, []);
 
   useEffect(() => {
-    const onChange = () => setDailyState(getDailyState());
-    onChange();
-    window.addEventListener(PROGRESS_CHANGE_EVENT, onChange);
-    window.addEventListener(DAILY_CHANGE_EVENT, onChange);
-    return () => {
-      window.removeEventListener(PROGRESS_CHANGE_EVENT, onChange);
-      window.removeEventListener(DAILY_CHANGE_EVENT, onChange);
+    const onProgress = () => {
+      if (getProblemProgress(problem.id)?.solved) {
+        markDailySolved();
+      }
+      refresh();
     };
-  }, []);
-
-  const handleProgressChange = useCallback(() => {
-    if (getProblemProgress(problem.id)?.solved) {
-      markDailySolved();
-    }
-    refresh();
+    const onDaily = () => refresh();
+    onProgress();
+    window.addEventListener(PROGRESS_CHANGE_EVENT, onProgress);
+    window.addEventListener(DAILY_CHANGE_EVENT, onDaily);
+    return () => {
+      window.removeEventListener(PROGRESS_CHANGE_EVENT, onProgress);
+      window.removeEventListener(DAILY_CHANGE_EVENT, onDaily);
+    };
   }, [problem.id, refresh]);
 
   const remaining = now ? formatHms(msUntilMidnight(now)) : "--:--:--";
@@ -85,21 +84,11 @@ export function DailyChallenge() {
     <>
       <section
         id="daily"
-        className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+        className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-8 sm:px-6 sm:py-12"
       >
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            Daily Challenge
-          </h2>
-          <p className="mt-1 text-sm text-body-mid">
-            One problem picked for everyone each day. Solve it to keep your
-            streak alive.
-          </p>
-        </div>
-
         <div
           className={cn(
-            "rounded-lg border bg-canvas-card p-4 sm:p-6",
+            "rounded-lg border bg-canvas-card p-4 sm:p-5",
             solvedToday ? "border-accent/40" : "border-hairline",
           )}
         >
@@ -119,9 +108,9 @@ export function DailyChallenge() {
                   {problem.difficulty}
                 </span>
               </div>
-              <h3 className="mt-2 text-base font-semibold text-ink sm:text-lg">
+              <h2 className="mt-2 text-base font-semibold text-ink sm:text-lg">
                 {problem.title}
-              </h3>
+              </h2>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
@@ -147,8 +136,8 @@ export function DailyChallenge() {
               )}
               <button
                 type="button"
-                onClick={() => setOpen(true)}
-                className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
+                onClick={() => router.push(`/problems/${problem.id}`)}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-accent px-4 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
               >
                 {solvedToday ? "View" : "Solve"}
               </button>
@@ -156,30 +145,22 @@ export function DailyChallenge() {
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-hairline bg-canvas p-3">
+            <div className="rounded-lg border border-hairline bg-canvas p-4">
               <div className="text-xs text-body-mid">Daily streak</div>
-              <div className="mt-1 font-mono text-xl text-ink">
+              <div className="mt-1.5 font-mono text-xl text-ink">
                 {dailyState.streak}
                 <span className="ml-1.5 text-xs text-body-mid">
                   {streakUnit}
                 </span>
               </div>
             </div>
-            <div className="rounded-lg border border-hairline bg-canvas p-3">
+            <div className="rounded-lg border border-hairline bg-canvas p-4">
               <div className="text-xs text-body-mid">Next problem in</div>
-              <div className="mt-1 font-mono text-xl text-ink">{remaining}</div>
+              <div className="mt-1.5 font-mono text-xl text-ink">{remaining}</div>
             </div>
           </div>
         </div>
       </section>
-
-      {open && (
-        <ProblemView
-          problem={problem}
-          onClose={() => setOpen(false)}
-          onProgressChange={handleProgressChange}
-        />
-      )}
     </>
   );
 }

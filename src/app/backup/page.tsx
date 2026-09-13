@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { PageShell } from "@/components/PageShell";
 import { ProgressBackup } from "@/components/ProgressBackup";
-import { SectionShell } from "@/components/SectionShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Export a backup of your DeepForge data or move your progress to another device with a single file.";
@@ -22,8 +23,11 @@ export const metadata: Metadata = {
 
 export default function BackupPage() {
   return (
-    <SectionShell>
+    <PageShell
+      title={SECTIONS_BY_ID.backup.title}
+      description={SECTIONS_BY_ID.backup.blurb}
+    >
       <ProgressBackup />
-    </SectionShell>
+    </PageShell>
   );
 }

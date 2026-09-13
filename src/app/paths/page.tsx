@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageShell } from "@/components/PageShell";
 import { LEARNING_PATHS, PROBLEMS } from "@/data/problems";
 import { getAllPaths } from "@/lib/paths";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 import { PathsBrowser } from "./PathsBrowser";
 
 const siteUrl = (
@@ -80,7 +82,10 @@ export default function PathsPage() {
   };
 
   return (
-    <main className="flex w-full flex-1 flex-col">
+    <PageShell
+      title={SECTIONS_BY_ID.paths.title}
+      description={SECTIONS_BY_ID.paths.blurb}
+    >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -88,51 +93,57 @@ export default function PathsPage() {
         }}
       />
 
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-10 sm:px-6 sm:pt-14">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 pt-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pt-8">
         <nav
           aria-label="Breadcrumb"
           className="flex flex-wrap items-center gap-1.5 text-xs text-body-mid"
         >
-          <Link href="/" className="transition-colors hover:text-ink">
+          <Link
+            href="/"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
             Home
           </Link>
-          <span className="text-mute">/</span>
+          <span aria-hidden className="text-mute">
+            /
+          </span>
           <span className="text-body">Learning paths</span>
         </nav>
 
-        <header className="flex flex-col gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            Learning paths
-          </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-body">
-            Ordered sequences of problems that build one skill at a time, from
-            vectors and gradients to backprop, attention, and interview-ready
-            algorithms. Pick a path, work through it in order, and your progress
-            saves automatically.
-          </p>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-body-mid">
-            <span className="font-mono">{resolvedPaths.length} paths</span>
-            <span className="text-mute">·</span>
-            <span className="font-mono">{distinctProblems} problems</span>
-            <span className="text-mute">·</span>
-            <span className="font-mono">~{totalHours}h total</span>
-          </div>
-        </header>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-body-mid">
+          <span className="font-mono">{resolvedPaths.length} paths</span>
+          <span aria-hidden className="text-mute">
+            ·
+          </span>
+          <span className="font-mono">{distinctProblems} problems</span>
+          <span aria-hidden className="text-mute">
+            ·
+          </span>
+          <span className="font-mono">~{totalHours}h total</span>
+        </div>
       </div>
 
       <PathsBrowser paths={LEARNING_PATHS} problems={PROBLEMS} />
 
       <footer className="mx-auto w-full max-w-6xl px-4 pb-10 text-xs text-body-mid sm:px-6 sm:pb-14">
         <div className="border-t border-hairline pt-4">
-          <Link href="/problems" className="transition-colors hover:text-ink">
+          <Link
+            href="/problems"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
             Browse all {PROBLEMS.length} problems
           </Link>
-          <span className="px-2 text-mute">·</span>
-          <Link href="/" className="transition-colors hover:text-ink">
+          <span aria-hidden className="px-2 text-mute">
+            ·
+          </span>
+          <Link
+            href="/"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
             DeepForge home
           </Link>
         </div>
       </footer>
-    </main>
+    </PageShell>
   );
 }

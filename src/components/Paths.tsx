@@ -54,17 +54,8 @@ export function Paths({ paths, problems, progress }: PathsProps) {
   return (
     <section
       id="paths"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-8 sm:px-6 sm:py-12"
     >
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Learning paths
-        </h2>
-        <p className="mt-1 text-sm text-body-mid">
-          Ordered sequences that take you from zero to a working ML primitive.
-          Progress saves automatically.
-        </p>
-      </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {paths.map((path) => {
           const slug = pathSlug(path);
@@ -76,14 +67,14 @@ export function Paths({ paths, problems, progress }: PathsProps) {
           return (
             <div
               key={path.id}
-              className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-5"
+              className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="text-base font-semibold text-ink">
                     <Link
                       href={`/paths/${slug}`}
-                      className="transition-colors hover:text-accent"
+                      className="rounded-sm transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                     >
                       {path.title}
                     </Link>
@@ -150,7 +141,7 @@ export function Paths({ paths, problems, progress }: PathsProps) {
               <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
                 <Link
                   href={`/paths/${slug}`}
-                  className="rounded-lg border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/10"
+                  className="rounded-lg border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                 >
                   View path
                 </Link>
@@ -159,7 +150,7 @@ export function Paths({ paths, problems, progress }: PathsProps) {
                     href={`/problems/${next.problemId}`}
                     aria-label={`Continue ${path.title} with ${nextProblem.title}`}
                     title={nextProblem.title}
-                    className="rounded-lg border border-hairline px-3 py-1.5 text-sm text-body-mid transition-colors hover:border-accent/40 hover:text-ink"
+                    className="rounded-lg border border-hairline px-3 py-1.5 text-sm text-body-mid transition-colors hover:border-accent/40 hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                   >
                     Continue
                   </Link>

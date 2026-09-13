@@ -24,4 +24,4 @@ export function difficultyClasses(d: "Easy" | "Medium" | "Hard"): string {
 }
 
 /** Number of problems shown in the "2000+" marketing claim. Real ship count is in PROBLEMS.length. */
-export const MARKETING_PROBLEM_COUNT = 2000;
+export const MARKETING_PROBLEM_COUNT = 5050;

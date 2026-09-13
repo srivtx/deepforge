@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CATEGORIES, PROBLEMS, getCategoryCounts } from "@/data/problems";
 import type { Difficulty } from "@/types/problem";
+import { PageShell } from "@/components/PageShell";
 import { PracticeBrowser } from "@/components/PracticeBrowser";
-import { SectionShell } from "@/components/SectionShell";
 
 const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app"
@@ -81,7 +81,7 @@ export default function ProblemsPage() {
   };
 
   return (
-    <SectionShell>
+    <PageShell>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -89,15 +89,20 @@ export default function ProblemsPage() {
         }}
       />
 
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pt-10 sm:px-6 sm:pt-14">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-10 sm:px-6 sm:pt-14">
         <nav
           aria-label="Breadcrumb"
           className="flex flex-wrap items-center gap-1.5 text-xs text-body-mid"
         >
-          <Link href="/" className="transition-colors hover:text-ink">
+          <Link
+            href="/"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
             Home
           </Link>
-          <span className="text-mute">/</span>
+          <span aria-hidden className="text-mute">
+            /
+          </span>
           <span className="text-body">Problems</span>
         </nav>
 
@@ -131,7 +136,7 @@ export default function ProblemsPage() {
 
       <PracticeBrowser />
 
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-10 sm:px-6 sm:pb-14">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-10 sm:px-6 sm:pb-14">
         <section className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold tracking-tight text-ink">
             Categories
@@ -141,7 +146,7 @@ export default function ProblemsPage() {
               <Link
                 key={category.name}
                 href={`/categories/${categorySlug(category.name)}`}
-                className="group flex flex-col items-start gap-2 rounded-lg border border-hairline bg-canvas-card p-4 transition-colors hover:border-accent/40 hover:bg-canvas-soft"
+                className="group flex flex-col items-start gap-2 rounded-lg border border-hairline bg-canvas-card p-4 transition-colors hover:border-accent/40 hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:p-5"
               >
                 <div className="flex w-full items-center justify-between gap-2">
                   <span className="text-sm font-medium text-ink group-hover:text-accent">
@@ -171,18 +176,21 @@ export default function ProblemsPage() {
           </p>
           <Link
             href="/"
-            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/10"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
             Search on the home page
           </Link>
         </section>
 
         <footer className="border-t border-hairline pt-4 text-xs text-body-mid">
-          <Link href="/" className="transition-colors hover:text-ink">
+          <Link
+            href="/"
+            className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+          >
             DeepForge home
           </Link>
         </footer>
       </div>
-    </SectionShell>
+    </PageShell>
   );
 }

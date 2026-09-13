@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { PageShell } from "@/components/PageShell";
 import { Projects } from "@/components/Projects";
-import { SectionShell } from "@/components/SectionShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Multi-step labs that build a working ML system one problem at a time — GPT from scratch, a neural network framework, a search engine, a recommender, and a CNN.";
@@ -20,10 +21,12 @@ export const metadata: Metadata = {
   },
 };
 
+const { title, blurb } = SECTIONS_BY_ID.projects;
+
 export default function ProjectsPage() {
   return (
-    <SectionShell>
+    <PageShell title={title} description={blurb}>
       <Projects />
-    </SectionShell>
+    </PageShell>
   );
 }

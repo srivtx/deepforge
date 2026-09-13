@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Problem } from "@/types/problem";
 import { PROJECTS, type Project } from "@/data/projects";
 import { getProgress, type ProgressMap } from "@/lib/progress";
@@ -10,7 +11,6 @@ import {
   isProjectComplete,
 } from "@/lib/projects";
 import { cn, difficultyClasses } from "@/lib/utils";
-import { ProblemView } from "./ProblemView";
 
 const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
 
@@ -53,7 +53,7 @@ function ProjectCard({
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={stepsId}
-        className="rounded-lg p-5 text-left transition-colors hover:bg-canvas-soft focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+        className="rounded-lg p-4 text-left transition-colors hover:bg-canvas-soft focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent sm:p-5"
       >
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-base font-semibold text-ink">{project.title}</h3>
@@ -153,9 +153,9 @@ function ProjectCard({
 }
 
 export function Projects() {
+  const router = useRouter();
   const [progress, setProgress] = useState<ProgressMap>({});
   const [openId, setOpenId] = useState<string | null>(null);
-  const [activeProblem, setActiveProblem] = useState<Problem | null>(null);
 
   useEffect(() => {
     const load = () => setProgress(getProgress());
@@ -170,23 +170,23 @@ export function Projects() {
     [progress],
   );
 
+  const openProblem = (problem: Problem) => {
+    router.push(`/problems/${problem.id}`);
+  };
+
   return (
     <section
       id="projects"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
     >
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Projects
+      <div className="mb-6">
+        <h2 className="text-sm font-medium text-body-mid">
+          {PROJECTS.length} projects · progress saves automatically
         </h2>
-        <p className="mt-1 text-sm text-body-mid">
-          Multi-step labs that build a working system one problem at a time.
-          Progress saves automatically.
-        </p>
       </div>
 
       {hasProgress && (
-        <p className="mb-4 text-xs text-body-mid">
+        <p className="mb-3 text-xs text-body-mid">
           You have started at least one project. Pick up where you left off.
         </p>
       )}
@@ -201,18 +201,10 @@ export function Projects() {
             onToggle={() =>
               setOpenId((current) => (current === project.id ? null : project.id))
             }
-            onOpenStep={setActiveProblem}
+            onOpenStep={openProblem}
           />
         ))}
       </div>
-
-      {activeProblem && (
-        <ProblemView
-          problem={activeProblem}
-          onClose={() => setActiveProblem(null)}
-          onProgressChange={() => setProgress(getProgress())}
-        />
-      )}
     </section>
   );
 }

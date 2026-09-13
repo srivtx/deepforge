@@ -1,33 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
-import { PROBLEMS } from "@/data/problems";
+import { useRouter } from "next/navigation";
 
+/**
+ * Legacy `/?p=<id>` deep links: the home page used to open a problem overlay.
+ * Problems now live at their own route, so replace the URL and navigate there.
+ */
 export function DeepLink() {
+  const router = useRouter();
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("p");
     if (!id) return;
-
-    const problem = PROBLEMS.find((candidate) => candidate.id === id);
-    if (!problem) return;
-
-    const open = window.setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("deepforge:open-problem", { detail: { id } }),
-      );
-
-      const url = new URL(window.location.href);
-      url.searchParams.delete("p");
-      window.history.replaceState(
-        null,
-        "",
-        `${url.pathname}${url.search}${url.hash}`,
-      );
-    }, 0);
-
-    return () => window.clearTimeout(open);
-  }, []);
+    router.replace(`/problems/${encodeURIComponent(id)}`);
+  }, [router]);
 
   return null;
 }

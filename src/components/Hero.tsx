@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { Aurora } from "@/components/motion/Aurora";
+
 interface HeroProps {
   problemCount: number;
   categoryCount: number;
@@ -5,11 +8,9 @@ interface HeroProps {
 
 export function Hero({ problemCount, categoryCount }: HeroProps) {
   return (
-    <section
-      id="top"
-      className="relative mx-auto max-w-6xl px-4 pt-20 pb-16 sm:px-6 sm:pt-28 sm:pb-24"
-    >
-      <div className="flex flex-col items-start gap-6">
+    <section className="relative isolate w-full overflow-hidden">
+      <Aurora />
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 pt-20 pb-16 sm:px-6 sm:pt-28 sm:pb-24">
         <div className="flex items-center gap-2.5">
           <span className="df-pulse h-2 w-2 rounded-full bg-accent" />
           <span className="text-sm text-body-mid">
@@ -30,19 +31,19 @@ export function Hero({ problemCount, categoryCount }: HeroProps) {
         </p>
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
-          <a
-            href="#problems"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-canvas transition-opacity hover:opacity-90"
+          <Link
+            href="/problems"
+            className="df-shimmer inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-canvas transition-opacity hover:opacity-90"
           >
             Start practicing
             <span aria-hidden>→</span>
-          </a>
-          <a
-            href="#paths"
-            className="inline-flex items-center gap-2 rounded-lg border border-hairline px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-canvas-soft"
+          </Link>
+          <Link
+            href="/paths"
+            className="inline-flex items-center gap-2 rounded-lg border border-hairline px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-accent/40 hover:bg-canvas-soft"
           >
             Browse paths
-          </a>
+          </Link>
           <span className="text-xs text-body-mid">
             No account. Progress saves locally.
           </span>

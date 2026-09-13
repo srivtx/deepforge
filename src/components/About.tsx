@@ -2,11 +2,11 @@ export function About() {
   return (
     <section
       id="about"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
     >
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+          <h2 className="text-base font-semibold text-ink">
             What is DeepForge?
           </h2>
           <p className="mt-4 text-sm leading-relaxed text-body">
@@ -22,7 +22,7 @@ export function About() {
             understand backprop. DeepForge is the place to do that work.
           </p>
         </div>
-        <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+        <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
           <h3 className="text-sm font-semibold text-ink">How it works</h3>
           <ul className="mt-3 space-y-2 text-sm text-body-mid">
             <li className="flex gap-2">

@@ -1,7 +1,16 @@
+import { CountUp } from "@/components/motion/CountUp";
+
 interface StatsStripProps {
   problemCount: number;
   categoryCount: number;
   pathCount: number;
+}
+
+interface Stat {
+  label: string;
+  count?: number;
+  value?: string;
+  suffix?: string;
 }
 
 export function StatsStrip({
@@ -9,12 +18,12 @@ export function StatsStrip({
   categoryCount,
   pathCount,
 }: StatsStripProps) {
-  const stats = [
-    { value: `${problemCount.toLocaleString()}+`, label: "problems" },
-    { value: `${categoryCount}`, label: "categories" },
-    { value: `${pathCount}`, label: "learning paths" },
-    { value: "0", label: "dependencies" },
-    { value: "∞", label: "executions" },
+  const stats: Stat[] = [
+    { label: "problems", count: problemCount, suffix: "+" },
+    { label: "categories", count: categoryCount },
+    { label: "learning paths", count: pathCount },
+    { label: "dependencies", value: "0" },
+    { label: "executions", value: "∞" },
   ];
 
   return (
@@ -26,7 +35,14 @@ export function StatsStrip({
             className="flex flex-col gap-1 py-5 sm:items-center sm:text-center"
           >
             <div className="font-mono text-2xl font-medium text-accent sm:text-3xl">
-              {s.value}
+              {s.count !== undefined ? (
+                <>
+                  <CountUp value={s.count} />
+                  {s.suffix}
+                </>
+              ) : (
+                s.value
+              )}
             </div>
             <div className="text-xs text-body-mid sm:text-sm">{s.label}</div>
           </div>

@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 
 interface DiscussProps {
   problemId?: string;
+  variant?: "embedded" | "page";
 }
 
 const EMPTY_FORUM: ForumSnapshot = {
@@ -171,10 +172,13 @@ const FIELD_CLASSES =
   "w-full rounded-lg border border-hairline bg-canvas-soft px-3 py-2 text-sm text-ink placeholder:text-mute focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30";
 
 const PRIMARY_BUTTON_CLASSES =
-  "rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-40";
+  "inline-flex min-h-11 items-center justify-center rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-default disabled:opacity-40 sm:min-h-0";
 
 const SECONDARY_BUTTON_CLASSES =
-  "rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink";
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0";
+
+const CHIP_BUTTON_CLASSES =
+  "inline-flex min-h-11 items-center rounded-full border px-3 py-1 text-[11px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0 sm:px-2.5";
 
 function CategoryBadge({ category }: { category: ForumCategory }) {
   return (
@@ -199,7 +203,7 @@ function ProblemRefChip({ id }: { id: string }) {
         )
       }
       aria-label={`Open problem ${id}`}
-      className="mx-0.5 inline-flex items-center rounded-full border border-hairline bg-canvas-soft px-1.5 py-0.5 align-baseline font-mono text-[10px] text-accent transition-colors hover:border-accent/40 hover:bg-accent/5"
+      className="mx-0.5 inline-flex items-center rounded-full border border-hairline bg-canvas-soft px-1.5 py-0.5 align-baseline font-mono text-[10px] text-accent transition-colors hover:border-accent/40 hover:bg-accent/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
     >
       #{id}
     </button>
@@ -297,7 +301,7 @@ function UpvoteButton({
           : `Upvote ${label}, ${count} total`
       }
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[11px] transition-colors",
+        "inline-flex min-h-11 items-center justify-center gap-1 rounded-md border px-3 py-0.5 font-mono text-[11px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0 sm:px-2",
         active
           ? "border-accent/40 text-accent"
           : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
@@ -324,7 +328,8 @@ function ThreadMeta({ thread }: { thread: ForumThread }) {
   );
 }
 
-export function Discuss({ problemId }: DiscussProps) {
+export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
+  const isPage = variant === "page";
   const snapshot = useSyncExternalStore(
     subscribeForum,
     getClientForumSnapshot,
@@ -426,6 +431,13 @@ export function Discuss({ problemId }: DiscussProps) {
     }
   };
 
+  const startComposing = () => {
+    setComposing(true);
+    setOpenThreadId(null);
+    setFormError(null);
+    requestAnimationFrame(() => formTitleRef.current?.focus());
+  };
+
   const submitThread = () => {
     const cleanTitle = title.trim();
     const cleanBody = body.trim();
@@ -490,10 +502,21 @@ export function Discuss({ problemId }: DiscussProps) {
   };
 
   return (
-    <section className="mt-8" aria-label="Discuss forum">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <section
+      className={
+        isPage
+          ? "mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14"
+          : "mt-8"
+      }
+      aria-label="Discuss forum"
+    >
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-xs font-medium text-body-mid">Discuss</h3>
+          {isPage ? (
+            <h2 className="text-sm font-semibold text-ink">Threads</h2>
+          ) : (
+            <h3 className="text-xs font-medium text-body-mid">Discuss</h3>
+          )}
           <span
             className="rounded-full border border-hairline px-1.5 py-0.5 font-mono text-[10px] text-body-mid"
             aria-label={`${snapshot.threads.length} threads`}
@@ -506,7 +529,7 @@ export function Discuss({ problemId }: DiscussProps) {
           onClick={toggleComposer}
           aria-expanded={composing}
           className={cn(
-            "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+            "inline-flex min-h-11 items-center justify-center rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0",
             composing
               ? "border border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink"
               : "bg-accent text-canvas transition-opacity hover:opacity-90",
@@ -524,7 +547,7 @@ export function Discuss({ problemId }: DiscussProps) {
 
       {composing && (
         <form
-          className="df-slide-up mb-4 rounded-lg border border-hairline bg-canvas-card p-4"
+          className="df-slide-up mb-4 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
           aria-label="New thread"
           onSubmit={(e) => {
             e.preventDefault();
@@ -632,7 +655,7 @@ export function Discuss({ problemId }: DiscussProps) {
             </p>
           )}
 
-          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
             <span className="mr-auto hidden text-[11px] text-mute sm:inline">
               Ctrl/Cmd+Enter to post
             </span>
@@ -655,13 +678,13 @@ export function Discuss({ problemId }: DiscussProps) {
               closeDetail();
             }
           }}
-          className="df-slide-up rounded-lg border border-hairline bg-canvas-card p-4 outline-none"
+          className="df-slide-up rounded-lg border border-hairline bg-canvas-card p-4 outline-none sm:p-5"
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <button
               type="button"
               onClick={closeDetail}
-              className="inline-flex items-center gap-1 text-xs text-body-mid transition-colors hover:text-ink"
+              className="inline-flex min-h-11 items-center gap-1 rounded-md text-xs text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0"
             >
               <span aria-hidden>←</span>
               All threads
@@ -673,7 +696,7 @@ export function Discuss({ problemId }: DiscussProps) {
                   run(deleteThread(openThread.id), () => setOpenThreadId(null));
                 }
               }}
-              className="rounded-md border border-hairline px-2 py-0.5 text-[11px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-error"
+              className="inline-flex min-h-11 items-center rounded-md border border-hairline px-3 py-0.5 text-[11px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0"
             >
               Delete
             </button>
@@ -712,11 +735,11 @@ export function Discuss({ problemId }: DiscussProps) {
             {openReplies.length === 0 ? (
               <p className="text-xs text-mute">No replies yet. Be the first.</p>
             ) : (
-              <ul className="space-y-2.5">
+              <ul className="space-y-3">
                 {openReplies.map((reply) => (
                   <li
                     key={reply.id}
-                    className="rounded-lg border border-hairline bg-canvas p-3"
+                    className="rounded-lg border border-hairline bg-canvas p-4"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-medium text-ink">
@@ -732,7 +755,7 @@ export function Discuss({ problemId }: DiscussProps) {
                     <div className="mt-2">
                       <ForumBody body={reply.body} />
                     </div>
-                    <div className="mt-2.5">
+                    <div className="mt-3">
                       <UpvoteButton
                         count={reply.upvotes}
                         active={upvotedReplies.has(reply.id)}
@@ -760,7 +783,7 @@ export function Discuss({ problemId }: DiscussProps) {
                   {replyError}
                 </p>
               )}
-              <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+              <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
                 <span className="mr-auto hidden text-[11px] text-mute sm:inline">
                   Ctrl/Cmd+Enter to post
                 </span>
@@ -779,7 +802,7 @@ export function Discuss({ problemId }: DiscussProps) {
       ) : (
         <>
           <div
-            className="mb-3 flex flex-wrap items-center gap-1.5"
+            className="mb-4 flex flex-wrap items-center gap-2"
             role="group"
             aria-label="Filter threads by category"
           >
@@ -790,7 +813,7 @@ export function Discuss({ problemId }: DiscussProps) {
                 onClick={() => setFilter(option)}
                 aria-pressed={filter === option}
                 className={cn(
-                  "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
+                  CHIP_BUTTON_CLASSES,
                   filter === option
                     ? "border-accent/40 bg-accent/5 text-accent"
                     : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
@@ -802,22 +825,60 @@ export function Discuss({ problemId }: DiscussProps) {
           </div>
 
           {threads.length === 0 ? (
-            <p className="mt-4 text-sm text-body-mid">
-              {snapshot.threads.length === 0
-                ? "No threads yet. Start the first one."
-                : "No threads in this category yet."}
-            </p>
+            <div className="rounded-lg border border-dashed border-hairline bg-canvas-card px-4 py-10 text-center sm:py-12">
+              {snapshot.threads.length === 0 ? (
+                <>
+                  <p className="text-sm font-medium text-ink">No threads yet</p>
+                  <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-body-mid">
+                    Ask a question, share an interview debrief, or start a
+                    contest discussion.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={startComposing}
+                    className={cn(PRIMARY_BUTTON_CLASSES, "mt-4")}
+                  >
+                    Start a thread
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-ink">
+                    No threads in {filter} yet
+                  </p>
+                  <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-body-mid">
+                    Be the first to post one, or switch back to every category.
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={startComposing}
+                      className={PRIMARY_BUTTON_CLASSES}
+                    >
+                      Start a thread
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilter("All")}
+                      className={SECONDARY_BUTTON_CLASSES}
+                    >
+                      Show all threads
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
             <ul className="space-y-3">
               {threads.map((thread) => (
                 <li key={thread.id}>
-                  <article className="rounded-lg border border-hairline bg-canvas-card p-3 transition-colors hover:border-accent/30">
+                  <article className="rounded-lg border border-hairline bg-canvas-card p-4 transition-colors hover:border-accent/30 sm:p-5">
                     <ThreadMeta thread={thread} />
                     <button
                       type="button"
                       id={`df-thread-${thread.id}`}
                       onClick={() => openDetail(thread.id)}
-                      className="mt-2 block w-full text-left text-sm font-semibold text-ink transition-colors hover:text-accent focus-visible:outline-none focus-visible:underline"
+                      className="mt-2 block w-full break-words rounded-sm text-left text-sm font-semibold text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                     >
                       {thread.title}
                     </button>
@@ -825,13 +886,13 @@ export function Discuss({ problemId }: DiscussProps) {
                       {excerpt(thread.body)}
                     </p>
                     {thread.problemRefs.length > 0 && (
-                      <div className="mt-2 flex flex-wrap items-center gap-1">
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {thread.problemRefs.map((id) => (
                           <ProblemRefChip key={id} id={id} />
                         ))}
                       </div>
                     )}
-                    <div className="mt-2.5 flex items-center gap-2">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <UpvoteButton
                         count={thread.upvotes}
                         active={upvotedThreads.has(thread.id)}
@@ -841,7 +902,7 @@ export function Discuss({ problemId }: DiscussProps) {
                       <button
                         type="button"
                         onClick={() => openDetail(thread.id)}
-                        className="rounded-md border border-hairline px-2 py-0.5 text-[11px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+                        className="inline-flex min-h-11 items-center rounded-md border border-hairline px-3 py-0.5 text-[11px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0"
                       >
                         {replyCounts.get(thread.id) ?? 0}{" "}
                         {replyCounts.get(thread.id) === 1 ? "reply" : "replies"}

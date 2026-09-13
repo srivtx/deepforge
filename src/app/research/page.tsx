@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { PageShell } from "@/components/PageShell";
 import { Research } from "@/components/Research";
-import { SectionShell } from "@/components/SectionShell";
+import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
   "Beat a baseline model on a research-style task. If your code wins, it becomes the latest best result.";
@@ -20,10 +21,12 @@ export const metadata: Metadata = {
   },
 };
 
+const { title, blurb } = SECTIONS_BY_ID.research;
+
 export default function ResearchPage() {
   return (
-    <SectionShell>
+    <PageShell title={title} description={blurb}>
       <Research />
-    </SectionShell>
+    </PageShell>
   );
 }

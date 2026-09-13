@@ -140,20 +140,15 @@ export function Labs() {
   return (
     <section
       id="labs"
-      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto max-w-6xl scroll-mt-16 px-4 py-10 sm:px-6 sm:py-14"
     >
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Labs
+      <div className="mb-6">
+        <h2 className="text-sm font-medium text-body-mid">
+          {LABS.length} challenges · {completed}/{LABS.length} passed
         </h2>
-        <p className="mt-1 text-sm text-body-mid">
-          {LABS.length} dataset-driven challenges. Implement an algorithm, get
-          scored against a target on held-out data, and beat the clock.{" "}
-          {completed}/{LABS.length} passed.
-        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {LABS.map((lab) => {
           const record = records[lab.id];
           const isActive = activeLab?.id === lab.id;
@@ -165,7 +160,7 @@ export function Labs() {
               aria-expanded={isActive}
               aria-controls="lab-runner"
               className={cn(
-                "flex flex-col gap-3 rounded-lg border bg-canvas-card p-5 text-left transition-colors hover:bg-canvas-soft focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent",
+                "flex flex-col gap-3 rounded-lg border bg-canvas-card p-4 text-left transition-colors hover:bg-canvas-soft focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent sm:p-5",
                 isActive ? "border-accent/60" : "border-hairline",
               )}
             >
@@ -218,7 +213,7 @@ export function Labs() {
       {activeLab && (
         <div
           id="lab-runner"
-          className="df-slide-up mt-6 overflow-hidden rounded-lg border border-hairline bg-canvas-card"
+          className="df-slide-up mt-4 overflow-hidden rounded-lg border border-hairline bg-canvas-card"
         >
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-hairline px-4 py-3 sm:px-6">
             <div className="min-w-0 flex-1">
@@ -388,7 +383,7 @@ export function Labs() {
                 </div>
 
                 {result === null ? (
-                  <p className="text-xs text-mute">
+                  <p className="py-2 text-center text-xs text-mute">
                     Press Run lab to score your predict() on{" "}
                     {activeLab.testData.features.length} held-out rows.
                   </p>
@@ -451,7 +446,9 @@ export function Labs() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-mute">No score returned.</p>
+                  <p className="py-2 text-center text-xs text-mute">
+                    No score returned.
+                  </p>
                 )}
 
                 {result?.stdout ? (

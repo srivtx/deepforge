@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Reveal } from "@/components/motion/Reveal";
 import {
   SECTION_GROUPS,
   SECTIONS_BY_GROUP,
@@ -46,32 +47,37 @@ export function SectionHub({ counts, onOpen }: SectionHubProps) {
           <div key={group}>
             <h3 className="mb-3 text-sm font-medium text-body-mid">{group}</h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {SECTIONS_BY_GROUP[group].map((section) => {
+              {SECTIONS_BY_GROUP[group].map((section, index) => {
                 const count = counts?.[section.id];
                 return (
-                  <Link
+                  <Reveal
                     key={section.id}
-                    href={section.href}
-                    onClick={() => onOpen?.(section.id)}
-                    className="group flex flex-col items-start gap-3 rounded-lg border border-hairline bg-canvas-card p-4 text-left transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                    delay={Math.min(index, 8) * 60}
+                    className="h-full"
                   >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors group-hover:border-accent/40 group-hover:text-accent">
-                      <SectionIcon d={section.icon} />
-                    </span>
-                    <span className="flex w-full items-baseline justify-between gap-2">
-                      <span className="text-sm font-medium text-ink">
-                        {section.title}
+                    <Link
+                      href={section.href}
+                      onClick={() => onOpen?.(section.id)}
+                      className="df-lift group flex h-full flex-col items-start gap-3 rounded-lg border border-hairline bg-canvas-card p-4 text-left transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/40 hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                    >
+                      <span className="flex h-8 w-8 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors group-hover:border-accent/40 group-hover:text-accent">
+                        <SectionIcon d={section.icon} />
                       </span>
-                      {count !== undefined && (
-                        <span className="font-mono text-xs text-body-mid">
-                          {count.toLocaleString()}+
+                      <span className="flex w-full items-baseline justify-between gap-2">
+                        <span className="text-sm font-medium text-ink">
+                          {section.title}
                         </span>
-                      )}
-                    </span>
-                    <span className="text-xs leading-relaxed text-body-mid">
-                      {section.blurb}
-                    </span>
-                  </Link>
+                        {count !== undefined && (
+                          <span className="font-mono text-xs text-body-mid">
+                            {count.toLocaleString()}+
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-xs leading-relaxed text-body-mid">
+                        {section.blurb}
+                      </span>
+                    </Link>
+                  </Reveal>
                 );
               })}
             </div>
