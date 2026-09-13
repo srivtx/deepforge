@@ -62,7 +62,7 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Discuss** — forum with threads, replies, upvotes, problem references; server-backed when signed in
 - **Problem comments** — per-problem discussion with upvotes, live on the problem page
 - **Zero assistant** — catalogue-grounded study coach: recommends problems, explains concepts, reviews your code, builds playlists
-- **Profile & badges** — 24 badges, XP/levels, 52-week heatmap, deterministic daily quests, streak card, username editing, and generative avatars with photo upload (synced to Supabase Storage when signed in)
+- **Profile & badges** — 24 badges, XP/levels, 52-week heatmap, deterministic daily quests, streak card, username editing, and trait-based generative avatars in two art styles (Illustrated + Pixel) with photo upload (synced to Supabase Storage when signed in)
 - **Stats & Certificates** — personal dashboard with trends, records, mastery estimate; printable/PNG certificates
 - **Submit a Problem** — author problems locally, validate with real Python, export ready-to-paste TS
 - **Leaderboard** — Flame Score (Easy 1, Medium 3, Hard 5), streaks, username; global view when signed in
@@ -132,8 +132,9 @@ bun run scripts/verify-paths.ts           # 28 paths: slugs, stages, problem ids
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 252 unit tests
-bun run build && bun run start            # production build + server
+bun test                                  # 320 unit tests
+bun run build
+bunx next start -p 3099 &                 # production server the smoke suite expects
 bun run scripts/e2e-smoke.mjs             # 94-check end-to-end smoke against :3099
 ```
 
