@@ -21,6 +21,7 @@ import {
   removeAvatarImage,
   uploadAvatarImage,
 } from "@/lib/avatarStorage";
+import { CHARACTER_ART } from "@/components/avatars/characters";
 import { setCachedSession } from "@/lib/sync/backend";
 import { setRemoteClient, type RemoteClient } from "@/lib/sync/remote";
 
@@ -198,9 +199,9 @@ describe("generateAvatarSvg", () => {
     }
   });
 
-  test("preset catalog is 10-14 unique, palette-rich entries", () => {
+  test("preset catalog is 10-40 unique, palette-rich entries", () => {
     expect(AVATAR_PRESETS.length).toBeGreaterThanOrEqual(10);
-    expect(AVATAR_PRESETS.length).toBeLessThanOrEqual(14);
+    expect(AVATAR_PRESETS.length).toBeLessThanOrEqual(40);
     const ids = new Set(AVATAR_PRESETS.map((preset) => preset.id));
     expect(ids.size).toBe(AVATAR_PRESETS.length);
     for (const preset of AVATAR_PRESETS) {
@@ -212,6 +213,36 @@ describe("generateAvatarSvg", () => {
     const preset = AVATAR_PRESETS[1];
     expect(generateAvatarSvg("", preset)).toBe(generateAvatarSvg("anon", preset));
     expect(generateAvatarSvg("   ", preset)).toBe(generateAvatarSvg("anon", preset));
+  });
+});
+
+describe("character art presets", () => {
+  const artPresets = AVATAR_PRESETS.filter((preset) => preset.art);
+
+  test("twelve character presets carry unique art ids", () => {
+    expect(artPresets).toHaveLength(12);
+    expect(new Set(artPresets.map((preset) => preset.art)).size).toBe(12);
+    for (const preset of artPresets) {
+      expect(preset.palette.length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test("every art id resolves to a character renderer", () => {
+    expect(Object.keys(CHARACTER_ART)).toHaveLength(12);
+    for (const preset of artPresets) {
+      expect(typeof CHARACTER_ART[preset.art as string]).toBe("function");
+    }
+  });
+
+  test("art presets round-trip through the store and resolve for seeds", () => {
+    for (const preset of artPresets) {
+      setAvatar({ kind: "preset", presetId: preset.id });
+      expect(getAvatar()).toEqual({ kind: "preset", presetId: preset.id });
+      const svg = generateAvatarSvg("material_mia", preset);
+      expect(svg).toContain('viewBox="0 0 96 96"');
+      expect(svg).toContain(preset.palette[0]);
+    }
+    expect(resolvePresetForSeed("epoch_emma").id).toBeTruthy();
   });
 });
 

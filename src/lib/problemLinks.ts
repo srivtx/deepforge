@@ -42,6 +42,9 @@ export function backTarget(fromParam: string | null | undefined): {
   label: string;
 } {
   const from = safeInternalPath(fromParam);
+  if (from && from.startsWith("/interview/")) {
+    return { href: from, label: "Back to track" };
+  }
   if (from) {
     for (const [prefix, label] of BACK_LABELS) {
       const base = prefix.replace(/\/$/, "");

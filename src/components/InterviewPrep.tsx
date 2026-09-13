@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   PROBLEM_META,
   type ProblemMeta,
@@ -127,6 +127,23 @@ function ProblemRow({
 }
 
 export function InterviewPrep() {
+  return (
+    <Suspense fallback={<InterviewPrepContent autoTrackId={null} />}>
+      <InterviewPrepWithSearch />
+    </Suspense>
+  );
+}
+
+function InterviewPrepWithSearch() {
+  const searchParams = useSearchParams();
+  return <InterviewPrepContent autoTrackId={searchParams.get("track")} />;
+}
+
+function InterviewPrepContent({
+  autoTrackId,
+}: {
+  autoTrackId: string | null;
+}) {
   const router = useRouter();
   const [progress, setProgress] = useState<ProgressMap>({});
   const [best, setBest] = useState<Record<string, InterviewResult | null>>({});
@@ -142,6 +159,7 @@ export function InterviewPrep() {
   const startAtRef = useRef(0);
   const endAtRef = useRef(0);
   const finishingRef = useRef(false);
+  const autoStartedRef = useRef(false);
   const setupDialogRef = useRef<HTMLDivElement | null>(null);
   const setupReturnFocusRef = useRef<HTMLElement | null>(null);
   const sessionDialogRef = useRef<HTMLDivElement | null>(null);
@@ -169,6 +187,13 @@ export function InterviewPrep() {
       window.removeEventListener(INTERVIEW_CHANGE_EVENT, load);
     };
   }, []);
+
+  useEffect(() => {
+    if (autoStartedRef.current || !autoTrackId) return;
+    autoStartedRef.current = true;
+    const track = INTERVIEW_TRACKS.find((entry) => entry.id === autoTrackId);
+    if (track) startSession(track, track.mockProblemIds);
+  }, [autoTrackId]);
 
   useEffect(() => {
     if (!activeTrack || summary) return;
@@ -277,7 +302,13 @@ export function InterviewPrep() {
   }
 
   function openProblem(problem: ProblemMeta) {
-    router.push(problemHref(problem.id, "/interview"));
+    const track = activeTrack ?? setupTrack;
+    router.push(
+      problemHref(
+        problem.id,
+        track ? `/interview/${track.id}` : "/interview",
+      ),
+    );
   }
 
   function openSetup(track: InterviewTrack, mode: SetupMode, phase = 0) {
@@ -369,12 +400,18 @@ export function InterviewPrep() {
             return (
               <div
                 key={track.id}
-                className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
+                className="group relative flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 transition-colors hover:border-accent/40 sm:p-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h3 className="text-base font-semibold text-ink">
-                      {track.company}
+                      <Link
+                        href={`/interview/${track.id}`}
+                        aria-label={`Open ${track.company} ${track.role} track`}
+                        className="rounded-sm transition-colors after:absolute after:inset-0 after:rounded-lg hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                      >
+                        {track.company}
+                      </Link>
                     </h3>
                     <p className="text-xs font-medium text-body-mid">
                       {track.role}
@@ -410,8 +447,8 @@ export function InterviewPrep() {
                       key={phase.name}
                       type="button"
                       onClick={() => openSetup(track, "practice", index)}
-                      className="rounded-lg border border-hairline bg-canvas-card px-2 py-1.5 text-left transition-colors hover:bg-canvas-soft"
-                      aria-label={`Practice ${phase.name}: ${phase.problemIds.length} problems`}
+                      className="relative z-10 rounded-lg border border-hairline bg-canvas-card px-2 py-1.5 text-left transition-colors hover:bg-canvas-soft"
+                      aria-label={`Practice ${track.company} ${phase.name}: ${phase.problemIds.length} problems`}
                     >
                       <span className="block text-[11px] font-medium text-ink">
                         {phase.name}
@@ -434,7 +471,7 @@ export function InterviewPrep() {
                       <Link
                         key={project.id}
                         href="/projects"
-                        className="rounded-full border border-hairline px-2 py-0.5 text-[10px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+                        className="relative z-10 rounded-full border border-hairline px-2 py-0.5 text-[10px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
                       >
                         {project.title}
                       </Link>
@@ -451,14 +488,15 @@ export function InterviewPrep() {
                       onClick={() =>
                         openSetup(track, "practice", track.phases.length)
                       }
-                      className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+                      className="relative z-10 rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
                     >
                       Full path
                     </button>
                     <button
                       type="button"
                       onClick={() => openSetup(track, "mock")}
-                      className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
+                      aria-label={`Start timed mock: ${track.company} ${track.role}`}
+                      className="relative z-10 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
                     >
                       Start mock
                     </button>

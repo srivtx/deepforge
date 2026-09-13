@@ -3,6 +3,12 @@
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { getUserName } from "@/lib/leaderboard";
+import { CHARACTER_ART } from "@/components/avatars/characters";
+import {
+  NftAvatarArt,
+  NftAvatarSeedArt,
+} from "@/components/avatars/NftAvatarArt";
+import { selectAvatarTraits } from "@/lib/nftAvatar";
 import {
   AVATAR_CHANGE_EVENT,
   AVATAR_PRESETS,
@@ -105,19 +111,32 @@ export function Avatar({ seed, size = "md", className, label }: AvatarProps) {
         }}
       />
     );
-  } else {
-    const chosen =
-      isSelf && avatar?.kind === "preset"
-        ? AVATAR_PRESETS.find((preset) => preset.id === avatar.presetId)
-        : undefined;
-    const preset = chosen ?? resolvePresetForSeed(artSeed);
-    const svg = generateAvatarSvg(artSeed, preset);
+  } else if (isSelf && avatar?.kind === "nft") {
     body = (
-      <span
-        className="block h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
-        dangerouslySetInnerHTML={{ __html: svg }}
+      <NftAvatarArt
+        selection={selectAvatarTraits(avatar.seed)}
+        className="block h-full w-full"
       />
     );
+  } else if (isSelf && avatar?.kind === "preset") {
+    const preset = AVATAR_PRESETS.find(
+      (candidate) => candidate.id === avatar.presetId,
+    );
+    const Art = preset?.art ? CHARACTER_ART[preset.art] : undefined;
+    if (Art) {
+      body = <Art className="block h-full w-full" />;
+    } else {
+      const resolved = preset ?? resolvePresetForSeed(artSeed);
+      const svg = generateAvatarSvg(artSeed, resolved);
+      body = (
+        <span
+          className="block h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+      );
+    }
+  } else {
+    body = <NftAvatarSeedArt seed={artSeed} className="block h-full w-full" />;
   }
 
   return (

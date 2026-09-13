@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { ARTICLES } from "@/data/articles";
 import { POSTS } from "@/data/blog";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
+import { INTERVIEW_TRACKS } from "@/data/interview";
 import { PROJECTS } from "@/data/projects";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
@@ -113,6 +114,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: LAST_MODIFIED,
       changeFrequency: "monthly" as const,
       priority: 0.6,
+    })),
+    ...INTERVIEW_TRACKS.map((track) => ({
+      url: `${siteUrl}/interview/${track.id}`,
+      lastModified: LAST_MODIFIED,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
     })),
     ...ARTICLES.map((article) => ({
       url: `${siteUrl}/articles/${article.slug}`,

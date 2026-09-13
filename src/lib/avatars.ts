@@ -46,6 +46,8 @@ export interface AvatarPreset {
   rings?: number;
   /** Shape family used by the generative renderer. */
   style?: AvatarStyle;
+  /** Original character art id (see `CHARACTER_ART`); falls back to generative. */
+  art?: string;
 }
 
 export interface AvatarUpload {
@@ -56,8 +58,15 @@ export interface AvatarUpload {
   remoteUrl?: string;
 }
 
+export interface AvatarNft {
+  kind: "nft";
+  /** Deterministic seed for the trait-based generated avatar. */
+  seed: string;
+}
+
 export type AvatarState =
   | { kind: "preset"; presetId: string }
+  | AvatarNft
   | AvatarUpload
   | null;
 
@@ -157,6 +166,78 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
     palette: ["#070707", "#cfcfcf", "#737373", "#ffffff"],
     style: "plus",
     rings: 2,
+  },
+  {
+    id: "neon-ape",
+    name: "Neon Ape",
+    palette: ["#04120d", "#5effb0", "#17b98a", "#eafff5"],
+    art: "neon-ape",
+  },
+  {
+    id: "cyber-fox",
+    name: "Cyber Fox",
+    palette: ["#070d1c", "#ff8a2b", "#41e3ff", "#ffe9d2"],
+    art: "cyber-fox",
+  },
+  {
+    id: "ninja-cat",
+    name: "Ninja Cat",
+    palette: ["#0c0520", "#ff3b52", "#8b5cf6", "#f5f2ff"],
+    art: "ninja-cat",
+  },
+  {
+    id: "space-bot",
+    name: "Space Bot",
+    palette: ["#040a16", "#5ce1ff", "#93a9c4", "#e8f6ff"],
+    art: "space-bot",
+  },
+  {
+    id: "alien-drip",
+    name: "Alien Drip",
+    palette: ["#0b0420", "#b6ff5c", "#8a5cff", "#ffd24a"],
+    art: "alien-drip",
+  },
+  {
+    id: "agent-owl",
+    name: "Agent Owl",
+    palette: ["#090a1e", "#ffb03a", "#5b5ec4", "#e9edff"],
+    art: "agent-owl",
+  },
+  {
+    id: "wizard-toad",
+    name: "Wizard Toad",
+    palette: ["#07140c", "#7be36a", "#d9a83a", "#f2ffe8"],
+    art: "wizard-toad",
+  },
+  {
+    id: "panda-punk",
+    name: "Panda Punk",
+    palette: ["#0d0d0f", "#ff5fa2", "#e8e8e8", "#ffe1ee"],
+    art: "panda-punk",
+  },
+  {
+    id: "shark-hoodie",
+    name: "Shark Hoodie",
+    palette: ["#060f18", "#41c7ff", "#6b7f96", "#e6f6ff"],
+    art: "shark-hoodie",
+  },
+  {
+    id: "dragon-hatchling",
+    name: "Dragon Hatchling",
+    palette: ["#180706", "#ff5a3c", "#ffb347", "#ffe6d6"],
+    art: "dragon-hatchling",
+  },
+  {
+    id: "astro-penguin",
+    name: "Astro Penguin",
+    palette: ["#060b18", "#59d8ff", "#ffffff", "#cfeaff"],
+    art: "astro-penguin",
+  },
+  {
+    id: "skull-kid",
+    name: "Skull Kid",
+    palette: ["#0a0f10", "#39e0c8", "#e9e6dd", "#d6fff8"],
+    art: "skull-kid",
   },
 ];
 
@@ -386,6 +467,13 @@ export function parseAvatarState(raw: string | null): AvatarState {
       return typeof record.presetId === "string" &&
         isPresetId(record.presetId)
         ? { kind: "preset", presetId: record.presetId }
+        : null;
+    }
+    if (record.kind === "nft") {
+      return typeof record.seed === "string" &&
+        record.seed.length > 0 &&
+        record.seed.length <= 120
+        ? { kind: "nft", seed: record.seed }
         : null;
     }
     if (record.kind === "upload") {
