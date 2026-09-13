@@ -2,7 +2,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import Link from "next/link";
-import type { Article } from "@/data/articles";
+import { FIGURES, type Article } from "@/data/articles";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { DEMOS } from "@/lib/articles-demos";
 
@@ -81,9 +81,24 @@ export function ArticleDetail({ article, prev, next }: ArticleDetailProps) {
           if (section.kind === "prose") {
             return <Paragraph key={`s-${i}`} text={section.text} index={i} />;
           }
+          if (section.kind === "figure") {
+            const Figure = FIGURES[section.figure];
+            return (
+              <figure key={`s-${i}`} className="my-8">
+                <div className="overflow-hidden rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+                  <Figure />
+                </div>
+                {section.caption && (
+                  <figcaption className="mt-3 text-center text-xs text-body-mid">
+                    {renderInline(section.caption, `fig-${i}`)}
+                  </figcaption>
+                )}
+              </figure>
+            );
+          }
           const Demo = DEMOS[section.demo];
           return (
-            <div key={`s-${i}`} className="mt-6">
+            <div key={`s-${i}`} className="my-8">
               <Demo params={section.params} />
             </div>
           );

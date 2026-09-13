@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { ARTICLES, type DemoKind } from "@/data/articles";
+import {
+  ARTICLES,
+  FIGURES,
+  type DemoKind,
+  type FigureKind,
+} from "@/data/articles";
 import { DEMOS } from "@/lib/articles-demos";
 import { PROBLEMS } from "@/data/problems";
 
@@ -30,8 +35,14 @@ describe("article catalogue", () => {
       for (const section of article.sections) {
         if (section.kind === "prose") {
           expect(section.text.trim().length > 0, article.id).toBe(true);
-        } else {
+        } else if (section.kind === "demo") {
           expect(typeof section.demo, article.id).toBe("string");
+        } else {
+          expect(typeof section.figure, article.id).toBe("string");
+          expect(
+            section.caption?.trim().length ?? 0,
+            `${article.id}:${section.figure} caption`,
+          ).toBeGreaterThan(0);
         }
       }
     }
@@ -54,6 +65,26 @@ describe("article catalogue", () => {
     expect([...used].sort()).toEqual(Object.keys(DEMOS).sort());
     for (const kind of Object.keys(DEMOS) as DemoKind[]) {
       expect(typeof DEMOS[kind], kind).toBe("function");
+    }
+  });
+
+  test("every figure kind resolves in the FIGURES registry", () => {
+    const used = new Set<FigureKind>();
+    for (const article of ARTICLES) {
+      for (const section of article.sections) {
+        if (section.kind !== "figure") continue;
+        used.add(section.figure);
+        expect(
+          typeof FIGURES[section.figure],
+          `${article.id}:${section.figure}`,
+        ).toBe("function");
+      }
+    }
+
+    expect(used.size).toBeGreaterThan(0);
+    expect([...used].sort()).toEqual(Object.keys(FIGURES).sort());
+    for (const kind of Object.keys(FIGURES) as FigureKind[]) {
+      expect(typeof FIGURES[kind], kind).toBe("function");
     }
   });
 });
