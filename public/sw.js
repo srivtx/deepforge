@@ -12,7 +12,11 @@
  * schemes are ignored entirely.
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
+
+const IS_LOCAL = ["localhost", "127.0.0.1", "0.0.0.0"].includes(
+  self.location.hostname,
+);
 
 const PRECACHE = `deepforge-${VERSION}-precache`;
 const STATIC = `deepforge-${VERSION}-static`;
@@ -29,6 +33,10 @@ const FONT_PATTERN = /\.(?:woff2?|ttf|otf|eot)$/i;
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
+      if (IS_LOCAL) {
+        await self.registration.unregister();
+        return;
+      }
       const cache = await caches.open(PRECACHE);
       await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
       await self.skipWaiting();
@@ -55,6 +63,10 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
+
+  // Local development must never be cached: dev asset URLs are stable, so
+  // cache-first would serve stale CSS/JS across edits and sessions.
+  if (IS_LOCAL) return;
 
   // Never cache POST/PUT/... — only GET is safe.
   if (request.method !== "GET") return;

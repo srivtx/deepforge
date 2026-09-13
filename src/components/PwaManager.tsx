@@ -134,6 +134,38 @@ export function PwaManager() {
     });
   }, []);
 
+  // Dev / localhost self-heal: remove any service worker and cached build
+  // output left behind by earlier runs (for example a production build served
+  // on localhost). A stale worker serves immutable-looking chunk URLs
+  // cache-first, which shows up as stale CSS after state changes until a hard
+  // refresh. Registrations are empty in a clean browser, so this is a no-op.
+  useEffect(() => {
+    const host = window.location.hostname;
+    const isLocal =
+      host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
+    if (process.env.NODE_ENV === "production" && !isLocal) return;
+    if (!("serviceWorker" in navigator)) return;
+    void (async () => {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        if (registrations.length === 0) return;
+        const controlled = Boolean(navigator.serviceWorker.controller);
+        await Promise.all(registrations.map((r) => r.unregister()));
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(
+            keys
+              .filter((key) => key.startsWith("deepforge-"))
+              .map((key) => caches.delete(key)),
+          );
+        }
+        if (controlled) window.location.reload();
+      } catch {
+        // Best-effort cleanup only.
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();

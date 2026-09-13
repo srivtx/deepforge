@@ -294,20 +294,6 @@
   opacity: 0.6;
 }
 
-/* ── Theme control icons — sun in dark mode, moon in light, CSS only. ── */
-.df-theme-sun {
-  display: block;
-}
-.df-theme-moon {
-  display: none;
-}
-:root.light .df-theme-sun {
-  display: none;
-}
-:root.light .df-theme-moon {
-  display: block;
-}
-
 /* ── Respect reduced-motion preferences ── */
 @media (prefers-reduced-motion: reduce) {
   html {
