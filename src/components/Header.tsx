@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SyncPanel } from "./SyncPanel";
+import { Avatar } from "./Avatar";
 import { MOBILE_NAV_GROUPS, NavItemLink, NavMenus } from "./NavMenus";
 
 interface HeaderProps {
@@ -117,6 +118,14 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
               <SyncIcon />
               <span>Sync</span>
             </button>
+            <Link
+              href="/badges"
+              aria-label="Open profile"
+              title="Your profile"
+              className="ml-1 flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:h-8 sm:w-8"
+            >
+              <Avatar size="sm" />
+            </Link>
             <button
               ref={menuButtonRef}
               type="button"
@@ -196,6 +205,14 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
                 </div>
               ))}
               <div className="mt-1 border-t border-hairline pt-2">
+                <Link
+                  href="/badges"
+                  onClick={() => setMenuOpen(false)}
+                  className={`${MOBILE_LINK_CLASS} gap-2`}
+                >
+                  <Avatar size="sm" />
+                  <span>Profile</span>
+                </Link>
                 <button
                   type="button"
                   onClick={() => {
