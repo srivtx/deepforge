@@ -135,7 +135,7 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
               aria-label={
                 menuOpen ? "Close navigation menu" : "Open navigation menu"
               }
-              className="ml-1 flex h-11 w-11 items-center justify-center rounded-md border border-hairline text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:hidden"
+              className="ml-1 flex h-11 w-11 items-center justify-center rounded-full text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:hidden"
             >
               {menuOpen ? (
                 <svg
