@@ -10,7 +10,8 @@
  * cases yield 0 rather than NaN.
  */
 
-import { CATEGORIES, PROBLEMS, getCategoryCounts } from "@/data/problems";
+import { CATEGORIES } from "@/data/problems/meta";
+import { PROBLEM_META, getCategoryCounts } from "@/data/problems/problem-meta";
 import { getBadgeSnapshot, computeXp } from "@/lib/badges";
 import { getConceptStats } from "@/lib/concepts";
 import { getDailyDateKey } from "@/lib/daily";
@@ -156,7 +157,7 @@ export function getOverview(): Overview {
   let solvedToday = 0;
   let solvedThisWeek = 0;
 
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     const record = progress[problem.id];
     if (!record) continue;
     if (record.attempted) attempted += 1;
@@ -176,7 +177,7 @@ export function getOverview(): Overview {
   return {
     solved,
     attempted,
-    total: PROBLEMS.length,
+    total: PROBLEM_META.length,
     accuracy: attempted > 0 ? solved / attempted : 0,
     solvedToday,
     solvedThisWeek,
@@ -204,7 +205,7 @@ export function getCategoryBreakdown(): CategoryStat[] {
   const solvedCounts = new Map<Category, number>();
   const difficultySums = new Map<Category, number>();
 
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     if (!progress[problem.id]?.solved) continue;
     solvedCounts.set(
       problem.category,
@@ -238,7 +239,7 @@ export function getDifficultyBreakdown(): DifficultyStat[] {
   const totals: Record<Difficulty, number> = { Easy: 0, Medium: 0, Hard: 0 };
   const solved: Record<Difficulty, number> = { Easy: 0, Medium: 0, Hard: 0 };
 
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     totals[problem.difficulty] += 1;
     if (progress[problem.id]?.solved) solved[problem.difficulty] += 1;
   }
@@ -312,7 +313,7 @@ export function getRecords(): Records {
   let hardestSolved = 0;
   const dayCounts = new Map<string, number>();
 
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     const record = progress[problem.id];
     if (!record?.solved) continue;
     if (problem.difficulty === "Hard") hardestSolved += 1;
@@ -378,7 +379,7 @@ export function getRecords(): Records {
 export function getEstimatedMastery(): MasteryEstimate {
   const snapshot = getBadgeSnapshot();
   const progress = snapshot.progress;
-  const total = PROBLEMS.length;
+  const total = PROBLEM_META.length;
 
   const cutoffTime =
     snapshot.now.getTime() - MASTERY_RECENCY_DAYS * 24 * 60 * 60 * 1000;
@@ -388,7 +389,7 @@ export function getEstimatedMastery(): MasteryEstimate {
   let hardSolved = 0;
   let recentSolves = 0;
 
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     if (problem.difficulty === "Hard") hardTotal += 1;
     const record = progress[problem.id];
     if (!record?.solved) continue;

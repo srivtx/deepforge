@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { LearningPath, Problem } from "@/types/problem";
+import type { ProblemMeta } from "@/data/problems/problem-meta";
+import type { LearningPath } from "@/types/problem";
 import type { PathLevel } from "@/lib/paths";
 import {
   nextProblemInPath,
@@ -13,7 +14,7 @@ import {
 
 interface PathsProps {
   paths: LearningPath[];
-  problems: Problem[];
+  problems: ProblemMeta[];
   progress: Record<string, { solved?: boolean }>;
 }
 

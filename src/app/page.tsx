@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Hero } from "@/components/Hero";
 import { StatsStrip } from "@/components/StatsStrip";
@@ -91,6 +92,19 @@ export default function Page() {
         onSelect={handleCategorySelect}
       />
       <SectionHub counts={{ problems: MARKETING_PROBLEM_COUNT }} />
+      <section className="mx-auto w-full max-w-6xl px-4 pb-10 sm:px-6 sm:pb-14">
+        <Link
+          href="/blog"
+          className="flex flex-col gap-1 rounded-lg border border-hairline bg-canvas-card p-4 transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/40 hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-5"
+        >
+          <span className="text-sm font-medium text-ink">
+            Engineering — how we build DeepForge
+          </span>
+          <span className="shrink-0 text-xs text-body-mid">
+            Read the blog →
+          </span>
+        </Link>
+      </section>
       <ZeroAssistant />
       <DeepLink />
     </PageShell>

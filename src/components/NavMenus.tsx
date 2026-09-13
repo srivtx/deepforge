@@ -35,7 +35,8 @@ export type NavItemId =
   | "backup"
   | "discuss"
   | "submit"
-  | "about";
+  | "about"
+  | "blog";
 
 const NAV_ITEM_LABELS: Record<NavItemId, string> = {
   problems: "Problems",
@@ -61,6 +62,7 @@ const NAV_ITEM_LABELS: Record<NavItemId, string> = {
   discuss: "Discuss",
   submit: "Submit a problem",
   about: "About",
+  blog: "Engineering",
 };
 
 export interface NavMenuGroup {
@@ -108,6 +110,10 @@ export const NAV_MENUS: NavMenu[] = [
         label: "Community",
         items: ["discuss", "submit", "about"],
       },
+      {
+        label: "Writing",
+        items: ["blog"],
+      },
     ],
   },
 ];
@@ -133,6 +139,10 @@ export const MOBILE_NAV_GROUPS: { label: string; items: NavItemId[] }[] = [
     label: "Community",
     items: ["discuss", "submit", "about"],
   },
+  {
+    label: "Writing",
+    items: ["blog"],
+  },
 ];
 
 const MENU_ITEM_CLASS =
@@ -149,9 +159,10 @@ export function NavItemLink({
   role?: "menuitem";
   className?: string;
 }) {
+  const href = id === "blog" ? "/blog" : SECTIONS_BY_ID[id].href;
   return (
     <Link
-      href={SECTIONS_BY_ID[id].href}
+      href={href}
       role={role}
       data-nav-item
       onClick={() => onSelect?.()}

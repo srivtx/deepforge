@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Problem } from "@/types/problem";
+import type { ProblemMeta } from "@/data/problems/problem-meta";
 import type { PathLevel, PathStage, ResolvedLearningPath } from "@/lib/paths";
 import {
   nextProblemInPath,
@@ -11,11 +11,12 @@ import {
   stageProgress,
 } from "@/lib/paths";
 import { getProgress, type ProgressMap } from "@/lib/progress";
+import { problemHref } from "@/lib/problemLinks";
 import { cn, difficultyClasses } from "@/lib/utils";
 
 interface PathDetailProps {
   path: ResolvedLearningPath;
-  problems: Problem[];
+  problems: ProblemMeta[];
   prev: ResolvedLearningPath | null;
   next: ResolvedLearningPath | null;
 }
@@ -93,12 +94,14 @@ function StageSection({
   showHeader,
   problems,
   progress,
+  from,
 }: {
   stage: PathStage;
   index: number;
   showHeader: boolean;
-  problems: Map<string, Problem>;
+  problems: Map<string, ProblemMeta>;
   progress: ProgressMap;
+  from: string;
 }) {
   const stats = stageProgress(stage, progress);
   return (
@@ -148,7 +151,7 @@ function StageSection({
                   <div className="min-w-0 flex-1">
                     {problem ? (
                       <Link
-                        href={`/problems/${problem.id}`}
+                        href={problemHref(problem.id, from)}
                         className="block truncate rounded-sm text-sm font-medium text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                       >
                         {problem.title}
@@ -207,6 +210,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
   }, []);
 
   const problemMap = new Map(problems.map((problem) => [problem.id, problem]));
+  const from = `/paths/${path.slug}`;
   const overall = pathProgress(path, progress);
   const nextStep = nextProblemInPath(path, progress);
   const nextProblem = nextStep ? problemMap.get(nextStep.problemId) : undefined;
@@ -283,7 +287,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
         />
         {nextStep && nextProblem ? (
           <Link
-            href={`/problems/${nextStep.problemId}`}
+            href={problemHref(nextStep.problemId, from)}
             aria-label={`Continue ${path.title} with ${nextProblem.title}`}
             className="mt-1 inline-flex w-fit max-w-full items-center gap-2 rounded-lg border border-accent/40 bg-accent/5 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
@@ -357,6 +361,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
               showHeader
               problems={problemMap}
               progress={progress}
+              from={from}
             />
           ))
         ) : (
@@ -366,6 +371,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
             showHeader={false}
             problems={problemMap}
             progress={progress}
+            from={from}
           />
         )}
       </div>

@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Paths } from "@/components/Paths";
+import type { ProblemMeta } from "@/data/problems/problem-meta";
 import { getProgress, type ProgressMap } from "@/lib/progress";
-import type { LearningPath, Problem } from "@/types/problem";
+import type { LearningPath } from "@/types/problem";
 
 interface PathsBrowserProps {
   paths: LearningPath[];
-  problems: Problem[];
+  problems: ProblemMeta[];
 }
 
 /**

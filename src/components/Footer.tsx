@@ -89,6 +89,10 @@ export function Footer() {
             >
               GitHub
             </a>
+            <span className="text-mute">·</span>
+            <Link href="/blog" className={FOOTER_LINK_CLASS}>
+              Engineering blog
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />

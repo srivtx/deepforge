@@ -1,4 +1,6 @@
 import type { MetadataRoute } from "next";
+import { POSTS } from "@/data/blog";
+import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getAllPaths, pathSlug } from "@/lib/paths";
@@ -34,12 +36,35 @@ const ROUTES = [
   { path: "/interview", changeFrequency: "weekly", priority: 0.8 },
   { path: "/math", changeFrequency: "weekly", priority: 0.8 },
   { path: "/articles", changeFrequency: "weekly", priority: 0.8 },
+  { path: "/blog", changeFrequency: "weekly", priority: 0.7 },
   { path: "/sims", changeFrequency: "weekly", priority: 0.7 },
   { path: "/discuss", changeFrequency: "weekly", priority: 0.6 },
   { path: "/submit", changeFrequency: "monthly", priority: 0.5 },
   { path: "/playground", changeFrequency: "monthly", priority: 0.6 },
   { path: "/about", changeFrequency: "monthly", priority: 0.4 },
 ] as const;
+
+const seenPostSlugs = new Set<string>();
+const POST_ROUTES = (Array.isArray(POSTS) ? POSTS : [])
+  .flatMap((entry) => (entry?.post ? [entry.post] : []))
+  .filter((post) => {
+    const slug = post.slug;
+    if (typeof slug !== "string" || slug.length === 0) return false;
+    if (seenPostSlugs.has(slug)) return false;
+    seenPostSlugs.add(slug);
+    return true;
+  })
+  .map((post) => {
+    const published = new Date(post.date);
+    return {
+      url: `${siteUrl}/blog/${post.slug}`,
+      lastModified: Number.isNaN(published.getTime())
+        ? LAST_MODIFIED
+        : published,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    };
+  });
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -79,5 +104,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly" as const,
       priority: 0.8,
     })),
+    ...PREMADE_COLLECTIONS.map((collection) => ({
+      url: `${siteUrl}/collections/${collection.id}`,
+      lastModified: LAST_MODIFIED,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
+    ...POST_ROUTES,
   ];
 }

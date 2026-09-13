@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { Problem } from "@/types/problem";
+import { backTarget } from "@/lib/problemLinks";
 import { categorySlug } from "@/lib/sections";
 import { cn, clipRepr, difficultyClasses } from "@/lib/utils";
 import {
@@ -58,6 +60,8 @@ export function ProblemView({
   variant = "overlay",
 }: ProblemViewProps) {
   const isPage = variant === "page";
+  const searchParams = useSearchParams();
+  const back = backTarget(searchParams.get("from"));
 
   const initialCode =
     getProblemProgress(problem.id).savedCode || problem.starterCode;
@@ -456,7 +460,7 @@ export function ProblemView({
           <>
             {/* Back control — the workspace is a route, not a modal */}
             <Link
-              href="/problems"
+              href={back.href}
               className="inline-flex min-h-11 w-fit items-center gap-1.5 rounded-md text-sm text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0"
             >
               <svg
@@ -474,7 +478,7 @@ export function ProblemView({
                   strokeLinejoin="round"
                 />
               </svg>
-              All problems
+              {back.label}
             </Link>
 
             {/* The single H1 for the route — PageShell renders no title here */}

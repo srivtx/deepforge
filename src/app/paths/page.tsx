@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageShell } from "@/components/PageShell";
-import { LEARNING_PATHS, PROBLEMS } from "@/data/problems";
+import { LEARNING_PATHS } from "@/data/problems/paths";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getAllPaths } from "@/lib/paths";
 import { SECTIONS_BY_ID } from "@/lib/sections";
 import { PathsBrowser } from "./PathsBrowser";
@@ -11,7 +12,13 @@ const siteUrl = (
 ).replace(/\/$/, "");
 
 const resolvedPaths = getAllPaths();
-const knownProblemIds = new Set(PROBLEMS.map((problem) => problem.id));
+const knownProblemIds = new Set(PROBLEM_META.map((problem) => problem.id));
+/**
+ * The browser only reads id/title/category/difficulty from each problem, so
+ * the light index is serialized into the RSC payload instead of the full
+ * problem bank.
+ */
+const pathProblems = PROBLEM_META;
 const distinctProblemIds = new Set<string>();
 let totalHours = 0;
 for (const path of resolvedPaths) {
@@ -123,7 +130,7 @@ export default function PathsPage() {
         </div>
       </div>
 
-      <PathsBrowser paths={LEARNING_PATHS} problems={PROBLEMS} />
+      <PathsBrowser paths={LEARNING_PATHS} problems={pathProblems} />
 
       <footer className="mx-auto w-full max-w-6xl px-4 pb-10 text-xs text-body-mid sm:px-6 sm:pb-14">
         <div className="border-t border-hairline pt-4">
@@ -131,7 +138,7 @@ export default function PathsPage() {
             href="/problems"
             className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
-            Browse all {PROBLEMS.length} problems
+            Browse all {PROBLEM_META.length} problems
           </Link>
           <span aria-hidden className="px-2 text-mute">
             ·

@@ -14,7 +14,12 @@
  * any UI can share.
  */
 
-import { CATEGORIES, LEARNING_PATHS, PROBLEMS } from "@/data/problems";
+import { CATEGORIES } from "@/data/problems/meta";
+import { LEARNING_PATHS } from "@/data/problems/paths";
+import {
+  PROBLEM_META,
+  type ProblemMeta,
+} from "@/data/problems/problem-meta";
 import { LABS } from "@/data/labs";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { getDailyDateKey, getDailyState, type DailyState } from "@/lib/daily";
@@ -55,7 +60,12 @@ export const RESEARCH_BASELINE_XP = 50;
 
 /** XP granted for one solved problem, including the first-solve bonus. */
 export function awardForSolve(problem: Problem): number {
-  return XP_BASE[problem.difficulty] + FIRST_SOLVE_BONUS[problem.difficulty];
+  return awardForDifficulty(problem.difficulty);
+}
+
+/** Same award for the light index entries the profile calculations walk. */
+function awardForDifficulty(difficulty: Difficulty): number {
+  return XP_BASE[difficulty] + FIRST_SOLVE_BONUS[difficulty];
 }
 
 /* ──────────────────────────────── types ─────────────────────────────────── */
@@ -187,12 +197,12 @@ export function getBadgeSnapshot(): BadgeSnapshot {
 /* ─────────────────────────────── derived ────────────────────────────────── */
 
 interface SolveEntry {
-  problem: Problem;
+  problem: ProblemMeta;
   at: Date;
 }
 
 interface Derived {
-  solved: Problem[];
+  solved: ProblemMeta[];
   entries: SolveEntry[];
   byDifficulty: Record<Difficulty, number>;
   solvedByCategory: Map<Category, number>;
@@ -213,7 +223,7 @@ const DERIVED_CACHE = new WeakMap<BadgeSnapshot, Derived>();
 
 const CATEGORY_TOTALS: ReadonlyMap<Category, number> = (() => {
   const totals = new Map<Category, number>();
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     totals.set(problem.category, (totals.get(problem.category) ?? 0) + 1);
   }
   return totals;
@@ -223,7 +233,7 @@ function derive(snapshot: BadgeSnapshot): Derived {
   const cached = DERIVED_CACHE.get(snapshot);
   if (cached) return cached;
 
-  const solved: Problem[] = [];
+  const solved: ProblemMeta[] = [];
   const entries: SolveEntry[] = [];
   const byDifficulty: Record<Difficulty, number> = { Easy: 0, Medium: 0, Hard: 0 };
   const solvedByCategory = new Map<Category, number>();
@@ -232,7 +242,7 @@ function derive(snapshot: BadgeSnapshot): Derived {
   let solvedSaturday = false;
   let solvedSunday = false;
 
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     const record = snapshot.progress[problem.id];
     if (!record?.solved) continue;
     solved.push(problem);
@@ -817,7 +827,7 @@ interface XpCache {
 function xpForSnapshot(snapshot: BadgeSnapshot): number {
   const derived = derive(snapshot);
   let xp = 0;
-  for (const problem of derived.solved) xp += awardForSolve(problem);
+  for (const problem of derived.solved) xp += awardForDifficulty(problem.difficulty);
   xp += derived.labsPassed * LAB_PASS_XP;
   for (const state of Object.values(snapshot.research)) {
     const attempts = Array.isArray(state.attempts) ? state.attempts.length : 0;
@@ -914,7 +924,7 @@ function xpOnDay(
 ): number {
   let xp = 0;
   for (const entry of derived.entries) {
-    if (getDailyDateKey(entry.at) === dayKey) xp += awardForSolve(entry.problem);
+    if (getDailyDateKey(entry.at) === dayKey) xp += awardForDifficulty(entry.problem.difficulty);
   }
   return xp + researchAttemptsOnDay(snapshot, dayKey) * RESEARCH_ATTEMPT_XP;
 }

@@ -7,7 +7,7 @@
  * the catalogue so codes stay stable when new problems are appended to it.
  */
 
-import { PROBLEMS } from "@/data/problems";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 
 export interface Playlist {
   id: string;
@@ -40,7 +40,7 @@ const FALLBACK_NAME = "Untitled playlist";
  * Stable, compact problem-id map: catalogue ids sorted lexicographically.
  * The position in this array is what gets serialized into share codes.
  */
-const PROBLEM_IDS: string[] = PROBLEMS.map((p) => p.id).sort();
+const PROBLEM_IDS: string[] = PROBLEM_META.map((p) => p.id).sort();
 const ID_TO_INDEX = new Map<string, number>(
   PROBLEM_IDS.map((id, index) => [id, index]),
 );

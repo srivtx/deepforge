@@ -15,13 +15,79 @@ import type {
 import { getHintTiers } from "@/lib/hints";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { getDailyState, isTodaySolved } from "@/lib/daily";
-import {
-  CATEGORIES,
-  LEARNING_PATHS,
-  PROBLEMS,
-  getProblemById,
-  getProblemsByCategory,
-} from "@/data/problems";
+import { CATEGORIES } from "@/data/problems/meta";
+import { LEARNING_PATHS } from "@/data/problems/paths";
+import { PROBLEM_META, type ProblemMeta } from "@/data/problems/problem-meta";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lazy problem bank
+//
+// Answers that cite ids/titles/categories and all progress aggregations only
+// need the light PROBLEM_META index. Full records (description, hint, solution)
+// are needed for hint/solution answers and description-weighted retrieval, so
+// the heavy bank is dynamically imported instead of bundled: the browser warms
+// this cache on first use while every synchronous caller falls back to the
+// light index until it lands. Once loaded, answers are identical to the
+// previously bundled behaviour.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ProblemBank = typeof import("@/data/problems");
+
+let problemBank: ProblemBank | null = null;
+let problemBankPromise: Promise<ProblemBank> | null = null;
+
+function loadProblemBank(): Promise<ProblemBank> {
+  if (problemBankPromise === null) {
+    problemBankPromise = import("@/data/problems")
+      .then((module) => {
+        problemBank = module;
+        return module;
+      })
+      .catch((error: unknown) => {
+        problemBankPromise = null;
+        throw error;
+      });
+  }
+  return problemBankPromise;
+}
+
+function warmProblemBank(): void {
+  void loadProblemBank().catch(() => {
+    /* offline or chunk failure — the light index keeps answers working */
+  });
+}
+
+if (typeof window !== "undefined") warmProblemBank();
+
+/** All catalogue entries as (id, title, category, difficulty) tuples. */
+function allProblems(): readonly ProblemMeta[] {
+  return problemBank?.PROBLEMS ?? PROBLEM_META;
+}
+
+function findProblem(id: string): Problem | null {
+  const bank = problemBank?.PROBLEMS;
+  if (!bank) return null;
+  return bank.find((problem) => problem.id === id) ?? null;
+}
+
+function findMeta(id: string): ProblemMeta | null {
+  return PROBLEM_META.find((problem) => problem.id === id) ?? null;
+}
+
+/** Synthesize a full Problem from the light index for hint-style answers. */
+function leanProblem(meta: ProblemMeta, description = ""): Problem {
+  return {
+    ...meta,
+    description,
+    starterCode: "",
+    solution: "",
+    testCases: [],
+  };
+}
+
+function problemsByCategory(category: Category): readonly ProblemMeta[] {
+  return allProblems().filter((problem) => problem.category === category);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -149,7 +215,7 @@ export function classify(q: string): Intent {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// retrieve — BM25-lite over the catalogue (lazy index; PROBLEMS is bundled)
+// retrieve — BM25-lite over the catalogue (lazy index; heavy bank loads async)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TITLE_WEIGHT = 3;
@@ -199,12 +265,17 @@ interface SearchIndex {
 }
 
 let cachedIndex: SearchIndex | null = null;
+let cachedIndexHeavy = false;
 
 function buildIndex(): SearchIndex {
-  const docs: IndexedDoc[] = PROBLEMS.map((p) => {
+  const heavy = problemBank?.PROBLEMS ?? null;
+  const heavyById = heavy
+    ? new Map(heavy.map((problem) => [problem.id, problem]))
+    : null;
+  const docs: IndexedDoc[] = allProblems().map((p) => {
     const titleTokens = tokenize(p.title);
     const categoryTokens = tokenize(p.category);
-    const descTokens = tokenize(p.description);
+    const descTokens = tokenize(heavyById?.get(p.id)?.description ?? "");
     const len = Math.max(
       1,
       TITLE_WEIGHT * titleTokens.length +
@@ -241,7 +312,11 @@ function buildIndex(): SearchIndex {
 }
 
 function getIndex(): SearchIndex {
-  if (!cachedIndex) cachedIndex = buildIndex();
+  const heavy = problemBank !== null;
+  if (!cachedIndex || cachedIndexHeavy !== heavy) {
+    cachedIndex = buildIndex();
+    cachedIndexHeavy = heavy;
+  }
   return cachedIndex;
 }
 
@@ -254,6 +329,7 @@ export interface Retrieved {
 }
 
 export function retrieve(q: string, k = 5): Retrieved[] {
+  warmProblemBank();
   const terms = Array.from(new Set(tokenize(q ?? "")));
   if (terms.length === 0 || k <= 0) return [];
 
@@ -313,7 +389,10 @@ function compareIds(a: { id: string }, b: { id: string }): number {
   return 0;
 }
 
-function byDifficultyThenId(a: Problem, b: Problem): number {
+function byDifficultyThenId(
+  a: { id: string; difficulty: Difficulty },
+  b: { id: string; difficulty: Difficulty },
+): number {
   return (
     DIFFICULTY_RANK[a.difficulty] - DIFFICULTY_RANK[b.difficulty] ||
     compareIds(a, b)
@@ -321,7 +400,7 @@ function byDifficultyThenId(a: Problem, b: Problem): number {
 }
 
 function cite(id: string): string {
-  const problem = getProblemById(id);
+  const problem = findProblem(id) ?? findMeta(id);
   return problem ? `${problem.id} — ${problem.title}` : id;
 }
 
@@ -349,10 +428,11 @@ function progressStats(): ProgressStats {
   const map = getProgress();
   const now = Date.now();
   const week = 7 * 24 * 60 * 60 * 1000;
+  const problems = allProblems();
   let solved = 0;
   let attempted = 0;
   let solvedLast7 = 0;
-  for (const problem of PROBLEMS) {
+  for (const problem of problems) {
     const progress = map[problem.id];
     if (!progress) continue;
     if (progress.attempted) attempted += 1;
@@ -362,7 +442,7 @@ function progressStats(): ProgressStats {
       if (Number.isFinite(at) && now - at <= week) solvedLast7 += 1;
     }
   }
-  return { total: PROBLEMS.length, solved, attempted, solvedLast7 };
+  return { total: problems.length, solved, attempted, solvedLast7 };
 }
 
 interface CategoryStat {
@@ -375,7 +455,7 @@ interface CategoryStat {
 function categoryStats(): CategoryStat[] {
   const map = getProgress();
   return CATEGORIES.map((meta) => {
-    const problems = getProblemsByCategory(meta.name);
+    const problems = problemsByCategory(meta.name);
     const solved = problems.filter((p) => map[p.id]?.solved).length;
     return {
       category: meta.name,
@@ -400,8 +480,8 @@ function weakestCategory(): Category {
   return ranked[0]?.category ?? CATEGORIES[0].name;
 }
 
-function unsolvedIn(category: Category, map: ProgressMap): Problem[] {
-  return getProblemsByCategory(category)
+function unsolvedIn(category: Category, map: ProgressMap): ProblemMeta[] {
+  return problemsByCategory(category)
     .filter((p) => !map[p.id]?.solved)
     .sort(byDifficultyThenId);
 }
@@ -516,8 +596,12 @@ function honestFallback(q: string, matches: Retrieved[]): Answer {
 
 function answerExplain(q: string, ctx: Ctx): Answer {
   if (ctx.problem) {
-    const attached = getProblemById(ctx.problem.id);
+    const attached = findProblem(ctx.problem.id);
     if (attached) return explainProblem(attached);
+    const meta = findMeta(ctx.problem.id);
+    if (meta) {
+      return explainProblem(leanProblem(meta, ctx.problem.description ?? ""));
+    }
     const description = ctx.problem.description
       ? firstSentence(ctx.problem.description)
       : "No description is attached to this problem right now.";
@@ -534,8 +618,11 @@ function answerExplain(q: string, ctx: Ctx): Answer {
   const strong = matches.filter((m) => m.score >= MATCH_THRESHOLD);
   if (strong.length === 0) return honestFallback(q, matches);
 
-  const top = getProblemById(strong[0].id);
-  if (!top) return honestFallback(q, matches);
+  const fullTop = findProblem(strong[0].id);
+  const metaTop = fullTop ? null : findMeta(strong[0].id);
+  if (!fullTop && !metaTop) return honestFallback(q, matches);
+
+  const top = fullTop ?? leanProblem(metaTop!);
 
   const [nudge] = getHintTiers(top);
   const lines = [
@@ -752,8 +839,8 @@ function answerPlaylist(q: string, ctx: Ctx): Answer {
   if (theme.kind === "path") {
     const map = getProgress();
     const remaining = theme.path.problemIds
-      .map((id) => getProblemById(id))
-      .filter((p): p is Problem => Boolean(p))
+      .map((id) => findProblem(id) ?? findMeta(id))
+      .filter((p): p is ProblemMeta => Boolean(p))
       .filter((p) => !map[p.id]?.solved);
     const list = remaining.slice(0, 12);
     if (list.length === 0) {
@@ -818,10 +905,10 @@ function detectCategory(q: string, ctx: Ctx): Category {
 function answerQuiz(q: string, ctx: Ctx): Answer {
   const category = detectCategory(q, ctx);
   const map = getProgress();
-  const all = getProblemsByCategory(category).sort(byDifficultyThenId);
+  const all = [...problemsByCategory(category)].sort(byDifficultyThenId);
   const unsolved = all.filter((p) => !map[p.id]?.solved);
 
-  const picked: Problem[] = [];
+  const picked: ProblemMeta[] = [];
   const difficulties: Difficulty[] = ["Easy", "Medium", "Hard"];
   for (const difficulty of difficulties) {
     const hit = unsolved.find(
@@ -853,10 +940,10 @@ function nextUnsolved(
   count: number,
   map: ProgressMap,
   cursors: Map<Category, number>,
-): Problem[] {
-  const all = getProblemsByCategory(category).sort(byDifficultyThenId);
+): ProblemMeta[] {
+  const all = [...problemsByCategory(category)].sort(byDifficultyThenId);
   let index = cursors.get(category) ?? 0;
-  const picked: Problem[] = [];
+  const picked: ProblemMeta[] = [];
   while (index < all.length && picked.length < count) {
     const problem = all[index];
     index += 1;
@@ -916,9 +1003,8 @@ function answerPlan(): Answer {
     }
   }
 
-  const review = PROBLEMS.filter(
-    (p) => map[p.id]?.attempted && !map[p.id]?.solved,
-  )
+  const review = allProblems()
+    .filter((p) => map[p.id]?.attempted && !map[p.id]?.solved)
     .sort(byDifficultyThenId)
     .slice(0, 3);
   const reviewText =
@@ -936,6 +1022,7 @@ function answerPlan(): Answer {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function respond(q: string, ctx: Ctx = {}): Msg {
+  warmProblemBank();
   const intent = classify(q ?? "");
   let answer: Answer;
   switch (intent) {

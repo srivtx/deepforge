@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/PageShell";
-import { getProblemById } from "@/data/problems";
-import type { Problem } from "@/types/problem";
+import { PROBLEM_META, type ProblemMeta } from "@/data/problems/problem-meta";
 import type { ResolvedLearningPath } from "@/lib/paths";
 import {
   adjacentPaths,
@@ -16,6 +15,8 @@ import { PathDetail } from "./PathDetail";
 const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app"
 ).replace(/\/$/, "");
+
+const META_BY_ID = new Map(PROBLEM_META.map((problem) => [problem.id, problem]));
 
 export const dynamicParams = false;
 
@@ -83,8 +84,8 @@ export default async function LearningPathPage({
   if (!path) notFound();
 
   const problems = flattenPathProblems(path)
-    .map((id) => getProblemById(id))
-    .filter((problem): problem is Problem => Boolean(problem));
+    .map((id) => META_BY_ID.get(id))
+    .filter((problem): problem is ProblemMeta => Boolean(problem));
   const { prev, next } = adjacentPaths(path.slug);
   const url = `${siteUrl}/paths/${path.slug}`;
   const description = pathMetaDescription(path);
@@ -166,6 +167,8 @@ export default async function LearningPathPage({
           <span className="text-body">{path.title}</span>
         </nav>
 
+        {/* The detail view reads only id/title/category/difficulty, so the
+            light index travels in the RSC payload instead of full records. */}
         <PathDetail path={path} problems={problems} prev={prev} next={next} />
 
         <footer className="border-t border-hairline pt-4 text-xs text-body-mid">

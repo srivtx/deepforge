@@ -9,7 +9,9 @@
  * empty results and writes without storage are silent no-ops.
  */
 
-import { CATEGORIES, LEARNING_PATHS, PROBLEMS } from "@/data/problems";
+import { CATEGORIES } from "@/data/problems/meta";
+import { LEARNING_PATHS } from "@/data/problems/paths";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { getUserName } from "@/lib/leaderboard";
@@ -135,7 +137,7 @@ function makeDetail(
 
 const CATEGORY_TOTALS: ReadonlyMap<Category, number> = (() => {
   const totals = new Map<Category, number>();
-  for (const problem of PROBLEMS) {
+  for (const problem of PROBLEM_META) {
     totals.set(problem.category, (totals.get(problem.category) ?? 0) + 1);
   }
   return totals;
@@ -189,7 +191,7 @@ export function getEligible(): CertificateEntry[] {
       const total = CATEGORY_TOTALS.get(meta.name) ?? 0;
       if (total === 0) continue;
       const solved = countSolved(
-        PROBLEMS.filter((problem) => problem.category === meta.name).map(
+        PROBLEM_META.filter((problem) => problem.category === meta.name).map(
           (problem) => problem.id,
         ),
         progress,

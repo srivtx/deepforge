@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   PROBLEM_META,
@@ -326,7 +327,12 @@ export function Collections() {
           >
             <div className="flex items-start justify-between gap-3">
               <h4 className="text-base font-semibold text-ink">
-                {collection.name}
+                <Link
+                  href={`/collections/${collection.id}`}
+                  className="rounded-sm transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                >
+                  {collection.name}
+                </Link>
               </h4>
               <span className="shrink-0 font-mono text-xs text-accent">
                 {solvedCount(collection.problemIds)}/
@@ -337,20 +343,12 @@ export function Collections() {
               {collection.description}
             </p>
             <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenCollection({
-                    id: collection.id,
-                    name: collection.name,
-                    description: collection.description,
-                    problemIds: collection.problemIds,
-                  })
-                }
-                className={primaryButton}
+              <Link
+                href={`/collections/${collection.id}`}
+                className={`${primaryButton} focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40`}
               >
                 Open
-              </button>
+              </Link>
               <button
                 type="button"
                 onClick={() =>
