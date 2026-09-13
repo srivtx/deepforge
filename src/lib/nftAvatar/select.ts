@@ -1,6 +1,7 @@
 import { fnv1a, pickPalette } from "./palette";
+import { PIXEL_TRAIT_CATEGORIES } from "./pixel";
 import { TRAIT_CATEGORIES } from "./traits";
-import type { NftAvatarSelection, Trait } from "./types";
+import type { AvatarStyle, NftAvatarSelection, Trait } from "./types";
 
 /** mulberry32 — tiny deterministic PRNG for stable trait picks. */
 function mulberry32(seed: number): () => number {
@@ -21,6 +22,12 @@ const FALLBACK_TRAIT: Trait = {
   render: () => null,
 };
 
+export function traitCategoriesFor(style: AvatarStyle): Record<string, Trait[]> {
+  return style === "pixel"
+    ? PIXEL_TRAIT_CATEGORIES
+    : (TRAIT_CATEGORIES as unknown as Record<string, Trait[]>);
+}
+
 function pickWeighted(
   traits: Trait[],
   random: () => number,
@@ -36,21 +43,26 @@ function pickWeighted(
   return traits[traits.length - 1];
 }
 
-/** Deterministic trait selection for a seed. Same seed → same avatar. */
-export function selectAvatarTraits(seed: string): NftAvatarSelection {
-  const random = mulberry32(fnv1a(`${seed}:traits`));
+/** Deterministic trait selection for a seed and style. Same input → same avatar. */
+export function selectAvatarTraits(
+  seed: string,
+  style: AvatarStyle = "illustrated",
+): NftAvatarSelection {
+  const random = mulberry32(fnv1a(`${seed}:${style}:traits`));
+  const categories = traitCategoriesFor(style);
   return {
     seed,
-    palette: pickPalette(seed),
+    style,
+    palette: pickPalette(`${seed}:${style}`),
     traits: {
-      background: pickWeighted(TRAIT_CATEGORIES.backgrounds, random),
-      clothing: pickWeighted(TRAIT_CATEGORIES.clothing, random),
-      head: pickWeighted(TRAIT_CATEGORIES.heads, random),
-      mouth: pickWeighted(TRAIT_CATEGORIES.mouths, random),
-      eyes: pickWeighted(TRAIT_CATEGORIES.eyes, random),
-      headwear: pickWeighted(TRAIT_CATEGORIES.headwear, random),
-      accessories: pickWeighted(TRAIT_CATEGORIES.accessories, random),
-      extras: pickWeighted(TRAIT_CATEGORIES.extras, random),
+      background: pickWeighted(categories.backgrounds ?? [], random),
+      clothing: pickWeighted(categories.clothing ?? [], random),
+      head: pickWeighted(categories.heads ?? [], random),
+      mouth: pickWeighted(categories.mouths ?? [], random),
+      eyes: pickWeighted(categories.eyes ?? [], random),
+      headwear: pickWeighted(categories.headwear ?? [], random),
+      accessories: pickWeighted(categories.accessories ?? [], random),
+      extras: pickWeighted(categories.extras ?? [], random),
     },
   };
 }

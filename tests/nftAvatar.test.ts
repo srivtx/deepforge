@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   AVATAR_PALETTES,
+  PIXEL_TRAIT_CATEGORIES,
   rarityScore,
   selectAvatarTraits,
   TRAIT_CATEGORIES,
@@ -62,6 +63,33 @@ describe("nft trait catalog", () => {
         expect(typeof trait.render).toBe("function");
       }
     }
+  });
+
+  test("the pixel style family is fully populated too", () => {
+    expect(PIXEL_TRAIT_CATEGORIES.backgrounds.length).toBeGreaterThanOrEqual(6);
+    expect(PIXEL_TRAIT_CATEGORIES.heads.length).toBeGreaterThanOrEqual(6);
+    expect(PIXEL_TRAIT_CATEGORIES.eyes.length).toBeGreaterThanOrEqual(6);
+    expect(PIXEL_TRAIT_CATEGORIES.mouths.length).toBeGreaterThanOrEqual(6);
+    expect(PIXEL_TRAIT_CATEGORIES.headwear.length).toBeGreaterThanOrEqual(6);
+    expect(PIXEL_TRAIT_CATEGORIES.accessories.length).toBeGreaterThanOrEqual(6);
+    expect(PIXEL_TRAIT_CATEGORIES.clothing.length).toBeGreaterThanOrEqual(5);
+    expect(PIXEL_TRAIT_CATEGORIES.extras.length).toBeGreaterThanOrEqual(5);
+    for (const traits of Object.values(PIXEL_TRAIT_CATEGORIES)) {
+      const ids = traits.map((trait) => trait.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+
+  test("styles select independently and deterministically", () => {
+    const illustrated = selectAvatarTraits("matrix_mo", "illustrated");
+    const pixel = selectAvatarTraits("matrix_mo", "pixel");
+    expect(illustrated.style).toBe("illustrated");
+    expect(pixel.style).toBe("pixel");
+    expect(pixel.traits.head.id).toBe(
+      selectAvatarTraits("matrix_mo", "pixel").traits.head.id,
+    );
+    expect(illustrated.traits.background.id).not.toBe("none");
+    expect(pixel.traits.background.id).not.toBe("none");
   });
 });
 

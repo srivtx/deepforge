@@ -114,7 +114,7 @@ export function Avatar({ seed, size = "md", className, label }: AvatarProps) {
   } else if (isSelf && avatar?.kind === "nft") {
     body = (
       <NftAvatarArt
-        selection={selectAvatarTraits(avatar.seed)}
+        selection={selectAvatarTraits(avatar.seed, avatar.style ?? "illustrated")}
         className="block h-full w-full"
       />
     );

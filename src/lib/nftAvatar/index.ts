@@ -1,4 +1,14 @@
 export { pickPalette, AVATAR_PALETTES } from "./palette";
-export { selectAvatarTraits, rarityScore } from "./select";
+export {
+  rarityScore,
+  selectAvatarTraits,
+  traitCategoriesFor,
+} from "./select";
 export { TRAIT_CATEGORIES } from "./traits";
-export type { AvatarPalette, NftAvatarSelection, Trait } from "./types";
+export { PIXEL_TRAIT_CATEGORIES } from "./pixel";
+export type {
+  AvatarPalette,
+  AvatarStyle,
+  NftAvatarSelection,
+  Trait,
+} from "./types";

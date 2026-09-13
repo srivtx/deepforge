@@ -44,8 +44,11 @@ export interface Trait {
   render: (palette: AvatarPalette, uid: string) => ReactNode;
 }
 
+export type AvatarStyle = "illustrated" | "pixel";
+
 export interface NftAvatarSelection {
   seed: string;
+  style: AvatarStyle;
   palette: AvatarPalette;
   traits: {
     background: Trait;

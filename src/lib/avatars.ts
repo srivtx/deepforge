@@ -62,6 +62,8 @@ export interface AvatarNft {
   kind: "nft";
   /** Deterministic seed for the trait-based generated avatar. */
   seed: string;
+  /** Art style family: illustrated PFP or pixel/voxel. */
+  style?: "illustrated" | "pixel";
 }
 
 export type AvatarState =
@@ -470,11 +472,20 @@ export function parseAvatarState(raw: string | null): AvatarState {
         : null;
     }
     if (record.kind === "nft") {
-      return typeof record.seed === "string" &&
-        record.seed.length > 0 &&
-        record.seed.length <= 120
-        ? { kind: "nft", seed: record.seed }
-        : null;
+      if (
+        typeof record.seed !== "string" ||
+        record.seed.length === 0 ||
+        record.seed.length > 120
+      ) {
+        return null;
+      }
+      const style =
+        record.style === "pixel" || record.style === "illustrated"
+          ? record.style
+          : undefined;
+      return style
+        ? { kind: "nft", seed: record.seed, style }
+        : { kind: "nft", seed: record.seed };
     }
     if (record.kind === "upload") {
       if (

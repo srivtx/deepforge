@@ -1,5 +1,6 @@
 import {
   selectAvatarTraits,
+  type AvatarStyle,
   type NftAvatarSelection,
 } from "@/lib/nftAvatar";
 
@@ -18,6 +19,7 @@ export function NftAvatarArt({
     <svg
       viewBox="0 0 96 96"
       className={className}
+      shapeRendering={selection.style === "pixel" ? "crispEdges" : undefined}
       aria-hidden
       focusable="false"
     >
@@ -36,10 +38,17 @@ export function NftAvatarArt({
 /** Deterministic NFT avatar for any seed (username, id, random reroll). */
 export function NftAvatarSeedArt({
   seed,
+  style = "illustrated",
   className,
 }: {
   seed: string;
+  style?: AvatarStyle;
   className?: string;
 }) {
-  return <NftAvatarArt selection={selectAvatarTraits(seed)} className={className} />;
+  return (
+    <NftAvatarArt
+      selection={selectAvatarTraits(seed, style)}
+      className={className}
+    />
+  );
 }

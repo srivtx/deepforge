@@ -11,7 +11,7 @@ import { getUserName } from "@/lib/leaderboard";
 import { Avatar } from "@/components/Avatar";
 import { CHARACTER_ART } from "@/components/avatars/characters";
 import { NftAvatarArt } from "@/components/avatars/NftAvatarArt";
-import { rarityScore, selectAvatarTraits } from "@/lib/nftAvatar";
+import { rarityScore, selectAvatarTraits, type AvatarStyle } from "@/lib/nftAvatar";
 import {
   removeAvatarImage,
   uploadAvatarImage,
@@ -97,6 +97,11 @@ export function AvatarPicker() {
   const [error, setError] = useState<string | null>(null);
   const [syncNote, setSyncNote] = useState<string | null>(null);
   const [nftSeed, setNftSeed] = useState<string>("");
+  const [nftStyle, setNftStyle] = useState<AvatarStyle>(() =>
+    snapshot.avatar?.kind === "nft" && snapshot.avatar.style === "pixel"
+      ? "pixel"
+      : "illustrated",
+  );
   const fileInput = useRef<HTMLInputElement>(null);
 
   const name = snapshot.name.trim() || "you";
@@ -105,7 +110,7 @@ export function AvatarPicker() {
   const patterns = AVATAR_PRESETS.filter((preset) => !preset.art);
 
   const activeSeed = nftSeed || name;
-  const nftSelection = selectAvatarTraits(activeSeed);
+  const nftSelection = selectAvatarTraits(activeSeed, nftStyle);
   const nftRare = rarityScore(nftSelection);
   const nftTraits = [
     nftSelection.traits.background,
@@ -118,10 +123,10 @@ export function AvatarPicker() {
     nftSelection.traits.extras,
   ].filter((trait) => trait.id !== "none");
 
-  const chooseNft = (seed: string) => {
+  const chooseNft = (seed: string, style: AvatarStyle = nftStyle) => {
     setError(null);
     setSyncNote(null);
-    setAvatar({ kind: "nft", seed });
+    setAvatar({ kind: "nft", seed, style });
   };
 
   const rerollNft = () => {
@@ -254,6 +259,30 @@ export function AvatarPicker() {
               </span>
             )}
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <div
+              role="group"
+              aria-label="Avatar art style"
+              className="flex items-center gap-1 rounded-full border border-hairline p-0.5"
+            >
+              {(["illustrated", "pixel"] as const).map((style) => (
+                <button
+                  key={style}
+                  type="button"
+                  aria-pressed={nftStyle === style}
+                  onClick={() => setNftStyle(style)}
+                  className={cn(
+                    "inline-flex min-h-8 items-center rounded-full px-2.5 text-[11px] transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+                    nftStyle === style
+                      ? "bg-canvas-soft text-ink"
+                      : "text-body-mid hover:text-ink",
+                  )}
+                >
+                  {style === "pixel" ? "Pixel" : "Illustrated"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {nftTraits.map((trait) => (
               <span
@@ -284,11 +313,13 @@ export function AvatarPicker() {
             >
               Reroll
             </button>
-            {avatar?.kind === "nft" && avatar.seed === activeSeed && (
-              <span className="text-[11px] text-accent">
-                Current avatar
-              </span>
-            )}
+            {avatar?.kind === "nft" &&
+              avatar.seed === activeSeed &&
+              (avatar.style ?? "illustrated") === nftStyle && (
+                <span className="text-[11px] text-accent">
+                  Current avatar
+                </span>
+              )}
           </div>
         </div>
       </div>
