@@ -71,9 +71,9 @@ export function getComments(problemId: string): Comment[] {
   return [...list].reverse().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export function addComment(problemId: string, body: string): void {
+export function addComment(problemId: string, body: string): Comment | null {
   const text = body.trim();
-  if (!text) return;
+  if (!text) return null;
   const store = read();
   const comment: Comment = {
     id: makeId(),
@@ -86,6 +86,7 @@ export function addComment(problemId: string, body: string): void {
   };
   store[problemId] = [...(store[problemId] ?? []), comment];
   write(store);
+  return comment;
 }
 
 export function toggleUpvote(problemId: string, commentId: string): void {
@@ -189,7 +190,7 @@ function emptyForum(): ForumStore {
   return { threads: [], replies: [], upvotedThreads: [], upvotedReplies: [] };
 }
 
-function isForumCategory(value: unknown): value is ForumCategory {
+export function isForumCategory(value: unknown): value is ForumCategory {
   return (
     typeof value === "string" &&
     (FORUM_CATEGORIES as string[]).includes(value)
@@ -556,6 +557,187 @@ export function seedForum(): void {
     upvotedThreads: [],
     upvotedReplies: [],
   });
+}
+
+function sameThread(a: ForumThread, b: ForumThread): boolean {
+  return (
+    a.id === b.id &&
+    a.title === b.title &&
+    a.body === b.body &&
+    a.category === b.category &&
+    a.author === b.author &&
+    a.createdAt === b.createdAt &&
+    a.upvotes === b.upvotes &&
+    a.problemRefs.length === b.problemRefs.length &&
+    a.problemRefs.every((ref, index) => ref === b.problemRefs[index])
+  );
+}
+
+function sameReply(a: ForumReply, b: ForumReply): boolean {
+  return (
+    a.id === b.id &&
+    a.threadId === b.threadId &&
+    a.author === b.author &&
+    a.body === b.body &&
+    a.createdAt === b.createdAt &&
+    a.upvotes === b.upvotes
+  );
+}
+
+function sameComment(a: Comment, b: Comment): boolean {
+  return (
+    a.id === b.id &&
+    a.problemId === b.problemId &&
+    a.author === b.author &&
+    a.body === b.body &&
+    a.createdAt === b.createdAt &&
+    a.upvotes === b.upvotes &&
+    a.upvotedByMe === b.upvotedByMe
+  );
+}
+
+function threadIdentity(thread: ForumThread): string {
+  return `${thread.title}\u0000${thread.createdAt}`;
+}
+
+function replyIdentity(reply: ForumReply): string {
+  return `${reply.threadId}\u0000${reply.body}\u0000${reply.createdAt}`;
+}
+
+function commentIdentity(comment: Comment): string {
+  return `${comment.problemId}\u0000${comment.author}\u0000${comment.body}\u0000${comment.createdAt}`;
+}
+
+function byCreatedAt(
+  a: { createdAt: string; id: string },
+  b: { createdAt: string; id: string },
+): number {
+  return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+}
+
+export function mergeRemoteThreads(remote: ForumThread[]): void {
+  if (remote.length === 0) return;
+  const store = readForum();
+  const remoteIds = new Set(remote.map((thread) => thread.id));
+  const remoteKeys = new Set(remote.map(threadIdentity));
+  const pending = store.threads.filter(
+    (thread) => !remoteIds.has(thread.id) && !remoteKeys.has(threadIdentity(thread)),
+  );
+  const merged = [...pending, ...remote].sort(byCreatedAt);
+  if (
+    merged.length === store.threads.length &&
+    merged.every((thread, index) => sameThread(thread, store.threads[index]))
+  ) {
+    return;
+  }
+  store.threads = merged;
+  writeForum(store);
+}
+
+export function mergeRemoteReplies(remote: ForumReply[]): void {
+  if (remote.length === 0) return;
+  const store = readForum();
+  const remoteIds = new Set(remote.map((reply) => reply.id));
+  const remoteKeys = new Set(remote.map(replyIdentity));
+  const pending = store.replies.filter(
+    (reply) => !remoteIds.has(reply.id) && !remoteKeys.has(replyIdentity(reply)),
+  );
+  const merged = [...pending, ...remote].sort(byCreatedAt);
+  if (
+    merged.length === store.replies.length &&
+    merged.every((reply, index) => sameReply(reply, store.replies[index]))
+  ) {
+    return;
+  }
+  store.replies = merged;
+  writeForum(store);
+}
+
+export function mergeRemoteUpvoteIds(
+  threadIds: string[],
+  replyIds: string[],
+): void {
+  const store = readForum();
+  const threads = new Set(store.upvotedThreads);
+  const replies = new Set(store.upvotedReplies);
+  let changed = false;
+  for (const id of threadIds) {
+    if (!threads.has(id)) {
+      threads.add(id);
+      changed = true;
+    }
+  }
+  for (const id of replyIds) {
+    if (!replies.has(id)) {
+      replies.add(id);
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  store.upvotedThreads = [...threads];
+  store.upvotedReplies = [...replies];
+  writeForum(store);
+}
+
+export function setThreadUpvoteCount(id: string, count: number): void {
+  const store = readForum();
+  const next = Math.max(0, Math.floor(count));
+  let changed = false;
+  store.threads = store.threads.map((thread) => {
+    if (thread.id !== id || thread.upvotes === next) return thread;
+    changed = true;
+    return { ...thread, upvotes: next };
+  });
+  if (changed) writeForum(store);
+}
+
+export function setReplyUpvoteCount(id: string, count: number): void {
+  const store = readForum();
+  const next = Math.max(0, Math.floor(count));
+  let changed = false;
+  store.replies = store.replies.map((reply) => {
+    if (reply.id !== id || reply.upvotes === next) return reply;
+    changed = true;
+    return { ...reply, upvotes: next };
+  });
+  if (changed) writeForum(store);
+}
+
+export function mergeRemoteComments(
+  problemId: string,
+  remote: Comment[],
+): void {
+  if (remote.length === 0) return;
+  const store = read();
+  const list = store[problemId] ?? [];
+  const remoteIds = new Set(remote.map((comment) => comment.id));
+  const remoteKeys = new Set(remote.map(commentIdentity));
+  const pending = list.filter(
+    (comment) =>
+      !remoteIds.has(comment.id) && !remoteKeys.has(commentIdentity(comment)),
+  );
+  const existing = new Map(list.map((comment) => [comment.id, comment]));
+  const fromRemote = remote.map((comment) => {
+    const previous = existing.get(comment.id);
+    if (!previous) return comment;
+    return {
+      ...comment,
+      upvotedByMe: previous.upvotedByMe || comment.upvotedByMe,
+    };
+  });
+  const merged = [...pending, ...fromRemote].sort(byCreatedAt);
+  if (
+    merged.length === list.length &&
+    merged.every((comment, index) => sameComment(comment, list[index]))
+  ) {
+    return;
+  }
+  if (merged.length === 0) {
+    delete store[problemId];
+  } else {
+    store[problemId] = merged;
+  }
+  write(store);
 }
 
 export function formatRelativeTime(iso: string): string {

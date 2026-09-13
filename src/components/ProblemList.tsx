@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Problem, Difficulty } from "@/types/problem";
 import { ProblemCard } from "./ProblemCard";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ interface ProblemListProps {
   onSearchChange: (s: string) => void;
   onOpen: (p: Problem) => void;
   categories: string[];
+  initialCategory?: string;
 }
 
 const DIFFICULTIES: (Difficulty | "All")[] = [
@@ -41,9 +42,18 @@ export function ProblemList({
   onSearchChange,
   onOpen,
   categories,
+  initialCategory,
 }: ProblemListProps) {
   const filterKey = `${activeCategory}\u0000${activeDifficulty}\u0000${search}`;
   const [paging, setPaging] = useState({ key: filterKey, count: PAGE_SIZE });
+  const appliedInitialCategory = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!initialCategory || appliedInitialCategory.current === initialCategory)
+      return;
+    appliedInitialCategory.current = initialCategory;
+    if (initialCategory !== activeCategory) onCategoryChange(initialCategory);
+  }, [initialCategory, activeCategory, onCategoryChange]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

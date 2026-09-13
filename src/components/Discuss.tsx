@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -11,18 +12,26 @@ import {
 import {
   FORUM_CATEGORIES,
   FORUM_CHANGE_EVENT,
-  addReply,
-  createThread,
-  deleteThread,
   formatRelativeTime,
   getForumSnapshot,
   seedForum,
-  upvoteReply,
-  upvoteThread,
   type ForumCategory,
   type ForumSnapshot,
   type ForumThread,
 } from "@/lib/comments";
+import { getAuthEmail, isSupabaseConfigured, onAuthChange } from "@/lib/auth";
+import { getUserName } from "@/lib/leaderboard";
+import {
+  createReply,
+  createThread,
+  deleteThread,
+  listReplies,
+  listThreads,
+  subscribe as subscribeSocial,
+  toggleReplyUpvote,
+  toggleThreadUpvote,
+  type SocialResult,
+} from "@/lib/sync/social";
 import { cn } from "@/lib/utils";
 
 interface DiscussProps {
@@ -55,6 +64,76 @@ function subscribeForum(onStoreChange: () => void): () => void {
   };
   window.addEventListener(FORUM_CHANGE_EVENT, onChange);
   return () => window.removeEventListener(FORUM_CHANGE_EVENT, onChange);
+}
+
+type SocialTask<T> = Promise<SocialResult<T>>;
+
+function useGlobalForumHint(): boolean {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const update = (email: string | null) => setShow(email === null);
+    update(getAuthEmail());
+    return onAuthChange(update);
+  }, []);
+  return show;
+}
+
+function useSocialSync(): {
+  notice: string | null;
+  run: <T,>(task: SocialTask<T>, onData?: (data: T) => void) => void;
+} {
+  const [notice, setNotice] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const run = useCallback(
+    <T,>(task: SocialTask<T>, onData?: (data: T) => void) => {
+      void task
+        .then((result) => {
+          if (!mountedRef.current) return;
+          setNotice(result.error);
+          if (result.data != null && onData) onData(result.data);
+        })
+        .catch(() => {});
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      const { data, error } = await listThreads();
+      if (cancelled || !mountedRef.current) return;
+      if (error) setNotice(error);
+      if (!data) return;
+      for (const thread of data) {
+        void listReplies(thread.id)
+          .then((result) => {
+            if (!cancelled && mountedRef.current && result.error) {
+              setNotice(result.error);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+    void refresh();
+    const unsubscribe = subscribeSocial(() => {
+      void refresh();
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
+  return { notice, run };
 }
 
 const CATEGORY_STYLES: Record<ForumCategory, string> = {
@@ -251,6 +330,8 @@ export function Discuss({ problemId }: DiscussProps) {
     getClientForumSnapshot,
     getServerForumSnapshot,
   );
+  const { notice, run } = useSocialSync();
+  const signedOutHint = useGlobalForumHint();
 
   const [filter, setFilter] = useState<ForumCategory | "All">("All");
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
@@ -315,6 +396,10 @@ export function Discuss({ problemId }: DiscussProps) {
     if (openThreadId) detailRef.current?.focus();
   }, [openThreadId]);
 
+  useEffect(() => {
+    if (openThreadId) run(listReplies(openThreadId));
+  }, [openThreadId, run]);
+
   const openDetail = (id: string) => {
     lastThreadIdRef.current = id;
     setComposing(false);
@@ -352,12 +437,13 @@ export function Discuss({ problemId }: DiscussProps) {
       setFormError("Add some detail to the body before posting.");
       return;
     }
-    const created = createThread({
+    const draft = {
       title: cleanTitle,
       body: cleanBody,
       category,
       problemRefs: parseRefs(refs),
-    });
+      username: getUserName(),
+    };
     setTitle("");
     setBody("");
     setCategory("ML Questions");
@@ -365,8 +451,10 @@ export function Discuss({ problemId }: DiscussProps) {
     setFormError(null);
     setComposing(false);
     setFilter("All");
-    lastThreadIdRef.current = created.id;
-    setOpenThreadId(created.id);
+    run(createThread(draft), (thread) => {
+      lastThreadIdRef.current = thread.id;
+      setOpenThreadId(thread.id);
+    });
   };
 
   const submitReply = () => {
@@ -376,7 +464,13 @@ export function Discuss({ problemId }: DiscussProps) {
       setReplyError("Write a reply first.");
       return;
     }
-    addReply(openThreadId, { body: text });
+    run(
+      createReply({
+        threadId: openThreadId,
+        body: text,
+        username: getUserName(),
+      }),
+    );
     setReplyDraft("");
     setReplyError(null);
   };
@@ -421,6 +515,12 @@ export function Discuss({ problemId }: DiscussProps) {
           {composing ? "Cancel" : "New thread"}
         </button>
       </div>
+
+      {notice && (
+        <p role="status" className="mb-3 text-[11px] text-error">
+          {notice}
+        </p>
+      )}
 
       {composing && (
         <form
@@ -526,6 +626,12 @@ export function Discuss({ problemId }: DiscussProps) {
             </p>
           )}
 
+          {signedOutHint && (
+            <p className="mt-2 text-[11px] text-mute">
+              Sign in to post to the global forum.
+            </p>
+          )}
+
           <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
             <span className="mr-auto hidden text-[11px] text-mute sm:inline">
               Ctrl/Cmd+Enter to post
@@ -564,8 +670,7 @@ export function Discuss({ problemId }: DiscussProps) {
               type="button"
               onClick={() => {
                 if (window.confirm("Delete this thread and its replies?")) {
-                  deleteThread(openThread.id);
-                  setOpenThreadId(null);
+                  run(deleteThread(openThread.id), () => setOpenThreadId(null));
                 }
               }}
               className="rounded-md border border-hairline px-2 py-0.5 text-[11px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-error"
@@ -591,7 +696,7 @@ export function Discuss({ problemId }: DiscussProps) {
               count={openThread.upvotes}
               active={upvotedThreads.has(openThread.id)}
               label="thread"
-              onClick={() => upvoteThread(openThread.id)}
+              onClick={() => run(toggleThreadUpvote(openThread.id))}
             />
             <span className="text-[11px] text-mute">
               {openReplies.length}{" "}
@@ -632,7 +737,7 @@ export function Discuss({ problemId }: DiscussProps) {
                         count={reply.upvotes}
                         active={upvotedReplies.has(reply.id)}
                         label="reply"
-                        onClick={() => upvoteReply(reply.id)}
+                        onClick={() => run(toggleReplyUpvote(reply.id))}
                       />
                     </div>
                   </li>
@@ -731,7 +836,7 @@ export function Discuss({ problemId }: DiscussProps) {
                         count={thread.upvotes}
                         active={upvotedThreads.has(thread.id)}
                         label="thread"
-                        onClick={() => upvoteThread(thread.id)}
+                        onClick={() => run(toggleThreadUpvote(thread.id))}
                       />
                       <button
                         type="button"

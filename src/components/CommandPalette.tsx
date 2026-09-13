@@ -11,39 +11,42 @@ import {
 import type { Problem } from "@/types/problem";
 import { CATEGORIES, PROBLEMS } from "@/data/problems";
 import { ProblemView } from "@/components/ProblemView";
+import { openSection, type SectionId } from "@/lib/sections";
 import { cn, difficultyClasses } from "@/lib/utils";
 
 type Row =
   | { key: string; kind: "problem"; problem: Problem }
   | { key: string; kind: "category"; name: string }
-  | { key: string; kind: "page"; label: string; hash: string };
+  | { key: string; kind: "page"; label: string; section: SectionId };
 
 const MAX_RESULTS = 12;
 const MAX_PROBLEM_RESULTS = 8;
 const MAX_CATEGORY_RESULTS = 3;
 
-const PAGES: { label: string; hash: string }[] = [
-  { label: "Problems", hash: "#problems" },
-  { label: "Paths", hash: "#paths" },
-  { label: "Projects", hash: "#projects" },
-  { label: "Contests", hash: "#contests" },
-  { label: "Leaderboard", hash: "#leaderboard" },
-  { label: "Collections", hash: "#collections" },
-  { label: "Interview", hash: "#interview" },
-  { label: "Math", hash: "#math" },
-  { label: "Daily", hash: "#daily" },
-  { label: "Labs", hash: "#labs" },
-  { label: "Research", hash: "#research" },
-  { label: "Articles", hash: "#articles" },
-  { label: "Sims", hash: "#sims" },
-  { label: "Speedrun", hash: "#speedrun" },
-  { label: "Playlists", hash: "#playlists" },
-  { label: "Profile", hash: "#profile" },
-  { label: "Stats", hash: "#stats" },
-  { label: "Certificates", hash: "#certificates" },
-  { label: "Discuss", hash: "#discuss" },
-  { label: "Submit a Problem", hash: "#submit-problem" },
-  { label: "Playground", hash: "#playground" },
+const PAGES: { label: string; section: SectionId }[] = [
+  { label: "Problems", section: "problems" },
+  { label: "Paths", section: "paths" },
+  { label: "Projects", section: "projects" },
+  { label: "Contests", section: "contests" },
+  { label: "Leaderboard", section: "leaderboard" },
+  { label: "Collections", section: "collections" },
+  { label: "Interview", section: "interview" },
+  { label: "Math", section: "penpaper" },
+  { label: "Daily", section: "daily" },
+  { label: "Labs", section: "labs" },
+  { label: "Research", section: "research" },
+  { label: "Articles", section: "articles" },
+  { label: "Sims", section: "sims" },
+  { label: "Speedrun", section: "speedrun" },
+  { label: "Playlists", section: "playlists" },
+  { label: "Profile", section: "badges" },
+  { label: "Stats", section: "stats" },
+  { label: "Certificates", section: "certificates" },
+  { label: "Discuss", section: "discuss" },
+  { label: "Submit a Problem", section: "submit" },
+  { label: "Playground", section: "playground" },
+  { label: "Backup", section: "backup" },
+  { label: "About", section: "about" },
 ];
 
 const GROUP_LABELS: Record<Row["kind"], string> = {
@@ -66,10 +69,10 @@ export function CommandPalette() {
     const q = query.trim().toLowerCase();
     if (!q) {
       return PAGES.map((p) => ({
-        key: `page:${p.hash}`,
+        key: `page:${p.section}`,
         kind: "page" as const,
         label: p.label,
-        hash: p.hash,
+        section: p.section,
       }));
     }
 
@@ -104,10 +107,10 @@ export function CommandPalette() {
       if (out.length >= MAX_RESULTS) break;
       if (p.label.toLowerCase().includes(q)) {
         out.push({
-          key: `page:${p.hash}`,
+          key: `page:${p.section}`,
           kind: "page",
           label: p.label,
-          hash: p.hash,
+          section: p.section,
         });
       }
     }
@@ -135,13 +138,11 @@ export function CommandPalette() {
         return;
       }
       close();
-      const hash = row.kind === "page" ? row.hash : "#problems";
-      const target = document.getElementById(hash.slice(1));
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
-      } else {
-        window.location.hash = hash;
+      if (row.kind === "category") {
+        openSection("problems", { category: row.name });
+        return;
       }
+      openSection(row.section);
     },
     [close],
   );
@@ -260,7 +261,7 @@ export function CommandPalette() {
       <>
         <span className="min-w-0 flex-1 truncate">{row.label}</span>
         <span className="shrink-0 font-mono text-[11px] text-mute">
-          {row.hash}
+          #{row.section}
         </span>
       </>
     );

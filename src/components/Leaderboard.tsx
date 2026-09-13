@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 import { getProgress } from "@/lib/progress";
 import {
@@ -10,6 +10,14 @@ import {
   setUserName,
   type LeaderboardEntry,
 } from "@/lib/leaderboard";
+import {
+  fetchGlobalLeaderboard,
+  isGlobalLeaderboardAvailable,
+  GLOBAL_LEADERBOARD_DEFAULT_LIMIT,
+  type GlobalLeaderboardRow,
+} from "@/lib/sync/leaderboardRemote";
+
+const GLOBAL_ERROR_MESSAGE = "Couldn't reach the leaderboard — try again";
 
 interface BoardSnapshot {
   entries: LeaderboardEntry[];
@@ -59,6 +67,60 @@ export function Leaderboard() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const skipCommit = useRef(false);
+  const globalAvailable = isGlobalLeaderboardAvailable();
+  const [tab, setTab] = useState<"local" | "global">("local");
+  const [globalRows, setGlobalRows] = useState<GlobalLeaderboardRow[]>([]);
+  const [globalLoading, setGlobalLoading] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  useEffect(() => {
+    if (tab !== "global") return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const result = await fetchGlobalLeaderboard(
+          GLOBAL_LEADERBOARD_DEFAULT_LIMIT,
+        );
+        if (cancelled) return;
+        if (!result || result.error) {
+          setGlobalError(GLOBAL_ERROR_MESSAGE);
+          return;
+        }
+        setGlobalRows(result.rows);
+      } catch {
+        if (!cancelled) setGlobalError(GLOBAL_ERROR_MESSAGE);
+      } finally {
+        if (!cancelled) setGlobalLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, refreshToken]);
+
+  const openTab = (next: "local" | "global") => {
+    if (next === "global") {
+      setGlobalLoading(true);
+      setGlobalError(null);
+      setRefreshToken((token) => token + 1);
+    }
+    setTab(next);
+  };
+
+  const refreshGlobal = () => {
+    setGlobalLoading(true);
+    setGlobalError(null);
+    setRefreshToken((token) => token + 1);
+  };
+
+  // Best effort: the leaderboard view exposes usernames but no user ids, and
+  // the sync state only carries an email — the local username (written during
+  // first sign-in) is the closest identity available, so a row is highlighted
+  // when its name matches it case-insensitively.
+  const isSelf = (name: string) =>
+    name.trim().toLowerCase() === board.name.trim().toLowerCase();
 
   const you = board.entries.find((entry) => entry.isYou);
   const score = you?.score ?? 0;
@@ -158,6 +220,54 @@ export function Leaderboard() {
         )}
       </div>
 
+      {globalAvailable && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div
+            role="group"
+            aria-label="Leaderboard scope"
+            className="inline-flex rounded-lg border border-hairline bg-canvas-card p-0.5"
+          >
+            <button
+              type="button"
+              aria-pressed={tab === "local"}
+              onClick={() => openTab("local")}
+              className={cn(
+                "rounded-md px-3 py-1 text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+                tab === "local"
+                  ? "bg-canvas-soft font-medium text-ink"
+                  : "text-body-mid hover:text-ink",
+              )}
+            >
+              Local
+            </button>
+            <button
+              type="button"
+              aria-pressed={tab === "global"}
+              onClick={() => openTab("global")}
+              className={cn(
+                "rounded-md px-3 py-1 text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+                tab === "global"
+                  ? "bg-canvas-soft font-medium text-ink"
+                  : "text-body-mid hover:text-ink",
+              )}
+            >
+              Global
+            </button>
+          </div>
+          {tab === "global" && (
+            <button
+              type="button"
+              onClick={refreshGlobal}
+              disabled={globalLoading}
+              aria-label="Refresh global leaderboard"
+              className="inline-flex items-center justify-center rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink disabled:cursor-default disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+            >
+              Refresh
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-lg border border-hairline bg-canvas-card">
         <table
           aria-label="Leaderboard"
@@ -200,47 +310,127 @@ export function Leaderboard() {
             </tr>
           </thead>
           <tbody>
-            {board.entries.map((entry, index) => (
-              <tr
-                key={entry.id}
-                className={cn(
-                  "border-b border-hairline last:border-b-0",
-                  entry.isYou && "bg-accent/5",
-                )}
-              >
-                <td
+            {tab === "global" ? (
+              globalLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-2 py-3 sm:px-4">
+                    <span className="sr-only">Loading global leaderboard</span>
+                    <span
+                      aria-hidden="true"
+                      className="block h-3 w-full animate-pulse rounded bg-canvas-soft"
+                    />
+                  </td>
+                </tr>
+              ) : globalError ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-5 text-center text-sm text-body-mid"
+                  >
+                    <p role="alert">{globalError}</p>
+                    <button
+                      type="button"
+                      onClick={refreshGlobal}
+                      className="mt-3 inline-flex items-center justify-center rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                    >
+                      Try again
+                    </button>
+                  </td>
+                </tr>
+              ) : globalRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-5 text-center text-sm text-body-mid"
+                  >
+                    No global scores yet. Sync your progress to appear here.
+                  </td>
+                </tr>
+              ) : (
+                globalRows.map((entry, index) => {
+                  const isYou = isSelf(entry.name);
+                  return (
+                    <tr
+                      key={entry.id}
+                      className={cn(
+                        "border-b border-hairline last:border-b-0",
+                        isYou && "bg-accent/5",
+                      )}
+                    >
+                      <td
+                        className={cn(
+                          "px-2 py-2.5 font-mono text-xs text-body-mid sm:px-4",
+                          isYou && "border-l-2 border-accent",
+                        )}
+                      >
+                        {index + 1}
+                      </td>
+                      <td
+                        className={cn(
+                          "truncate px-2 py-2.5 sm:px-4",
+                          isYou ? "font-medium text-accent" : "text-body",
+                        )}
+                      >
+                        {entry.name}
+                      </td>
+                      <td className="px-2 py-2.5 text-right font-mono text-ink sm:px-4">
+                        {entry.score}
+                      </td>
+                      <td className="hidden px-4 py-2.5 text-right font-mono text-body-mid sm:table-cell">
+                        {entry.solved}
+                      </td>
+                      <td className="px-2 py-2.5 text-right font-mono text-body-mid sm:px-4">
+                        {entry.streak}d
+                      </td>
+                    </tr>
+                  );
+                })
+              )
+            ) : (
+              board.entries.map((entry, index) => (
+                <tr
+                  key={entry.id}
                   className={cn(
-                    "px-2 py-2.5 font-mono text-xs text-body-mid sm:px-4",
-                    entry.isYou && "border-l-2 border-accent",
+                    "border-b border-hairline last:border-b-0",
+                    entry.isYou && "bg-accent/5",
                   )}
                 >
-                  {index + 1}
-                </td>
-                <td
-                  className={cn(
-                    "truncate px-2 py-2.5 sm:px-4",
-                    entry.isYou ? "font-medium text-accent" : "text-body",
-                  )}
-                >
-                  {entry.name}
-                </td>
-                <td className="px-2 py-2.5 text-right font-mono text-ink sm:px-4">
-                  {entry.score}
-                </td>
-                <td className="hidden px-4 py-2.5 text-right font-mono text-body-mid sm:table-cell">
-                  {entry.solved}
-                </td>
-                <td className="px-2 py-2.5 text-right font-mono text-body-mid sm:px-4">
-                  {entry.streak}d
-                </td>
-              </tr>
-            ))}
+                  <td
+                    className={cn(
+                      "px-2 py-2.5 font-mono text-xs text-body-mid sm:px-4",
+                      entry.isYou && "border-l-2 border-accent",
+                    )}
+                  >
+                    {index + 1}
+                  </td>
+                  <td
+                    className={cn(
+                      "truncate px-2 py-2.5 sm:px-4",
+                      entry.isYou ? "font-medium text-accent" : "text-body",
+                    )}
+                  >
+                    {entry.name}
+                  </td>
+                  <td className="px-2 py-2.5 text-right font-mono text-ink sm:px-4">
+                    {entry.score}
+                  </td>
+                  <td className="hidden px-4 py-2.5 text-right font-mono text-body-mid sm:table-cell">
+                    {entry.solved}
+                  </td>
+                  <td className="px-2 py-2.5 text-right font-mono text-body-mid sm:px-4">
+                    {entry.streak}d
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
       <p className="mt-4 text-xs text-body-mid">
-        Local leaderboard — your score lives in your browser.
+        {tab === "global"
+          ? "Global leaderboard — top scores synced to Supabase."
+          : "Local leaderboard — your score lives in your browser."}
       </p>
     </section>
   );

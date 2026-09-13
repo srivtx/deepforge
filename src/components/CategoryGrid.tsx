@@ -1,6 +1,7 @@
 "use client";
 
 import type { Category, CategoryMeta } from "@/types/problem";
+import { openSection } from "@/lib/sections";
 
 interface CategoryGridProps {
   categories: CategoryMeta[];
@@ -27,7 +28,10 @@ export function CategoryGrid({
           </p>
         </div>
         <button
-          onClick={() => onSelect("All")}
+          onClick={() => {
+            onSelect("All");
+            openSection("problems");
+          }}
           className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
             activeCategory === "All"
               ? "border-accent/40 bg-accent/5 text-accent"
@@ -44,7 +48,14 @@ export function CategoryGrid({
           return (
             <button
               key={c.name}
-              onClick={() => onSelect(isActive ? "All" : c.name)}
+              onClick={() => {
+                const next = isActive ? "All" : c.name;
+                onSelect(next);
+                openSection(
+                  "problems",
+                  next === "All" ? undefined : { category: next },
+                );
+              }}
               className={`group flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors ${
                 isActive
                   ? "border-accent/50 bg-accent/5"
