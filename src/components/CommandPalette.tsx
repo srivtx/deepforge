@@ -8,9 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { CategoryMeta, Problem } from "@/types/problem";
 import { SECTIONS_BY_ID, categorySlug, type SectionId } from "@/lib/sections";
+import { problemHref } from "@/lib/problemLinks";
 import { cn, difficultyClasses } from "@/lib/utils";
 
 type Row =
@@ -56,6 +57,7 @@ const GROUP_LABELS: Record<Row["kind"], string> = {
 
 export function CommandPalette() {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -155,7 +157,7 @@ export function CommandPalette() {
       if (!row) return;
       close();
       if (row.kind === "problem") {
-        router.push(`/problems/${row.problem.id}`);
+        router.push(problemHref(row.problem.id, pathname));
         return;
       }
       if (row.kind === "category") {
@@ -164,7 +166,7 @@ export function CommandPalette() {
       }
       router.push(SECTIONS_BY_ID[row.section].href);
     },
-    [close, router],
+    [close, router, pathname],
   );
 
   const move = useCallback(

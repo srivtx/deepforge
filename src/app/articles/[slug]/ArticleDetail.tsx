@@ -121,7 +121,7 @@ export function ArticleDetail({ article, prev, next }: ArticleDetailProps) {
                 onClick={() =>
                   window.dispatchEvent(
                     new CustomEvent("deepforge:open-problem", {
-                      detail: { id },
+                      detail: { id, from: `/articles/${article.slug}` },
                     }),
                   )
                 }

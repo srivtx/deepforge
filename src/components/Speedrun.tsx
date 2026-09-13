@@ -483,7 +483,9 @@ export function Speedrun() {
 
   const openProblem = (id: string) => {
     window.dispatchEvent(
-      new CustomEvent("deepforge:open-problem", { detail: { id } }),
+      new CustomEvent("deepforge:open-problem", {
+        detail: { id, from: "/speedrun" },
+      }),
     );
   };
 

@@ -11,6 +11,7 @@ import { PROJECTS, type Project } from "@/data/projects";
 import { INTERVIEW_TRACKS, type InterviewTrack } from "@/data/interview";
 import { cn, difficultyClasses } from "@/lib/utils";
 import { getProgress, type ProgressMap } from "@/lib/progress";
+import { problemHref } from "@/lib/problemLinks";
 import {
   INTERVIEW_CHANGE_EVENT,
   getBestInterviewResult,
@@ -276,7 +277,7 @@ export function InterviewPrep() {
   }
 
   function openProblem(problem: ProblemMeta) {
-    router.push(`/problems/${problem.id}`);
+    router.push(problemHref(problem.id, "/interview"));
   }
 
   function openSetup(track: InterviewTrack, mode: SetupMode, phase = 0) {

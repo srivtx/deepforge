@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getProblemProgress } from "@/lib/progress";
+import { problemHref } from "@/lib/problemLinks";
 import {
   DAILY_CHANGE_EVENT,
   getDailyDateKey,
@@ -136,7 +137,7 @@ export function DailyChallenge() {
               )}
               <button
                 type="button"
-                onClick={() => router.push(`/problems/${problem.id}`)}
+                onClick={() => router.push(problemHref(problem.id, "/daily"))}
                 className="inline-flex min-h-11 items-center justify-center rounded-lg bg-accent px-4 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
               >
                 {solvedToday ? "View" : "Solve"}

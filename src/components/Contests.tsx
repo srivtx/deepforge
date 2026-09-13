@@ -6,6 +6,7 @@ import { CONTESTS, type Contest } from "@/data/contests";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { cn, difficultyClasses } from "@/lib/utils";
 import { getProgress, type ProgressMap } from "@/lib/progress";
+import { problemHref } from "@/lib/problemLinks";
 import {
   CONTEST_CHANGE_EVENT,
   getContestResults,
@@ -299,7 +300,9 @@ export function Contests() {
                       <button
                         key={id}
                         type="button"
-                        onClick={() => router.push(`/problems/${problem.id}`)}
+                        onClick={() =>
+                          router.push(problemHref(problem.id, "/contests"))
+                        }
                         className="flex w-full items-center gap-3 rounded-lg border border-hairline bg-canvas-card px-3 py-2.5 text-left transition-colors hover:bg-canvas-soft"
                       >
                         <span

@@ -199,7 +199,9 @@ function ProblemRefChip({ id }: { id: string }) {
       type="button"
       onClick={() =>
         window.dispatchEvent(
-          new CustomEvent("deepforge:open-problem", { detail: { id } }),
+          new CustomEvent("deepforge:open-problem", {
+            detail: { id, from: "/discuss" },
+          }),
         )
       }
       aria-label={`Open problem ${id}`}

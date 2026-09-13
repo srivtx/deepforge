@@ -16,6 +16,8 @@ const BACK_LABELS: [prefix: string, label: string][] = [
   ["/leaderboard", "Back to leaderboard"],
   ["/discuss", "Back to discuss"],
   ["/playlists", "Back to playlists"],
+  ["/articles/", "Back to article"],
+  ["/blog/", "Back to post"],
 ];
 
 export function safeInternalPath(

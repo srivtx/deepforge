@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ASSISTANT_CHANGE_EVENT,
   appendMessage,
@@ -21,6 +21,7 @@ import {
   type Msg,
 } from "@/lib/assistant";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
+import { problemHref } from "@/lib/problemLinks";
 import { cn } from "@/lib/utils";
 
 const PROBLEM_TITLES = new Map(
@@ -61,11 +62,12 @@ const PROBLEM_CONTEXT_EVENT = "deepforge:problem-context";
 
 function CitationChip({ id }: { id: string }) {
   const router = useRouter();
+  const pathname = usePathname();
   const title = PROBLEM_TITLES.get(id);
   return (
     <button
       type="button"
-      onClick={() => router.push(`/problems/${id}`)}
+      onClick={() => router.push(problemHref(id, pathname))}
       aria-label={`Open problem ${id}`}
       title={title ? `${id} — ${title}` : id}
       className="max-w-full truncate rounded-md border border-hairline bg-canvas px-1.5 py-0.5 text-left font-mono text-[10px] text-body-mid transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
