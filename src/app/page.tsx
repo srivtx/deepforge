@@ -72,6 +72,22 @@ export default function Page() {
     router.replace(`/problems?category=${categorySlug(match.name)}`);
   }, [router, resolveCategory]);
 
+  // The landing page always opens at the top: browser back/forward restores
+  // the previous scroll position, which leaves visitors mid-hero under the
+  // sticky nav. Deep links that own the scroll position are left alone.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("p")) return;
+    const reset = () => window.scrollTo(0, 0);
+    reset();
+    const raf = requestAnimationFrame(reset);
+    const timer = window.setTimeout(reset, 60);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+    };
+  }, []);
+
   const handleCategorySelect = useCallback((): void => {}, []);
 
   return (
