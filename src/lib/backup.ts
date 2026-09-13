@@ -29,6 +29,17 @@ export const PROGRESS_CHANGE_EVENTS = [
   "deepforge:penpaper-change",
   "deepforge:interview-change",
   "deepforge:username-change",
+  "deepforge:lab-change",
+  "deepforge:research-change",
+  "deepforge:forum-change",
+  "deepforge:notebook-change",
+  "deepforge:assistant-change",
+  "deepforge:playlists-change",
+  "deepforge:runs-change",
+  "deepforge:submissions-change",
+  "deepforge:concepts-change",
+  "deepforge:certificates-change",
+  "deepforge:quests-change",
 ] as const;
 
 function getStorage(): Storage | null {

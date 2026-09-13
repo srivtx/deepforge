@@ -1,9 +1,14 @@
 /**
  * Daily challenge: one deterministic problem per local calendar day,
  * plus a localStorage-backed solving streak.
+ *
+ * Persistence routes through the local-first sync seam (`createStore`);
+ * key, event, and validation semantics are unchanged.
  */
 
 import { PROBLEMS } from "@/data/problems";
+import { createStore } from "@/lib/sync/store";
+import type { StoreSpec } from "@/lib/sync/types";
 import type { Problem } from "@/types/problem";
 
 const STORAGE_KEY = "deepforge:daily:v1";
@@ -61,11 +66,9 @@ function emptyState(): DailyState {
   return { lastSolvedDate: null, streak: 0, solvedDates: [] };
 }
 
-function read(): DailyState {
-  if (typeof window === "undefined") return emptyState();
+function parseState(raw: string | null): DailyState {
+  if (!raw) return emptyState();
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyState();
     const parsed = JSON.parse(raw) as Partial<DailyState> | null;
     if (!parsed || typeof parsed !== "object") return emptyState();
     return {
@@ -88,18 +91,17 @@ function read(): DailyState {
   }
 }
 
-function write(state: DailyState): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    window.dispatchEvent(new CustomEvent(DAILY_CHANGE_EVENT));
-  } catch {
-    /* storage unavailable — silently ignore */
-  }
-}
+const dailyStore = createStore<DailyState>({
+  id: "daily",
+  storageKey: STORAGE_KEY,
+  event: DAILY_CHANGE_EVENT,
+  empty: emptyState,
+  parse: parseState,
+  serialize: (v) => JSON.stringify(v),
+});
 
 export function getDailyState(): DailyState {
-  return read();
+  return dailyStore.get();
 }
 
 /**
@@ -108,7 +110,7 @@ export function getDailyState(): DailyState {
  */
 export function markDailySolved(d = new Date()): DailyState {
   const dateKey = getDailyDateKey(d);
-  const state = read();
+  const state = dailyStore.get();
   if (state.solvedDates.includes(dateKey)) return state;
 
   const yesterday = new Date(d);
@@ -120,10 +122,19 @@ export function markDailySolved(d = new Date()): DailyState {
     streak: state.lastSolvedDate === previousKey ? state.streak + 1 : 1,
     solvedDates: [...state.solvedDates, dateKey],
   };
-  write(next);
+  dailyStore.set(next);
   return next;
 }
 
 export function isTodaySolved(d = new Date()): boolean {
-  return read().solvedDates.includes(getDailyDateKey(d));
+  return dailyStore.get().solvedDates.includes(getDailyDateKey(d));
 }
+
+export const DAILY_SPEC: StoreSpec<DailyState> = {
+  id: "daily",
+  storageKey: STORAGE_KEY,
+  event: DAILY_CHANGE_EVENT,
+  empty: emptyState,
+  parse: parseState,
+  serialize: (v) => JSON.stringify(v),
+};

@@ -11,6 +11,8 @@
 
 import { RESEARCH_CHALLENGES, type ResearchChallenge } from "@/data/research";
 import { loadPyodideOnce, runCode } from "@/lib/pyodide";
+import { createStore } from "@/lib/sync/store";
+import type { StoreSpec } from "@/lib/sync/types";
 
 const STORAGE_KEY = "deepforge:research:v1";
 const SCORE_MARKER = "__DEEPFORGE_SCORE__";
@@ -200,39 +202,34 @@ function emptyChallengeState(): ResearchChallengeState {
   };
 }
 
-function read(): ResearchState {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+const researchStore = createStore<ResearchState>({
+  id: "research",
+  storageKey: STORAGE_KEY,
+  event: RESEARCH_CHANGE_EVENT,
+  empty: () => ({}),
+  parse: (raw) => {
     if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return {};
+      }
+      return parsed as ResearchState;
+    } catch {
       return {};
     }
-    return parsed as ResearchState;
-  } catch {
-    return {};
-  }
-}
-
-function write(state: ResearchState): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    window.dispatchEvent(new CustomEvent(RESEARCH_CHANGE_EVENT));
-  } catch {
-    /* storage unavailable — silently ignore */
-  }
-}
+  },
+  serialize: (v) => JSON.stringify(v),
+});
 
 export function getResearchState(): ResearchState {
-  return read();
+  return researchStore.get();
 }
 
 export function getChallengeState(
   challengeId: string,
 ): ResearchChallengeState {
-  return read()[challengeId] ?? emptyChallengeState();
+  return researchStore.get()[challengeId] ?? emptyChallengeState();
 }
 
 /**
@@ -245,7 +242,7 @@ export function saveAttempt(
   score: number,
 ): ResearchChallengeState {
   const challenge = RESEARCH_CHALLENGES.find((c) => c.id === challengeId);
-  const state = read();
+  const state = researchStore.get();
   const current = state[challengeId] ?? emptyChallengeState();
   if (!Number.isFinite(score)) return current;
   const higherIsBetter = challenge ? challenge.higherIsBetter : true;
@@ -260,12 +257,34 @@ export function saveAttempt(
     beatenBaseline: current.beatenBaseline || beaten,
     attempts: [...current.attempts, { score, at }].slice(-50),
   };
-  write(state);
+  researchStore.set(state);
   return state[challengeId];
 }
 
 export function resetResearchChallenge(challengeId: string): void {
-  const state = read();
-  delete state[challengeId];
-  write(state);
+  researchStore.update((state) => {
+    const next = { ...state };
+    delete next[challengeId];
+    return next;
+  });
 }
+
+export const RESEARCH_SPEC: StoreSpec<ResearchState> = {
+  id: "research",
+  storageKey: STORAGE_KEY,
+  event: RESEARCH_CHANGE_EVENT,
+  empty: () => ({}),
+  parse: (raw) => {
+    if (!raw) return {};
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return {};
+      }
+      return parsed as ResearchState;
+    } catch {
+      return {};
+    }
+  },
+  serialize: (v) => JSON.stringify(v),
+};

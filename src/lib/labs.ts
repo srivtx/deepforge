@@ -9,6 +9,8 @@
 
 import { LABS, type Lab } from "@/data/labs";
 import { loadPyodideOnce, runCode } from "@/lib/pyodide";
+import { createStore } from "@/lib/sync/store";
+import type { StoreSpec } from "@/lib/sync/types";
 
 const STORAGE_KEY = "deepforge:labs";
 
@@ -180,36 +182,31 @@ export async function scoreLab(
   }
 }
 
-function read(): LabRecords {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+const labStore = createStore<LabRecords>({
+  id: "labs",
+  storageKey: STORAGE_KEY,
+  event: LAB_CHANGE_EVENT,
+  empty: () => ({}),
+  parse: (raw) => {
     if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? (parsed as LabRecords) : {};
-  } catch {
-    return {};
-  }
-}
-
-function write(records: LabRecords): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    window.dispatchEvent(new CustomEvent(LAB_CHANGE_EVENT));
-  } catch {
-    return;
-  }
-}
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? (parsed as LabRecords) : {};
+    } catch {
+      return {};
+    }
+  },
+  serialize: (v) => JSON.stringify(v),
+});
 
 /** All lab records for this browser. */
 export function getLabRecords(): LabRecords {
-  return read();
+  return labStore.get();
 }
 
 /** Best record for one lab, or null if it has never been run. */
 export function getLabBest(labId: string): LabRecord | null {
-  return read()[labId] ?? null;
+  return labStore.get()[labId] ?? null;
 }
 
 /**
@@ -218,7 +215,7 @@ export function getLabBest(labId: string): LabRecord | null {
  */
 export function setLabBest(labId: string, score: number): LabRecord {
   const lab = LABS.find((item) => item.id === labId) ?? null;
-  const records = read();
+  const records = labStore.get();
   const current: LabRecord = records[labId] ?? {
     best: null,
     attempts: 0,
@@ -237,6 +234,23 @@ export function setLabBest(labId: string, score: number): LabRecord {
     passed: current.passed || (lab !== null && meetsTarget(lab, score)),
   };
   records[labId] = next;
-  write(records);
+  labStore.set(records);
   return next;
 }
+
+export const LAB_SPEC: StoreSpec<LabRecords> = {
+  id: "labs",
+  storageKey: STORAGE_KEY,
+  event: LAB_CHANGE_EVENT,
+  empty: () => ({}),
+  parse: (raw) => {
+    if (!raw) return {};
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? (parsed as LabRecords) : {};
+    } catch {
+      return {};
+    }
+  },
+  serialize: (v) => JSON.stringify(v),
+};

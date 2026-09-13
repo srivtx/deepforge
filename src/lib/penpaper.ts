@@ -4,9 +4,14 @@
  * One record per problem: whether it was attempted, whether the most recent
  * answer (or any past answer) was correct, and when it was last answered.
  * A problem that has ever been answered correctly stays marked correct.
+ *
+ * Persistence routes through the local-first sync seam (`createStore`);
+ * key, event, and validation semantics are unchanged.
  */
 
 import { PENPAPER_PROBLEMS } from "@/data/penpaper";
+import { createStore } from "@/lib/sync/store";
+import type { StoreSpec } from "@/lib/sync/types";
 
 const STORAGE_KEY = "deepforge:penpaper:v1";
 
@@ -36,11 +41,9 @@ function isRecord(value: unknown): value is PenPaperRecord {
   );
 }
 
-function read(): PenPaperProgressMap {
-  if (typeof window === "undefined") return {};
+function parseProgress(raw: string | null): PenPaperProgressMap {
+  if (!raw) return {};
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
       return {};
@@ -55,43 +58,36 @@ function read(): PenPaperProgressMap {
   }
 }
 
-function write(progress: PenPaperProgressMap): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-    window.dispatchEvent(new CustomEvent(PENPAPER_CHANGE_EVENT));
-  } catch {
-    /* storage unavailable - silently ignore */
-  }
-}
+const penpaperStore = createStore<PenPaperProgressMap>({
+  id: "penpaper",
+  storageKey: STORAGE_KEY,
+  event: PENPAPER_CHANGE_EVENT,
+  empty: () => ({}),
+  parse: parseProgress,
+  serialize: (v) => JSON.stringify(v),
+});
 
 export function getPenPaperProgress(): PenPaperProgressMap {
-  return read();
+  return penpaperStore.get();
 }
 
 export function recordPenPaperAnswer(id: string, correct: boolean): void {
-  const all = read();
-  const prev = all[id];
-  all[id] = {
-    attempted: true,
-    correct: correct || Boolean(prev?.correct),
-    lastAt: new Date().toISOString(),
-  };
-  write(all);
+  penpaperStore.update((all) => ({
+    ...all,
+    [id]: {
+      attempted: true,
+      correct: correct || Boolean(all[id]?.correct),
+      lastAt: new Date().toISOString(),
+    },
+  }));
 }
 
 export function resetPenPaperProgress(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-    window.dispatchEvent(new CustomEvent(PENPAPER_CHANGE_EVENT));
-  } catch {
-    /* storage unavailable - silently ignore */
-  }
+  penpaperStore.clear();
 }
 
 export function getPenPaperStats(): PenPaperStats {
-  const all = read();
+  const all = penpaperStore.get();
   let attempted = 0;
   let correct = 0;
   for (const record of Object.values(all)) {
@@ -101,3 +97,12 @@ export function getPenPaperStats(): PenPaperStats {
   }
   return { attempted, correct, total: PENPAPER_PROBLEMS.length };
 }
+
+export const PENPAPER_SPEC: StoreSpec<PenPaperProgressMap> = {
+  id: "penpaper",
+  storageKey: STORAGE_KEY,
+  event: PENPAPER_CHANGE_EVENT,
+  empty: () => ({}),
+  parse: parseProgress,
+  serialize: (v) => JSON.stringify(v),
+};

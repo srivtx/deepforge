@@ -3,7 +3,13 @@
  *
  * One result records a single timed interview attempt for a track. The
  * score is computed by the UI as solved * 10 - seconds / 60, floored at 0.
+ *
+ * Persistence routes through the local-first sync seam (`createStore`);
+ * key, event, and parse semantics are unchanged.
  */
+
+import { createStore } from "@/lib/sync/store";
+import type { StoreSpec } from "@/lib/sync/types";
 
 const STORAGE_KEY = "deepforge:interview:v1";
 
@@ -17,34 +23,25 @@ export interface InterviewResult {
   completedAt: string;
 }
 
-function read(): InterviewResult[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+const interviewStore = createStore<InterviewResult[]>({
+  id: "interview",
+  storageKey: STORAGE_KEY,
+  event: INTERVIEW_CHANGE_EVENT,
+  empty: () => [],
+  parse: (raw) => {
     if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as InterviewResult[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function write(results: InterviewResult[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
-    window.dispatchEvent(new CustomEvent(INTERVIEW_CHANGE_EVENT));
-  } catch {
-    /* storage unavailable — silently ignore */
-  }
-}
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as InterviewResult[]) : [];
+    } catch {
+      return [];
+    }
+  },
+  serialize: (v) => JSON.stringify(v),
+});
 
 export function getInterviewResults(): InterviewResult[] {
-  try {
-    return read();
-  } catch {
-    return [];
-  }
+  return interviewStore.get();
 }
 
 /**
@@ -61,13 +58,9 @@ export function saveInterviewResult(
     seconds: Math.max(0, Math.round(result.seconds)),
     completedAt: new Date().toISOString(),
   };
-  try {
-    const all = read();
-    all.push(stored);
-    write(all);
-  } catch {
-    /* storage unavailable — still return the result for the UI */
-  }
+  const all = interviewStore.get();
+  all.push(stored);
+  interviewStore.set(all);
   return stored;
 }
 
@@ -75,32 +68,39 @@ export function saveInterviewResult(
  * Best attempt for a track: most solved, then fastest, then most recent.
  */
 export function getBestInterviewResult(trackId: string): InterviewResult | null {
-  try {
-    const results = read().filter((r) => r.trackId === trackId);
-    if (results.length === 0) return null;
-    return results.reduce((best, r) => {
-      if (r.solved > best.solved) return r;
-      if (r.solved === best.solved && r.seconds < best.seconds) return r;
-      if (
-        r.solved === best.solved &&
-        r.seconds === best.seconds &&
-        r.completedAt > best.completedAt
-      ) {
-        return r;
-      }
-      return best;
-    });
-  } catch {
-    return null;
-  }
+  const results = interviewStore.get().filter((r) => r.trackId === trackId);
+  if (results.length === 0) return null;
+  return results.reduce((best, r) => {
+    if (r.solved > best.solved) return r;
+    if (r.solved === best.solved && r.seconds < best.seconds) return r;
+    if (
+      r.solved === best.solved &&
+      r.seconds === best.seconds &&
+      r.completedAt > best.completedAt
+    ) {
+      return r;
+    }
+    return best;
+  });
 }
 
 export function clearInterviewResults(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-    window.dispatchEvent(new CustomEvent(INTERVIEW_CHANGE_EVENT));
-  } catch {
-    /* storage unavailable — silently ignore */
-  }
+  interviewStore.clear();
 }
+
+export const INTERVIEW_SPEC: StoreSpec<InterviewResult[]> = {
+  id: "interview",
+  storageKey: STORAGE_KEY,
+  event: INTERVIEW_CHANGE_EVENT,
+  empty: () => [],
+  parse: (raw) => {
+    if (!raw) return [];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as InterviewResult[]) : [];
+    } catch {
+      return [];
+    }
+  },
+  serialize: (v) => JSON.stringify(v),
+};

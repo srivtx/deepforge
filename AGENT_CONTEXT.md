@@ -352,4 +352,4 @@ If you are an AI agent working on DeepForge:
 - **Pen-and-paper:** ✅ 60 no-code problems
 - **SEO:** ✅ Metadata, manifest, robots, sitemap
 
-**Next priority:** Supabase backend (see docs/supabase-plan.md) for cross-device progress and community features, PWA/offline support, bundle code-splitting, and continued LLM-systems content growth.
+**Next priority:** push the Supabase migration to project `klogjcspyiygnggmugjy` (see docs/SETUP-SUPABASE.md), configure Auth redirect URLs, then bundle code-splitting and continued LLM-systems content growth. Sync code is shipped and env-gated: the app stays 100% local until `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set and a user signs in.

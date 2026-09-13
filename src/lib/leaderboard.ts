@@ -1,5 +1,7 @@
 import { PROBLEMS } from "@/data/problems";
 import { getProgress, type ProgressMap } from "@/lib/progress";
+import { createStore } from "@/lib/sync/store";
+import type { StoreSpec } from "@/lib/sync/types";
 import type { Difficulty } from "@/types/problem";
 
 export interface LeaderboardEntry {
@@ -18,8 +20,18 @@ const DIFFICULTY_WEIGHTS: Record<Difficulty, number> = {
 };
 
 const USERNAME_KEY = "deepforge:username:v1";
+const USERNAME_CHANGE_EVENT = "deepforge:username-change";
 const DEFAULT_USERNAME = "you";
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const usernameStore = createStore<string>({
+  id: "username",
+  storageKey: USERNAME_KEY,
+  event: USERNAME_CHANGE_EVENT,
+  empty: () => DEFAULT_USERNAME,
+  parse: (raw) => (raw && raw.trim() ? raw.trim() : DEFAULT_USERNAME),
+  serialize: (v) => v,
+});
 
 export function getFlameScore(progress: ProgressMap): number {
   let score = 0;
@@ -81,24 +93,11 @@ export function getLongestStreak(progress: ProgressMap): number {
 }
 
 export function getUserName(): string {
-  if (typeof window === "undefined") return DEFAULT_USERNAME;
-  try {
-    const stored = window.localStorage.getItem(USERNAME_KEY);
-    return stored && stored.trim() ? stored.trim() : DEFAULT_USERNAME;
-  } catch {
-    return DEFAULT_USERNAME;
-  }
+  return usernameStore.get();
 }
 
 export function setUserName(name: string): void {
-  if (typeof window === "undefined") return;
-  const next = name.trim() || DEFAULT_USERNAME;
-  try {
-    window.localStorage.setItem(USERNAME_KEY, next);
-    window.dispatchEvent(new CustomEvent("deepforge:username-change"));
-  } catch {
-    /* storage unavailable — ignore */
-  }
+  usernameStore.set(name.trim() || DEFAULT_USERNAME);
 }
 
 interface BotDefinition {
@@ -155,3 +154,12 @@ export function getLeaderboard(): LeaderboardEntry[] {
   });
   return entries;
 }
+
+export const USERNAME_SPEC: StoreSpec<string> = {
+  id: "username",
+  storageKey: USERNAME_KEY,
+  event: USERNAME_CHANGE_EVENT,
+  empty: () => "",
+  parse: (raw) => (raw && raw.trim() ? raw.trim() : ""),
+  serialize: (v) => v,
+};

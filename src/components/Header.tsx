@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { SyncPanel } from "./SyncPanel";
 import { ThemeToggle } from "./ThemeToggle";
 
 interface HeaderProps {
@@ -28,9 +29,30 @@ const MOBILE_LINKS: { label: string; hash: string }[] = [
   { label: "About", hash: "#about" },
 ];
 
+function SyncIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      className={`${className} shrink-0`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+      <path d="M16 16h5v5" />
+    </svg>
+  );
+}
+
 export function Header({ solvedCount, totalCount }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -54,13 +76,14 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
   }, [menuOpen]);
 
   return (
-    <header
-      className={`sticky top-0 z-40 w-full border-b transition-colors ${
-        scrolled
-          ? "border-hairline bg-canvas/85 backdrop-blur-md"
-          : "border-transparent bg-canvas"
-      }`}
-    >
+    <>
+      <header
+        className={`sticky top-0 z-40 w-full border-b transition-colors ${
+          scrolled
+            ? "border-hairline bg-canvas/85 backdrop-blur-md"
+            : "border-transparent bg-canvas"
+        }`}
+      >
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
         <a href="#top" className="flex items-baseline gap-2">
           <span className="text-[15px] font-semibold tracking-tight text-ink">
@@ -178,6 +201,15 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
             <span>Search</span>
             <span className="font-mono text-[10px] text-mute">⌘K</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setSyncOpen(true)}
+            aria-label="Sync across devices"
+            className="ml-1 hidden h-8 items-center gap-1.5 rounded-md border border-hairline px-2.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:flex"
+          >
+            <SyncIcon />
+            <span>Sync</span>
+          </button>
           <div className="ml-1 sm:ml-2">
             <ThemeToggle />
           </div>
@@ -244,6 +276,20 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
                 {link.label}
               </a>
             ))}
+            <div className="mt-1 border-t border-hairline pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setSyncOpen(true);
+                }}
+                aria-label="Sync across devices"
+                className="flex min-h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+              >
+                <SyncIcon />
+                <span>Sync</span>
+              </button>
+            </div>
             <div className="mt-1 flex items-center gap-2 border-t border-hairline px-3 pb-1 pt-3 text-xs text-body-mid">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" />
               <span className="font-mono">
@@ -253,6 +299,8 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
           </nav>
         </div>
       )}
-    </header>
+      </header>
+      <SyncPanel open={syncOpen} onClose={() => setSyncOpen(false)} />
+    </>
   );
 }

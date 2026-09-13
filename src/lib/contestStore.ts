@@ -3,10 +3,15 @@
  *
  * A result records the score of one contest attempt. Scoring reads global
  * problem progress: Easy = 1, Medium = 3, Hard = 5 per solved problem.
+ *
+ * Persistence routes through the local-first sync seam (`createStore`);
+ * key, event, and parse semantics are unchanged.
  */
 
 import { getProgress } from "@/lib/progress";
 import { getProblemById } from "@/data/problems";
+import { createStore } from "@/lib/sync/store";
+import type { StoreSpec } from "@/lib/sync/types";
 import type { Contest } from "@/data/contests";
 import type { Difficulty } from "@/types/problem";
 
@@ -29,30 +34,25 @@ const DIFFICULTY_POINTS: Record<Difficulty, number> = {
   Hard: 5,
 };
 
-function read(): ContestResult[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+const contestStore = createStore<ContestResult[]>({
+  id: "contests",
+  storageKey: STORAGE_KEY,
+  event: CONTEST_CHANGE_EVENT,
+  empty: () => [],
+  parse: (raw) => {
     if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as ContestResult[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function write(results: ContestResult[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
-    window.dispatchEvent(new CustomEvent(CONTEST_CHANGE_EVENT));
-  } catch {
-    /* storage unavailable — silently ignore */
-  }
-}
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as ContestResult[]) : [];
+    } catch {
+      return [];
+    }
+  },
+  serialize: (v) => JSON.stringify(v),
+});
 
 export function getContestResults(): ContestResult[] {
-  return read();
+  return contestStore.get();
 }
 
 /**
@@ -82,9 +82,9 @@ export function saveContestResult(
     completedAt: new Date().toISOString(),
   };
 
-  const all = read();
+  const all = contestStore.get();
   all.push(result);
-  write(all);
+  contestStore.set(all);
   return result;
 }
 
@@ -92,7 +92,7 @@ export function saveContestResult(
  * Highest score for a contest; ties break toward the faster run.
  */
 export function getBestResult(contestId: string): ContestResult | null {
-  const results = read().filter((r) => r.contestId === contestId);
+  const results = contestStore.get().filter((r) => r.contestId === contestId);
   if (results.length === 0) return null;
   return results.reduce((best, r) => {
     if (r.score > best.score) return r;
@@ -104,11 +104,22 @@ export function getBestResult(contestId: string): ContestResult | null {
 }
 
 export function clearContestResults(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-    window.dispatchEvent(new CustomEvent(CONTEST_CHANGE_EVENT));
-  } catch {
-    /* storage unavailable — silently ignore */
-  }
+  contestStore.clear();
 }
+
+export const CONTEST_SPEC: StoreSpec<ContestResult[]> = {
+  id: "contests",
+  storageKey: STORAGE_KEY,
+  event: CONTEST_CHANGE_EVENT,
+  empty: () => [],
+  parse: (raw) => {
+    if (!raw) return [];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as ContestResult[]) : [];
+    } catch {
+      return [];
+    }
+  },
+  serialize: (v) => JSON.stringify(v),
+};

@@ -3,7 +3,12 @@
  *
  * A collection is just a named list of problem ids. Nothing here validates
  * that the ids exist — callers should filter against the problem catalog.
+ *
+ * Persistence routes through the local-first sync seam (`createStore`).
  */
+
+import { createStore } from "@/lib/sync/store";
+import type { StoreSpec } from "@/lib/sync/types";
 
 export interface UserCollection {
   id: string;
@@ -11,6 +16,7 @@ export interface UserCollection {
   description: string;
   problemIds: string[];
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface UserCollectionDraft {
@@ -27,7 +33,11 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
-function isUserCollection(value: unknown): value is UserCollection {
+type StoredCollection = Omit<UserCollection, "updatedAt"> & {
+  updatedAt?: string;
+};
+
+function isStoredCollection(value: unknown): value is StoredCollection {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
@@ -39,31 +49,34 @@ function isUserCollection(value: unknown): value is UserCollection {
   );
 }
 
-function read(): UserCollection[] {
-  if (typeof window === "undefined") return [];
+function parseCollections(raw: string | null): UserCollection[] {
+  if (!raw) return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isUserCollection);
+    return parsed.filter(isStoredCollection).map((collection) => ({
+      ...collection,
+      updatedAt:
+        typeof collection.updatedAt === "string" && collection.updatedAt
+          ? collection.updatedAt
+          : collection.createdAt,
+    }));
   } catch {
     return [];
   }
 }
 
-function write(collections: UserCollection[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(collections));
-    window.dispatchEvent(new CustomEvent(COLLECTIONS_CHANGE_EVENT));
-  } catch {
-    /* storage unavailable — silently ignore */
-  }
-}
+const collectionsStore = createStore<UserCollection[]>({
+  id: "collections",
+  storageKey: STORAGE_KEY,
+  event: COLLECTIONS_CHANGE_EVENT,
+  empty: () => [],
+  parse: parseCollections,
+  serialize: (v) => JSON.stringify(v),
+});
 
 export function getUserCollections(): UserCollection[] {
-  return read();
+  return collectionsStore.get();
 }
 
 function makeId(): string {
@@ -78,16 +91,18 @@ function makeId(): string {
 
 /** Create a collection and persist it. Returns the saved record. */
 export function saveUserCollection(draft: UserCollectionDraft): UserCollection {
+  const now = new Date().toISOString();
   const collection: UserCollection = {
     id: makeId(),
     name: draft.name.trim(),
     description: draft.description.trim(),
     problemIds: [...new Set(draft.problemIds)],
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   };
-  const all = read();
+  const all = collectionsStore.get();
   all.push(collection);
-  write(all);
+  collectionsStore.set(all);
   return collection;
 }
 
@@ -96,7 +111,7 @@ export function updateUserCollection(
   id: string,
   patch: Partial<UserCollectionDraft>,
 ): UserCollection | null {
-  const all = read();
+  const all = collectionsStore.get();
   const index = all.findIndex((c) => c.id === id);
   if (index === -1) return null;
   const current = all[index];
@@ -111,17 +126,18 @@ export function updateUserCollection(
       patch.problemIds !== undefined
         ? [...new Set(patch.problemIds)]
         : current.problemIds,
+    updatedAt: new Date().toISOString(),
   };
   all[index] = updated;
-  write(all);
+  collectionsStore.set(all);
   return updated;
 }
 
 export function deleteUserCollection(id: string): void {
-  const all = read();
+  const all = collectionsStore.get();
   const next = all.filter((c) => c.id !== id);
   if (next.length === all.length) return;
-  write(next);
+  collectionsStore.set(next);
 }
 
 /* ── Share codes: base64url-encoded JSON arrays of problem ids ── */
@@ -150,3 +166,12 @@ export function decodeCollection(code: string): string[] | null {
     return null;
   }
 }
+
+export const COLLECTIONS_SPEC: StoreSpec<UserCollection[]> = {
+  id: "collections",
+  storageKey: STORAGE_KEY,
+  event: COLLECTIONS_CHANGE_EVENT,
+  empty: () => [],
+  parse: parseCollections,
+  serialize: (v) => JSON.stringify(v),
+};
