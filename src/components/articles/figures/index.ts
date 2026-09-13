@@ -4,3 +4,6 @@ export { DescentContours } from "./DescentContours";
 export { KMeansLoop } from "./KMeansLoop";
 export { AttentionPipeline } from "./AttentionPipeline";
 export { AttentionHeatmap } from "./AttentionHeatmap";
+export { BpeMergeCascade } from "./BpeMergeCascade";
+export { EmbeddingGeometry } from "./EmbeddingGeometry";
+export { QuantizationNumberLine } from "./QuantizationNumberLine";

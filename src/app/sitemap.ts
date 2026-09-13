@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { ARTICLES } from "@/data/articles";
 import { POSTS } from "@/data/blog";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
+import { PROJECTS } from "@/data/projects";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getAllPaths, pathSlug } from "@/lib/paths";
@@ -11,6 +12,8 @@ const siteUrl = (
 ).replace(/\/$/, "");
 
 const LAST_MODIFIED = new Date("2026-09-01T00:00:00.000Z");
+
+const BANK_IDS = new Set(PROBLEM_META.map((problem) => problem.id));
 
 function categorySlug(name: string): string {
   return name
@@ -117,6 +120,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: 0.6,
     })),
+    ...PROJECTS.flatMap((project) =>
+      project.steps
+        .filter((step) => !BANK_IDS.has(step.id))
+        .map((step) => ({
+          url: `${siteUrl}/problems/${step.id}`,
+          lastModified: LAST_MODIFIED,
+          changeFrequency: "monthly" as const,
+          priority: 0.5,
+        })),
+    ),
     ...POST_ROUTES,
   ];
 }

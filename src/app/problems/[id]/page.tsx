@@ -7,6 +7,7 @@ import {
   getProblemById,
   getProblemsByCategory,
 } from "@/data/problems";
+import { PROJECTS } from "@/data/projects";
 import type { Problem } from "@/types/problem";
 import { cn, clipRepr, difficultyClasses } from "@/lib/utils";
 import { ProblemWorkspace } from "./ProblemWorkspace";
@@ -35,7 +36,26 @@ function problemMetaDescription(problem: Problem): string {
 }
 
 export function generateStaticParams(): { id: string }[] {
-  return PROBLEMS.map((problem) => ({ id: problem.id }));
+  const projectStepIds = PROJECTS.flatMap((project) =>
+    project.steps.map((step) => step.id),
+  );
+  const ids = new Set([
+    ...PROBLEMS.map((problem) => problem.id),
+    ...projectStepIds,
+  ]);
+  return [...ids].map((id) => ({ id }));
+}
+
+function findProjectStep(id: string): Problem | undefined {
+  for (const project of PROJECTS) {
+    const step = project.steps.find((candidate) => candidate.id === id);
+    if (step) return step;
+  }
+  return undefined;
+}
+
+function findProblem(id: string): Problem | undefined {
+  return getProblemById(id) ?? findProjectStep(id);
 }
 
 export async function generateMetadata({
@@ -44,7 +64,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const problem = getProblemById(id);
+  const problem = findProblem(id);
   if (!problem) return { title: "Problem not found" };
 
   const description = problemMetaDescription(problem);
@@ -82,7 +102,7 @@ export default async function ProblemPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const problem = getProblemById(id);
+  const problem = findProblem(id);
   if (!problem) notFound();
 
   const slug = categorySlug(problem.category);

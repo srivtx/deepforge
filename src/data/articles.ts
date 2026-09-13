@@ -2,9 +2,12 @@ import type { ComponentType } from "react";
 import {
   AttentionHeatmap,
   AttentionPipeline,
+  BpeMergeCascade,
   DescentContours,
   EigenvectorGrid,
+  EmbeddingGeometry,
   KMeansLoop,
+  QuantizationNumberLine,
   SoftmaxTemperatureCurve,
 } from "@/components/articles/figures";
 
@@ -13,7 +16,10 @@ export type DemoKind =
   | "eigenvector"
   | "gradient-descent"
   | "kmeans"
-  | "attention";
+  | "attention"
+  | "bpe-merge"
+  | "embedding-cosine"
+  | "quantization-scale";
 
 export type FigureKind =
   | "softmax-temperature-curve"
@@ -21,7 +27,10 @@ export type FigureKind =
   | "descent-contours"
   | "kmeans-loop"
   | "attention-pipeline"
-  | "attention-heatmap";
+  | "attention-heatmap"
+  | "bpe-merge-cascade"
+  | "embedding-geometry"
+  | "quantization-number-line";
 
 export interface ProseSection {
   kind: "prose";
@@ -49,6 +58,9 @@ export const FIGURES: Record<FigureKind, ComponentType> = {
   "kmeans-loop": KMeansLoop,
   "attention-pipeline": AttentionPipeline,
   "attention-heatmap": AttentionHeatmap,
+  "bpe-merge-cascade": BpeMergeCascade,
+  "embedding-geometry": EmbeddingGeometry,
+  "quantization-number-line": QuantizationNumberLine,
 };
 
 export interface Article {
@@ -310,6 +322,157 @@ export const ARTICLES: Article[] = [
       {
         kind: "prose",
         text: "Two practical facts finish the picture. First, masks. Adding −∞ (in practice a very negative number) to forbidden score entries before the softmax forces their weights to zero. That is how causal language models prevent a token from attending to the future, and how padding tokens are ignored.\n\nSecond, cost. The score matrix has n² entries for a sequence of length n, so attention is quadratic in sequence length. That single fact is why context windows are expensive and why so much engineering goes into sparse, sliding-window, and memory-efficient variants.\n\nThe problems below ask you to scale the scores, softmax the rows, take the weighted sum, and reproduce scaled dot-product attention end to end.",
+      },
+    ],
+  },
+  {
+    id: "art-bpe",
+    slug: "tokenization-byte-pair-encoding",
+    title: "Tokenization: Byte-Pair Encoding",
+    dek: "Before a model reads a word, it reads a merge table. BPE decides how text becomes tokens — and tokens set the units of cost, context, and failure.",
+    readMinutes: 7,
+    category: "NLP",
+    problemIds: ["nlp-001", "nlp-022", "nlp-096", "nlp-099", "nlp-235", "nlp-238"],
+    sections: [
+      {
+        kind: "prose",
+        text: "A model does not read text. It reads a sequence of integer ids, and a tokenizer is the program that produces them.\n\nThe simplest tokenizer splits on whitespace. It breaks on `don't`, on `state-of-the-art`, and on every language that does not put spaces between words. It also throws away casing and punctuation unless you write special rules for each case.\n\nSplitting into single characters avoids all of that. Nothing is unknown, but a sentence becomes long. Longer sequences cost more to train and more to serve, because attention is quadratic in length.",
+      },
+      {
+        kind: "prose",
+        text: "Whole words fail the other way. A vocabulary that holds every word form of a morphologically rich language is enormous, and any form outside it has no id at all. A single new name or a typo becomes an unknown token.\n\nSubword tokenization is the middle ground. Keep frequent pieces whole and split rare pieces into parts. The model still sees `low` inside `lowest`, and `est` stays a reusable piece.",
+      },
+      {
+        kind: "prose",
+        text: "Byte-pair encoding, or BPE, builds those pieces from data. It starts with a tiny alphabet: the characters in the corpus, plus a marker for the end of a word, written `</w>` or `·`.\n\nThen it counts every adjacent pair across the corpus and merges the most frequent one into a single new symbol. It adds that merge to an ordered list and counts again on the updated corpus.\n\nEach round repeats the same move. The result is a ranked merge list. That list plus the base alphabet is the whole tokenizer.",
+      },
+      {
+        kind: "demo",
+        demo: "bpe-merge",
+      },
+      {
+        kind: "prose",
+        text: "What you just stepped through is greedy. At every step BPE merges the single most frequent pair, then looks again. That is not the globally best vocabulary, but it is fast, deterministic, and still standard in 2026.\n\nTwo details matter. Ties are broken by scan order, so the direction of the scan is part of the algorithm. And merges apply left to right, which can combine a pair that blocks a different merge inside the same word.",
+      },
+      {
+        kind: "prose",
+        text: "After training, encoding is one pass. Split the text, append the end marker to each word, then apply the merge list in rank order. The number of resulting tokens is the cost. It sets the context budget, the latency, and the price of an API call.\n\nFertility is the average number of tokens per word. English sits around 1.3. A language whose script the tokenizer never learned can sit at 5 or 10. The same sentence then costs several times as much — tokenizer quality is a fairness problem, not only an engineering one.",
+      },
+      {
+        kind: "figure",
+        figure: "bpe-merge-cascade",
+        caption:
+          "The most frequent pair collapses first and each merge removes that pair's count from the corpus: 95 tokens become 86, then 77, then 68 while the vocabulary only grows.",
+      },
+      {
+        kind: "prose",
+        text: "Byte-level BPE drops the character alphabet entirely and starts from the 256 byte values. Every string is then representable, so there is no `[UNK]` token and no crash on emoji, rare names, or code.\n\nThe cost moves into length. Byte-level tokenizers need more tokens for the same text, so the effective training sequence grows. Most modern models accept that trade.",
+      },
+      {
+        kind: "prose",
+        text: "Special tokens sit on top of the learned vocabulary. `[BOS]`, `[EOS]`, `[PAD]`, chat roles, and tool markers get reserved ids that the merge process never touches.\n\nA tokenizer is frozen when training starts, because the embedding matrix is indexed by token id. Swap the tokenizer later and every learned vector points at the wrong symbol.\n\nThe problems below start with a token count, move through byte-level BPE and WordPiece, and end at fertility and characters per token.",
+      },
+    ],
+  },
+  {
+    id: "art-embeddings",
+    slug: "embeddings-and-cosine-similarity",
+    title: "Embeddings & Cosine Similarity",
+    dek: "A good embedding puts dog near puppy and far from semiconductor. Cosine similarity is how that claim gets measured.",
+    readMinutes: 8,
+    category: "NLP",
+    problemIds: ["la-025", "la-130", "ml-046", "nlp-005", "nlp-067", "nlp-247"],
+    sections: [
+      {
+        kind: "prose",
+        text: "An embedding turns an object into a vector. A word, a sentence, an image, a user. No single coordinate carries a label. Meaning lives in direction and distance.\n\nTraining pushes vectors together when the objects appear in similar contexts and apart when they do not. That is the whole trick. After enough data, `dog` lands near `puppy`, and both land far from `semiconductor`.\n\nOnce meaning is geometry, every question about similarity becomes a question about vectors.",
+      },
+      {
+        kind: "prose",
+        text: "The dot product measures agreement: `a·b = Σ a_i·b_i`. It is large and positive when two vectors point the same way, zero when they are perpendicular, and negative when they disagree.\n\nThe dot product also grows with length. Double one vector and the dot product doubles, even though the relationship did not change. Raw dot products are therefore a poor similarity score unless the vectors are already normalized.\n\nCosine similarity removes the lengths: `cos(a,b) = a·b / (‖a‖·‖b‖)`. It compares directions only.",
+      },
+      {
+        kind: "prose",
+        text: "Cosine lives between -1 and 1. One means identical direction, zero means orthogonal, and minus one means exactly opposite. Values in between equal `cos θ`, where `θ` is the angle between the vectors.\n\nAfter normalization, magnitude carries no semantics. A short vector and a long vector that point the same way have cosine one. In many training setups, magnitude tracks frequency or confidence rather than meaning.\n\nSo the standard pipeline normalizes once, stores unit vectors, and lets a plain dot product act as cosine.",
+      },
+      {
+        kind: "demo",
+        demo: "embedding-cosine",
+      },
+      {
+        kind: "prose",
+        text: "Drag the query around the space and watch the ranking. The angle arc shows `θ` against the best neighbor, and the list re-sorts as the direction changes.\n\nSwitch the metric and the order can change. The dot product prefers long vectors. Euclidean distance cares about absolute position. Cosine ignores length by construction — drag the query far out along one ray and its scores barely move.",
+      },
+      {
+        kind: "prose",
+        text: "Normalization is also an engineering choice. With unit vectors, a dot product replaces a division, and that matters when a vector index scores millions of pairs per query. Quantized storage cuts the bill further: one byte per dimension with little retrieval loss, or Matryoshka embeddings truncated from 1024 dimensions to 256.\n\nThe ranking in the demo is exact nearest neighbors. Production systems use approximate indexes and trade a small amount of recall for a large amount of speed.",
+      },
+      {
+        kind: "figure",
+        figure: "embedding-geometry",
+        caption:
+          "Cosine is a projection onto the unit circle: it is 1 for identical directions, 0 at 90°, and −1 for opposites, and no amount of scaling moves it.",
+      },
+      {
+        kind: "prose",
+        text: "One ranking hides a subtlety. Two words can be close and still be wrong neighbors, because they are close for the wrong reason. Hard negatives are pairs that look similar but mean different things. Training on them sharpens the space.\n\nStack many queries against many candidates and retrieval becomes one matrix of cosine values. Top-k over that matrix is semantic search, and it is the core of every retrieval-augmented system.",
+      },
+      {
+        kind: "prose",
+        text: "Cosine is not the only choice. Euclidean distance is common in clustering and image pipelines. Dot product is standard inside attention, where learned projections already control the scale. Pick the metric that matches how the vectors were trained.\n\nThe problems below compute cosine between vectors, build cosine matrices, and rank embeddings by similarity.",
+      },
+    ],
+  },
+  {
+    id: "art-quantization",
+    slug: "quantization-int8-to-fp8",
+    title: "Quantization: INT8 to FP8",
+    dek: "Halving the bits roughly halves memory and doubles decode throughput. The price is a rounding error you can steer.",
+    readMinutes: 9,
+    category: "Deep Learning",
+    problemIds: ["dl-058", "dl-059", "dl-060", "dl-077", "dl-195", "dl-451"],
+    sections: [
+      {
+        kind: "prose",
+        text: "Serving a model is a memory problem before it is a compute problem. Every weight sits in memory, and every generated token moves those weights through the chip. Halving the bytes roughly halves the transfer, which often doubles decode throughput.\n\nQuantization maps a wide range of floats onto a small set of codes. INT8 gives 256 levels and needs one byte per weight. That is four times smaller than float32 and half of float16 or bfloat16.\n\nThe price is rounding error. Quantization is lossy compression, and the job is to put the error where it hurts least.",
+      },
+      {
+        kind: "prose",
+        text: "The usual map is affine: `x ≈ scale · (q − zero_point)`. Pick a `scale` and a `zero_point`, round each value to the nearest integer code, and store `q`.\n\nSymmetric quantization centers the range on zero, so `zero_point = 0` and the scale is `absmax / 127`. Zero maps to zero exactly, which is why it is popular for weights.\n\nAsymmetric quantization fits the actual `[min, max]` range, so the zero point is usually not zero. It spends all 256 codes when the data is skewed, at the cost of a little extra bookkeeping.",
+      },
+      {
+        kind: "prose",
+        text: "Outliers decide how much resolution you lose. One weight at 5 while the rest sit in `[-2, 2]` forces a large scale, and every normal value gets a coarse step. The fix is to clip the range.\n\nClipping is a trade. A narrow range gives typical values finer steps, and everything outside becomes a constant at the edge. That error is the one you can steer.\n\nGranularity decides how local the scale is. Per-tensor shares one scale across the whole tensor, so one outlier damages every value. Per-channel gives each row or column its own scale, which isolates the damage. Per-tensor is cheaper; per-channel is the default for weights.\n\nFP8 enters here. An 8-bit float spends bits on an exponent, so its levels pack densely near zero and stretch far out. It covers a wide range without a custom scale, and Hopper and Blackwell run it at full speed.",
+      },
+      {
+        kind: "demo",
+        demo: "quantization-scale",
+      },
+      {
+        kind: "prose",
+        text: "Drag the clip threshold and watch the error bars. Lower it and typical values get finer steps while the outliers pay. Raise it and the outliers survive at the cost of coarser steps everywhere.\n\nThe error histogram shows who pays. A tight distribution means the format fits the data. Long tails mean the range is too wide.\n\nSQNR summarizes the trade in decibels: signal power over error power. Above roughly 40 dB, a quantized model usually matches the original on benchmarks.",
+      },
+      {
+        kind: "prose",
+        text: "Turn on per-channel and the histogram narrows at once. That is the outlier story in one click. Four channels carry four scales, so the large value only distorts its own channel.\n\nIn practice, weights use per-channel INT8 or grouped INT4. Activations are harder because they change with every input, so they use per-tensor scales calibrated on sample data or scales computed at run time.\n\nW8A8 keeps weights and activations in 8 bits and speeds up both prefill and decode. W4A16 keeps weights in 4 bits and runs the math in 16, which saves memory but not compute. GPTQ and AWQ are the common recipes for that split.",
+      },
+      {
+        kind: "figure",
+        figure: "quantization-number-line",
+        caption:
+          "Uniform steps cover the clipped range evenly, an outlier at 5.2 collapses to 2.5 with a visible error, and fp8 packs its levels near zero instead of spreading them flat.",
+      },
+      {
+        kind: "prose",
+        text: "Error compounds through layers. A layer that receives quantized inputs quantizes its own outputs on top, so end-to-end accuracy is the number that matters. Per-layer error is only a proxy.\n\nCalibration data should look like production data. If the distribution shifts, a scale fitted on the old data clips the new values. Monitoring activation ranges catches the drift.\n\nThe format must also match the silicon. INT8 kernels are everywhere. FP8 needs Hopper, Blackwell, or newer hardware. NVFP4 and MXFP4 are Blackwell-native. Choosing a format the deployment chip does not accelerate is the most expensive quantization mistake.",
+      },
+      {
+        kind: "prose",
+        text: "Quantization is also how large models fit on small hardware. QLoRA keeps the base model in 4-bit NF4 and trains small 16-bit adapters on top. The frozen base never changes, so its error is fixed and the adapters learn around it.\n\nKV cache quantization is the decode-time cousin. Caching keys and values in FP8 instead of BF16 nearly halves the memory per token, which is why FP8 KV is a common default at long context.",
+      },
+      {
+        kind: "prose",
+        text: "The problems below compute an INT8 scale, quantize and dequantize, work through per-channel scales, and compare INT4 against INT8 memory.\n\nWhen you write the code by hand, watch two things: the rounding mode and the clamp. A scale without a clamp silently overflows, and a clamp without the right scale throws away range for nothing.",
       },
     ],
   },
