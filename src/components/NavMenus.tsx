@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -160,11 +161,14 @@ export function NavItemLink({
   className?: string;
 }) {
   const href = id === "blog" ? "/blog" : SECTIONS_BY_ID[id].href;
+  const pathname = usePathname();
+  const isCurrent = pathname === href || pathname.startsWith(`${href}/`);
   return (
     <Link
       href={href}
       role={role}
       data-nav-item
+      aria-current={isCurrent ? "page" : undefined}
       onClick={() => onSelect?.()}
       className={className}
     >
@@ -415,10 +419,15 @@ export function NavMenus() {
                   {menu.groups.map((group, groupIndex) => (
                     <div
                       key={group.label ?? groupIndex}
+                      role={group.label ? "group" : undefined}
+                      aria-label={group.label}
                       className={groupIndex > 0 ? "mt-1.5" : ""}
                     >
                       {group.label && (
-                        <p className="px-2 pb-1 pt-1 text-xs font-medium text-mute">
+                        <p
+                          aria-hidden
+                          className="px-2 pb-1 pt-1 text-xs font-medium text-mute"
+                        >
                           {group.label}
                         </p>
                       )}

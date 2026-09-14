@@ -61,6 +61,27 @@ export interface SocialCommentInput {
   username: string;
 }
 
+/** Page size used by the paged list helpers (threads, replies, comments). */
+export const SOCIAL_PAGE_SIZE = 20;
+
+const MAX_SOCIAL_PAGE_SIZE = 50;
+
+export interface SocialPageOptions {
+  offset?: number;
+  limit?: number;
+}
+
+/**
+ * A paged list result. `data` stays the full merged local snapshot so the
+ * local-first rendering path is byte-for-byte identical to before; `remote`
+ * carries just this page of rows and `nextOffset` the cursor for the next one.
+ */
+export interface SocialPageResult<T> extends SocialResult<T[]> {
+  remote: T[];
+  hasMore: boolean;
+  nextOffset: number | null;
+}
+
 type Row = Record<string, unknown>;
 
 type RemoteContext = { client: RemoteClient; userId: string } | { error: string };
@@ -81,6 +102,15 @@ const pushingThreads = new Set<string>();
 const pushingReplies = new Set<string>();
 const pushingComments = new Set<string>();
 const pendingUpvotes = new Set<string>();
+
+/**
+ * Ids already confirmed remote this session (fetched in a page or inserted
+ * successfully). Pending-push scans skip them so paging never re-inserts rows
+ * that simply fell outside the current window.
+ */
+const attemptedThreadPushes = new Set<string>();
+const attemptedReplyPushes = new Set<string>();
+const attemptedCommentPushes = new Set<string>();
 
 /**
  * Session generation. It advances only when the cached session changes, so
@@ -108,6 +138,9 @@ function ensureSessionWatch(): void {
   sessionWatchInstalled = true;
   onSessionChange(() => {
     sessionGeneration += 1;
+    attemptedThreadPushes.clear();
+    attemptedReplyPushes.clear();
+    attemptedCommentPushes.clear();
     notify();
   });
 }
@@ -138,6 +171,43 @@ function cleanUsername(username: string): string {
   const name = typeof username === "string" ? username.trim() : "";
   return name || "Anonymous";
 }
+
+function normalizePage(options: SocialPageOptions | undefined): {
+  offset: number;
+  limit: number;
+} {
+  const rawLimit = options?.limit ?? SOCIAL_PAGE_SIZE;
+  const rawOffset = options?.offset ?? 0;
+  const limit = Number.isFinite(rawLimit) ? Math.floor(rawLimit) : SOCIAL_PAGE_SIZE;
+  const offset = Number.isFinite(rawOffset) ? Math.floor(rawOffset) : 0;
+  return {
+    limit: Math.min(Math.max(limit, 1), MAX_SOCIAL_PAGE_SIZE),
+    offset: Math.max(offset, 0),
+  };
+}
+
+/**
+ * Local structural view of a PostgREST builder. The shared `RemoteQuery`
+ * interface intentionally stays narrow, so paging is expressed through this
+ * cast — mocks in tests implement the same shape.
+ */
+interface RemotePageQuery extends PromiseLike<RemoteResult<unknown>> {
+  select(columns?: string): RemotePageQuery;
+  eq(column: string, value: unknown): RemotePageQuery;
+  order(column: string, options?: { ascending?: boolean }): RemotePageQuery;
+  range(from: number, to: number): RemotePageQuery;
+}
+
+function pageQuery(source: unknown): RemotePageQuery {
+  return source as RemotePageQuery;
+}
+
+const THREAD_COLUMNS =
+  "id, author_name, title, body, category, problem_refs, upvote_count, created_at";
+const REPLY_COLUMNS =
+  "id, thread_id, author_name, body, upvote_count, created_at";
+const COMMENT_COLUMNS =
+  "id, problem_id, author_name, body, upvote_count, created_at";
 
 function normalizeRefs(
   refs: string[] | undefined,
@@ -378,6 +448,141 @@ async function fetchOwnUpvoteIds(
   };
 }
 
+async function fetchThreadPage(
+  client: RemoteClient,
+  offset: number,
+  limit: number,
+): Promise<ForumThread[]> {
+  const { data, error } = await pageQuery(client.from("forum_threads"))
+    .select(THREAD_COLUMNS)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) throw error;
+  return (Array.isArray(data) ? data : [])
+    .map(mapThreadRow)
+    .filter((thread): thread is ForumThread => thread !== null);
+}
+
+async function fetchReplyPage(
+  client: RemoteClient,
+  threadId: string,
+  offset: number,
+  limit: number,
+): Promise<ForumReply[]> {
+  const { data, error } = await pageQuery(client.from("forum_replies"))
+    .select(REPLY_COLUMNS)
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) throw error;
+  return (Array.isArray(data) ? data : [])
+    .map(mapReplyRow)
+    .filter((reply): reply is ForumReply => reply !== null);
+}
+
+async function fetchCommentPage(
+  client: RemoteClient,
+  problemId: string,
+  offset: number,
+  limit: number,
+): Promise<Comment[]> {
+  const { data, error } = await pageQuery(client.from("comments"))
+    .select(COMMENT_COLUMNS)
+    .eq("problem_id", problemId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) throw error;
+  return (Array.isArray(data) ? data : [])
+    .map((row) => mapCommentRow(row, false))
+    .filter((comment): comment is Comment => comment !== null);
+}
+
+async function pushPendingThreads(
+  client: RemoteClient,
+  userId: string,
+  page: ForumThread[],
+): Promise<string | null> {
+  for (const thread of page) attemptedThreadPushes.add(thread.id);
+  const remoteIds = new Set(page.map((thread) => thread.id));
+  const remoteKeys = new Set(page.map(threadIdentity));
+  const pending = getForumSnapshot().threads.filter(
+    (thread) =>
+      !remoteIds.has(thread.id) &&
+      !remoteKeys.has(threadIdentity(thread)) &&
+      !attemptedThreadPushes.has(thread.id),
+  );
+  let pushError: string | null = null;
+  for (const thread of pending) {
+    if (pushingThreads.has(thread.id)) continue;
+    const failure = await pushLocalThread(client, userId, thread);
+    if (failure) {
+      if (!pushError) pushError = failure;
+    } else {
+      attemptedThreadPushes.add(thread.id);
+    }
+  }
+  return pushError;
+}
+
+async function pushPendingReplies(
+  client: RemoteClient,
+  userId: string,
+  threadId: string,
+  page: ForumReply[],
+): Promise<string | null> {
+  for (const reply of page) attemptedReplyPushes.add(reply.id);
+  const remoteIds = new Set(page.map((reply) => reply.id));
+  const remoteKeys = new Set(page.map(replyIdentity));
+  const pending = getReplies(threadId).filter(
+    (reply) =>
+      !remoteIds.has(reply.id) &&
+      !remoteKeys.has(replyIdentity(reply)) &&
+      !attemptedReplyPushes.has(reply.id),
+  );
+  let pushError: string | null = null;
+  for (const reply of pending) {
+    if (pushingReplies.has(reply.id)) continue;
+    const failure = await pushLocalReply(client, userId, reply);
+    if (failure) {
+      if (!pushError) pushError = failure;
+    } else {
+      attemptedReplyPushes.add(reply.id);
+    }
+  }
+  return pushError;
+}
+
+async function pushPendingComments(
+  client: RemoteClient,
+  userId: string,
+  problemId: string,
+  page: Comment[],
+): Promise<string | null> {
+  for (const comment of page) attemptedCommentPushes.add(comment.id);
+  const remoteIds = new Set(page.map((comment) => comment.id));
+  const remoteKeys = new Set(page.map(commentIdentity));
+  const pending = getComments(problemId).filter(
+    (comment) =>
+      !remoteIds.has(comment.id) &&
+      !remoteKeys.has(commentIdentity(comment)) &&
+      !attemptedCommentPushes.has(comment.id),
+  );
+  let pushError: string | null = null;
+  for (const comment of pending) {
+    if (pushingComments.has(comment.id)) continue;
+    const failure = await pushLocalComment(client, userId, comment);
+    if (failure) {
+      if (!pushError) pushError = failure;
+    } else {
+      attemptedCommentPushes.add(comment.id);
+    }
+  }
+  return pushError;
+}
+
 function threadUpvoteState(id: string): SocialUpvoteState | null {
   const snapshot = getForumSnapshot();
   const thread = snapshot.threads.find((item) => item.id === id);
@@ -398,79 +603,83 @@ function replyUpvoteState(id: string): SocialUpvoteState | null {
   };
 }
 
-export async function listThreads(): Promise<SocialResult<ForumThread[]>> {
+export async function listThreads(
+  options?: SocialPageOptions,
+): Promise<SocialPageResult<ForumThread>> {
   ensureSessionWatch();
+  const { offset, limit } = normalizePage(options);
   const local = () => getForumSnapshot().threads;
+  const page = (
+    remote: ForumThread[],
+    error: string | null,
+    hasMore = false,
+  ): SocialPageResult<ForumThread> => ({
+    data: local(),
+    error,
+    remote,
+    hasMore,
+    nextOffset: hasMore ? offset + remote.length : null,
+  });
   const remote = await acquireRemote().catch(() => null);
-  if (!remote) return { data: local(), error: null };
-  if ("error" in remote) return { data: local(), error: remote.error };
+  if (!remote) return page([], null);
+  if ("error" in remote) return page([], remote.error);
   const { client, userId } = remote;
   const generation = currentGeneration();
   try {
-    const { data, error } = await client.from("forum_threads").select("*");
-    if (error) throw error;
-    if (generation !== currentGeneration()) return { data: local(), error: null };
-    const remoteThreads = (Array.isArray(data) ? data : [])
-      .map(mapThreadRow)
-      .filter((thread): thread is ForumThread => thread !== null);
-    const remoteIds = new Set(remoteThreads.map((thread) => thread.id));
-    const remoteKeys = new Set(remoteThreads.map(threadIdentity));
-    const pending = local().filter(
-      (thread) =>
-        !remoteIds.has(thread.id) && !remoteKeys.has(threadIdentity(thread)),
-    );
+    const remoteThreads = await fetchThreadPage(client, offset, limit);
+    if (generation !== currentGeneration()) return page([], null);
     let pushError: string | null = null;
-    for (const thread of pending) {
-      const failure = await pushLocalThread(client, userId, thread);
-      if (failure && !pushError) pushError = failure;
+    if (offset === 0) {
+      pushError = await pushPendingThreads(client, userId, remoteThreads);
+      if (generation !== currentGeneration()) return page([], null);
     }
-    if (generation !== currentGeneration()) return { data: local(), error: null };
     mergeRemoteThreads(remoteThreads);
-    const upvotes = await fetchOwnUpvoteIds(client, userId);
-    if (generation !== currentGeneration()) return { data: local(), error: null };
-    mergeRemoteUpvoteIds(upvotes.threadIds, upvotes.replyIds);
-    return { data: local(), error: pushError };
+    if (offset === 0) {
+      const upvotes = await fetchOwnUpvoteIds(client, userId);
+      if (generation !== currentGeneration()) return page([], null);
+      mergeRemoteUpvoteIds(upvotes.threadIds, upvotes.replyIds);
+    }
+    return page(remoteThreads, pushError, remoteThreads.length === limit);
   } catch (error) {
-    return { data: local(), error: errorMessage(error) };
+    return page([], errorMessage(error));
   }
 }
 
 export async function listReplies(
   threadId: string,
-): Promise<SocialResult<ForumReply[]>> {
+  options?: SocialPageOptions,
+): Promise<SocialPageResult<ForumReply>> {
   ensureSessionWatch();
+  const { offset, limit } = normalizePage(options);
   const local = () => getReplies(threadId);
+  const page = (
+    remote: ForumReply[],
+    error: string | null,
+    hasMore = false,
+  ): SocialPageResult<ForumReply> => ({
+    data: local(),
+    error,
+    remote,
+    hasMore,
+    nextOffset: hasMore ? offset + remote.length : null,
+  });
   const remote = await acquireRemote().catch(() => null);
-  if (!remote) return { data: local(), error: null };
-  if ("error" in remote) return { data: local(), error: remote.error };
+  if (!remote) return page([], null);
+  if ("error" in remote) return page([], remote.error);
   const { client, userId } = remote;
   const generation = currentGeneration();
   try {
-    const { data, error } = await client
-      .from("forum_replies")
-      .select("*")
-      .eq("thread_id", threadId);
-    if (error) throw error;
-    if (generation !== currentGeneration()) return { data: local(), error: null };
-    const remoteReplies = (Array.isArray(data) ? data : [])
-      .map(mapReplyRow)
-      .filter((reply): reply is ForumReply => reply !== null);
-    const remoteIds = new Set(remoteReplies.map((reply) => reply.id));
-    const remoteKeys = new Set(remoteReplies.map(replyIdentity));
-    const pending = local().filter(
-      (reply) =>
-        !remoteIds.has(reply.id) && !remoteKeys.has(replyIdentity(reply)),
-    );
+    const remoteReplies = await fetchReplyPage(client, threadId, offset, limit);
+    if (generation !== currentGeneration()) return page([], null);
     let pushError: string | null = null;
-    for (const reply of pending) {
-      const failure = await pushLocalReply(client, userId, reply);
-      if (failure && !pushError) pushError = failure;
+    if (offset === 0) {
+      pushError = await pushPendingReplies(client, userId, threadId, remoteReplies);
+      if (generation !== currentGeneration()) return page([], null);
     }
-    if (generation !== currentGeneration()) return { data: local(), error: null };
     mergeRemoteReplies(remoteReplies);
-    return { data: local(), error: pushError };
+    return page(remoteReplies, pushError, remoteReplies.length === limit);
   } catch (error) {
-    return { data: local(), error: errorMessage(error) };
+    return page([], errorMessage(error));
   }
 }
 
@@ -659,43 +868,53 @@ export function toggleReplyUpvote(
 
 export async function listComments(
   problemId: string,
-): Promise<SocialResult<Comment[]>> {
+  options?: SocialPageOptions,
+): Promise<SocialPageResult<Comment>> {
   ensureSessionWatch();
+  const { offset, limit } = normalizePage(options);
   const local = () => getComments(problemId);
+  const page = (
+    remote: Comment[],
+    error: string | null,
+    hasMore = false,
+  ): SocialPageResult<Comment> => ({
+    data: local(),
+    error,
+    remote,
+    hasMore,
+    nextOffset: hasMore ? offset + remote.length : null,
+  });
   const remote = await acquireRemote().catch(() => null);
-  if (!remote) return { data: local(), error: null };
-  if ("error" in remote) return { data: local(), error: remote.error };
+  if (!remote) return page([], null);
+  if ("error" in remote) return page([], remote.error);
   const { client, userId } = remote;
   const generation = currentGeneration();
   try {
     const [rows, upvoteRows] = await Promise.all([
-      client.from("comments").select("*").eq("problem_id", problemId),
+      pageQuery(client.from("comments"))
+        .select(COMMENT_COLUMNS)
+        .eq("problem_id", problemId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(offset, offset + limit - 1),
       client.from("comment_upvotes").select("comment_id").eq("user_id", userId),
     ]);
     if (rows.error) throw rows.error;
-    if (generation !== currentGeneration()) return { data: local(), error: null };
+    if (generation !== currentGeneration()) return page([], null);
     const upvoted = new Set(upvoteRows.error ? [] : idsFromRows(upvoteRows.data, "comment_id"));
     const remoteComments = (Array.isArray(rows.data) ? rows.data : [])
       .map((row) => mapCommentRow(row, false))
       .filter((comment): comment is Comment => comment !== null)
       .map((comment) => ({ ...comment, upvotedByMe: upvoted.has(comment.id) }));
-    const remoteIds = new Set(remoteComments.map((comment) => comment.id));
-    const remoteKeys = new Set(remoteComments.map(commentIdentity));
-    const pending = local().filter(
-      (comment) =>
-        !remoteIds.has(comment.id) &&
-        !remoteKeys.has(commentIdentity(comment)),
-    );
     let pushError: string | null = null;
-    for (const comment of pending) {
-      const failure = await pushLocalComment(client, userId, comment);
-      if (failure && !pushError) pushError = failure;
+    if (offset === 0) {
+      pushError = await pushPendingComments(client, userId, problemId, remoteComments);
+      if (generation !== currentGeneration()) return page([], null);
     }
-    if (generation !== currentGeneration()) return { data: local(), error: null };
     mergeRemoteComments(problemId, remoteComments);
-    return { data: local(), error: pushError };
+    return page(remoteComments, pushError, remoteComments.length === limit);
   } catch (error) {
-    return { data: local(), error: errorMessage(error) };
+    return page([], errorMessage(error));
   }
 }
 
@@ -860,3 +1079,160 @@ export function toggleCommentUpvote(
 ): Promise<SocialResult<SocialUpvoteState>> {
   return toggleCommentUpvoteById(commentId);
 }
+
+/* ─────────────────────────────── realtime ──────────────────────────────── */
+
+export type SocialRealtimeTopic =
+  | { kind: "threads" }
+  | { kind: "replies"; threadId: string }
+  | { kind: "comments"; problemId: string };
+
+interface RealtimePayload {
+  new?: unknown;
+}
+
+interface RealtimeChannelLike {
+  on(
+    type: "postgres_changes",
+    filter: {
+      event: string;
+      schema: string;
+      table: string;
+      filter?: string;
+    },
+    callback: (payload: RealtimePayload) => void,
+  ): RealtimeChannelLike;
+  subscribe(callback?: (status: string) => void): RealtimeChannelLike;
+  unsubscribe?(): unknown;
+}
+
+interface RealtimeClientLike {
+  channel?(name: string): RealtimeChannelLike;
+  removeChannel?(channel: RealtimeChannelLike): unknown;
+}
+
+let realtimeChannelSeq = 0;
+
+/**
+ * Realtime is on by default; `NEXT_PUBLIC_SOCIAL_REALTIME=0` disables it and
+ * leaves the app on the local/refresh path (used by deployments that cannot
+ * afford websocket connections).
+ */
+export function isSocialRealtimeEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_SOCIAL_REALTIME !== "0";
+}
+
+function realtimeTable(topic: SocialRealtimeTopic): string {
+  if (topic.kind === "threads") return "forum_threads";
+  if (topic.kind === "replies") return "forum_replies";
+  return "comments";
+}
+
+function realtimeFilter(topic: SocialRealtimeTopic): string | undefined {
+  if (topic.kind === "replies") return `thread_id=eq.${topic.threadId}`;
+  if (topic.kind === "comments") return `problem_id=eq.${topic.problemId}`;
+  return undefined;
+}
+
+function mergeRealtimeRow(topic: SocialRealtimeTopic, row: unknown): void {
+  if (!row) return;
+  if (topic.kind === "threads") {
+    const thread = mapThreadRow(row);
+    if (thread) mergeRemoteThreads([thread]);
+    return;
+  }
+  if (topic.kind === "replies") {
+    const reply = mapReplyRow(row);
+    if (reply && reply.threadId === topic.threadId) mergeRemoteReplies([reply]);
+    return;
+  }
+  const comment = mapCommentRow(row, false);
+  if (comment && comment.problemId === topic.problemId) {
+    mergeRemoteComments(topic.problemId, [comment]);
+  }
+}
+
+/**
+ * Best-effort `postgres_changes` subscription for one social topic. Rows are
+ * merged straight into the local store (which dedupes by id), so live inserts
+ * — including echoes of our own optimistic writes — never duplicate.
+ *
+ * Returns a synchronous unsubscribe handle: it tears the channel down on
+ * unmount/topic switch, detaches while signed out, and re-attaches when a
+ * session appears. When the client, the package, or the feature flag is
+ * unavailable, the handle is a no-op and callers keep the refresh path.
+ */
+export function subscribeRealtime(topic: SocialRealtimeTopic): () => void {
+  if (!isSocialRealtimeEnabled()) return () => {};
+  ensureSessionWatch();
+  let disposed = false;
+  let detachChannel: (() => void) | null = null;
+  let attaching = false;
+
+  const detach = () => {
+    const fn = detachChannel;
+    detachChannel = null;
+    if (!fn) return;
+    try {
+      fn();
+    } catch {
+      /* teardown is best-effort */
+    }
+  };
+
+  const attach = async () => {
+    if (attaching || detachChannel || disposed) return;
+    attaching = true;
+    try {
+      const client = await getRemoteClient();
+      if (!client || disposed || !isRemoteActive()) return;
+      const rt = client as unknown as RealtimeClientLike;
+      if (typeof rt.channel !== "function") return;
+      const channel = rt.channel(
+        `deepforge-social-${topic.kind}-${++realtimeChannelSeq}`,
+      );
+      const filter = realtimeFilter(topic);
+      const scope = {
+        schema: "public",
+        table: realtimeTable(topic),
+        ...(filter ? { filter } : {}),
+      };
+      const receive = (payload: RealtimePayload) => {
+        if (disposed) return;
+        mergeRealtimeRow(topic, payload?.new);
+      };
+      channel
+        .on("postgres_changes", { event: "INSERT", ...scope }, receive)
+        .on("postgres_changes", { event: "UPDATE", ...scope }, receive)
+        .subscribe();
+      detachChannel = () => {
+        if (typeof channel.unsubscribe === "function") {
+          channel.unsubscribe();
+          return;
+        }
+        if (typeof rt.removeChannel === "function") rt.removeChannel(channel);
+      };
+      if (disposed) detach();
+    } catch {
+      /* realtime is best-effort — the local path stays authoritative */
+    } finally {
+      attaching = false;
+    }
+  };
+
+  const sync = () => {
+    if (disposed) return;
+    if (isRemoteActive()) void attach();
+    else detach();
+  };
+
+  const stopSessionWatch = onSessionChange(() => sync());
+  sync();
+
+  return () => {
+    disposed = true;
+    stopSessionWatch();
+    detach();
+  };
+}
+

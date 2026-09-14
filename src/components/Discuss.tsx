@@ -27,7 +27,9 @@ import {
   deleteThread,
   listReplies,
   listThreads,
+  SOCIAL_PAGE_SIZE,
   subscribe as subscribeSocial,
+  subscribeRealtime,
   toggleReplyUpvote,
   toggleThreadUpvote,
   type SocialResult,
@@ -82,6 +84,7 @@ function useGlobalForumHint(): boolean {
 
 function useSocialSync(): {
   notice: string | null;
+  report: (error: string | null) => void;
   run: <T,>(task: SocialTask<T>, onData?: (data: T) => void) => void;
 } {
   const [notice, setNotice] = useState<string | null>(null);
@@ -92,6 +95,10 @@ function useSocialSync(): {
     return () => {
       mountedRef.current = false;
     };
+  }, []);
+
+  const report = useCallback((error: string | null) => {
+    if (mountedRef.current) setNotice(error);
   }, []);
 
   const run = useCallback(
@@ -107,34 +114,7 @@ function useSocialSync(): {
     [],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    const refresh = async () => {
-      const { data, error } = await listThreads();
-      if (cancelled || !mountedRef.current) return;
-      if (error) setNotice(error);
-      if (!data) return;
-      for (const thread of data) {
-        void listReplies(thread.id)
-          .then((result) => {
-            if (!cancelled && mountedRef.current && result.error) {
-              setNotice(result.error);
-            }
-          })
-          .catch(() => {});
-      }
-    };
-    void refresh().catch(() => {});
-    const unsubscribe = subscribeSocial(() => {
-      void refresh().catch(() => {});
-    });
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
-
-  return { notice, run };
+  return { notice, report, run };
 }
 
 const CATEGORY_STYLES: Record<ForumCategory, string> = {
@@ -330,6 +310,11 @@ function ThreadMeta({ thread }: { thread: ForumThread }) {
   );
 }
 
+function replyLabel(count: number, hasMore: boolean): string {
+  if (count === 1 && !hasMore) return "1 reply";
+  return `${count}${hasMore ? "+" : ""} replies`;
+}
+
 export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
   const isPage = variant === "page";
   const snapshot = useSyncExternalStore(
@@ -337,12 +322,19 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
     getClientForumSnapshot,
     getServerForumSnapshot,
   );
-  const { notice, run } = useSocialSync();
+  const { notice, report, run } = useSocialSync();
   const signedOutHint = useGlobalForumHint();
 
   const [filter, setFilter] = useState<ForumCategory | "All">("All");
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
+  const [threadWindow, setThreadWindow] = useState(SOCIAL_PAGE_SIZE);
+  const [threadHasMore, setThreadHasMore] = useState(false);
+  const [replyWindow, setReplyWindow] = useState(SOCIAL_PAGE_SIZE);
+  const [replyHasMore, setReplyHasMore] = useState(false);
+  const [replyMoreCounts, setReplyMoreCounts] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ForumCategory>("ML Questions");
   const [body, setBody] = useState("");
@@ -354,6 +346,10 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
   const formTitleRef = useRef<HTMLInputElement | null>(null);
   const detailRef = useRef<HTMLDivElement | null>(null);
   const lastThreadIdRef = useRef<string | null>(null);
+  const threadsOffsetRef = useRef(0);
+  const repliesOffsetRef = useRef(0);
+  const activeReplyThreadRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
 
   const replyCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -379,10 +375,21 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
   const openReplies = useMemo(
     () =>
       openThreadId
-        ? snapshot.replies.filter((reply) => reply.threadId === openThreadId)
+        ? snapshot.replies
+            .filter((reply) => reply.threadId === openThreadId)
+            .sort(
+              (a, b) =>
+                b.createdAt.localeCompare(a.createdAt) ||
+                b.id.localeCompare(a.id),
+            )
         : [],
     [snapshot.replies, openThreadId],
   );
+
+  const visibleThreads = threads.slice(0, threadWindow);
+  const canLoadMoreThreads = threads.length > threadWindow || threadHasMore;
+  const visibleOpenReplies = openReplies.slice(0, replyWindow);
+  const canLoadMoreReplies = openReplies.length > replyWindow || replyHasMore;
 
   const upvotedThreads = useMemo(
     () => new Set(snapshot.upvotedThreadIds),
@@ -396,6 +403,13 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
   const parsedRefs = useMemo(() => parseRefs(refs), [refs]);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (composing) formTitleRef.current?.focus();
   }, [composing]);
 
@@ -403,14 +417,111 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
     if (openThreadId) detailRef.current?.focus();
   }, [openThreadId]);
 
+  const warmReplies = useCallback(
+    (page: ForumThread[]) => {
+      for (const thread of page) {
+        void listReplies(thread.id, { offset: 0, limit: SOCIAL_PAGE_SIZE })
+          .then((result) => {
+            if (!mountedRef.current) return;
+            if (result.error) {
+              report(result.error);
+              return;
+            }
+            setReplyMoreCounts((prev) => {
+              if (prev.has(thread.id) === result.hasMore) return prev;
+              const next = new Set(prev);
+              if (result.hasMore) next.add(thread.id);
+              else next.delete(thread.id);
+              return next;
+            });
+          })
+          .catch(() => {});
+      }
+    },
+    [report],
+  );
+
+  const syncThreads = useCallback(
+    async (offset: number, updateCursor: boolean) => {
+      const result = await listThreads({ offset, limit: SOCIAL_PAGE_SIZE });
+      if (!mountedRef.current) return;
+      if (result.error) report(result.error);
+      if (updateCursor && result.hasMore && result.nextOffset !== null) {
+        threadsOffsetRef.current = result.nextOffset;
+      }
+      if (updateCursor || threadsOffsetRef.current === 0) {
+        setThreadHasMore(result.hasMore);
+      }
+      warmReplies(result.remote);
+    },
+    [report, warmReplies],
+  );
+
+  const syncReplies = useCallback(
+    async (threadId: string, offset: number, updateCursor: boolean) => {
+      const result = await listReplies(threadId, {
+        offset,
+        limit: SOCIAL_PAGE_SIZE,
+      });
+      if (!mountedRef.current || activeReplyThreadRef.current !== threadId) {
+        return;
+      }
+      if (result.error) report(result.error);
+      if (updateCursor && result.hasMore && result.nextOffset !== null) {
+        repliesOffsetRef.current = result.nextOffset;
+      }
+      if (updateCursor || repliesOffsetRef.current === 0) {
+        setReplyHasMore(result.hasMore);
+      }
+    },
+    [report],
+  );
+
   useEffect(() => {
-    if (openThreadId) run(listReplies(openThreadId));
-  }, [openThreadId, run]);
+    void syncThreads(0, true).catch(() => {});
+    const stopThreads = subscribeRealtime({ kind: "threads" });
+    const unsubscribe = subscribeSocial(() => {
+      void syncThreads(0, false).catch(() => {});
+    });
+    return () => {
+      stopThreads();
+      unsubscribe();
+    };
+  }, [syncThreads]);
+
+  useEffect(() => {
+    activeReplyThreadRef.current = openThreadId;
+    if (!openThreadId) return;
+    const threadId = openThreadId;
+    void syncReplies(threadId, 0, true).catch(() => {});
+    const stopReplies = subscribeRealtime({ kind: "replies", threadId });
+    return () => {
+      if (activeReplyThreadRef.current === threadId) {
+        activeReplyThreadRef.current = null;
+      }
+      stopReplies();
+    };
+  }, [openThreadId, syncReplies]);
+
+  const loadMoreThreads = useCallback(() => {
+    setThreadWindow((count) => count + SOCIAL_PAGE_SIZE);
+    if (!threadHasMore) return;
+    void syncThreads(threadsOffsetRef.current, true).catch(() => {});
+  }, [threadHasMore, syncThreads]);
+
+  const loadMoreReplies = useCallback(() => {
+    setReplyWindow((count) => count + SOCIAL_PAGE_SIZE);
+    if (!openThreadId || !replyHasMore) return;
+    void syncReplies(openThreadId, repliesOffsetRef.current, true).catch(() => {});
+  }, [openThreadId, replyHasMore, syncReplies]);
 
   const openDetail = (id: string) => {
     lastThreadIdRef.current = id;
     setComposing(false);
     setFormError(null);
+    repliesOffsetRef.current = 0;
+    setReplyWindow(SOCIAL_PAGE_SIZE);
+    setReplyHasMore(false);
     setOpenThreadId(id);
   };
 
@@ -467,6 +578,9 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
     setFilter("All");
     run(createThread(draft), (thread) => {
       lastThreadIdRef.current = thread.id;
+      repliesOffsetRef.current = 0;
+      setReplyWindow(SOCIAL_PAGE_SIZE);
+      setReplyHasMore(false);
       setOpenThreadId(thread.id);
     });
   };
@@ -724,8 +838,7 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
               onClick={() => run(toggleThreadUpvote(openThread.id))}
             />
             <span className="text-[11px] text-mute">
-              {openReplies.length}{" "}
-              {openReplies.length === 1 ? "reply" : "replies"}
+              {replyLabel(openReplies.length, replyHasMore)}
             </span>
           </div>
 
@@ -737,37 +850,51 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
             {openReplies.length === 0 ? (
               <p className="text-xs text-mute">No replies yet. Be the first.</p>
             ) : (
-              <ul className="space-y-3">
-                {openReplies.map((reply) => (
-                  <li
-                    key={reply.id}
-                    className="rounded-lg border border-hairline bg-canvas p-4"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-medium text-ink">
-                        {reply.author}
-                      </span>
-                      <time
-                        dateTime={reply.createdAt}
-                        className="text-[11px] text-mute"
-                      >
-                        {formatRelativeTime(reply.createdAt)}
-                      </time>
-                    </div>
-                    <div className="mt-2">
-                      <ForumBody body={reply.body} />
-                    </div>
-                    <div className="mt-3">
-                      <UpvoteButton
-                        count={reply.upvotes}
-                        active={upvotedReplies.has(reply.id)}
-                        label="reply"
-                        onClick={() => run(toggleReplyUpvote(reply.id))}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="space-y-3">
+                  {visibleOpenReplies.map((reply) => (
+                    <li
+                      key={reply.id}
+                      className="rounded-lg border border-hairline bg-canvas p-4"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium text-ink">
+                          {reply.author}
+                        </span>
+                        <time
+                          dateTime={reply.createdAt}
+                          className="text-[11px] text-mute"
+                        >
+                          {formatRelativeTime(reply.createdAt)}
+                        </time>
+                      </div>
+                      <div className="mt-2">
+                        <ForumBody body={reply.body} />
+                      </div>
+                      <div className="mt-3">
+                        <UpvoteButton
+                          count={reply.upvotes}
+                          active={upvotedReplies.has(reply.id)}
+                          label="reply"
+                          onClick={() => run(toggleReplyUpvote(reply.id))}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {canLoadMoreReplies && (
+                  <div className="mt-3 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={loadMoreReplies}
+                      aria-label="Load more replies"
+                      className={SECONDARY_BUTTON_CLASSES}
+                    >
+                      Load more
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="mt-3">
@@ -871,49 +998,65 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
               )}
             </div>
           ) : (
-            <ul className="space-y-3">
-              {threads.map((thread) => (
-                <li key={thread.id}>
-                  <article className="rounded-lg border border-hairline bg-canvas-card p-4 transition-colors hover:border-accent/30 sm:p-5">
-                    <ThreadMeta thread={thread} />
-                    <button
-                      type="button"
-                      id={`df-thread-${thread.id}`}
-                      onClick={() => openDetail(thread.id)}
-                      className="mt-2 block w-full break-words rounded-sm text-left text-sm font-semibold text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                    >
-                      {thread.title}
-                    </button>
-                    <p className="mt-1 text-xs leading-relaxed text-body-mid">
-                      {excerpt(thread.body)}
-                    </p>
-                    {thread.problemRefs.length > 0 && (
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        {thread.problemRefs.map((id) => (
-                          <ProblemRefChip key={id} id={id} />
-                        ))}
-                      </div>
-                    )}
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <UpvoteButton
-                        count={thread.upvotes}
-                        active={upvotedThreads.has(thread.id)}
-                        label="thread"
-                        onClick={() => run(toggleThreadUpvote(thread.id))}
-                      />
+            <>
+              <ul className="space-y-3">
+                {visibleThreads.map((thread) => (
+                  <li key={thread.id}>
+                    <article className="rounded-lg border border-hairline bg-canvas-card p-4 transition-colors hover:border-accent/30 sm:p-5">
+                      <ThreadMeta thread={thread} />
                       <button
                         type="button"
+                        id={`df-thread-${thread.id}`}
                         onClick={() => openDetail(thread.id)}
-                        className="inline-flex min-h-11 items-center rounded-md border border-hairline px-3 py-0.5 text-[11px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0"
+                        className="mt-2 block w-full break-words rounded-sm text-left text-sm font-semibold text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                       >
-                        {replyCounts.get(thread.id) ?? 0}{" "}
-                        {replyCounts.get(thread.id) === 1 ? "reply" : "replies"}
+                        {thread.title}
                       </button>
-                    </div>
-                  </article>
-                </li>
-              ))}
-            </ul>
+                      <p className="mt-1 text-xs leading-relaxed text-body-mid">
+                        {excerpt(thread.body)}
+                      </p>
+                      {thread.problemRefs.length > 0 && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {thread.problemRefs.map((id) => (
+                            <ProblemRefChip key={id} id={id} />
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <UpvoteButton
+                          count={thread.upvotes}
+                          active={upvotedThreads.has(thread.id)}
+                          label="thread"
+                          onClick={() => run(toggleThreadUpvote(thread.id))}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => openDetail(thread.id)}
+                          className="inline-flex min-h-11 items-center rounded-md border border-hairline px-3 py-0.5 text-[11px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:min-h-0"
+                        >
+                          {replyLabel(
+                            replyCounts.get(thread.id) ?? 0,
+                            replyMoreCounts.has(thread.id),
+                          )}
+                        </button>
+                      </div>
+                    </article>
+                  </li>
+                ))}
+              </ul>
+              {canLoadMoreThreads && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={loadMoreThreads}
+                    aria-label="Load more threads"
+                    className={SECONDARY_BUTTON_CLASSES}
+                  >
+                    Load more
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

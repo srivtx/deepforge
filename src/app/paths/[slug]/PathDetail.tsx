@@ -2,14 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Reveal } from "@/components/motion/Reveal";
 import type { ProblemMeta } from "@/data/problems/problem-meta";
 import type { PathLevel, PathStage, ResolvedLearningPath } from "@/lib/paths";
 import {
   nextProblemInPath,
   pathProgress,
+  resolvePrerequisites,
   slugify,
   stageProgress,
 } from "@/lib/paths";
+import {
+  evaluateStageCheckpoint,
+  type CheckpointReport,
+} from "@/lib/pathCheckpoints";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { problemHref } from "@/lib/problemLinks";
 import { cn, difficultyClasses } from "@/lib/utils";
@@ -88,6 +94,115 @@ function ProgressBar({
   );
 }
 
+const ARTIFACT_LABELS: Record<"lab" | "project" | "sim", string> = {
+  lab: "Lab",
+  project: "Project",
+  sim: "Simulation",
+};
+
+function CheckpointCard({
+  report,
+  problems,
+  progress,
+  from,
+}: {
+  report: CheckpointReport;
+  problems: Map<string, ProblemMeta>;
+  progress: ProgressMap;
+  from: string;
+}) {
+  const checkpoint = report.checkpoint;
+  if (!checkpoint) return null;
+  return (
+    <Reveal>
+      <div className="rounded-lg border border-hairline bg-canvas-soft p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-medium text-ink">Stage checkpoint</h3>
+          <span
+            className={cn(
+              "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+              report.passed
+                ? "border-accent/40 bg-accent/5 text-accent"
+                : "border-hairline bg-canvas-card text-body-mid",
+            )}
+          >
+            {report.passed
+              ? "Passed"
+              : `${report.bossSolved}/${report.required} to pass`}
+          </span>
+        </div>
+        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-body-mid">
+          {report.passed
+            ? "Checkpoint passed. This stage counts as complete even if a few problems remain."
+            : `Solve ${report.required} of ${checkpoint.bossIds.length} boss problems to mark this stage complete, even if a few problems remain.`}
+        </p>
+        <ul className="mt-3 flex flex-col gap-1.5">
+          {checkpoint.bossIds.map((id) => {
+            const problem = problems.get(id);
+            const solved = Boolean(progress[id]?.solved);
+            return (
+              <li key={id} className="flex items-center gap-2">
+                <SolvedMark solved={solved} />
+                {problem ? (
+                  <>
+                    <Link
+                      href={problemHref(id, from)}
+                      className="min-w-0 flex-1 truncate rounded-sm text-sm text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                    >
+                      {problem.title}
+                    </Link>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+                        difficultyClasses(problem.difficulty),
+                      )}
+                    >
+                      {problem.difficulty}
+                    </span>
+                  </>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate text-sm text-body-mid">
+                    Problem not available{" "}
+                    <span className="font-mono text-[11px] text-mute">
+                      {id}
+                    </span>
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {checkpoint.artifact && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-hairline pt-3">
+            <span className="rounded-full border border-hairline bg-canvas-card px-1.5 py-0.5 text-[10px] font-medium text-body-mid">
+              {ARTIFACT_LABELS[checkpoint.artifact.kind]}
+            </span>
+            <span className="text-xs text-body-mid">
+              Recommended next step
+            </span>
+            <Link
+              href={checkpoint.artifact.href}
+              className="rounded-sm text-sm font-medium text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+            >
+              {checkpoint.artifact.title}
+            </Link>
+            {checkpoint.artifact.difficulty && (
+              <span
+                className={cn(
+                  "rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+                  difficultyClasses(checkpoint.artifact.difficulty),
+                )}
+              >
+                {checkpoint.artifact.difficulty}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </Reveal>
+  );
+}
+
 function StageSection({
   stage,
   index,
@@ -104,6 +219,7 @@ function StageSection({
   from: string;
 }) {
   const stats = stageProgress(stage, progress);
+  const report = evaluateStageCheckpoint(stage, problems, progress);
   return (
     <section className="flex flex-col gap-3">
       {showHeader && (
@@ -115,9 +231,16 @@ function StageSection({
               </span>
               {stage.title}
             </h2>
-            <span className="font-mono text-xs text-body-mid">
-              {stats.solved}/{stats.total}
-            </span>
+            <div className="flex items-center gap-2">
+              {report.complete && (
+                <span className="rounded-full border border-accent/40 bg-accent/5 px-2 py-0.5 text-[10px] font-medium text-accent">
+                  Complete
+                </span>
+              )}
+              <span className="font-mono text-xs text-body-mid">
+                {stats.solved}/{stats.total}
+              </span>
+            </div>
           </div>
           {stage.blurb && (
             <p className="max-w-3xl text-sm leading-relaxed text-body-mid">
@@ -191,6 +314,14 @@ function StageSection({
           </ul>
         )}
       </div>
+      {report.checkpoint && (
+        <CheckpointCard
+          report={report}
+          problems={problems}
+          progress={progress}
+          from={from}
+        />
+      )}
     </section>
   );
 }
@@ -212,6 +343,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
   const problemMap = new Map(problems.map((problem) => [problem.id, problem]));
   const from = `/paths/${path.slug}`;
   const overall = pathProgress(path, progress);
+  const prerequisites = resolvePrerequisites(path.prerequisites);
   const nextStep = nextProblemInPath(path, progress);
   const nextProblem = nextStep ? problemMap.get(nextStep.problemId) : undefined;
   const paragraphs = path.description
@@ -306,7 +438,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
         )}
       </section>
 
-      {(path.goals.length > 0 || path.prerequisites.length > 0) && (
+      {(path.goals.length > 0 || prerequisites.length > 0) && (
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {path.goals.length > 0 && (
             <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
@@ -329,20 +461,25 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
               </ul>
             </div>
           )}
-          {path.prerequisites.length > 0 && (
+          {prerequisites.length > 0 && (
             <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
               <h2 className="text-sm font-medium text-ink">Before you start</h2>
               <ul className="mt-2 flex flex-col gap-1.5">
-                {path.prerequisites.map((item) => (
+                {prerequisites.map((prerequisite) => (
                   <li
-                    key={item}
+                    key={prerequisite.slug}
                     className="flex gap-2 text-sm leading-relaxed text-body"
                   >
                     <span
                       aria-hidden
                       className="mt-2 h-1 w-1 shrink-0 rounded-full bg-mute"
                     />
-                    {item}
+                    <Link
+                      href={`/paths/${prerequisite.slug}`}
+                      className="rounded-sm underline decoration-hairline underline-offset-2 transition-colors hover:text-accent hover:decoration-accent/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                    >
+                      {prerequisite.title}
+                    </Link>
                   </li>
                 ))}
               </ul>

@@ -19,7 +19,9 @@ import {
   createComment,
   listComments,
   MAX_COMMENT_LENGTH,
+  SOCIAL_PAGE_SIZE,
   subscribe as subscribeSocial,
+  subscribeRealtime,
   toggleCommentUpvote,
   type SocialResult,
 } from "@/lib/sync/social";
@@ -130,9 +132,20 @@ export function ProblemComments({ problemId }: ProblemCommentsProps) {
   const [posting, setPosting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [signedOutHint, setSignedOutHint] = useState(false);
+  const [windowSize, setWindowSize] = useState(SOCIAL_PAGE_SIZE);
+  const [hasMore, setHasMore] = useState(false);
 
   const mountedRef = useRef(true);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const offsetRef = useRef(0);
+  const activeProblemRef = useRef(problemId);
+
+  const [renderedProblemId, setRenderedProblemId] = useState(problemId);
+  if (renderedProblemId !== problemId) {
+    setRenderedProblemId(problemId);
+    setWindowSize(SOCIAL_PAGE_SIZE);
+    setHasMore(false);
+  }
 
   useEffect(() => {
     mountedRef.current = true;
@@ -151,16 +164,29 @@ export function ProblemComments({ problemId }: ProblemCommentsProps) {
 
   useEffect(() => {
     let cancelled = false;
+    activeProblemRef.current = problemId;
+    offsetRef.current = 0;
     const refresh = async () => {
-      const { error } = await listComments(problemId);
+      const previousOffset = offsetRef.current;
+      const result = await listComments(problemId, {
+        offset: 0,
+        limit: SOCIAL_PAGE_SIZE,
+      });
       if (cancelled || !mountedRef.current) return;
       setLoading(false);
-      if (error) setNotice(error);
+      if (result.error) setNotice(result.error);
+      if (result.hasMore && result.nextOffset !== null) {
+        offsetRef.current = Math.max(previousOffset, result.nextOffset);
+      }
+      if (previousOffset === 0 || !result.hasMore) {
+        setHasMore(result.hasMore);
+      }
     };
     void refresh().catch(() => {});
     const unsubscribe = subscribeSocial(() => {
       void refresh().catch(() => {});
     });
+    const stopComments = subscribeRealtime({ kind: "comments", problemId });
     const onStorage = (event: StorageEvent) => {
       if (event.key === null || event.key.startsWith("deepforge:")) {
         void refresh().catch(() => {});
@@ -170,9 +196,28 @@ export function ProblemComments({ problemId }: ProblemCommentsProps) {
     return () => {
       cancelled = true;
       unsubscribe();
+      stopComments();
       window.removeEventListener("storage", onStorage);
     };
   }, [problemId]);
+
+  const loadMore = useCallback(() => {
+    setWindowSize((count) => count + SOCIAL_PAGE_SIZE);
+    if (!hasMore) return;
+    const offset = offsetRef.current;
+    void listComments(problemId, { offset, limit: SOCIAL_PAGE_SIZE })
+      .then((result) => {
+        if (!mountedRef.current || activeProblemRef.current !== problemId) {
+          return;
+        }
+        if (result.error) setNotice(result.error);
+        if (result.hasMore && result.nextOffset !== null) {
+          offsetRef.current = Math.max(offset, result.nextOffset);
+        }
+        setHasMore(result.hasMore);
+      })
+      .catch(() => {});
+  }, [problemId, hasMore]);
 
   const run = useCallback((task: Promise<SocialResult<unknown>>) => {
     void task
@@ -296,37 +341,51 @@ export function ProblemComments({ problemId }: ProblemCommentsProps) {
           </button>
         </div>
       ) : (
-        <ul className="space-y-3">
-          {comments.map((comment) => (
-            <li
-              key={comment.id}
-              className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-ink">
-                  {comment.author}
-                </span>
-                <time
-                  dateTime={comment.createdAt}
-                  className="text-[11px] text-mute"
-                >
-                  {formatRelativeTime(comment.createdAt)}
-                </time>
-              </div>
-              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-body">
-                {comment.body}
-              </p>
-              <div className="mt-3">
-                <UpvoteButton
-                  count={comment.upvotes}
-                  active={comment.upvotedByMe}
-                  disabled={!canVote}
-                  onClick={() => run(toggleCommentUpvote(comment.id))}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-3">
+            {comments.slice(0, windowSize).map((comment) => (
+              <li
+                key={comment.id}
+                className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-ink">
+                    {comment.author}
+                  </span>
+                  <time
+                    dateTime={comment.createdAt}
+                    className="text-[11px] text-mute"
+                  >
+                    {formatRelativeTime(comment.createdAt)}
+                  </time>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-body">
+                  {comment.body}
+                </p>
+                <div className="mt-3">
+                  <UpvoteButton
+                    count={comment.upvotes}
+                    active={comment.upvotedByMe}
+                    disabled={!canVote}
+                    onClick={() => run(toggleCommentUpvote(comment.id))}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+          {(comments.length > windowSize || hasMore) && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={loadMore}
+                aria-label="Load more comments"
+                className={SECONDARY_BUTTON_CLASSES}
+              >
+                Load more
+              </button>
+            </div>
+          )}
+        </>
       )}
     </section>
   );

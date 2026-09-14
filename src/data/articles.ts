@@ -7,7 +7,10 @@ import {
   EigenvectorGrid,
   EmbeddingGeometry,
   KMeansLoop,
+  KvMemoryTiling,
+  PostTrainingPipeline,
   QuantizationNumberLine,
+  RagPipeline,
   SoftmaxTemperatureCurve,
 } from "@/components/articles/figures";
 
@@ -19,7 +22,10 @@ export type DemoKind =
   | "attention"
   | "bpe-merge"
   | "embedding-cosine"
-  | "quantization-scale";
+  | "quantization-scale"
+  | "kv-cache"
+  | "rag-retrieval"
+  | "post-training";
 
 export type FigureKind =
   | "softmax-temperature-curve"
@@ -30,7 +36,10 @@ export type FigureKind =
   | "attention-heatmap"
   | "bpe-merge-cascade"
   | "embedding-geometry"
-  | "quantization-number-line";
+  | "quantization-number-line"
+  | "kv-memory-tiling"
+  | "rag-pipeline"
+  | "post-training-pipeline";
 
 export interface ProseSection {
   kind: "prose";
@@ -61,6 +70,9 @@ export const FIGURES: Record<FigureKind, ComponentType> = {
   "bpe-merge-cascade": BpeMergeCascade,
   "embedding-geometry": EmbeddingGeometry,
   "quantization-number-line": QuantizationNumberLine,
+  "kv-memory-tiling": KvMemoryTiling,
+  "rag-pipeline": RagPipeline,
+  "post-training-pipeline": PostTrainingPipeline,
 };
 
 export interface Article {
@@ -473,6 +485,173 @@ export const ARTICLES: Article[] = [
       {
         kind: "prose",
         text: "The problems below compute an INT8 scale, quantize and dequantize, work through per-channel scales, and compare INT4 against INT8 memory.\n\nWhen you write the code by hand, watch two things: the rounding mode and the clamp. A scale without a clamp silently overflows, and a clamp without the right scale throws away range for nothing.",
+      },
+    ],
+  },
+  {
+    id: "art-kv-cache",
+    slug: "kv-cache-and-flashattention",
+    title: "KV Cache & FlashAttention",
+    dek: "Attention is O(n²) compute and O(n) memory that never shrinks. The KV cache is why long context costs what it costs — and FlashAttention is why it fits.",
+    readMinutes: 11,
+    category: "Deep Learning",
+    problemIds: ["dl-075", "dl-124", "dl-186", "dl-211", "dl-370", "dl-401"],
+    sections: [
+      {
+        kind: "prose",
+        text: "Attention scores every query against every key. In training and in prefill, the whole sequence arrives at once, so that table can be built in a single pass. Decoding is different. It produces one token at a time, and each new token needs keys and values from every token that came before it.\n\nWithout a cache, generating token 1,000 would recompute the keys and values of the first 999 tokens, in every layer, on every step. The arithmetic is identical every time. The KV cache removes the repetition: keep the K and V vectors you already computed, and append exactly one new key and one new value per layer per token.",
+      },
+      {
+        kind: "prose",
+        text: "The cache has a closed-form size: `2 × layers × KV heads × head dim × bytes per element` per token. The 2 is for K and V. The rest is the shape of the projections.\n\nWork a number. A 7B model with 32 layers, 32 query heads, head dim 128, stored in bf16, needs `2 × 32 × 32 × 128 × 2 = 524,288` bytes per token. That is 512 KiB per token, or 64 GiB at 128k tokens for a single sequence. The weights are 14 GB. At long context the cache is several times the model it serves.\n\nThat is the whole lesson in one multiplication: the cost of context is linear in tokens and quadratic in nothing. It is simply the projection shape, times the sequence length.",
+      },
+      {
+        kind: "prose",
+        text: "Three architectural choices shrink the multiplier. Grouped-query attention (GQA) shares one key/value projection across several query heads — at 8 query heads per KV head the cache drops 8×. Multi-query attention (MQA) goes all the way to one KV head for every query head. Multi-head latent attention (MLA) compresses K and V into a shared low-rank latent and re-expands them on the fly, which buys 7–14×.\n\nDtype is the other lever. FP8 halves the bytes against bf16 with sub-1% accuracy cost on validated paths, which is why it is a common serving default. GQA and FP8 together routinely turn 64 GiB of cache into 8.",
+      },
+      {
+        kind: "demo",
+        demo: "kv-cache",
+      },
+      {
+        kind: "prose",
+        text: "In the decode panel, watch the cache grow one token at a time. Each append is cheap — two small projections per layer. The cost is bandwidth. Decode is memory-bound: every generated token streams the weights and the entire cache through the chip just to compute one new row of attention.\n\nThat is why batching raises throughput so much. The same cache read serves several sequences at once. It is also why a paged allocator matters: sequences start short and grow, so the cache must be allocated in blocks rather than one contiguous buffer reserved for the worst case.",
+      },
+      {
+        kind: "prose",
+        text: "FlashAttention attacks the other half of the problem. The naive implementation materializes the n×n score matrix in HBM, softmaxes each row, and multiplies by V. HBM can hold those bytes, but moving them is the bottleneck; a large intermediate that is written once and read once is exactly the wrong thing to put there.\n\nFlashAttention never writes the matrix. It tiles Q, K, and V into blocks that fit in on-chip SRAM, computes scores for one tile, updates a running softmax state, and discards the tile. The final output is bit-for-bit close to exact attention; only the memory traffic changes.",
+      },
+      {
+        kind: "figure",
+        figure: "kv-memory-tiling",
+        caption:
+          "The cache overtakes 7B bf16 weights near 16k tokens and reaches 9× them at 128k, while FlashAttention keeps the n×n score matrix inside SRAM instead of HBM.",
+      },
+      {
+        kind: "prose",
+        text: "The running state is a pair: the maximum score seen so far, `m`, and the sum of exponentials so far, `l`. When a new tile arrives, its maximum may be larger than `m`. The old sum is now out of date, so it is rescaled: `l_new = l_old · exp(m_old − m_new) + Σ exp(s_i − m_new)`.\n\nThe partial output is rescaled by the same ratio. Because `m` only ever grows, every value corrected for the old maximum is corrected for the new one in a single multiply. Everything a tile needs lives in registers, so the full row never has to be revisited. That is the online softmax at the heart of every memory-efficient attention kernel.",
+      },
+      {
+        kind: "prose",
+        text: "The trade changes with the phase. Prefill processes the whole prompt at once, so each weight read amortizes over many tokens and the kernel becomes compute-bound. Tiled attention wins there, because the score matrix never leaves SRAM. Decode is bandwidth-bound on the cache, so the wins come from GQA, FP8 KV, and eviction instead.\n\nA practical serving stack usually runs all three: GQA for the architecture, FP8 for the cache dtype, and a paged allocator that keeps memory contiguous as sequences grow. None of them changes what attention computes.",
+      },
+      {
+        kind: "prose",
+        text: "Long-output reasoning models broke the old assumption that the input is the problem. A 2k-token prompt can trigger 100k tokens of generation, so the cache keeps growing while the model thinks. Two families of fixes exist.\n\nEviction keeps a budget. A sliding window drops the oldest tokens; attention sinks always keep the first few, which carry disproportionate weight; heavy-hitter policies keep the tokens whose accumulated attention is largest. Compression rewrites entries instead: quantize further, merge similar keys, or skip layers. Both trade a measurable accuracy loss for a fixed memory ceiling.",
+      },
+      {
+        kind: "prose",
+        text: "The problems below compute bytes per token, the full cache for a sequence, an append step, the online-softmax rescale, and the savings from GQA and tiled attention. They are pure arithmetic, so every number can be checked against the formulas above.",
+      },
+    ],
+  },
+  {
+    id: "art-rag",
+    slug: "rag-from-chunks-to-citations",
+    title: "RAG: From Chunks to Citations",
+    dek: "Retrieval-augmented generation is a pipeline, not a prompt. Most failures happen before the model reads a single token.",
+    readMinutes: 10,
+    category: "NLP",
+    problemIds: ["nlp-141", "nlp-148", "nlp-184", "nlp-185", "nlp-242", "nlp-252"],
+    sections: [
+      {
+        kind: "prose",
+        text: "Retrieval-augmented generation is usually drawn as one box: query in, answer out. In practice it is a pipeline of six or seven stages, and most of its failures happen before the generator reads a single token.\n\nThe shape is fixed. Documents are parsed into text, split into chunks, indexed, retrieved for a query, fused and reranked into a short list, then packed into a context window with citation ids. The model's only job is to ground an answer in the passages it was handed.",
+      },
+      {
+        kind: "prose",
+        text: "Chunking decides what can be retrieved. Chunks that are too large dilute the embedding and waste context; chunks that are too small lose the sentence that explains them. Overlap between neighboring chunks is the standard patch, because a span that straddles a boundary is invisible to retrieval unless some chunk contains it whole.\n\nContextual retrieval pushes further. Before embedding, each chunk is prefixed with a short model-generated summary of its place in the document. The chunk now carries its own context instead of relying on the retriever to guess it.",
+      },
+      {
+        kind: "prose",
+        text: "Lexical retrieval scores term overlap. BM25 weights each query term by inverse document frequency and saturates term frequency, so a rare name or error code matches exactly while common words contribute little. It is fast, interpretable, and blind to paraphrase.\n\nDense retrieval embeds the query and the chunks into one vector space and scores cosine similarity. It matches meaning: `how do I reset my password` finds `change your passphrase`. It misses exact tokens that never appeared in training, like an order number.",
+      },
+      {
+        kind: "prose",
+        text: "Hybrid retrieval runs both and keeps both ranked lists. Neither score is calibrated against the other — a BM25 score of 12 and a cosine of 0.71 are not comparable numbers — so the fusion step works on ranks instead. Ranks are always comparable, which is the whole trick.\n\nThe demo below makes the difference visible. Switch between BM25, dense, and hybrid on the same query, then move the fusion constant `k` and watch how much first place is trusted.",
+      },
+      {
+        kind: "demo",
+        demo: "rag-retrieval",
+      },
+      {
+        kind: "prose",
+        text: "Reciprocal rank fusion is one line: `RRF(d) = Σ 1/(k + rank_i(d))`, summed over the lists where document d appears, with `k` commonly 60. A document that ranks high in either list scores well; a document near the top of both gets two contributions and usually wins.\n\nThe constant `k` damps the top of each list. Small `k` trusts first place, large `k` flattens the lists toward a vote. Because RRF only reads order, it survives score drift between retriever versions — one reason it is the default fusion in production stacks.",
+      },
+      {
+        kind: "prose",
+        text: "Fusion produces candidates, not a final order. A cross-encoder reranker takes each query-chunk pair, concatenates the text, and runs a small transformer over both at once. Unlike the bi-encoder behind dense retrieval, it sees the interaction between query and chunk, which is exactly what separates a related passage from a supporting one.\n\nReranking is the highest-leverage upgrade in the pipeline. Skipping it costs 10–30 recall@5 points; adding it after contextual retrieval cuts retrieval failures by roughly half, with published stacks reporting 49–67% reductions.",
+      },
+      {
+        kind: "figure",
+        figure: "rag-pipeline",
+        caption:
+          "Parse, chunk with overlap, contextualize, index twice, retrieve both ways, fuse by rank, rerank with a cross-encoder, then cite — or refuse when nothing clears the evidence threshold.",
+      },
+      {
+        kind: "prose",
+        text: "The context pack is a budget problem. Deduplicate near-identical chunks, sort by rerank score, cut at a token limit, and attach an id to every passage. Those ids are what make citations possible: the generator is instructed to attribute each claim to a bracketed source, and the interface can link that bracket back to the exact span.\n\nWithout span ids, citations are decorative. With them, a reader can verify a claim in one click, which is the entire point of retrieval.",
+      },
+      {
+        kind: "prose",
+        text: "Not every query deserves an answer. If the best reranked score falls below a threshold, the system should refuse rather than let the model answer from its weights — that is how a RAG system hallucinates with a straight face.\n\nThe threshold is a calibrated number, chosen so real evidence clears it and out-of-corpus queries do not. The refusal is a feature, not an admission of failure: a grounded 'I don't know' is worth more than a confident wrong answer.",
+      },
+      {
+        kind: "prose",
+        text: "Retrieval quality is measured before generation enters the picture. Precision@k counts how many of the k returned chunks are relevant, recall@k counts how many relevant chunks were returned, and mean reciprocal rank rewards putting the first relevant chunk high in the list. Chunk overlap and reranking are the two knobs that move recall the most.\n\nThe problems below compute top-k selection, precision and recall at k, reciprocal rank fusion, chunk overlap coverage, and mean reciprocal rank.",
+      },
+    ],
+  },
+  {
+    id: "art-post-training",
+    slug: "post-training-rlhf-dpo-grpo",
+    title: "Post-Training: RLHF → DPO → GRPO",
+    dek: "Pretraining teaches the model language. Post-training teaches it behavior — and by 2026 the preference label gave way to the verifiable reward.",
+    readMinutes: 11,
+    category: "Reinforcement Learning",
+    problemIds: ["dl-180", "dl-182", "rl-204", "rl-205", "rl-274", "rl-275"],
+    sections: [
+      {
+        kind: "prose",
+        text: "Pretraining teaches a model the statistics of text. It does not teach it to follow instructions, to prefer helpful answers, or to show its work. Those are behaviors, and behaviors come from post-training.\n\nThe modern stack has three rungs. Supervised fine-tuning imitates demonstrations. Preference optimization learns from comparisons — this answer is better than that one. Reinforcement learning from verifiable rewards trains on tasks a checker can grade. Each rung teaches something the previous one cannot.",
+      },
+      {
+        kind: "prose",
+        text: "RLHF was the original recipe. Start with SFT on demonstrations. Collect human comparisons between pairs of responses. Fit a reward model to predict which response a human would prefer, using the Bradley–Terry model `P(y_w ≻ y_l) = σ(r_w − r_l)`. Then optimize the policy against that reward with PPO while a KL penalty keeps it close to the reference model it started from.\n\nThe KL term is not decoration. Without it the policy drifts toward whatever maximizes the reward model, including the reward model's own mistakes. That failure is called reward hacking, and closing the gap between reward and quality is most of RLHF engineering.",
+      },
+      {
+        kind: "prose",
+        text: "PPO is an online algorithm: sample from the current policy, score the samples, update, repeat. It carries a critic — a value network that estimates expected return at each token — to reduce the variance of the policy gradient. The clipped objective `min(r·A, clip(r, 1−ε, 1+ε)·A)` limits how far one update can move the policy.\n\nThe critic is a second model to train, tune, and store. Removing it is one reason GRPO took over.",
+      },
+      {
+        kind: "demo",
+        demo: "post-training",
+      },
+      {
+        kind: "prose",
+        text: "DPO skips the reward model entirely. For the same Bradley–Terry preference model, the optimal policy has a closed form, and it implies an implicit reward `β·log(π_θ(y) / π_ref(y))`. Substituting that into the preference likelihood leaves a loss over preference pairs alone: `L = −log σ(β·[(log π_θ(y_w) − log π_ref(y_w)) − (log π_θ(y_l) − log π_ref(y_l))])`.\n\nNo sampling, no critic, no reward model. DPO is a classification loss on log-ratios, which is why it is the stable default. Published comparisons put it within about 0.3 MT-Bench points of PPO at roughly a tenth of the compute.",
+      },
+      {
+        kind: "prose",
+        text: "GRPO keeps the online loop and drops the critic. For each prompt it samples a group of G completions, scores them, and normalizes the rewards inside the group: `A_i = (r_i − mean(r)) / std(r)`. The group mean is the baseline, so no value network is needed.\n\nWhen the reward comes from a program that can verify the answer — a math checker, a unit test, a schema validator — the loop becomes RLVR: reinforcement learning from verifiable rewards. There is no reward model to hack, because the checker is the ground truth. GRPO with RLVR is the standard way reasoning models are trained, and DAPO and GSPO are refinements that stabilize its clipping and normalization.",
+      },
+      {
+        kind: "figure",
+        figure: "post-training-pipeline",
+        caption:
+          "SFT imitates, preference optimization compares, RLVR verifies — and GRPO replaces PPO's learned critic with the group mean, crossed out above.",
+      },
+      {
+        kind: "prose",
+        text: "The choice depends on the data and the budget. DPO wins when preferences are static and pairs already exist, because it is one pass over a fixed dataset. GRPO wins when outcomes can be verified, because fresh rollouts explore beyond the demonstrations and the verifier cannot be gamed. SFT still owns format, tone, and tool-call syntax.\n\nRankings invert across scale. A controlled 2026 comparison found different winners at different model sizes, so 'best method' is always relative to where you measure. The QLoRA aside matters here too: a 4-bit base with 16-bit adapters is how DPO or GRPO fits on a single node.",
+      },
+      {
+        kind: "prose",
+        text: "Three failure modes are worth naming. Reward hacking: the policy finds the reward model's blind spot, so reward rises while humans disagree. Length bias: longer answers score higher, so the model learns to ramble. Distribution collapse: too much KL pressure or too little exploration narrows the policy until it gives one safe answer to everything.\n\nThe defenses are boring and effective. Hold out a human- or verifier-graded set, monitor response length, cap the KL or the update ratio, and refresh the reward model as the policy moves.",
+      },
+      {
+        kind: "prose",
+        text: "The problems below implement the Bradley–Terry likelihood, the reward-model loss, the DPO loss, its implicit reward gap, and the PPO clipped objective. Together they are the arithmetic behind every rung of the stack.",
       },
     ],
   },

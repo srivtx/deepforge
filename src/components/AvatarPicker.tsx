@@ -5,6 +5,7 @@ import {
   useState,
   useSyncExternalStore,
   type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { cn } from "@/lib/utils";
 import { getUserName } from "@/lib/leaderboard";
@@ -123,6 +124,14 @@ export function AvatarPicker() {
     nftSelection.traits.extras,
   ].filter((trait) => trait.id !== "none");
 
+  // Rerolling keeps the visual change silent for screen readers otherwise —
+  // this text changes with every seed so the live region announces it.
+  const nftAnnouncement = `${
+    nftStyle === "pixel" ? "Pixel" : "Illustrated"
+  } avatar ${activeSeed.slice(0, 8)} — ${nftTraits.length} trait${
+    nftTraits.length === 1 ? "" : "s"
+  }${nftRare > 0 ? `, ${nftRare} rare` : ""}.`;
+
   const chooseNft = (seed: string, style: AvatarStyle = nftStyle) => {
     setError(null);
     setSyncNote(null);
@@ -157,6 +166,25 @@ export function AvatarPicker() {
     setAvatar(null);
     const session = getCachedSession();
     if (session) void removeAvatarImage(session.userId);
+  };
+
+  // Arrow-key navigation between the two art-style tabs (APG tabs pattern).
+  const onStyleTabKeyDown = (
+    e: ReactKeyboardEvent<HTMLButtonElement>,
+    current: AvatarStyle,
+  ) => {
+    let next: AvatarStyle | null = null;
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      next = current === "illustrated" ? "pixel" : "illustrated";
+    } else if (e.key === "Home") {
+      next = "illustrated";
+    } else if (e.key === "End") {
+      next = "pixel";
+    }
+    if (!next) return;
+    e.preventDefault();
+    setNftStyle(next);
+    document.getElementById(`avatar-style-tab-${next}`)?.focus();
   };
 
   const openFilePicker = () => {
@@ -248,78 +276,90 @@ export function AvatarPicker() {
           />
         </span>
         <div className="mt-3 min-w-0 sm:mt-0">
-          <p className="text-xs text-body-mid">
-            Generated ·{" "}
-            <span className="font-mono text-[11px] text-mute">
-              #{activeSeed.slice(0, 12)}
-            </span>
-            {nftRare > 0 && (
-              <span className="ml-2 rounded-full border border-accent/40 px-1.5 py-0.5 text-[10px] text-accent">
-                {nftRare} rare
-              </span>
-            )}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <div
-              role="group"
-              aria-label="Avatar art style"
-              className="flex items-center gap-1 rounded-full border border-hairline p-0.5"
-            >
-              {(["illustrated", "pixel"] as const).map((style) => (
-                <button
-                  key={style}
-                  type="button"
-                  aria-pressed={nftStyle === style}
-                  onClick={() => setNftStyle(style)}
-                  className={cn(
-                    "inline-flex min-h-8 items-center rounded-full px-2.5 text-[11px] transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
-                    nftStyle === style
-                      ? "bg-canvas-soft text-ink"
-                      : "text-body-mid hover:text-ink",
-                  )}
-                >
-                  {style === "pixel" ? "Pixel" : "Illustrated"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {nftTraits.map((trait) => (
-              <span
-                key={trait.id}
+          <div
+            role="tablist"
+            aria-label="Avatar art style"
+            className="flex w-fit items-center gap-1 rounded-full border border-hairline p-0.5"
+          >
+            {(["illustrated", "pixel"] as const).map((style) => (
+              <button
+                key={style}
+                type="button"
+                role="tab"
+                id={`avatar-style-tab-${style}`}
+                aria-selected={nftStyle === style}
+                aria-controls="avatar-style-panel"
+                tabIndex={nftStyle === style ? 0 : -1}
+                onClick={() => setNftStyle(style)}
+                onKeyDown={(e) => onStyleTabKeyDown(e, style)}
                 className={cn(
-                  "rounded-full border px-2 py-0.5 text-[10px]",
-                  trait.weight <= 4
-                    ? "border-accent/40 text-accent"
-                    : "border-hairline text-body-mid",
+                  "inline-flex min-h-8 items-center rounded-full px-2.5 text-[11px] transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+                  nftStyle === style
+                    ? "bg-canvas-soft text-ink"
+                    : "text-body-mid hover:text-ink",
                 )}
               >
-                {trait.name}
-              </span>
+                {style === "pixel" ? "Pixel" : "Illustrated"}
+              </button>
             ))}
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => chooseNft(activeSeed)}
-              className="inline-flex min-h-11 items-center rounded-lg border border-accent/40 bg-accent/5 px-3.5 text-xs font-medium text-accent transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0 sm:py-2"
-            >
-              Use this avatar
-            </button>
-            <button
-              type="button"
-              onClick={rerollNft}
-              className="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0 sm:py-2"
-            >
-              Reroll
-            </button>
-            {avatar?.kind === "nft" &&
-              avatar.seed === activeSeed &&
-              (avatar.style ?? "illustrated") === nftStyle && (
-                <span className="text-[11px] text-accent">
-                  Current avatar
+          <div
+            id="avatar-style-panel"
+            role="tabpanel"
+            aria-labelledby={`avatar-style-tab-${nftStyle}`}
+          >
+            <p className="mt-2 text-xs text-body-mid">
+              Generated ·{" "}
+              <span className="font-mono text-[11px] text-mute">
+                #{activeSeed.slice(0, 12)}
+              </span>
+              {nftRare > 0 && (
+                <span className="ml-2 rounded-full border border-accent/40 px-1.5 py-0.5 text-[10px] text-accent">
+                  {nftRare} rare
                 </span>
               )}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {nftTraits.map((trait) => (
+                <span
+                  key={trait.id}
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px]",
+                    trait.weight <= 4
+                      ? "border-accent/40 text-accent"
+                      : "border-hairline text-body-mid",
+                  )}
+                >
+                  {trait.name}
+                </span>
+              ))}
+            </div>
+            <p role="status" aria-live="polite" className="sr-only">
+              {nftAnnouncement}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => chooseNft(activeSeed)}
+                className="inline-flex min-h-11 items-center rounded-lg border border-accent/40 bg-accent/5 px-3.5 text-xs font-medium text-accent transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0 sm:py-2"
+              >
+                Use this avatar
+              </button>
+              <button
+                type="button"
+                onClick={rerollNft}
+                className="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0 sm:py-2"
+              >
+                Reroll
+              </button>
+              {avatar?.kind === "nft" &&
+                avatar.seed === activeSeed &&
+                (avatar.style ?? "illustrated") === nftStyle && (
+                  <span className="text-[11px] text-accent">
+                    Current avatar
+                  </span>
+                )}
+            </div>
           </div>
         </div>
       </div>

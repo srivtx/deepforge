@@ -7,6 +7,11 @@ import { problems as p05 } from "./part-05";
 import { problems as p06 } from "./part-06";
 import { problems as p07 } from "./part-07";
 import { problems as p08 } from "./part-08";
+import { problems as p09 } from "./part-09";
+import { problems as p10 } from "./part-10";
+import { problems as p11 } from "./part-11";
+import { problems as p12 } from "./part-12";
+import { problems as p13 } from "./part-13";
 
 export const probabilityProblems: Problem[] = [
   ...p01,
@@ -17,4 +22,9 @@ export const probabilityProblems: Problem[] = [
   ...p06,
   ...p07,
   ...p08,
+  ...p09,
+  ...p10,
+  ...p11,
+  ...p12,
+  ...p13,
 ];

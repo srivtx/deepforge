@@ -8,6 +8,9 @@ import { AttentionDemo } from "@/components/articles/DemoAttention";
 import { BpeMergeDemo } from "@/components/articles/DemoBpeMerge";
 import { EmbeddingCosineDemo } from "@/components/articles/DemoEmbeddingCosine";
 import { QuantizationScaleDemo } from "@/components/articles/DemoQuantizationScale";
+import { KvCacheDemo } from "@/components/articles/DemoKvCache";
+import { RagRetrievalDemo } from "@/components/articles/DemoRagRetrieval";
+import { PostTrainingDemo } from "@/components/articles/DemoPostTraining";
 
 export interface DemoProps {
   params?: Record<string, number>;
@@ -82,4 +85,7 @@ export const DEMOS: Record<DemoKind, ComponentType<DemoProps>> = {
   "bpe-merge": BpeMergeDemo,
   "embedding-cosine": EmbeddingCosineDemo,
   "quantization-scale": QuantizationScaleDemo,
+  "kv-cache": KvCacheDemo,
+  "rag-retrieval": RagRetrievalDemo,
+  "post-training": PostTrainingDemo,
 };

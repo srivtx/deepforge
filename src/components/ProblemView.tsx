@@ -121,6 +121,28 @@ export function ProblemView({
   const setMobileTab = (tab: "problem" | "code") =>
     setMobileTabState({ problemId: problem.id, tab });
 
+  // Roving tabindex for the mobile tab switcher: one tab stop, arrow keys move
+  // selection and focus (APG tabs pattern).
+  const onMobileTabKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    current: "problem" | "code",
+  ) => {
+    let next: "problem" | "code" | null = null;
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      next = current === "problem" ? "code" : "problem";
+    } else if (e.key === "Home") {
+      next = "problem";
+    } else if (e.key === "End") {
+      next = "code";
+    }
+    if (!next) return;
+    e.preventDefault();
+    setMobileTab(next);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`df-tab-${next}`)?.focus();
+    });
+  };
+
   // Mark opened on mount; lock body scroll in the overlay variant only. Re-runs
   // only when the problem changes — `code` here is the initial code, which is
   // fine because this effect is meant to fire on problem switch, not on every
@@ -279,7 +301,9 @@ export function ProblemView({
   };
 
   const handleEditorKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Tab") {
+    // Tab indents, but Shift+Tab and Escape always release the editor so it can
+    // never become a keyboard trap (WCAG 2.1.2).
+    if (e.key === "Tab" && !e.shiftKey) {
       e.preventDefault();
       const ta = e.currentTarget;
       const start = ta.selectionStart;
@@ -290,6 +314,9 @@ export function ProblemView({
       requestAnimationFrame(() => {
         ta.selectionStart = ta.selectionEnd = start + 4;
       });
+    }
+    if (e.key === "Escape") {
+      e.currentTarget.blur();
     }
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
@@ -450,7 +477,7 @@ export function ProblemView({
     e: React.KeyboardEvent<HTMLTextAreaElement>,
     cell: NotebookCell,
   ) => {
-    if (e.key === "Tab") {
+    if (e.key === "Tab" && !e.shiftKey) {
       e.preventDefault();
       const ta = e.currentTarget;
       const latest =
@@ -463,6 +490,9 @@ export function ProblemView({
       requestAnimationFrame(() => {
         ta.selectionStart = ta.selectionEnd = start + 4;
       });
+    }
+    if (e.key === "Escape") {
+      e.currentTarget.blur();
     }
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
@@ -609,7 +639,9 @@ export function ProblemView({
             id="df-tab-problem"
             aria-controls="df-panel-problem"
             aria-selected={mobileTab === "problem"}
+            tabIndex={mobileTab === "problem" ? 0 : -1}
             onClick={() => setMobileTab("problem")}
+            onKeyDown={(e) => onMobileTabKeyDown(e, "problem")}
             className={cn(
               "min-h-11 flex-1 border-b-2 px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/40",
               mobileTab === "problem"
@@ -625,7 +657,9 @@ export function ProblemView({
             id="df-tab-code"
             aria-controls="df-panel-code"
             aria-selected={mobileTab === "code"}
+            tabIndex={mobileTab === "code" ? 0 : -1}
             onClick={() => setMobileTab("code")}
+            onKeyDown={(e) => onMobileTabKeyDown(e, "code")}
             className={cn(
               "min-h-11 flex-1 border-b-2 px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/40",
               mobileTab === "code"
@@ -688,12 +722,17 @@ export function ProblemView({
                   <div className="mt-5">
                     <button
                       onClick={() => setShowHint((v) => !v)}
+                      aria-expanded={showHint}
+                      aria-controls="df-problem-hint"
                       className="rounded-md text-xs text-accent transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                     >
                       {showHint ? "Hide hint" : "Show hint"}
                     </button>
                     {showHint && (
-                      <p className="mt-2 rounded-md border border-hairline bg-canvas-card p-3 text-xs leading-relaxed text-body">
+                      <p
+                        id="df-problem-hint"
+                        className="mt-2 rounded-md border border-hairline bg-canvas-card p-3 text-xs leading-relaxed text-body"
+                      >
                         {problem.hint}
                       </p>
                     )}
@@ -734,7 +773,7 @@ export function ProblemView({
                 </div>
 
                 {showSolution && (
-                  <div className="mt-5">
+                  <div id="df-problem-solution" className="mt-5">
                     <SectionHeading
                       className={cn(
                         "mb-2 font-medium text-body-mid",
@@ -808,6 +847,10 @@ export function ProblemView({
                   ⌘+Enter to run
                 </span>
               </div>
+              <span id="df-editor-help" className="sr-only">
+                Press Tab to indent, Shift+Tab to leave the editor, or Escape to
+                release the editor before moving on.
+              </span>
               {mode === "notebook" ? (
                 <div
                   className={cn(
@@ -899,6 +942,7 @@ export function ProblemView({
                           autoCapitalize="off"
                           autoCorrect="off"
                           aria-label={`Cell ${i + 1} code`}
+                          aria-describedby="df-editor-help"
                           className="df-code-editor df-scroll block w-full resize-y bg-canvas-card px-3 py-2.5 text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/40"
                         />
                         {(cellRunning || output) && (
@@ -947,6 +991,7 @@ export function ProblemView({
                     isPage && "sm:min-h-[360px] lg:min-h-[420px]",
                   )}
                   aria-label="Code editor"
+                  aria-describedby="df-editor-help"
                 />
               )}
 
@@ -996,6 +1041,8 @@ export function ProblemView({
                 </button>
                 <button
                   onClick={() => setShowSolution((v) => !v)}
+                  aria-expanded={showSolution}
+                  aria-controls="df-problem-solution"
                   className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                 >
                   {showSolution ? "Hide solution" : "Show solution"}

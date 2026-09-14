@@ -265,6 +265,38 @@ export function getPathBySlug(
   return all.find((path) => path.slug === value) ?? all.find((p) => p.id === value);
 }
 
+export interface ResolvedPrerequisite {
+  slug: string;
+  title: string;
+}
+
+/**
+ * Resolve prerequisite keys (slug or path id) to displayable path links.
+ * Unknown keys are dropped and duplicates collapsed, so callers can render
+ * the result without ever producing a dead link.
+ */
+export function resolvePrerequisites(
+  prerequisites: readonly string[],
+): ResolvedPrerequisite[] {
+  const byKey = new Map<string, ResolvedLearningPath>();
+  for (const path of getAllPaths()) {
+    if (!byKey.has(path.slug)) byKey.set(path.slug, path);
+    if (!byKey.has(path.id)) byKey.set(path.id, path);
+  }
+  const out: ResolvedPrerequisite[] = [];
+  const seen = new Set<string>();
+  for (const raw of prerequisites) {
+    if (typeof raw !== "string") continue;
+    const key = raw.trim();
+    if (!key) continue;
+    const target = byKey.get(key);
+    if (!target || seen.has(target.slug)) continue;
+    seen.add(target.slug);
+    out.push({ slug: target.slug, title: target.title });
+  }
+  return out;
+}
+
 export function stageProgress(
   stage: Pick<PathStage, "problemIds">,
   progress: ProgressState,

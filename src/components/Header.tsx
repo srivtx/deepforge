@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+} from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SyncPanel } from "./SyncPanel";
@@ -62,9 +67,26 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [menuOpen]);
 
+  // A disclosure, not a modal: once Tab moves past the sheet, close it so the
+  // page behind is not left hidden underneath an open overlay.
+  const handleHeaderBlur = (event: ReactFocusEvent<HTMLElement>) => {
+    if (!menuOpen) return;
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setMenuOpen(false);
+  };
+
+  const scrollToTop = () => {
+    if (pathname !== "/") return;
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  };
+
   return (
     <>
       <header
+        onBlur={handleHeaderBlur}
         className={`sticky top-0 z-40 w-full border-b transition-colors ${
           scrolled
             ? "border-hairline bg-canvas/70 backdrop-blur-md"
@@ -75,11 +97,7 @@ export function Header({ solvedCount, totalCount }: HeaderProps) {
           <div className="flex min-w-0 items-center gap-2">
             <Link
               href="/"
-              onClick={() => {
-                if (pathname === "/") {
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }
-              }}
+              onClick={scrollToTop}
               className="flex items-baseline gap-2 rounded-md focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
               aria-label="DeepForge home"
             >

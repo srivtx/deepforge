@@ -7,10 +7,13 @@
  * against the real problem bank and the shape the path UI expects. Fails
  * (exit 1) on unknown problem ids, duplicates, empty stages, flattened
  * problemIds that disagree with the stage lists, missing metadata, short
- * paths/stages, and bad slugs. Prints per-path stats on the way.
+ * paths/stages, bad slugs, and a broken prerequisite graph (unknown,
+ * self-referential, or cyclic prerequisites — always naming the path slug).
+ * Prints per-path stats on the way.
  */
 
 import { LEARNING_PATHS, PROBLEMS } from "../src/data/problems";
+import { validatePrerequisites } from "../src/lib/pathCheckpoints";
 import type { Difficulty, Problem } from "../src/types/problem";
 
 const VALID_LEVELS = ["Beginner", "Intermediate", "Advanced", "Mixed"];
@@ -149,6 +152,10 @@ for (const path of LEARNING_PATHS) {
       `min/problem=${minutes.toFixed(1)}`,
     ].join("  "),
   );
+}
+
+for (const issue of validatePrerequisites(LEARNING_PATHS)) {
+  error(issue.message);
 }
 
 console.log("Learning path stats:\n");

@@ -7,3 +7,6 @@ export { AttentionHeatmap } from "./AttentionHeatmap";
 export { BpeMergeCascade } from "./BpeMergeCascade";
 export { EmbeddingGeometry } from "./EmbeddingGeometry";
 export { QuantizationNumberLine } from "./QuantizationNumberLine";
+export { KvMemoryTiling } from "./KvMemoryTiling";
+export { RagPipeline } from "./RagPipeline";
+export { PostTrainingPipeline } from "./PostTrainingPipeline";

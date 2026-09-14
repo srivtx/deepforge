@@ -300,6 +300,13 @@ export function CommandPalette() {
             role="dialog"
             aria-modal="true"
             aria-label="Command palette"
+            onKeyDown={(e) => {
+              // The input is the only tab stop in the dialog; keep Tab from
+              // escaping into the page behind the modal.
+              if (e.key !== "Tab") return;
+              e.preventDefault();
+              inputRef.current?.focus();
+            }}
             className="df-slide-up w-full max-w-xl overflow-hidden rounded-lg border border-hairline bg-canvas"
           >
             <div className="flex items-center gap-2 border-b border-hairline px-3">
@@ -345,9 +352,17 @@ export function CommandPalette() {
                 }
                 autoComplete="off"
                 spellCheck={false}
-                className="w-full bg-transparent py-3 text-sm text-ink placeholder:text-mute focus:outline-none"
+                className="w-full bg-transparent py-3 text-sm text-ink placeholder:text-mute focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/40"
               />
             </div>
+
+            <p role="status" aria-live="polite" className="sr-only">
+              {query.trim() === ""
+                ? ""
+                : rows.length === 0
+                  ? "No matches"
+                  : `${rows.length} result${rows.length === 1 ? "" : "s"}`}
+            </p>
 
             <div
               ref={listRef}

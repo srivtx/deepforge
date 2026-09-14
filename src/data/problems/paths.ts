@@ -115,7 +115,7 @@ export const LEARNING_PATHS: LearningPath[] = [
       "Assemble scaled dot-product attention and a transformer encoder block",
     ],
     prerequisites: ["ml-from-scratch"],
-    problemIds: ["dl-001", "dl-002", "dl-008", "dl-010", "dl-018", "dl-016", "dl-012", "dl-003", "dl-004", "dl-022", "dl-025", "dl-027", "dl-005", "dl-043", "nlp-001", "nlp-002", "dl-020", "nlp-003", "nlp-020", "dl-033", "nlp-021", "dl-034", "dl-035", "dl-036", "dl-045", "dl-047", "dl-087"],
+    problemIds: ["dl-001", "dl-002", "dl-008", "dl-010", "dl-018", "dl-016", "dl-012", "nlp-001", "nlp-002", "dl-020", "nlp-003", "nlp-020", "dl-033", "nlp-021", "dl-003", "dl-004", "dl-022", "dl-025", "dl-027", "dl-005", "dl-043", "dl-034", "dl-035", "dl-036", "dl-045", "dl-047", "dl-087"],
     stages: [
       {
         id: "neurons-and-forward-passes",
@@ -125,18 +125,18 @@ export const LEARNING_PATHS: LearningPath[] = [
         problemIds: ["dl-001", "dl-002", "dl-008", "dl-010", "dl-018", "dl-016", "dl-012"],
       },
       {
-        id: "training-and-backprop",
-        title: "Training and Backprop",
-        blurb:
-          "Make the network learn: stable softmax, MLP and convolution forward passes, normalization layers, and gradient computation through the loss.",
-        problemIds: ["dl-003", "dl-004", "dl-022", "dl-025", "dl-027", "dl-005", "dl-043"],
-      },
-      {
         id: "text-to-embeddings",
         title: "Text to Embeddings",
         blurb:
           "Models read numbers, not words. Tokenize, count, weight with TF-IDF, learn BPE merges, and look up embeddings with sinusoidal positions.",
         problemIds: ["nlp-001", "nlp-002", "dl-020", "nlp-003", "nlp-020", "dl-033", "nlp-021"],
+      },
+      {
+        id: "training-and-backprop",
+        title: "Training and Backprop",
+        blurb:
+          "Make the network learn: stable softmax, MLP and convolution forward passes, normalization layers, and gradient computation through the loss.",
+        problemIds: ["dl-003", "dl-004", "dl-022", "dl-025", "dl-027", "dl-005", "dl-043"],
       },
       {
         id: "attention-and-transformers",
@@ -556,7 +556,7 @@ export const LEARNING_PATHS: LearningPath[] = [
       "Use union-find and monotonic stacks for classic problems",
     ],
     prerequisites: [],
-    problemIds: ["ds-001", "ds-002", "ds-003", "ds-005", "ds-008", "ds-009", "ds-004", "ds-010", "ds-018", "ds-019", "ds-021", "ds-020", "ds-039", "ds-025", "ds-028", "ds-030", "ds-023", "ds-024", "ds-036", "ds-014", "ds-015", "ds-033", "ds-034", "ds-040", "ds-032", "ds-038"],
+    problemIds: ["ds-001", "ds-002", "ds-003", "ds-005", "ds-008", "ds-009", "ds-004", "ds-010", "ds-018", "ds-019", "ds-021", "ds-020", "ds-039", "ds-014", "ds-015", "ds-033", "ds-034", "ds-040", "ds-032", "ds-038", "ds-025", "ds-028", "ds-030", "ds-023", "ds-024", "ds-036"],
     stages: [
       {
         id: "linear-structures",
@@ -573,18 +573,18 @@ export const LEARNING_PATHS: LearningPath[] = [
         problemIds: ["ds-010", "ds-018", "ds-019", "ds-021", "ds-020", "ds-039"],
       },
       {
-        id: "trees-and-tries",
-        title: "Trees and Tries",
-        blurb:
-          "Hierarchical structures: trie insert/search/prefix, BST insert and preorder traversal, BST validation, level-order traversal, prefix collection, and segment-tree range sums.",
-        problemIds: ["ds-025", "ds-028", "ds-030", "ds-023", "ds-024", "ds-036"],
-      },
-      {
         id: "hashing-union-find-and-caches",
         title: "Hashing, Union-Find, and Caches",
         blurb:
           "Hash-based and near-constant-time structures: string hashing, hash sets, separate chaining, union-find with path compression and union by rank, monotonic stacks, and an LRU cache.",
         problemIds: ["ds-014", "ds-015", "ds-033", "ds-034", "ds-040", "ds-032", "ds-038"],
+      },
+      {
+        id: "trees-and-tries",
+        title: "Trees and Tries",
+        blurb:
+          "Hierarchical structures: trie insert/search/prefix, BST insert and preorder traversal, BST validation, level-order traversal, prefix collection, and segment-tree range sums.",
+        problemIds: ["ds-025", "ds-028", "ds-030", "ds-023", "ds-024", "ds-036"],
       },
     ],
   },
@@ -740,7 +740,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "information-theory",
     title: "Information Theory",
     description:
-      "How much does a message tell you? Build entropy, KL divergence, mutual information, channel capacity, and source coding from scratch. You will finish with Huffman and Shannon codes, Kraft's inequality, and arithmetic coding. Perfect for the mathematically curious.",
+      "How much does a message tell you? Build entropy and mutual information from scratch, compress with real source codes, and finish with KL divergence, channel capacity, and the limits of processing. You will implement Huffman and Shannon codes, Kraft's inequality, arithmetic coding, and the data-processing gap. Perfect for the mathematically curious.",
     estimatedHours: 11,
     slug: "information-theory",
     level: "Advanced",
@@ -748,11 +748,11 @@ export const LEARNING_PATHS: LearningPath[] = [
     goals: [
       "Quantify information with entropy, cross-entropy, and perplexity",
       "Compute mutual information, KL, Jensen-Shannon, and Hellinger divergences",
-      "Understand channel capacity and data-processing bounds",
       "Design source codes with Huffman, Shannon, and Kraft's inequality",
+      "Understand channel capacity and data-processing bounds",
     ],
     prerequisites: ["probability-foundations"],
-    problemIds: ["info-001", "info-002", "info-004", "info-012", "info-017", "info-020", "info-026", "info-033", "info-003", "info-006", "info-007", "info-008", "info-009", "info-013", "info-015", "info-016", "info-018", "info-034", "info-024", "info-036", "info-037", "info-029", "info-031", "info-049", "info-028", "info-030", "info-027", "info-032", "info-045"],
+    problemIds: ["info-001", "info-002", "info-004", "info-012", "info-017", "info-020", "info-026", "info-033", "info-003", "info-006", "info-007", "info-008", "info-009", "info-013", "info-015", "info-029", "info-031", "info-049", "info-028", "info-030", "info-027", "info-032", "info-045", "info-016", "info-018", "info-034", "info-024", "info-036", "info-037"],
     stages: [
       {
         id: "information-and-entropy",
@@ -769,18 +769,18 @@ export const LEARNING_PATHS: LearningPath[] = [
         problemIds: ["info-003", "info-006", "info-007", "info-008", "info-009", "info-013", "info-015"],
       },
       {
-        id: "divergences-and-limits",
-        title: "Divergences and Fundamental Limits",
-        blurb:
-          "Distances between distributions and the limits of processing: Gaussian KL, Hellinger distance, BSC mutual information, maximum entropy, Blahut-Arimoto capacity, and the data-processing gap.",
-        problemIds: ["info-016", "info-018", "info-034", "info-024", "info-036", "info-037"],
-      },
-      {
         id: "source-coding",
         title: "Source Coding",
         blurb:
           "Compress messages down to their entropy: Huffman code lengths and average length, Shannon code lengths, expected code length, Kraft's inequality, Markov-source rate, LZ78 parsing, and arithmetic coding.",
         problemIds: ["info-029", "info-031", "info-049", "info-028", "info-030", "info-027", "info-032", "info-045"],
+      },
+      {
+        id: "divergences-and-limits",
+        title: "Divergences and Fundamental Limits",
+        blurb:
+          "Distances between distributions and the limits of processing: Gaussian KL, Hellinger distance, BSC mutual information, maximum entropy, Blahut-Arimoto capacity, and the data-processing gap.",
+        problemIds: ["info-016", "info-018", "info-034", "info-024", "info-036", "info-037"],
       },
     ],
   },
@@ -887,7 +887,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "data-scientist-track",
     title: "Data Scientist Track",
     description:
-      "From summary statistics to causal inference, the full analyst toolkit. You will compute robust descriptives, run hypothesis tests, build regression and classification pipelines, and finish with causal estimators and ranking curves. The right path if your job is turning messy data into defensible decisions.",
+      "From summary statistics to causal inference, the full analyst toolkit. You will compute robust descriptives, build and evaluate regression and classification baselines, measure relationships and run hypothesis tests, then finish with causal estimators and ranking curves. The right path if your job is turning messy data into defensible decisions.",
     estimatedHours: 14,
     slug: "data-scientist-track",
     level: "Intermediate",
@@ -899,7 +899,7 @@ export const LEARNING_PATHS: LearningPath[] = [
       "Estimate causal effects and read ranking curves correctly",
     ],
     prerequisites: ["statistics-mastery", "probability-foundations"],
-    problemIds: ["st-001", "st-002", "st-006", "st-010", "st-018", "st-023", "st-024", "pr-002", "st-003", "st-004", "st-022", "st-029", "st-037", "st-042", "st-044", "ml-008", "ml-017", "ml-016", "ml-001", "ml-020", "ml-010", "st-048", "ml-073", "ml-075", "ml-141", "ml-195", "ml-074", "ml-076"],
+    problemIds: ["st-001", "st-002", "st-006", "st-010", "st-018", "st-023", "st-024", "pr-002", "ml-008", "ml-017", "ml-016", "ml-001", "ml-020", "ml-010", "st-048", "st-003", "st-004", "st-022", "st-029", "st-037", "st-042", "st-044", "ml-073", "ml-075", "ml-141", "ml-195", "ml-074", "ml-076"],
     stages: [
       {
         id: "descriptives",
@@ -909,18 +909,18 @@ export const LEARNING_PATHS: LearningPath[] = [
         problemIds: ["st-001", "st-002", "st-006", "st-010", "st-018", "st-023", "st-024", "pr-002"],
       },
       {
-        id: "relationships-and-testing",
-        title: "Relationships and Testing",
-        blurb:
-          "Do variables move together, and is it real? Covariance, Pearson and Spearman correlation, trimmed means, rolling means, one-sample t-statistics, and Welch's test.",
-        problemIds: ["st-003", "st-004", "st-022", "st-029", "st-037", "st-042", "st-044"],
-      },
-      {
         id: "models-and-metrics",
         title: "Models and Metrics",
         blurb:
           "Fit baselines and score them: accuracy, MSE, linear regression, R-squared, k-fold splits, bootstrap confidence intervals, and confusion-matrix counts.",
         problemIds: ["ml-008", "ml-017", "ml-016", "ml-001", "ml-020", "ml-010", "st-048"],
+      },
+      {
+        id: "relationships-and-testing",
+        title: "Relationships and Testing",
+        blurb:
+          "Do variables move together, and is it real? Covariance, Pearson and Spearman correlation, trimmed means, rolling means, one-sample t-statistics, and Welch's test.",
+        problemIds: ["st-003", "st-004", "st-022", "st-029", "st-037", "st-042", "st-044"],
       },
       {
         id: "causal-and-ranking",
@@ -936,7 +936,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "quant-interview-track",
     title: "Quant Interview Track",
     description:
-      "Probability brainteasers, statistics, and fast algorithms, sequenced the way trading interviews ask them. You will drill counting, Bayes, distributions, gambler's ruin, and algorithmic classics until they are automatic. Timed practice recommended once you finish.",
+      "Probability brainteasers, statistics, and fast algorithms, sequenced the way trading interviews ask them. You will drill counting, Bayes, and distributions, then algorithmic classics, then gambler's ruin and the limit theorems, until they are automatic. Timed practice recommended once you finish.",
     estimatedHours: 16,
     slug: "quant-interview-track",
     level: "Advanced",
@@ -948,7 +948,7 @@ export const LEARNING_PATHS: LearningPath[] = [
       "Pair probability with fast algorithmic warm-ups",
     ],
     prerequisites: ["probability-foundations"],
-    problemIds: ["pr-003", "pr-004", "pr-006", "pr-007", "pr-008", "pr-010", "pr-012", "pr-001", "pr-005", "pr-022", "pr-024", "pr-025", "pr-029", "pr-030", "pr-031", "pr-038", "pr-047", "pr-048", "pr-092", "pr-049", "pr-050", "al-001", "al-008", "al-017", "al-023", "al-037", "al-214"],
+    problemIds: ["pr-003", "pr-004", "pr-006", "pr-007", "pr-008", "pr-010", "pr-012", "pr-001", "pr-005", "pr-022", "pr-024", "pr-025", "pr-029", "pr-030", "al-001", "al-008", "al-017", "al-023", "al-037", "al-214", "pr-031", "pr-038", "pr-047", "pr-048", "pr-092", "pr-049", "pr-050"],
     stages: [
       {
         id: "counting",
@@ -965,18 +965,18 @@ export const LEARNING_PATHS: LearningPath[] = [
         problemIds: ["pr-001", "pr-005", "pr-022", "pr-024", "pr-025", "pr-029", "pr-030"],
       },
       {
-        id: "walks-and-limits",
-        title: "Walks and Limits",
-        blurb:
-          "Long-run behavior: binomial CDFs, two-state stationary distributions, expected hitting times, gambler's ruin and its duration, the law of large numbers, and the Central Limit Theorem.",
-        problemIds: ["pr-031", "pr-038", "pr-047", "pr-048", "pr-092", "pr-049", "pr-050"],
-      },
-      {
         id: "algorithms-under-pressure",
         title: "Algorithms Under Pressure",
         blurb:
           "The algorithm half of a quant screen: binary search, fast exponentiation, maximum subarray, binomial coefficients, the median of two sorted arrays, and counting reverse pairs.",
         problemIds: ["al-001", "al-008", "al-017", "al-023", "al-037", "al-214"],
+      },
+      {
+        id: "walks-and-limits",
+        title: "Walks and Limits",
+        blurb:
+          "Long-run behavior: binomial CDFs, two-state stationary distributions, expected hitting times, gambler's ruin and its duration, the law of large numbers, and the Central Limit Theorem.",
+        problemIds: ["pr-031", "pr-038", "pr-047", "pr-048", "pr-092", "pr-049", "pr-050"],
       },
     ],
   },
@@ -986,7 +986,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     title: "30-Day Full Curriculum",
     description:
       "A month-long sampler that touches nearly every category on the platform, roughly one sitting per day. You will meet vectors, derivatives, distributions, regressions, neural nets, algorithms, graphs, and information theory in a single sweep. Ideal if you are new and want to discover which track to commit to next.",
-    estimatedHours: 30,
+    estimatedHours: 20,
     slug: "thirty-day-full-curriculum",
     level: "Mixed",
     tags: ["full-curriculum", "sampler", "math", "machine-learning", "breadth"],
@@ -996,7 +996,7 @@ export const LEARNING_PATHS: LearningPath[] = [
       "Finish with a synthesis week across maths, models, and evaluation",
     ],
     prerequisites: [],
-    problemIds: ["la-011", "la-001", "ca-001", "st-001", "st-002", "pr-002", "la-025", "ml-008", "ml-017", "al-001", "st-004", "ml-010", "ml-001", "ml-003", "dl-001", "ds-001", "dl-016", "dl-003", "op-001", "ml-032", "dl-005", "cv-001", "nlp-001", "ts-001", "graph-001", "info-001", "pr-048", "nlp-003", "al-017", "op-010", "dl-087", "st-048", "ca-005"],
+    problemIds: ["la-011", "la-001", "ca-001", "st-001", "st-002", "pr-002", "la-025", "ml-008", "ml-017", "al-001", "st-004", "ml-010", "ml-001", "dl-001", "ds-001", "dl-016", "dl-003", "op-001", "ml-032", "cv-001", "nlp-001", "ts-001", "graph-001", "info-001", "pr-048", "ml-003", "dl-005", "nlp-003", "al-017", "op-010", "dl-087", "st-048", "ca-005"],
     stages: [
       {
         id: "week-1-math",
@@ -1009,22 +1009,22 @@ export const LEARNING_PATHS: LearningPath[] = [
         id: "week-2-data-and-models",
         title: "Week 2: Data and First Models",
         blurb:
-          "Turn data into predictions: correlation, accuracy and MSE, linear regression, k-means, k-fold splits, and binary search as an algorithm warm-up.",
-        problemIds: ["ml-008", "ml-017", "al-001", "st-004", "ml-010", "ml-001", "ml-003"],
+          "Turn data into predictions: correlation, accuracy and MSE, linear regression, k-fold splits, and binary search as an algorithm warm-up.",
+        problemIds: ["ml-008", "ml-017", "al-001", "st-004", "ml-010", "ml-001"],
       },
       {
         id: "week-3-deep-learning-and-optimization",
         title: "Week 3: Deep Learning and Optimization",
         blurb:
-          "Neural networks and how they train: ReLU, stable softmax, one backprop pass, an SGD update, gradient descent, a stack simulation, and the k-means assignment step.",
-        problemIds: ["dl-001", "ds-001", "dl-016", "dl-003", "op-001", "ml-032", "dl-005"],
+          "Neural networks and how they train: ReLU, stable softmax, a stack simulation, an SGD update, gradient descent, and the k-means assignment step.",
+        problemIds: ["dl-001", "ds-001", "dl-016", "dl-003", "op-001", "ml-032"],
       },
       {
         id: "week-4-breadth",
         title: "Week 4: Breadth Across Modalities",
         blurb:
-          "Touch every remaining modality: grayscale conversion, tokenization, first differences, adjacency lists, self-information, and a probability classic.",
-        problemIds: ["cv-001", "nlp-001", "ts-001", "graph-001", "info-001", "pr-048"],
+          "Broaden and consolidate: grayscale conversion, tokenization, first differences, adjacency lists, self-information, a probability classic, a full backprop gradient, and one k-means iteration.",
+        problemIds: ["cv-001", "nlp-001", "ts-001", "graph-001", "info-001", "pr-048", "ml-003", "dl-005"],
       },
       {
         id: "week-5-synthesis",
@@ -1081,20 +1081,34 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "generative-models-primer",
     title: "Generative Models Primer",
     description:
-      "How models create images and text: VAEs, GANs, diffusion, and language-model sampling. You will implement reconstruction and KL losses, diffusion noise schedules, classifier-free guidance, and preference-optimization objectives. Best for learners who already know backprop and want the generative frontier.",
+      "How models create text and images: start with language-model sampling and alignment, then diffusion, then VAEs, and finish with GANs and sample-quality metrics. You will implement reconstruction and KL losses, diffusion noise schedules, classifier-free guidance, and preference-optimization objectives. Best for learners who already know backprop and want the generative frontier.",
     estimatedHours: 12,
     slug: "generative-models-primer",
     level: "Advanced",
     tags: ["generative-models", "vae", "gans", "diffusion", "language-models"],
     goals: [
+      "Understand language-model generation, preference optimization, and PEFT",
+      "Implement diffusion forward processes, schedules, and DDIM sampling",
       "Derive VAE losses: reconstruction, KL, reparameterization, and ELBO",
       "Train GAN-style objectives and measure sample quality",
-      "Implement diffusion forward processes, schedules, and DDIM sampling",
-      "Understand language-model generation, preference optimization, and PEFT",
     ],
     prerequisites: ["deep-learning-essentials"],
-    problemIds: ["dl-141", "dl-157", "dl-158", "dl-159", "dl-179", "dl-175", "dl-160", "dl-161", "dl-162", "dl-178", "dl-177", "dl-184", "dl-142", "dl-143", "dl-163", "dl-164", "dl-165", "dl-166", "dl-167", "dl-183", "dl-144", "dl-145", "dl-148", "dl-149", "dl-151", "dl-180", "dl-181", "dl-182"],
+    problemIds: ["dl-144", "dl-145", "dl-148", "dl-149", "dl-151", "dl-180", "dl-181", "dl-182", "dl-142", "dl-143", "dl-163", "dl-164", "dl-165", "dl-166", "dl-167", "dl-183", "dl-141", "dl-157", "dl-158", "dl-159", "dl-179", "dl-175", "dl-160", "dl-161", "dl-162", "dl-178", "dl-177", "dl-184"],
     stages: [
+      {
+        id: "language-model-generation",
+        title: "Language-Model Generation and Alignment",
+        blurb:
+          "Decode, sample, and align: causal LM shifts, span corruption, rejection sampling, self-consistency voting, DPO, GRPO advantage, PPO clipping, and LoRA.",
+        problemIds: ["dl-144", "dl-145", "dl-148", "dl-149", "dl-151", "dl-180", "dl-181", "dl-182"],
+      },
+      {
+        id: "diffusion",
+        title: "Diffusion Models",
+        blurb:
+          "Add noise, then learn to remove it: the linear beta schedule, U-Net downsample counts, forward steps, cumulative alpha bars, MSE loss, classifier-free guidance, time embeddings, and a DDIM step.",
+        problemIds: ["dl-142", "dl-143", "dl-163", "dl-164", "dl-165", "dl-166", "dl-167", "dl-183"],
+      },
       {
         id: "autoencoders-and-vaes",
         title: "Autoencoders and VAEs",
@@ -1108,20 +1122,6 @@ export const LEARNING_PATHS: LearningPath[] = [
         blurb:
           "Adversarial training and evaluation: GAN discriminator and generator losses, WGAN critic loss, Frechet distance, FID feature statistics, and contrastive divergence.",
         problemIds: ["dl-160", "dl-161", "dl-162", "dl-178", "dl-177", "dl-184"],
-      },
-      {
-        id: "diffusion",
-        title: "Diffusion Models",
-        blurb:
-          "Add noise, then learn to remove it: the linear beta schedule, U-Net downsample counts, forward steps, cumulative alpha bars, MSE loss, classifier-free guidance, time embeddings, and a DDIM step.",
-        problemIds: ["dl-142", "dl-143", "dl-163", "dl-164", "dl-165", "dl-166", "dl-167", "dl-183"],
-      },
-      {
-        id: "language-model-generation",
-        title: "Language-Model Generation and Alignment",
-        blurb:
-          "Decode, sample, and align: causal LM shifts, span corruption, rejection sampling, self-consistency voting, DPO, GRPO advantage, PPO clipping, and LoRA.",
-        problemIds: ["dl-144", "dl-145", "dl-148", "dl-149", "dl-151", "dl-180", "dl-181", "dl-182"],
       },
     ],
   },
@@ -1180,7 +1180,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     title: "LLM Engineering",
     description:
       "Build and operate language models end to end: tokenization, embeddings, transformer internals, decoding and serving, then retrieval-augmented generation and evaluation. Every stage is implemented in pure Python, from byte-level BPE counts to KV-cache sizing and nDCG. Take it after Deep Learning Essentials and NLP Starter.",
-    estimatedHours: 7,
+    estimatedHours: 12,
     slug: "llm-engineering",
     level: "Advanced",
     tags: ["llm", "nlp", "transformers", "rag", "evaluation", "inference"],
@@ -1236,8 +1236,8 @@ export const LEARNING_PATHS: LearningPath[] = [
     id: "math-for-machine-learning",
     title: "Math for Machine Learning",
     description:
-      "A single sequence for the mathematics ML actually uses: linear algebra first, then eigen-decomposition, then calculus, then probability and statistics. You implement every operation by hand, from dot products to Jacobians and t-statistics. Start here if you want one path that covers the whole mathematical toolkit.",
-    estimatedHours: 5,
+      "A single sequence for the mathematics ML actually uses: linear algebra first, then probability and statistics, then calculus, then eigen-decomposition. You implement every operation by hand, from dot products to Jacobians and t-statistics. Start here if you want one path that covers the whole mathematical toolkit.",
+    estimatedHours: 8,
     slug: "math-for-machine-learning",
     level: "Beginner",
     tags: ["linear-algebra", "calculus", "probability", "statistics", "math"],
@@ -1248,7 +1248,7 @@ export const LEARNING_PATHS: LearningPath[] = [
       "Use distributions, expectation, and correlation in modeling",
     ],
     prerequisites: [],
-    problemIds: ["la-011", "la-012", "la-004", "la-006", "la-001", "la-002", "la-003", "la-020", "la-025", "la-038", "la-083", "la-040", "la-117", "la-049", "la-050", "ca-001", "ca-006", "ca-015", "ca-002", "ca-022", "ca-025", "ca-004", "ca-005", "pr-002", "pr-005", "pr-001", "pr-036", "st-001", "st-002", "st-004", "st-037"],
+    problemIds: ["la-011", "la-012", "la-004", "la-006", "la-001", "la-002", "la-003", "la-020", "pr-002", "pr-005", "pr-001", "pr-036", "st-001", "st-002", "st-004", "st-037", "ca-001", "ca-006", "ca-015", "ca-002", "ca-022", "ca-025", "ca-004", "ca-005", "la-025", "la-038", "la-083", "la-040", "la-117", "la-049", "la-050"],
     stages: [
       {
         id: "vectors-and-matrix-algebra",
@@ -1258,11 +1258,11 @@ export const LEARNING_PATHS: LearningPath[] = [
         problemIds: ["la-011", "la-012", "la-004", "la-006", "la-001", "la-002", "la-003", "la-020"],
       },
       {
-        id: "eigen-and-orthogonality",
-        title: "Eigenvalues and Orthogonality",
+        id: "probability-and-statistics",
+        title: "Probability and Statistics",
         blurb:
-          "Why PCA and spectral methods work: cosine similarity, rank via row reduction, eigenvalues and eigenvectors, orthonormalization, power iteration, and Rayleigh quotients.",
-        problemIds: ["la-025", "la-038", "la-083", "la-040", "la-117", "la-049", "la-050"],
+          "The modeling half: expected value and variance, Bayes' rule, the normal CDF, means and variances, Pearson correlation, and one-sample t-statistics.",
+        problemIds: ["pr-002", "pr-005", "pr-001", "pr-036", "st-001", "st-002", "st-004", "st-037"],
       },
       {
         id: "calculus-and-gradients",
@@ -1272,11 +1272,11 @@ export const LEARNING_PATHS: LearningPath[] = [
         problemIds: ["ca-001", "ca-006", "ca-015", "ca-002", "ca-022", "ca-025", "ca-004", "ca-005"],
       },
       {
-        id: "probability-and-statistics",
-        title: "Probability and Statistics",
+        id: "eigen-and-orthogonality",
+        title: "Eigenvalues and Orthogonality",
         blurb:
-          "The modeling half: expected value and variance, Bayes' rule, the normal CDF, means and variances, Pearson correlation, and one-sample t-statistics.",
-        problemIds: ["pr-002", "pr-005", "pr-001", "pr-036", "st-001", "st-002", "st-004", "st-037"],
+          "Why PCA and spectral methods work: cosine similarity, rank via row reduction, eigenvalues and eigenvectors, orthonormalization, power iteration, and Rayleigh quotients.",
+        problemIds: ["la-025", "la-038", "la-083", "la-040", "la-117", "la-049", "la-050"],
       },
     ],
   },
@@ -1286,7 +1286,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     title: "Time Series & Forecasting",
     description:
       "The applied forecasting workflow, from raw timestamps to monitored production forecasts. You will engineer lag and rolling features, establish baselines, fit smoothing and seasonal models, then validate with rolling-origin backtests and decay monitoring. Complements Time Series Forecasting with a stronger machine-learning and ops flavour.",
-    estimatedHours: 5,
+    estimatedHours: 8,
     slug: "time-series-and-forecasting",
     level: "Intermediate",
     tags: ["time-series", "forecasting", "feature-engineering", "backtesting", "ml"],
@@ -1297,7 +1297,7 @@ export const LEARNING_PATHS: LearningPath[] = [
       "Validate forecasts with backtests and monitor production decay",
     ],
     prerequisites: ["statistics-mastery"],
-    problemIds: ["ts-003", "ts-004", "ts-017", "ts-240", "ts-238", "ts-239", "ts-259", "ts-260", "ts-006", "ts-226", "ts-227", "ts-228", "ts-229", "ts-011", "ts-012", "ts-163", "ts-007", "ts-027", "ts-021", "ts-024", "ts-026", "ts-037", "ts-294", "ts-161", "ts-162", "ts-268", "ts-261", "ts-265", "ts-267", "ts-042", "ts-220"],
+    problemIds: ["ts-003", "ts-004", "ts-017", "ts-240", "ts-238", "ts-239", "ts-259", "ts-260", "ts-006", "ts-226", "ts-227", "ts-228", "ts-229", "ts-011", "ts-012", "ts-163", "ts-007", "ts-294", "ts-027", "ts-021", "ts-024", "ts-026", "ts-037", "ts-161", "ts-162", "ts-268", "ts-261", "ts-265", "ts-267", "ts-042", "ts-220"],
     stages: [
       {
         id: "features-and-windows",
@@ -1317,8 +1317,8 @@ export const LEARNING_PATHS: LearningPath[] = [
         id: "smoothing-and-decomposition",
         title: "Smoothing and Decomposition",
         blurb:
-          "Separate level, trend, and season: log transforms, detrending by differencing, simple and double exponential smoothing, seasonal indices, Holt-Winters, and STL remainder values.",
-        problemIds: ["ts-007", "ts-027", "ts-021", "ts-024", "ts-026", "ts-037", "ts-294"],
+          "Separate level, trend, and season: log transforms, STL remainder values, detrending by differencing, simple and double exponential smoothing, seasonal indices, and Holt-Winters.",
+        problemIds: ["ts-007", "ts-294", "ts-027", "ts-021", "ts-024", "ts-026", "ts-037"],
       },
       {
         id: "backtesting-and-production",
@@ -1335,7 +1335,7 @@ export const LEARNING_PATHS: LearningPath[] = [
     title: "Graph Machine Learning",
     description:
       "Representation learning on graphs: message passing, pooling, and normalized adjacency first, then centrality and similarity for link prediction, then embeddings with random walks, LINE, and WL kernels. Finish by training GNN-style layers and finding communities spectrally. Take it after Graph Algorithms and Deep Learning Essentials.",
-    estimatedHours: 7,
+    estimatedHours: 10,
     slug: "graph-machine-learning",
     level: "Advanced",
     tags: ["graph-neural-networks", "embeddings", "spectral-methods", "representation-learning"],
@@ -1382,6 +1382,273 @@ export const LEARNING_PATHS: LearningPath[] = [
         blurb:
           "Global structure: Laplacian construction, spectral clustering with Fiedler signs, spectral embeddings, modularity, label propagation, and Louvain modularity gain.",
         problemIds: ["graph-079", "graph-132", "graph-218", "graph-089", "graph-112", "graph-131"],
+      },
+    ],
+  },
+
+  {
+    id: "computer-vision-deep-learning",
+    title: "Computer Vision Deep Learning",
+    description:
+      "The deep-learning side of vision, from convolution arithmetic to ViTs and depth. You will count the FLOPs and parameters of modern conv blocks, fold batch norm, schedule augmentations, match anchors, score detections and segmentations, and patchify images for transformers. Take it after the vision starter and the deep-learning essentials.",
+    estimatedHours: 12,
+    slug: "computer-vision-deep-learning",
+    level: "Advanced",
+    tags: ["computer-vision", "cnn", "detection", "segmentation", "vision-transformers"],
+    goals: [
+      "Compute convolution output shapes, parameter counts, and FLOPs at scale",
+      "Fold normalisation into convolutions and schedule modern augmentations",
+      "Match anchors, score detections with mAP, and evaluate segmentation masks",
+      "Patchify images for ViTs and recover depth from stereo disparity",
+    ],
+    prerequisites: ["computer-vision-starter", "deep-learning-essentials"],
+    problemIds: ["cv-084", "cv-087", "cv-110", "cv-223", "cv-238", "cv-239", "cv-242", "cv-357", "cv-111", "cv-240", "cv-277", "cv-278", "cv-279", "cv-347", "cv-232", "cv-109", "cv-148", "cv-199", "cv-313", "cv-319", "cv-229", "cv-331", "cv-333", "cv-171", "cv-188", "cv-192", "cv-342", "cv-393", "cv-185", "cv-385"],
+    stages: [
+      {
+        id: "convolution-at-scale",
+        title: "Convolution at Scale",
+        blurb:
+          "Convolution is a shape and budget calculation before it is code. Work out output sizes for dilated, depthwise, group, and 3D convolutions, count parameters and FLOPs, and fuse conv with ReLU.",
+        problemIds: ["cv-084", "cv-087", "cv-110", "cv-223", "cv-238", "cv-239", "cv-242", "cv-357"],
+      },
+      {
+        id: "normalisation-and-augmentation",
+        title: "Normalisation and Augmentation",
+        blurb:
+          "Keep deep vision models stable and their training data varied: batch norm at inference, folding batch norm into the preceding convolution, and the random-choice and magnitude schedules behind RandAugment and TrivialAugment, plus a seeded random resized crop.",
+        problemIds: ["cv-111", "cv-240", "cv-277", "cv-278", "cv-279", "cv-347", "cv-232"],
+      },
+      {
+        id: "detection-and-segmentation",
+        title: "Detection and Segmentation",
+        blurb:
+          "Teach a model where things are: generate and match anchor boxes, pool regions of interest, build pairwise IoU matrices, compute mAP at an IoU threshold, and score segmentation masks with Hamming loss and class-weighted IoU.",
+        problemIds: ["cv-109", "cv-148", "cv-199", "cv-313", "cv-319", "cv-229", "cv-331", "cv-333"],
+      },
+      {
+        id: "vision-transformers-and-3d",
+        title: "Vision Transformers and 3D",
+        blurb:
+          "Beyond convolution: patchify images and embed patches for a ViT, merge patches to downsample, unpatchify back to pixels, measure masked-patch reconstruction loss, and recover depth from stereo disparity with scale-invariant error.",
+        problemIds: ["cv-171", "cv-188", "cv-192", "cv-342", "cv-393", "cv-185", "cv-385"],
+      },
+    ],
+  },
+
+  {
+    id: "production-ml-serving-quantization-monitoring",
+    title: "Production ML: Serving, Quantization and Monitoring",
+    description:
+      "Everything between a trained model and a live endpoint: training-system budgets, quantization, batching, KV-cache capacity, and drift monitoring. You will estimate throughput and memory, quantize weights and caches, size continuous batching, and decide when to retrain. Take it after the ML engineer track or the deep-learning essentials.",
+    estimatedHours: 12,
+    slug: "production-ml-serving-quantization-monitoring",
+    level: "Advanced",
+    tags: ["production-ml", "inference", "quantization", "serving", "monitoring"],
+    goals: [
+      "Budget training memory, throughput, and sharded parameter storage",
+      "Quantize weights and KV caches and measure latency and memory savings",
+      "Serve with dynamic batching, prefix caching, and latency SLA budgets",
+      "Monitor drift and time retraining against its cost",
+    ],
+    prerequisites: ["ml-engineer-track", "deep-learning-essentials"],
+    problemIds: ["dl-100", "dl-101", "dl-102", "dl-120", "dl-196", "dl-283", "dl-301", "dl-325", "dl-332", "dl-334", "dl-348", "dl-365", "dl-189", "dl-200", "dl-213", "dl-305", "dl-307", "dl-316", "dl-370", "dl-401", "dl-412", "dl-416", "dl-441", "dl-444", "st-275", "ml-264", "ml-340", "ml-267", "ml-315", "ts-261"],
+    stages: [
+      {
+        id: "training-systems-and-cost",
+        title: "Training Systems and Cost",
+        blurb:
+          "The compute bill before anything ships: micro-batch counts, throughput and latency estimates, gradient-checkpointing memory, parameter shard ranges, and FSDP shard sizes.",
+        problemIds: ["dl-100", "dl-101", "dl-102", "dl-120", "dl-196", "dl-283"],
+      },
+      {
+        id: "quantization-and-compression",
+        title: "Quantization and Compression",
+        blurb:
+          "Smaller and faster models: quantized inference latency, MXFP4 block-quantization error, step sizes and error variance, memory-savings ratios, and quantized KV-cache size.",
+        problemIds: ["dl-301", "dl-325", "dl-332", "dl-334", "dl-348", "dl-365"],
+      },
+      {
+        id: "serving-batching-and-caching",
+        title: "Serving, Batching and Caching",
+        blurb:
+          "Keep the endpoint busy: decode-latency estimates, prefix-cache reuse, dynamic batch admission, the batch-latency tradeoff, latency SLA budgets, and a continuous-batching slot simulation.",
+        problemIds: ["dl-189", "dl-200", "dl-213", "dl-305", "dl-307", "dl-316"],
+      },
+      {
+        id: "llm-inference-capacity",
+        title: "LLM Inference Capacity",
+        blurb:
+          "Capacity planning for serving: GQA cache savings, KV-cache bytes per token, the roofline crossover batch size, tokens per second from MFU, prefill-decode throughput blending, and the latency you can promise at a target throughput.",
+        problemIds: ["dl-370", "dl-401", "dl-412", "dl-416", "dl-441", "dl-444"],
+      },
+      {
+        id: "monitoring-drift-and-retraining",
+        title: "Monitoring, Drift and Retraining",
+        blurb:
+          "Production is not static: one-sample KS and chi-square drift statistics, feature-drift KS, retraining cost-benefit, feature-store consistency, and retrain cadence.",
+        problemIds: ["st-275", "ml-264", "ml-340", "ml-267", "ml-315", "ts-261"],
+      },
+    ],
+  },
+
+  {
+    id: "data-pipelines-and-feature-engineering",
+    title: "Data Pipelines & Feature Engineering",
+    description:
+      "Turn raw tables and event streams into trustworthy model inputs. You will construct interactions, bins, and crossings, build lag and rolling features, split honestly without leakage, detect drift and duplicates, and sketch streams with HyperLogLog, Space-Saving, t-digest, and reservoir sampling. Take it after ML From Scratch and Statistics Mastery.",
+    estimatedHours: 10,
+    slug: "data-pipelines-and-feature-engineering",
+    level: "Intermediate",
+    tags: ["feature-engineering", "data-pipelines", "data-quality", "streaming"],
+    goals: [
+      "Construct interaction, polynomial, binning, log, and crossing features",
+      "Build lag, rolling, and expanding-window features without leakage",
+      "Split datasets honestly and validate with walk-forward windows",
+      "Detect drift and duplicates, and sketch streams under bounded memory",
+    ],
+    prerequisites: ["ml-from-scratch", "statistics-mastery"],
+    problemIds: ["ml-084", "ml-085", "ml-086", "ml-112", "ml-117", "ml-258", "ts-003", "ts-017", "ts-018", "ts-019", "ts-118", "ts-240", "ml-129", "ml-172", "ml-173", "ml-049", "ml-026", "ml-022", "st-269", "st-270", "st-275", "ml-264", "ml-174", "ml-340", "al-353", "al-363", "al-364", "ds-155", "ds-306", "ds-159"],
+    stages: [
+      {
+        id: "feature-construction",
+        title: "Feature Construction",
+        blurb:
+          "Encode what the data means: feature-interaction products, quadratic features, binning continuous variables, log transforms, feature crossings, and feature-bagging indices.",
+        problemIds: ["ml-084", "ml-085", "ml-086", "ml-112", "ml-117", "ml-258"],
+      },
+      {
+        id: "lag-window-and-rolling-features",
+        title: "Lag, Window and Rolling Features",
+        blurb:
+          "Time-aware features for any model: the lag operator, rolling means, medians, and maxima, rolling skewness, and a compact rolling-stats feature block.",
+        problemIds: ["ts-003", "ts-017", "ts-018", "ts-019", "ts-118", "ts-240"],
+      },
+      {
+        id: "splits-leakage-and-validation",
+        title: "Splits, Leakage and Validation",
+        blurb:
+          "Protect the future from the past: expanding-window splits and mean forecasts, walk-forward window counts, stratified and shuffled train/test splits, and one-hot encoding.",
+        problemIds: ["ml-129", "ml-172", "ml-173", "ml-049", "ml-026", "ml-022"],
+      },
+      {
+        id: "drift-dedup-and-data-quality",
+        title: "Drift, Dedup and Data Quality",
+        blurb:
+          "Keep the pipeline honest: dedup threshold decisions and n-gram overlap, one-sample KS and chi-square drift tests, population stability index, and feature-drift KS.",
+        problemIds: ["st-269", "st-270", "st-275", "ml-264", "ml-174", "ml-340"],
+      },
+      {
+        id: "sketching-the-data",
+        title: "Sketching the Data",
+        blurb:
+          "Summarize streams without storing them: HyperLogLog register indices, Space-Saving stream summaries, t-digest centroid compression, reservoir sampling, and tumbling and sliding window aggregates.",
+        problemIds: ["al-353", "al-363", "al-364", "ds-155", "ds-306", "ds-159"],
+      },
+    ],
+  },
+
+  {
+    id: "build-a-transformer-from-scratch",
+    title: "Build a Transformer from Scratch",
+    description:
+      "The capstone: assemble a working transformer from first principles, one component at a time. Tokenization and embeddings feed scaled attention, attention assembles into a block, masks and a stable loss train it, and caches plus FLOPs let you decode and measure it. Several problems intentionally revisit Deep Learning Essentials and LLM Engineering; that repetition is spaced review, not filler, and it is how the pieces finally lock together. Take it after Deep Learning Essentials.",
+    estimatedHours: 14,
+    slug: "build-a-transformer-from-scratch",
+    level: "Advanced",
+    tags: ["transformers", "capstone", "attention", "training", "inference"],
+    goals: [
+      "Tokenize, embed, and position tokens for a transformer",
+      "Build scaled and multi-head attention from first principles",
+      "Assemble a pre-norm block with LayerNorm, GELU, and residuals",
+      "Train with masking and a stable loss, then decode with a KV cache",
+      "Measure attention cost and forward FLOPs per token",
+    ],
+    prerequisites: ["deep-learning-essentials"],
+    problemIds: ["nlp-096", "nlp-020", "dl-020", "dl-104", "dl-032", "dl-033", "dl-034", "dl-035", "dl-036", "dl-037", "dl-038", "dl-092", "dl-097", "dl-027", "dl-377", "dl-042", "dl-067", "dl-378", "dl-087", "dl-091", "dl-003", "dl-043", "dl-208", "dl-210", "dl-119", "dl-216", "dl-075", "dl-186", "dl-211", "dl-123", "dl-414", "dl-212"],
+    stages: [
+      {
+        id: "tokenize-and-embed",
+        title: "Tokenize and Embed",
+        blurb:
+          "Everything starts as text: byte-level BPE token counts and merge steps, embedding lookups and parameter budgets, the backward scatter-add that trains them, and sinusoidal positional encoding.",
+        problemIds: ["nlp-096", "nlp-020", "dl-020", "dl-104", "dl-032", "dl-033"],
+      },
+      {
+        id: "attention-from-first-principles",
+        title: "Attention from First Principles",
+        blurb:
+          "The core mechanism: scaled attention scores, softmax weights, and the weighted sum, then multi-head split and merge, a parameter count with bias, and cross-attention shapes.",
+        problemIds: ["dl-034", "dl-035", "dl-036", "dl-037", "dl-038", "dl-092", "dl-097"],
+      },
+      {
+        id: "the-block",
+        title: "The Block",
+        blurb:
+          "Wrap attention in the pieces that make it trainable: LayerNorm and its RMSNorm comparison, GELU in both tanh and exact forms, pre- versus post-norm residual scaling, and a full encoder block with its parameter count.",
+        problemIds: ["dl-027", "dl-377", "dl-042", "dl-067", "dl-378", "dl-087", "dl-091"],
+      },
+      {
+        id: "training-and-masking",
+        title: "Training and Masking",
+        blurb:
+          "Teach the stack to predict: numerically stable softmax, the softmax cross-entropy backward pass, padding and sliding-window attention masks, seeded attention dropout, and a mixed-precision loss-scaling step.",
+        problemIds: ["dl-003", "dl-043", "dl-208", "dl-210", "dl-119", "dl-216"],
+      },
+      {
+        id: "decode-and-measure",
+        title: "Decode and Measure",
+        blurb:
+          "Run it and count the cost: KV-cache sizing and appends, online-softmax rescaling and logsumexp tracking, quadratic attention FLOPs, and forward FLOPs per token.",
+        problemIds: ["dl-075", "dl-186", "dl-211", "dl-123", "dl-414", "dl-212"],
+      },
+    ],
+  },
+
+  {
+    id: "causal-inference-and-uplift",
+    title: "Causal Inference & Uplift",
+    description:
+      "Go beyond correlation to what actually changes outcomes. You will estimate propensity scores, weight and trim samples for average treatment effects, adjust with causal forests and quasi-experiments, build uplift models with trusted calibration, and test time-aware causality with Granger and cointegration tools. Take it after Statistics Mastery.",
+    estimatedHours: 11,
+    slug: "causal-inference-and-uplift",
+    level: "Advanced",
+    tags: ["causal-inference", "uplift", "experimentation", "treatment-effects"],
+    goals: [
+      "Estimate propensity scores and inverse-probability-weighted effects",
+      "Adjust for confounding with trimming, causal forests, and quasi-experiments",
+      "Build uplift models and read their cumulative gain and calibration",
+      "Test time-aware causality with Granger F-tests and cointegration",
+    ],
+    prerequisites: ["statistics-mastery"],
+    problemIds: ["st-283", "st-284", "st-288", "st-101", "st-277", "st-285", "ml-346", "ml-271", "ml-345", "st-317", "st-318", "ml-280", "st-316", "ml-182", "ml-199", "ml-235", "ml-287", "ml-290", "ml-291", "ts-289", "ml-343", "ts-286", "ts-287", "ts-288", "ts-290"],
+    stages: [
+      {
+        id: "propensity-scores-and-weighting",
+        title: "Propensity Scores and Weighting",
+        blurb:
+          "Make treated and control groups comparable: logistic propensity scores, match-pair counts, overlap fractions, weight trimming, ATT via propensity odds, IPW average treatment effects, and ATT propensity weights.",
+        problemIds: ["st-283", "st-284", "st-288", "st-101", "st-277", "st-285", "ml-346"],
+      },
+      {
+        id: "adjustment-and-quasi-experiments",
+        title: "Adjustment and Quasi-Experiments",
+        blurb:
+          "When randomisation is not available: the propensity Newton step, trimming fractions, causal-forest honesty splits, quantile treatment effects, fuzzy regression-discontinuity jumps, and double-machine-learning residual estimates.",
+        problemIds: ["ml-271", "ml-345", "st-317", "st-318", "ml-280", "st-316"],
+      },
+      {
+        id: "uplift-modeling",
+        title: "Uplift Modeling",
+        blurb:
+          "Predict who benefits: relative uplift, uplift per segment, response-rate uplift by decile, two-model uplift, cumulative gain, and uplift calibration error.",
+        problemIds: ["ml-182", "ml-199", "ml-235", "ml-287", "ml-290", "ml-291"],
+      },
+      {
+        id: "time-aware-causality",
+        title: "Time-Aware Causality",
+        blurb:
+          "Causality with a clock: Granger-causality F statistics from series, cumulative impulse responses, cointegration spreads, Engle-Granger residual changes, VAR coefficient application, and uplift gain at a targeting fraction.",
+        problemIds: ["ts-289", "ml-343", "ts-286", "ts-287", "ts-288", "ts-290"],
       },
     ],
   },

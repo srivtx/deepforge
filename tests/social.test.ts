@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { getForumSnapshot, setThreadUpvoteCount } from "@/lib/comments";
+import {
+  getComments,
+  getForumSnapshot,
+  setThreadUpvoteCount,
+} from "@/lib/comments";
 import { setCachedSession } from "@/lib/sync/backend";
 import {
   setRemoteClient,
@@ -15,6 +19,7 @@ import {
   listReplies,
   listThreads,
   subscribe,
+  subscribeRealtime,
   toggleReplyUpvote,
   toggleThreadUpvote,
 } from "@/lib/sync/social";
@@ -59,6 +64,7 @@ beforeEach(() => {
   };
   delete process.env.NEXT_PUBLIC_SUPABASE_URL;
   delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  delete process.env.NEXT_PUBLIC_SOCIAL_REALTIME;
   setCachedSession(null);
   setRemoteClient(null);
 });
@@ -68,14 +74,26 @@ afterEach(() => {
   setCachedSession(null);
   delete process.env.NEXT_PUBLIC_SUPABASE_URL;
   delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  delete process.env.NEXT_PUBLIC_SOCIAL_REALTIME;
   if (hadWindow) globalScope.window = originalWindow;
   else delete globalScope.window;
 });
 
 type Row = Record<string, any>;
 
+interface SelectRecord {
+  table: string;
+  columns: string | null;
+  filters: Array<[string, unknown]>;
+  orders: Array<[string, { ascending?: boolean }]>;
+  range: [number, number] | null;
+}
+
 class FakeQuery implements PromiseLike<RemoteResult<any>> {
   private filters: Array<[string, unknown]> = [];
+  private orders: Array<[string, { ascending?: boolean }]> = [];
+  private window: [number, number] | null = null;
+  private columns: string | null = null;
   private action: "select" | "insert" | "delete" = "select";
   private payload: Row | Row[] | null = null;
 
@@ -84,13 +102,23 @@ class FakeQuery implements PromiseLike<RemoteResult<any>> {
     private table: string,
   ) {}
 
-  select(_columns?: string): FakeQuery {
-    if (this.action === "select") this.action = "select";
+  select(columns?: string): FakeQuery {
+    this.columns = columns ?? null;
     return this;
   }
 
   eq(column: string, value: unknown): FakeQuery {
     this.filters.push([column, value]);
+    return this;
+  }
+
+  order(column: string, options?: { ascending?: boolean }): FakeQuery {
+    this.orders.push([column, options ?? {}]);
+    return this;
+  }
+
+  range(from: number, to: number): FakeQuery {
+    this.window = [from, to];
     return this;
   }
 
@@ -141,7 +169,7 @@ class FakeQuery implements PromiseLike<RemoteResult<any>> {
       for (const value of values) rows.push({ ...value });
       return { data: values.length === 1 ? values[0] : values, error: null };
     }
-    const matched = rows.filter((row) =>
+    let matched = rows.filter((row) =>
       this.filters.every(([column, value]) => row[column] === value),
     );
     if (this.action === "delete") {
@@ -151,13 +179,67 @@ class FakeQuery implements PromiseLike<RemoteResult<any>> {
       }
       return { data: null, error: null };
     }
+    this.db.selects.push({
+      table: this.table,
+      columns: this.columns,
+      filters: [...this.filters],
+      orders: [...this.orders],
+      range: this.window,
+    });
     if (this.db.selectErrors.has(this.table)) {
       return {
         data: null,
         error: { message: `select failed: ${this.table}` },
       };
     }
+    if (this.orders.length > 0) {
+      matched = [...matched].sort((a, b) => {
+        for (const [column, options] of this.orders) {
+          const av = a[column];
+          const bv = b[column];
+          let cmp: number;
+          if (typeof av === "string" && typeof bv === "string") {
+            cmp = av.localeCompare(bv);
+          } else {
+            cmp = av === bv ? 0 : av < bv ? -1 : 1;
+          }
+          if (cmp !== 0) return options.ascending === false ? -cmp : cmp;
+        }
+        return 0;
+      });
+    }
+    if (this.window) {
+      matched = matched.slice(this.window[0], this.window[1] + 1);
+    }
     return { data: single ? (matched[0] ?? null) : matched, error: null };
+  }
+}
+
+class FakeChannel {
+  handlers: Array<{
+    event: string;
+    scope: Row;
+    callback: (payload: any) => void;
+  }> = [];
+  subscribed = false;
+  unsubscribed = false;
+
+  constructor(readonly name: string) {}
+
+  on(_type: string, scope: Row, callback: (payload: any) => void): FakeChannel {
+    this.handlers.push({ event: String(scope.event ?? "*"), scope, callback });
+    return this;
+  }
+
+  subscribe(callback?: (status: string) => void): FakeChannel {
+    this.subscribed = true;
+    callback?.("SUBSCRIBED");
+    return this;
+  }
+
+  unsubscribe(): Promise<string> {
+    this.unsubscribed = true;
+    return Promise.resolve("ok");
   }
 }
 
@@ -170,6 +252,8 @@ class FakeDb {
   rpcGate: Promise<void> | null = null;
   selectGate: Promise<void> | null = null;
   selectStarted = false;
+  selects: SelectRecord[] = [];
+  channels: FakeChannel[] = [];
 
   rows(table: string): Row[] {
     const existing = this.tables.get(table);
@@ -197,6 +281,43 @@ function makeClient(withRpc = true): { client: RemoteClient; db: FakeDb } {
   return { client: base as unknown as RemoteClient, db };
 }
 
+function makeRealtimeClient(): {
+  client: RemoteClient;
+  db: FakeDb;
+  channels: FakeChannel[];
+} {
+  const db = new FakeDb();
+  const base: Record<string, unknown> = {
+    from: (table: string) => new FakeQuery(db, table),
+    channel: (name: string) => {
+      const channel = new FakeChannel(name);
+      db.channels.push(channel);
+      return channel;
+    },
+    removeChannel: (channel: FakeChannel) => {
+      channel.unsubscribed = true;
+      return Promise.resolve("ok");
+    },
+    rpc: (fn: string, args?: Record<string, unknown>) => {
+      db.rpcCalls.push({ fn, args });
+      return Promise.resolve(db.rpcResult);
+    },
+  };
+  return { client: base as unknown as RemoteClient, db, channels: db.channels };
+}
+
+function insertHandler(
+  channel: FakeChannel,
+): (row: Row) => void {
+  const handler = channel.handlers.find((entry) => entry.event === "INSERT");
+  if (!handler) throw new Error("missing INSERT handler");
+  return (row: Row) => handler.callback({ new: row });
+}
+
+async function flushAsync(): Promise<void> {
+  for (let i = 0; i < 8; i += 1) await Promise.resolve();
+}
+
 function configure(): void {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "pk_test";
@@ -206,7 +327,7 @@ function signIn(): void {
   setCachedSession({ userId: "u-1", email: "ada@example.com" });
 }
 
-function remoteThread(id: string): Row {
+function remoteThread(id: string, overrides: Row = {}): Row {
   return {
     id,
     author_id: "someone",
@@ -217,6 +338,7 @@ function remoteThread(id: string): Row {
     problem_refs: [],
     upvote_count: 2,
     created_at: "2026-01-02T00:00:00.000Z",
+    ...overrides,
   };
 }
 
@@ -229,6 +351,19 @@ function remoteReply(id: string, threadId: string): Row {
     body: "remote reply",
     upvote_count: 0,
     created_at: "2026-01-03T00:00:00.000Z",
+  };
+}
+
+function remoteComment(id: string, overrides: Row = {}): Row {
+  return {
+    id,
+    problem_id: "dl-003",
+    author_id: "someone",
+    author_name: "bob",
+    body: `note ${id}`,
+    upvote_count: 3,
+    created_at: "2026-01-02T00:00:00.000Z",
+    ...overrides,
   };
 }
 
@@ -810,5 +945,324 @@ describe("comments", () => {
           (row) => row.id === created.data!.id && row.author_id === "u-1",
         ),
     ).toBe(true);
+  });
+});
+
+describe("pagination", () => {
+  test("listThreads pages newest-first with order/range and reports the cursor", async () => {
+    configure();
+    signIn();
+    const { client, db } = makeClient();
+    setRemoteClient(client);
+    for (let i = 0; i < 25; i += 1) {
+      db.rows("forum_threads").push(
+        remoteThread(`ft-${String(i).padStart(2, "0")}`, {
+          created_at: `2026-01-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`,
+        }),
+      );
+    }
+
+    const first = await listThreads({ limit: 20 });
+
+    expect(first.error).toBeNull();
+    expect(first.remote).toHaveLength(20);
+    expect(first.remote[0].id).toBe("ft-24");
+    expect(first.remote[19].id).toBe("ft-05");
+    expect(first.hasMore).toBe(true);
+    expect(first.nextOffset).toBe(20);
+    expect(first.data).toHaveLength(20);
+
+    const second = await listThreads({ offset: first.nextOffset!, limit: 20 });
+
+    expect(second.remote).toHaveLength(5);
+    expect(second.remote[0].id).toBe("ft-04");
+    expect(second.hasMore).toBe(false);
+    expect(second.nextOffset).toBeNull();
+    expect(second.data).toHaveLength(25);
+
+    const threadSelects = db.selects.filter(
+      (entry) => entry.table === "forum_threads",
+    );
+    expect(threadSelects).toHaveLength(2);
+    expect(threadSelects[0].columns).toBe(
+      "id, author_name, title, body, category, problem_refs, upvote_count, created_at",
+    );
+    expect(threadSelects[0].columns).not.toContain("*");
+    expect(threadSelects[0].orders).toEqual([
+      ["created_at", { ascending: false }],
+      ["id", { ascending: false }],
+    ]);
+    expect(threadSelects[0].range).toEqual([0, 19]);
+    expect(threadSelects[1].range).toEqual([20, 39]);
+  });
+
+  test("listReplies and listComments scope order/range to their topic", async () => {
+    configure();
+    signIn();
+    const { client, db } = makeClient();
+    setRemoteClient(client);
+    db.rows("forum_replies").push(
+      remoteReply("fr-a", "ft-1"),
+      remoteReply("fr-b", "ft-2"),
+    );
+    db.rows("comments").push(
+      remoteComment("c-1", { created_at: "2026-01-01T00:00:00.000Z" }),
+      remoteComment("c-2", { created_at: "2026-01-02T00:00:00.000Z" }),
+    );
+
+    const replies = await listReplies("ft-1", { offset: 0, limit: 20 });
+    const comments = await listComments("dl-003", { offset: 0, limit: 20 });
+
+    expect(replies.remote.map((reply) => reply.id)).toEqual(["fr-a"]);
+    expect(comments.remote.map((comment) => comment.id)).toEqual(["c-2", "c-1"]);
+
+    const replySelect = db.selects.find(
+      (entry) => entry.table === "forum_replies",
+    )!;
+    expect(replySelect.columns).not.toContain("*");
+    expect(replySelect.filters).toEqual([["thread_id", "ft-1"]]);
+    expect(replySelect.orders[0]).toEqual([
+      "created_at",
+      { ascending: false },
+    ]);
+    expect(replySelect.range).toEqual([0, 19]);
+
+    const commentSelect = db.selects.find(
+      (entry) => entry.table === "comments",
+    )!;
+    expect(commentSelect.columns).not.toContain("*");
+    expect(commentSelect.filters).toEqual([["problem_id", "dl-003"]]);
+    expect(commentSelect.orders[1]).toEqual(["id", { ascending: false }]);
+    expect(commentSelect.range).toEqual([0, 19]);
+  });
+
+  test("page options clamp the limit and floor the offset", async () => {
+    configure();
+    signIn();
+    const { client, db } = makeClient();
+    setRemoteClient(client);
+    db.rows("forum_threads").push(remoteThread("ft-1"));
+
+    await listThreads({ offset: 3.9, limit: 500 });
+
+    const entry = db.selects.find((item) => item.table === "forum_threads")!;
+    expect(entry.range).toEqual([3, 52]);
+  });
+});
+
+describe("realtime", () => {
+  test("subscribes to a scoped channel with insert + update handlers and tears down", async () => {
+    configure();
+    signIn();
+    const { client, channels } = makeRealtimeClient();
+    setRemoteClient(client);
+
+    const stop = subscribeRealtime({ kind: "threads" });
+    await flushAsync();
+
+    expect(channels).toHaveLength(1);
+    expect(channels[0].name.startsWith("deepforge-social-threads-")).toBe(true);
+    expect(channels[0].subscribed).toBe(true);
+    expect(channels[0].handlers.map((entry) => entry.event)).toEqual([
+      "INSERT",
+      "UPDATE",
+    ]);
+    expect(channels[0].handlers[0].scope.table).toBe("forum_threads");
+    expect(channels[0].handlers[0].scope.schema).toBe("public");
+    expect(channels[0].handlers[0].scope.filter).toBeUndefined();
+
+    stop();
+    expect(channels[0].unsubscribed).toBe(true);
+  });
+
+  test("reply and comment channels scope the postgres filter", async () => {
+    configure();
+    signIn();
+    const { client, channels } = makeRealtimeClient();
+    setRemoteClient(client);
+
+    const stopReply = subscribeRealtime({ kind: "replies", threadId: "ft-9" });
+    const stopComment = subscribeRealtime({
+      kind: "comments",
+      problemId: "dl-003",
+    });
+    await flushAsync();
+
+    expect(channels).toHaveLength(2);
+    expect(channels[0].handlers[0].scope.table).toBe("forum_replies");
+    expect(channels[0].handlers[0].scope.filter).toBe("thread_id=eq.ft-9");
+    expect(channels[1].handlers[0].scope.table).toBe("comments");
+    expect(channels[1].handlers[0].scope.filter).toBe("problem_id=eq.dl-003");
+
+    stopReply();
+    stopComment();
+    expect(channels[0].unsubscribed).toBe(true);
+    expect(channels[1].unsubscribed).toBe(true);
+  });
+
+  test("live inserts merge into the local store without duplicating own writes", async () => {
+    configure();
+    signIn();
+    const { client, channels } = makeRealtimeClient();
+    setRemoteClient(client);
+
+    const thread = await createThread({
+      title: "Live",
+      body: "body",
+      username: "ada",
+    });
+    const reply = await createReply({
+      threadId: thread.data!.id,
+      body: "live reply",
+      username: "ada",
+    });
+    const comment = await createComment({
+      problemId: "dl-003",
+      body: "live note",
+      username: "ada",
+    });
+
+    const stopThreads = subscribeRealtime({ kind: "threads" });
+    const stopReplies = subscribeRealtime({
+      kind: "replies",
+      threadId: thread.data!.id,
+    });
+    const stopComments = subscribeRealtime({
+      kind: "comments",
+      problemId: "dl-003",
+    });
+    await flushAsync();
+    expect(channels).toHaveLength(3);
+
+    insertHandler(channels[0])({
+      id: thread.data!.id,
+      author_name: "ada",
+      title: "Live",
+      body: "body",
+      category: "General",
+      problem_refs: [],
+      upvote_count: 0,
+      created_at: thread.data!.createdAt,
+    });
+    insertHandler(channels[1])({
+      id: reply.data!.id,
+      thread_id: thread.data!.id,
+      author_name: "ada",
+      body: "live reply",
+      upvote_count: 0,
+      created_at: reply.data!.createdAt,
+    });
+    insertHandler(channels[2])({
+      id: comment.data!.id,
+      problem_id: "dl-003",
+      author_name: "ada",
+      body: "live note",
+      upvote_count: 0,
+      created_at: comment.data!.createdAt,
+    });
+
+    expect(
+      getForumSnapshot().threads.filter((item) => item.id === thread.data!.id),
+    ).toHaveLength(1);
+    expect(
+      getForumSnapshot().replies.filter((item) => item.id === reply.data!.id),
+    ).toHaveLength(1);
+    expect(
+      getComments("dl-003").filter((item) => item.id === comment.data!.id),
+    ).toHaveLength(1);
+
+    stopThreads();
+    stopReplies();
+    stopComments();
+  });
+
+  test("switching topics unsubscribes the previous channel", async () => {
+    configure();
+    signIn();
+    const { client, channels } = makeRealtimeClient();
+    setRemoteClient(client);
+
+    const stopFirst = subscribeRealtime({
+      kind: "comments",
+      problemId: "dl-003",
+    });
+    const stopSecond = subscribeRealtime({
+      kind: "comments",
+      problemId: "ml-001",
+    });
+    await flushAsync();
+    expect(channels).toHaveLength(2);
+
+    stopFirst();
+    expect(channels[0].unsubscribed).toBe(true);
+    expect(channels[1].unsubscribed).toBe(false);
+
+    stopSecond();
+    expect(channels[1].unsubscribed).toBe(true);
+  });
+
+  test("detaches while signed out and re-attaches on a new session", async () => {
+    configure();
+    signIn();
+    const { client, channels } = makeRealtimeClient();
+    setRemoteClient(client);
+
+    const stop = subscribeRealtime({ kind: "threads" });
+    await flushAsync();
+    expect(channels).toHaveLength(1);
+
+    setCachedSession(null);
+    expect(channels[0].unsubscribed).toBe(true);
+
+    signIn();
+    await flushAsync();
+    expect(channels).toHaveLength(2);
+    expect(channels[1].unsubscribed).toBe(false);
+
+    stop();
+    expect(channels[1].unsubscribed).toBe(true);
+  });
+
+  test("degrades silently when the client has no realtime support", async () => {
+    configure();
+    signIn();
+    const { client } = makeClient();
+    setRemoteClient(client);
+
+    let threw = false;
+    try {
+      const stop = subscribeRealtime({ kind: "threads" });
+      await flushAsync();
+      stop();
+    } catch {
+      threw = true;
+    }
+
+    expect(threw).toBe(false);
+  });
+
+  test("NEXT_PUBLIC_SOCIAL_REALTIME=0 disables subscriptions entirely", async () => {
+    process.env.NEXT_PUBLIC_SOCIAL_REALTIME = "0";
+    configure();
+    signIn();
+    const { client, channels } = makeRealtimeClient();
+    setRemoteClient(client);
+
+    const stop = subscribeRealtime({ kind: "threads" });
+    await flushAsync();
+
+    expect(channels).toHaveLength(0);
+    stop();
+  });
+
+  test("stays local when Supabase is not configured", async () => {
+    const { client, channels } = makeRealtimeClient();
+    setRemoteClient(client);
+
+    const stop = subscribeRealtime({ kind: "threads" });
+    await flushAsync();
+
+    expect(channels).toHaveLength(0);
+    stop();
   });
 });
