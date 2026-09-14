@@ -32,10 +32,12 @@ import {
   mergePenPaper,
   mergeProgress,
   mergeResearch,
+  mergeReviews,
   mergeUsername,
 } from "@/lib/sync/remoteMerge";
 import type { StoreId, StoreSpec } from "@/lib/sync/types";
 import { PENPAPER_SPEC } from "@/lib/penpaper";
+import { REVIEWS_SPEC } from "@/lib/reviewQueue";
 import {
   getFlameScore,
   getCurrentStreak,
@@ -114,6 +116,7 @@ const ALL_STORE_IDS: StoreId[] = [
   "penpaper",
   "labs",
   "research",
+  "reviews",
   "username",
 ];
 
@@ -126,6 +129,7 @@ const STORE_SPECS: Record<StoreId, StoreSpec<any>> = {
   penpaper: PENPAPER_SPEC,
   labs: LAB_SPEC,
   research: RESEARCH_SPEC,
+  reviews: REVIEWS_SPEC,
   username: USERNAME_SPEC,
 };
 
@@ -314,6 +318,8 @@ function mergeStoreValue(id: StoreId, local: any, remote: any): any {
       return mergeLabs(local ?? {}, remote ?? {});
     case "research":
       return mergeResearch(local ?? {}, remote ?? {});
+    case "reviews":
+      return mergeReviews(local ?? {}, remote ?? {});
     case "username":
       return mergeUsername(local, remote);
   }

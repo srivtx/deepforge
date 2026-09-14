@@ -15,6 +15,7 @@ export type StoreId =
   | "penpaper"
   | "labs"
   | "research"
+  | "reviews"
   | "username";
 
 export interface StoreSpec<T> {

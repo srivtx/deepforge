@@ -35,6 +35,7 @@ const ROUTES = [
   { path: "/badges", changeFrequency: "monthly", priority: 0.6 },
   { path: "/stats", changeFrequency: "weekly", priority: 0.6 },
   { path: "/certificates", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/verify", changeFrequency: "monthly", priority: 0.5 },
   { path: "/backup", changeFrequency: "monthly", priority: 0.4 },
   { path: "/collections", changeFrequency: "weekly", priority: 0.7 },
   { path: "/playlists", changeFrequency: "weekly", priority: 0.7 },

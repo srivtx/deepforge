@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { CONCEPTS } from "@/data/concepts";
 import { LABS } from "@/data/labs";
 import { RESEARCH_CHALLENGES } from "@/data/research";
@@ -10,6 +10,24 @@ import { CONTEST_CHANGE_EVENT } from "@/lib/contestStore";
 import { LAB_CHANGE_EVENT } from "@/lib/labs";
 import { PENPAPER_CHANGE_EVENT } from "@/lib/penpaper";
 import { RESEARCH_CHANGE_EVENT } from "@/lib/research";
+import {
+  EMPTY_READINESS_GOAL,
+  EMPTY_READINESS_PROJECTION,
+  MAX_WEEKLY_HOURS,
+  PACE_UNCERTAINTY,
+  PACE_WINDOW_DAYS,
+  READINESS_GOAL_CHANGE_EVENT,
+  READINESS_WEIGHTS,
+  getReadinessGoal,
+  getReadinessProjection,
+  getReadinessScore,
+  saveReadinessGoal,
+  type ProjectionStatus,
+  type ReadinessBreakdown,
+  type ReadinessGoal,
+  type ReadinessProjection,
+} from "@/lib/readiness";
+import { REVIEWS_CHANGE_EVENT } from "@/lib/reviewQueue";
 import {
   MASTERY_WEIGHTS,
   getActivityTrend,
@@ -41,6 +59,9 @@ interface StatsData {
   timeOfDay: TimeOfDayBucket[];
   records: Records;
   mastery: MasteryEstimate;
+  readiness: ReadinessBreakdown;
+  goal: ReadinessGoal;
+  projection: ReadinessProjection;
 }
 
 const EMPTY_STATS: StatsData = {
@@ -74,6 +95,9 @@ const EMPTY_STATS: StatsData = {
     lastSolvedAt: null,
   },
   mastery: { value: 0, coverage: 0, depth: 0, recency: 0 },
+  readiness: { value: 0, coverage: 0, retention: 0, balance: 0, consistency: 0 },
+  goal: EMPTY_READINESS_GOAL,
+  projection: EMPTY_READINESS_PROJECTION,
 };
 
 const TREND_DAYS = 30;
@@ -88,6 +112,8 @@ const STATS_EVENTS = [
   CONCEPTS_CHANGE_EVENT,
   CONTEST_CHANGE_EVENT,
   PENPAPER_CHANGE_EVENT,
+  READINESS_GOAL_CHANGE_EVENT,
+  REVIEWS_CHANGE_EVENT,
 ];
 
 let cached: StatsData | null = null;
@@ -101,6 +127,9 @@ function buildStats(): StatsData {
     timeOfDay: getTimeOfDay(),
     records: getRecords(),
     mastery: getEstimatedMastery(),
+    readiness: getReadinessScore(),
+    goal: getReadinessGoal(),
+    projection: getReadinessProjection(),
   };
 }
 
@@ -153,6 +182,22 @@ function formatDate(iso: string | null): string | null {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatDateKey(key: string | null): string | null {
+  if (!key) return null;
+  const date = new Date(`${key}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatRate(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
 /* ────────────────────────────── micro views ─────────────────────────────── */
@@ -242,21 +287,23 @@ function Meter({
   label,
   percent,
   valueText,
+  hint,
 }: {
   label: string;
   percent: number;
   valueText: string;
+  hint?: string;
 }) {
   const clamped = Math.max(0, Math.min(100, percent));
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-3 text-[10px] text-body-mid">
-        <span>{label}</span>
+        <span title={hint}>{label}</span>
         <span className="font-mono">{valueText}</span>
       </div>
       <div
         role="progressbar"
-        aria-label={label}
+        aria-label={hint ? `${label} — ${hint}` : label}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(clamped)}
@@ -609,7 +656,13 @@ function RecordsPanel({ records }: { records: Records }) {
   );
 }
 
-function MasteryGauge({ value }: { value: number }) {
+function MasteryGauge({
+  value,
+  label = "Estimated mastery",
+}: {
+  value: number;
+  label?: string;
+}) {
   const size = 96;
   const stroke = 6;
   const radius = (size - stroke) / 2;
@@ -618,7 +671,7 @@ function MasteryGauge({ value }: { value: number }) {
   return (
     <div
       role="progressbar"
-      aria-label="Estimated mastery"
+      aria-label={label}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={clamped}
@@ -704,6 +757,316 @@ function MasteryCard({ mastery }: { mastery: MasteryEstimate }) {
   );
 }
 
+const READINESS_STATUS: Record<
+  ProjectionStatus,
+  { label: string; className: string }
+> = {
+  complete: {
+    label: "Target met",
+    className: "border-accent/40 bg-accent/5 text-accent",
+  },
+  ahead: {
+    label: "Ahead of pace",
+    className: "border-accent/40 bg-accent/5 text-accent",
+  },
+  "on-track": {
+    label: "On track",
+    className: "border-accent/40 bg-accent/5 text-accent",
+  },
+  behind: {
+    label: "Behind pace",
+    className: "border-warning/40 bg-warning/5 text-warning",
+  },
+  "no-goal": {
+    label: "No target date",
+    className: "border-hairline bg-canvas-soft text-body-mid",
+  },
+};
+
+function GoalForm({ goal }: { goal: ReadinessGoal }) {
+  const [targetDate, setTargetDate] = useState(goal.targetDate ?? "");
+  const [weeklyHours, setWeeklyHours] = useState(
+    goal.weeklyHours === null ? "" : String(goal.weeklyHours),
+  );
+  const [message, setMessage] = useState<string | null>(null);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const rawHours = weeklyHours.trim();
+    const hours = rawHours === "" ? null : Number(rawHours);
+    if (
+      hours !== null &&
+      (!Number.isFinite(hours) || hours <= 0 || hours > MAX_WEEKLY_HOURS)
+    ) {
+      setMessage("Enter weekly hours between 0 and 168.");
+      return;
+    }
+    saveReadinessGoal({ targetDate: targetDate || null, weeklyHours: hours });
+    setMessage("Goal saved to this browser.");
+  }
+
+  function handleClear() {
+    saveReadinessGoal({ targetDate: null, weeklyHours: null });
+    setMessage("Goal cleared.");
+  }
+
+  const inputClass =
+    "w-full rounded-lg border border-hairline bg-canvas px-2.5 py-1.5 text-xs text-ink transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="flex min-w-0 flex-col gap-1 text-[11px] text-body-mid">
+          Target date
+          <input
+            type="date"
+            value={targetDate}
+            onChange={(event) => {
+              setTargetDate(event.target.value);
+              setMessage(null);
+            }}
+            className={inputClass}
+          />
+        </label>
+        <label className="flex min-w-0 flex-col gap-1 text-[11px] text-body-mid">
+          Hours per week
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            max={MAX_WEEKLY_HOURS}
+            step={0.5}
+            placeholder="e.g. 6"
+            value={weeklyHours}
+            onChange={(event) => {
+              setWeeklyHours(event.target.value);
+              setMessage(null);
+            }}
+            className={inputClass}
+          />
+        </label>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="submit"
+          className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
+        >
+          Save goal
+        </button>
+        {(goal.targetDate !== null || goal.weeklyHours !== null) && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+          >
+            Clear
+          </button>
+        )}
+        <span role="status" className="text-[10px] text-body-mid">
+          {message ?? ""}
+        </span>
+      </div>
+    </form>
+  );
+}
+
+function ProjectionSummary({
+  projection,
+  goal,
+}: {
+  projection: ReadinessProjection;
+  goal: ReadinessGoal;
+}) {
+  const windowText =
+    projection.earliest && projection.latest
+      ? `${formatDateKey(projection.earliest)} – ${formatDateKey(projection.latest)}`
+      : null;
+  const daysLabel =
+    projection.daysRemaining === null
+      ? null
+      : projection.daysRemaining > 0
+        ? `${projection.daysRemaining} days left`
+        : "target date passed";
+
+  return (
+    <div
+      role="status"
+      className="mt-3 rounded-lg border border-hairline bg-canvas p-3"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-xs font-medium text-ink">
+          {projection.status === "no-goal"
+            ? "Projection"
+            : projection.status === "complete"
+              ? "Target met"
+              : `${formatRate(projection.requiredPerWeek ?? 0)}/wk required`}
+        </span>
+        {goal.targetDate && daysLabel && (
+          <span className="font-mono text-[10px] text-body-mid">
+            {daysLabel}
+          </span>
+        )}
+      </div>
+
+      {projection.status === "no-goal" ? (
+        <p className="mt-1 text-xs text-body-mid">
+          Add a target date to compare the required pace with your recent pace.
+        </p>
+      ) : projection.status === "complete" ? (
+        <p className="mt-1 text-xs text-body-mid">
+          Every catalogue problem is solved. Keep a light review cadence to hold
+          retention up.
+        </p>
+      ) : projection.requiredPerWeek === null ? (
+        <p className="mt-1 text-xs text-body-mid">
+          The target date has passed with {projection.remaining} problems left.
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-body-mid">
+          Running {formatRate(projection.currentPerWeek)}/wk
+          {projection.behindPerWeek > 0
+            ? ` · about ${formatRate(projection.behindPerWeek)}/wk behind`
+            : ""}
+          .
+        </p>
+      )}
+
+      {windowText && (
+        <p className="mt-1 text-xs text-ink">
+          Projected finish{" "}
+          <span className="font-mono text-[11px]">{windowText}</span>{" "}
+          <span className="text-body-mid">
+            (±{Math.round(PACE_UNCERTAINTY * 100)}% pace uncertainty)
+          </span>
+        </p>
+      )}
+
+      {projection.status === "behind" &&
+        projection.remaining > 0 &&
+        !windowText && (
+          <p className="mt-1 text-[11px] text-body-mid">
+            No solves in the last {PACE_WINDOW_DAYS} days, so there is no pace
+            to project from yet.
+          </p>
+        )}
+
+      {goal.weeklyHours !== null && projection.capacityPerWeek !== null && (
+        <p className="mt-1 text-[10px] text-body-mid">
+          Plan: {goal.weeklyHours} h/wk ≈{" "}
+          <span className="font-mono">
+            {formatRate(projection.capacityPerWeek)}
+          </span>{" "}
+          problems/wk at ~{projection.minutesPerProblem} min each.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ReadinessCard({
+  readiness,
+  goal,
+  projection,
+}: {
+  readiness: ReadinessBreakdown;
+  goal: ReadinessGoal;
+  projection: ReadinessProjection;
+}) {
+  const status = READINESS_STATUS[projection.status];
+  return (
+    <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-medium text-ink">Interview readiness</h3>
+          <p className="mt-1 max-w-xl text-xs text-body-mid">
+            A transparent estimate from your local practice history — not a
+            prediction of any interview.
+          </p>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+            status.className,
+          )}
+        >
+          {status.label}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="flex items-center gap-5">
+          <MasteryGauge value={readiness.value} label="Interview readiness" />
+          <div className="min-w-0 flex-1 space-y-3">
+            <Meter
+              label="Coverage"
+              percent={readiness.coverage}
+              valueText={`${readiness.coverage}%`}
+              hint="Mean share solved per category; every category weighs the same."
+            />
+            <Meter
+              label="Retention"
+              percent={readiness.retention}
+              valueText={`${readiness.retention}%`}
+              hint="Share of attempted problems still at 70% retrievability or better — from the review schedule when one exists, otherwise from last activity on a 28-day curve."
+            />
+            <Meter
+              label="Balance"
+              percent={readiness.balance}
+              valueText={`${readiness.balance}%`}
+              hint="Half weakest-category coverage, half closeness to the catalogue's Easy/Medium/Hard mix."
+            />
+            <Meter
+              label="Consistency"
+              percent={readiness.consistency}
+              valueText={`${readiness.consistency}%`}
+              hint="Distinct active days in the last 28; 14 active days scores 100."
+            />
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <GoalForm
+            key={`${goal.targetDate ?? ""}|${goal.weeklyHours ?? ""}`}
+            goal={goal}
+          />
+          <ProjectionSummary projection={projection} goal={goal} />
+        </div>
+      </div>
+
+      <p className="mt-4 text-[10px] text-body-mid">
+        {Math.round(READINESS_WEIGHTS.coverage * 100)}% coverage ·{" "}
+        {Math.round(READINESS_WEIGHTS.retention * 100)}% retention ·{" "}
+        {Math.round(READINESS_WEIGHTS.balance * 100)}% balance ·{" "}
+        {Math.round(READINESS_WEIGHTS.consistency * 100)}% consistency
+      </p>
+      <details className="mt-2 text-[10px] text-body-mid">
+        <summary className="cursor-pointer select-none">
+          How readiness is calculated
+        </summary>
+        <ul className="mt-2 space-y-1">
+          <li>
+            Coverage — 35%: mean share solved across categories; each category
+            counts equally.
+          </li>
+          <li>
+            Retention — 30%: share of attempted problems at 70% retrievability
+            or better — scheduled reviews decay from their due date, unscheduled
+            items from their last activity, both on a 28-day curve.
+          </li>
+          <li>
+            Balance — 20%: half your weakest category, half how close your
+            Easy/Medium/Hard solved mix is to the catalogue's own mix.
+          </li>
+          <li>
+            Consistency — 15%: active days in the last 28; 14 active days
+            scores full marks.
+          </li>
+        </ul>
+      </details>
+    </div>
+  );
+}
+
 function PracticeMix({ overview }: { overview: Overview }) {
   const items = [
     {
@@ -763,6 +1126,9 @@ export function StatsDashboard() {
     timeOfDay,
     records,
     mastery,
+    readiness,
+    goal,
+    projection,
   } = stats;
 
   return (
@@ -808,6 +1174,14 @@ export function StatsDashboard() {
           label="Mastery"
           value={`${mastery.value}`}
           detail="estimated 0–100"
+        />
+      </div>
+
+      <div className="mt-3">
+        <ReadinessCard
+          readiness={readiness}
+          goal={goal}
+          projection={projection}
         />
       </div>
 

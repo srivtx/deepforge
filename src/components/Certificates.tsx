@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 import {
   CERTIFICATES_CHANGE_EVENT,
   buildCertificateText,
+  certificateCredentialCode,
   formatCertificateDate,
   getEligible,
   getIssued,
@@ -15,6 +17,11 @@ import {
   type CertificateEntry,
   type CertificateKind,
 } from "@/lib/certificates";
+import {
+  fingerprintFromCode,
+  formatFingerprint,
+  verifyUrl,
+} from "@/lib/credentials";
 
 /* ──────────────────────────────── chrome ────────────────────────────────── */
 
@@ -141,7 +148,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function printCertificate(cert: Certificate): boolean {
+function printCertificate(cert: Certificate, credentialCode?: string): boolean {
   try {
     const win = window.open("", "_blank", "width=1100,height=760");
     if (!win) return false;
@@ -149,7 +156,17 @@ function printCertificate(cert: Certificate): boolean {
     const recipient = escapeHtml(cert.recipient);
     const detail = escapeHtml(cert.detail);
     const date = escapeHtml(formatCertificateDate(cert.issuedAt));
-    const code = escapeHtml(verificationCode(cert));
+    const fingerprint = credentialCode
+      ? fingerprintFromCode(credentialCode)
+      : null;
+    const code = escapeHtml(
+      fingerprint
+        ? formatFingerprint(fingerprint)
+        : verificationCode(cert),
+    );
+    const verifyLink = credentialCode
+      ? escapeHtml(`${window.location.origin}${verifyUrl(credentialCode)}`)
+      : "";
     win.document.write(`<!doctype html>
 <html lang="en">
 <head>
@@ -216,6 +233,14 @@ function printCertificate(cert: Certificate): boolean {
   .rule { width: 70%; display: flex; align-items: center; gap: 3mm; margin: 5mm 0; }
   .rule span { flex: 1; height: 1px; background: ${ACCENT}59; }
   .rule i { width: 5px; height: 5px; background: ${ACCENT}99; transform: rotate(45deg); }
+  .verify {
+    margin: 0 0 3mm;
+    max-width: 100%;
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 7.5pt;
+    color: ${MUTED};
+    word-break: break-all;
+  }
   .footer {
     width: 100%;
     display: flex;
@@ -239,6 +264,7 @@ function printCertificate(cert: Certificate): boolean {
       <p class="detail">${detail}</p>
     </div>
     <div class="rule"><span></span><i></i><span></span></div>
+    ${verifyLink ? `<p class="verify">Verify at ${verifyLink}</p>` : ""}
     <div class="footer"><span>Issued ${date}</span><code>${code}</code></div>
   </div>
   <script>window.addEventListener("load", function () { window.print(); });</script>
@@ -297,9 +323,32 @@ function wrapLines(
   return lines.length > 0 ? lines : [""];
 }
 
+function wrapContinuous(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const char of text) {
+    const candidate = line + char;
+    if (line && ctx.measureText(candidate).width > maxWidth) {
+      lines.push(line);
+      line = char;
+      if (lines.length >= maxLines) return lines;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line && lines.length < maxLines) lines.push(line);
+  return lines;
+}
+
 function drawCertificate(
   ctx: CanvasRenderingContext2D,
   cert: Certificate,
+  credentialCode?: string,
 ): void {
   ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, PNG_WIDTH, PNG_HEIGHT);
@@ -349,6 +398,21 @@ function drawCertificate(
     ctx.fillText(line, PNG_WIDTH / 2, afterTitle + 108 + index * 26);
   });
 
+  if (credentialCode) {
+    const link = `${window.location.origin}${verifyUrl(credentialCode)}`;
+    ctx.font = `400 10px ${MONO}`;
+    ctx.fillStyle = MUTED;
+    ctx.textAlign = "center";
+    const linkLines = wrapContinuous(ctx, link, PNG_WIDTH - 240, 3);
+    linkLines.forEach((line, index) => {
+      ctx.fillText(
+        line,
+        PNG_WIDTH / 2,
+        PNG_HEIGHT - 185 - (linkLines.length - 1 - index) * 15,
+      );
+    });
+  }
+
   const ruleY = PNG_HEIGHT - 150;
   ctx.strokeStyle = `${ACCENT}59`;
   ctx.lineWidth = 1.5;
@@ -375,17 +439,27 @@ function drawCertificate(
   );
   ctx.font = `500 15px ${MONO}`;
   ctx.textAlign = "right";
-  ctx.fillText(verificationCode(cert), PNG_WIDTH - 64, PNG_HEIGHT - 78);
+  const fingerprint = credentialCode
+    ? fingerprintFromCode(credentialCode)
+    : null;
+  ctx.fillText(
+    fingerprint ? formatFingerprint(fingerprint) : verificationCode(cert),
+    PNG_WIDTH - 64,
+    PNG_HEIGHT - 78,
+  );
 }
 
-function downloadCertificatePng(cert: Certificate): boolean {
+function downloadCertificatePng(
+  cert: Certificate,
+  credentialCode?: string,
+): boolean {
   try {
     const canvas = document.createElement("canvas");
     canvas.width = PNG_WIDTH;
     canvas.height = PNG_HEIGHT;
     const ctx = canvas.getContext("2d");
     if (!ctx) return false;
-    drawCertificate(ctx, cert);
+    drawCertificate(ctx, cert, credentialCode);
     const url = canvas.toDataURL("image/png");
     const safeRef = cert.refId.replace(/[^a-zA-Z0-9_-]+/g, "-");
     const anchor = document.createElement("a");
@@ -402,20 +476,57 @@ function downloadCertificatePng(cert: Certificate): boolean {
 
 /* ──────────────────────────────── card ──────────────────────────────────── */
 
+const CODE_TEXT =
+  "font-mono text-[8px] tracking-[0.2em] sm:text-[10px]";
+
+function CertificateCode({
+  cert,
+  code,
+}: {
+  cert: Certificate;
+  code?: string;
+}) {
+  const fingerprint = code ? fingerprintFromCode(code) : null;
+  if (!code || !fingerprint) {
+    return (
+      <span aria-hidden className={cn(CODE_TEXT, "text-[#6b6355]")}>
+        ····-····-····-····
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={verifyUrl(code)}
+      title="Verify this certificate"
+      aria-label={`Verify the certificate for ${cert.title}`}
+      className={cn(
+        CODE_TEXT,
+        "rounded-sm text-[#3f7354] underline-offset-2 transition-colors hover:text-[#2f7d4f] hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-[#2f7d4f]/50",
+      )}
+    >
+      {formatFingerprint(fingerprint)}
+    </Link>
+  );
+}
+
 interface CertificateCardProps {
   cert: Certificate;
+  code?: string;
   confirming: boolean;
   onPrint: (cert: Certificate) => void;
   onCopy: (cert: Certificate) => void;
+  onCopyLink: (cert: Certificate) => void;
   onDownload: (cert: Certificate) => void;
   onRevoke: (cert: Certificate) => void;
 }
 
 function CertificateCard({
   cert,
+  code,
   confirming,
   onPrint,
   onCopy,
+  onCopyLink,
   onDownload,
   onRevoke,
 }: CertificateCardProps) {
@@ -464,9 +575,7 @@ function CertificateCard({
             <span className="text-[8px] text-[#6b6355] sm:text-[10px]">
               Issued {formatCertificateDate(cert.issuedAt)}
             </span>
-            <span className="font-mono text-[8px] tracking-[0.2em] text-[#6b6355] sm:text-[10px]">
-              {verificationCode(cert)}
-            </span>
+            <CertificateCode cert={cert} code={code} />
           </div>
         </div>
       </article>
@@ -487,6 +596,23 @@ function CertificateCard({
           className={SECONDARY_BUTTON}
         >
           Copy text
+        </button>
+        {code && (
+          <Link
+            href={verifyUrl(code)}
+            aria-label={`Open the verification page for ${cert.title}`}
+            className={SECONDARY_BUTTON}
+          >
+            Verify
+          </Link>
+        )}
+        <button
+          type="button"
+          onClick={() => onCopyLink(cert)}
+          aria-label={`Copy the verification link for ${cert.title}`}
+          className={SECONDARY_BUTTON}
+        >
+          Copy link
         </button>
         <button
           type="button"
@@ -519,6 +645,7 @@ export function Certificates() {
   const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [status, setStatus] = useState("");
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
+  const [codes, setCodes] = useState<Record<string, string>>({});
   const loaded = state !== EMPTY_STATE;
 
   useEffect(() => {
@@ -526,6 +653,31 @@ export function Certificates() {
     const timer = window.setTimeout(() => setConfirmRevokeId(null), 4000);
     return () => window.clearTimeout(timer);
   }, [confirmRevokeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const pairs = await Promise.all(
+        state.issued.map(async (cert) => {
+          try {
+            const code = await certificateCredentialCode(cert);
+            return [cert.id, code] as const;
+          } catch {
+            return [cert.id, null] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      const next: Record<string, string> = {};
+      for (const [id, code] of pairs) {
+        if (code) next[id] = code;
+      }
+      setCodes(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.issued]);
 
   const issuedKeys = new Set(
     state.issued.map((cert) => `${cert.kind}:${cert.refId}`),
@@ -545,7 +697,11 @@ export function Certificates() {
   };
 
   const handleCopy = async (cert: Certificate) => {
-    const ok = await copyText(buildCertificateText(cert));
+    const code = codes[cert.id];
+    const text = code
+      ? `${buildCertificateText(cert, code)}\nVerify: ${window.location.origin}${verifyUrl(code)}`
+      : buildCertificateText(cert);
+    const ok = await copyText(text);
     setStatus(
       ok
         ? `Copied "${cert.title}" as text.`
@@ -553,8 +709,22 @@ export function Certificates() {
     );
   };
 
+  const handleCopyLink = async (cert: Certificate) => {
+    const code = codes[cert.id];
+    if (!code) {
+      setStatus("The verification link is still being computed.");
+      return;
+    }
+    const ok = await copyText(`${window.location.origin}${verifyUrl(code)}`);
+    setStatus(
+      ok
+        ? `Copied the verification link for "${cert.title}".`
+        : "Copy failed — the clipboard is unavailable.",
+    );
+  };
+
   const handleDownload = (cert: Certificate) => {
-    const ok = downloadCertificatePng(cert);
+    const ok = downloadCertificatePng(cert, codes[cert.id]);
     setStatus(
       ok
         ? `Downloaded "${cert.title}" as a PNG.`
@@ -563,7 +733,7 @@ export function Certificates() {
   };
 
   const handlePrint = (cert: Certificate) => {
-    const ok = printCertificate(cert);
+    const ok = printCertificate(cert, codes[cert.id]);
     setStatus(
       ok
         ? "Opening the print dialog…"
@@ -681,9 +851,11 @@ export function Certificates() {
               <CertificateCard
                 key={cert.id}
                 cert={cert}
+                code={codes[cert.id]}
                 confirming={confirmRevokeId === cert.id}
                 onPrint={handlePrint}
                 onCopy={handleCopy}
+                onCopyLink={handleCopyLink}
                 onDownload={handleDownload}
                 onRevoke={handleRevoke}
               />
@@ -693,8 +865,10 @@ export function Certificates() {
       </div>
 
       <p className={cn("mt-6 text-[11px] text-mute")}>
-        Verification codes are computed in your browser from the certificate
-        fields — no account required.
+        Certificate codes are SHA-256 fingerprints of the printed fields,
+        computed in your browser. Anyone can re-check one on its verification
+        page — no account and no server secret. Codes are self-attested: they
+        prove the fields were not altered after issue.
       </p>
     </section>
   );

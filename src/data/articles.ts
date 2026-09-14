@@ -103,22 +103,22 @@ export const ARTICLES: Article[] = [
     id: "art-softmax-temperature",
     slug: "why-softmax-needs-temperature",
     title: "Why Softmax Needs Temperature",
-    dek: "Logits are not probabilities. Temperature is the dial that decides how much you care about the difference between them.",
+    dek: "A network's raw scores are not probabilities. Temperature is the dial that decides how much the differences between them matter.",
     readMinutes: 7,
     category: "Deep Learning",
     problemIds: ["dl-021", "ml-065", "nlp-075", "dl-003", "la-149"],
     sections: [
       {
         kind: "prose",
-        text: "A neural network usually ends with a vector of real numbers called logits. Nothing constrains them. They can be negative, they can be huge, and they do not sum to one. To read them as a distribution over next tokens or classes, you need a map from all of R^n to the probability simplex. Softmax is that map: `p_i = exp(z_i) / sum_j exp(z_j)`.\n\nExponentiation is what makes it work. It turns arbitrary scores into positive numbers. It also preserves their order, so the largest logit always receives the largest probability.",
+        text: "A model that has to choose the next word from 50,000 possibilities, or label an email as spam or not spam, first produces one raw score per option. These raw scores are called logits. A logit is just a number the model found convenient: it can be negative, it can be 12, and the scores do not add up to anything in particular.\n\nWe want probabilities instead — numbers between 0 and 1 that add up to 1. Why not simply divide each score by their total? Because the scores can be negative, and a total can be zero or negative, which produces nonsense. Softmax fixes this in two moves. First, raise e (about 2.718) to each score, which turns any number into a positive one. Second, divide each result by the total. Bigger scores stay bigger, so the ranking never changes. In symbols, `p_i = exp(z_i) / sum_j exp(z_j)`: the probability of option i is e to the power of its score z_i, divided by the sum of e to the power of every score.",
       },
       {
         kind: "prose",
-        text: "Softmax is famously shift-invariant: adding a constant c to every logit changes nothing. That follows from `exp(z_i + c) = exp(z_i)·exp(c)`, since the factor cancels in the ratio.\n\nThis is not just a curiosity. It is the basis of the numerically stable implementation: subtract the maximum logit before exponentiating so nothing overflows.\n\nSoftmax is not scale-invariant, though. Multiplying every logit by 10 sharpens the distribution dramatically. Dividing them by 10 flattens it. The temperature parameter exists to control exactly that scale.",
+        text: "Softmax has a handy property: adding the same number c to every logit changes nothing. The reason is the rule `exp(z_i + c) = exp(z_i)·exp(c)`. The factor exp(c) appears in every term on top and bottom, so it cancels. This is not just trivia. It is how code stays numerically safe: subtract the largest logit before exponentiating, so the biggest exponent becomes 0 and nothing overflows. The answer is identical.\n\nSoftmax is not scale-invariant, though. Multiply every logit by 10 and the differences explode, so the winner takes almost all of the probability. Divide them by 10 and everything flattens toward equal odds. Temperature is the dial that sets this scale.",
       },
       {
         kind: "prose",
-        text: "Temperature divides the logits before the exponential: `p_i(T) = exp(z_i / T) / sum_j exp(z_j / T)`. At `T = 1` this is the standard softmax.\n\nAs `T` approaches zero from above, `z_i / T` becomes enormous for the largest logit and negligible for the rest. The distribution collapses to a one-hot vector pointing at the argmax.\n\nAs `T` grows, the logits are squashed toward zero. The distribution approaches the uniform distribution `1/n`. In between, temperature is a smooth dial from 'decide' to 'shrug'.",
+        text: "Temperature is a number we divide the logits by before exponentiating: `p_i(T) = exp(z_i / T) / sum_j exp(z_j / T)`. With `T = 1` this is ordinary softmax.\n\nDividing by a small T makes every gap between scores wider. As T approaches 0, one probability approaches 1 and the rest approach 0: the model commits to the single best option. Dividing by a large T shrinks every gap toward zero, and the distribution approaches `1/n` — complete indifference, where n is the number of options. Temperature is a smooth dial between 'decide' and 'shrug'.",
       },
       {
         kind: "demo",
@@ -127,25 +127,25 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "Here is the fact that surprises people: for any positive T, temperature can never change which class is most likely. Softmax is a monotone transformation, and dividing by a positive number preserves order. The argmax of the probabilities is always the argmax of the logits.\n\nTemperature changes confidence, entropy, and the shape of the distribution. It never changes the ranking. If you want the bars to reorder, you need to touch the logits themselves.",
+        text: "Here is the fact that surprises people: no positive temperature can change which option is most likely. Dividing by a positive number keeps the order of the scores, and exponentiating keeps it too. So the largest logit always gets the largest probability. Temperature changes how confident the model sounds, never the ranking. If the ranking itself must change, you have to change the scores.",
       },
       {
         kind: "figure",
         figure: "softmax-temperature-curve",
         caption:
-          "Temperature rescales confidence, never the ranking — class 1 stays the argmax from a near one-hot spike at T = 0.2 to a near-uniform shrug at T = 5.",
+          "Temperature rescales confidence, never the ranking: class 1 stays the top choice, from a near-certain spike at T = 0.2 to a near-uniform shrug at T = 5.",
       },
       {
         kind: "prose",
-        text: "What temperature does change is what you sample. Greedy decoding picks the argmax at every step. It is deterministic but dull. Sampling from `softmax(z/T)` is the standard alternative.\n\nThe Gumbel-max trick makes it concrete. Draw one fixed noise vector `g` from the Gumbel distribution. The sampled token is `argmax_i (z_i / T + g_i)`.\n\nNow flip points exist. At very low temperature the argmax of the logits wins. At very high temperature the largest noise term wins. The ticks in the demo mark the exact temperatures where the sampled token changes for one fixed draw.",
+        text: "So what does temperature change? It changes what you draw when you sample instead of always taking the top option. Greedy decoding always picks the largest probability; it is repeatable but dull. A common alternative is to draw from `softmax(z/T)`.\n\nThe Gumbel-max trick makes that concrete. Draw one random number g_i for each option from the Gumbel distribution, a standard source of noise with a particular shape. Then pick the option with the largest `z_i / T + g_i`. This gives exactly the same odds as sampling from the softmax, but it turns sampling into a race. At low temperature the scores decide the winner; at high temperature the noise does. The tick marks in the demo show the exact temperatures where the sampled option changes for one fixed set of random numbers.",
       },
       {
         kind: "prose",
-        text: "Temperature scaling is also a post-hoc calibration method. Take a trained classifier, hold its weights fixed, and fit a single scalar `T` on a validation set — usually by minimizing negative log-likelihood.\n\nA network trained with modern objectives is often overconfident. A `T` greater than one softens its probabilities back toward reality without touching accuracy.\n\nKnowledge distillation runs the same idea in reverse. The teacher's soft targets are generated at a high temperature. That lets the student see the relative probabilities of the wrong classes, not just the winner.",
+        text: "Temperature scaling is also used after training to repair overconfident probabilities. Take a trained classifier, freeze its weights, and fit one number T on a held-out set by minimizing negative log-likelihood — a score that punishes confident mistakes. Neural networks are often too sure of themselves, so a T above 1 softens their probabilities toward reality. Accuracy does not move, because ranking does not move.\n\nKnowledge distillation uses the same idea in reverse. A large, already-trained teacher model is asked for soft targets at a high temperature, and a smaller student is trained to match them. The soft targets tell the student how the teacher ranked the wrong answers, not just which answer won.",
       },
       {
         kind: "prose",
-        text: "Two implementation notes before you practice. First, never divide by an exact zero. Guard the denominator or clamp temperature to a small positive value. The limit as T goes to zero is a valid distribution only in the limit.\n\nSecond, negative temperatures are not a bug fix for anything. They invert the ranking and put the smallest logit first, which is almost never what you want.\n\nWhen you write your own softmax, subtract the maximum before exponentiating. When you add temperature, do it before the max-subtraction so the arithmetic stays stable.",
+        text: "Two practical warnings before you practice. First, never divide by zero. Clamp T to a small positive value; the limit as T reaches zero is only valid in the limit. Second, negative temperatures are not a fix for anything. They reverse the ranking and put the worst option first, which is almost never what you want.\n\nWhen you write softmax yourself, subtract the largest logit before exponentiating. Apply temperature before that subtraction so the arithmetic stays safe.",
       },
     ],
   },
@@ -153,26 +153,26 @@ export const ARTICLES: Article[] = [
     id: "art-eigenvectors",
     slug: "eigenvectors-you-can-see",
     title: "Eigenvectors You Can See",
-    dek: "Most vectors get knocked off their direction by a matrix. A few refuse — and those are the ones worth finding.",
+    dek: "Most arrows change direction when a matrix acts on them. A few stay on their own line — and those are the ones worth finding.",
     readMinutes: 8,
     category: "Linear Algebra",
     problemIds: ["la-040", "la-083", "la-084", "la-050", "la-174"],
     sections: [
       {
         kind: "prose",
-        text: "Stop thinking of a matrix as a table of numbers. A 2x2 matrix is a machine that takes a vector and returns a new vector. It rotates, stretches, shears, and reflects. Feed it the whole plane and it warps the grid into a parallelogram.\n\nThe columns of the matrix tell you where the basis vectors land. That is why you can read a transformation straight off its entries. The first column is where `e1 = (1, 0)` goes, the second is where `e2 = (0, 1)` goes.",
+        text: "Stop thinking of a matrix as a table of numbers and start with what it does. A vector is a list of numbers, which you can picture as an arrow starting at the origin. A 2x2 matrix is a machine that takes in an arrow and returns a new arrow: it can stretch it, shrink it, turn it, or flip it. Feed the whole plane through the machine and the square grid warps into a parallelogram.\n\nYou can read the machine straight off its four numbers. The first column says where the arrow `(1, 0)` lands. The second column says where `(0, 1)` lands. Every other arrow is just a combination of those two.",
       },
       {
         kind: "prose",
-        text: "Almost every vector comes out pointing somewhere new. For certain special directions, the matrix only scales what it is given. The vector may get longer, shorter, or flip to the opposite side. It stays on the same line through the origin.\n\nThose directions are the eigenvectors, and the scale factors are the eigenvalues. Formally, `Av = λv`, with `v` not the zero vector.\n\nThe equation says that applying A is indistinguishable from multiplying by a single number. For that one direction, a whole matrix collapses into a scalar.",
+        text: "Almost every arrow comes out pointing somewhere new. For a few special directions, the machine only resizes the arrow. It may get longer, shorter, or flip to the opposite side, but it stays on the same line through the origin.\n\nThose directions are the eigenvectors, and the stretch factors are the eigenvalues. In symbols, `A v = λ v`. Here A is the matrix, v is an eigenvector (and never the zero arrow), and λ — the Greek letter lambda — is its eigenvalue. Read it in words: applying the matrix to v gives the same result as multiplying v by the single number λ. Along that one direction, an entire matrix collapses into one scale factor.",
       },
       {
         kind: "prose",
-        text: "For a 2x2 matrix the eigenvalues fall out of the characteristic equation `det(A − λI) = 0`. It expands to `λ² − tr(A)·λ + det(A) = 0`.\n\nThe trace is the sum of the eigenvalues, and the determinant is the product. That gives a quick sanity check on any answer you compute by hand: if your two eigenvalues do not sum to the trace, something is wrong.\n\nIf the discriminant `tr² − 4·det` is negative, the eigenvalues are complex. The matrix has no real eigendirections — it contains a rotation.",
+        text: "For a 2x2 matrix, the eigenvalues come out of the equation `det(A − λI) = 0`. Here I is the identity matrix, the do-nothing matrix with ones on the diagonal and zeros elsewhere, and det is the determinant, the number that says how much the matrix scales area. Why zero? Because `A v = λ v` can be rewritten as `(A − λI) v = 0`, which asks when the matrix `A − λI` crushes some nonzero arrow to nothing. That happens only when its determinant is zero.\n\nExpanding the equation gives the quadratic `λ² − tr(A)·λ + det(A) = 0`. The trace `tr(A)` is the sum of the two diagonal entries. Two free sanity checks follow: the two eigenvalues always add up to the trace and multiply to the determinant. If your hand calculation fails either test, it is wrong. One more clue: if `tr² − 4·det` is negative, the eigenvalues are complex numbers. The matrix has no real eigendirection, which means it contains a rotation.",
       },
       {
         kind: "prose",
-        text: "Eigenvectors are the skeleton of repeated multiplication. Compute `A^k v` and write v in the eigenbasis: each application simply multiplies the coefficient on eigenvector i by `λ_i^k`. The largest-magnitude eigenvalue dominates as k grows. That is exactly why power iteration works and why it finds PageRank's stationary distribution.\n\nIn statistics, the eigenvectors of a covariance matrix are the principal components: the directions of maximum variance, ordered by eigenvalue. In dynamics, an eigenvalue above one in magnitude means exponential growth, and below one means decay.",
+        text: "Eigenvectors are the skeleton of repeated multiplication. Write an arrow v as a mixture of eigenvectors, apply the matrix k times, and each eigenvector is simply multiplied by its eigenvalue k times: `λ_i^k`. As k grows, the largest-magnitude eigenvalue dominates. That is why power iteration — apply the matrix to a vector over and over — finds the dominant eigenvector, and why the same trick computes Google's PageRank.\n\nThe idea reaches everywhere. In statistics, the eigenvectors of a covariance matrix (a table that records how each feature moves with every other) are the principal components: the directions where the data spreads out most. In dynamic systems, an eigenvalue larger than 1 in size means growth and one smaller than 1 means decay.",
       },
       {
         kind: "demo",
@@ -181,21 +181,21 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "Drag the tip of the vector v in the canvas and watch the two arrows. The dark arrow is v, and the warm arrow is Av.\n\nIn general they disagree. The angle between them is a measure of how far v is from an eigendirection. Slide v until the arrows line up: that is an eigenvector, and the ratio of their lengths is its eigenvalue.\n\nThe dashed lines show where the real eigendirections live for the current matrix. The readout gives you the Rayleigh quotient `(v·Av)/(v·v)`. It is the best scalar estimate of λ along v, and it lies between the two eigenvalues.",
+        text: "Drag the tip of the arrow labeled v and watch two arrows. The dark one is v. The warm one is A v, the result of feeding v through the matrix.\n\nIn general the two point in different directions. The angle between them measures how far v is from an eigendirection. Slide v until the arrows line up: you have found an eigenvector, and the ratio of their lengths is its eigenvalue.\n\nThe dashed lines mark the true eigendirections for the current matrix. The readout shows the Rayleigh quotient, `(v·Av)/(v·v)` — the best single-number estimate of the eigenvalue along your chosen direction. It always lies between the two true eigenvalues. The little dot in `v·Av` means multiply matching entries and add the products.",
       },
       {
         kind: "figure",
         figure: "eigenvector-grid",
         caption:
-          "A matrix warps the whole grid, but an eigendirection only stretches: Av stays on the same dashed line as v while w visibly rotates off its own.",
+          "A matrix warps the whole grid, but an eigenvector only stretches: A v stays on the same dashed line as v, while w visibly turns off its own.",
       },
       {
         kind: "prose",
-        text: "When the matrix has two independent eigenvectors, it can be diagonalized: `A = VΛV⁻¹`, where the columns of V are the eigenvectors and Λ is diagonal. In that basis the matrix is nothing but separate scalings. That is why powers, exponentials, and differential equations all become trivial.\n\nNot every matrix cooperates. Repeated eigenvalues can leave only one eigendirection, producing a shear that no change of basis can flatten. Those defective matrices are the reason Jordan form exists. For symmetric matrices life is always good: the spectral theorem guarantees real eigenvalues and orthogonal eigenvectors.",
+        text: "When a matrix has two independent eigenvectors, we can switch to a coordinate system built from them: `A = VΛV⁻¹`. V has the eigenvectors as its columns, Λ (capital lambda) is a diagonal table holding the eigenvalues, and V⁻¹ is the inverse of V — the matrix that undoes V. In that basis, the matrix does nothing more than scale each axis separately, so powers and equations become easy.\n\nNot every matrix cooperates. Repeated eigenvalues can leave only one eigendirection, creating a shear that no change of coordinates can flatten; those defective matrices are what the Jordan form describes. Symmetric matrices — ones that look the same when flipped across their diagonal — are always well behaved: their eigenvalues are real and their eigenvectors meet at right angles.",
       },
       {
         kind: "prose",
-        text: "The practical takeaway is to look for eigenvectors before you compute anything expensive. If a direction is nearly preserved, the residual norm `||Av − λv||` is tiny, and you have found structure.\n\nThe problems below start with checking a claimed eigenpair. They move through the 2x2 characteristic polynomial and end at power iteration. That algorithm finds the dominant eigenvector without ever forming the characteristic polynomial.",
+        text: "The practical habit is to look for eigenvectors before doing expensive work. If some direction is nearly unchanged, the leftover `A v − λ v` is tiny, and you have found real structure.\n\nThe problems below start by checking a claimed eigenpair, move through the 2x2 quadratic, and finish with power iteration, which finds the dominant eigenvector without ever writing down the characteristic equation.",
       },
     ],
   },
@@ -203,22 +203,22 @@ export const ARTICLES: Article[] = [
     id: "art-gradient-descent",
     slug: "gradient-descent-from-mse-to-logistic",
     title: "Gradient Descent from MSE to Logistic",
-    dek: "One optimizer, two losses. Watch the same update rule pull a line through data by squared error and by cross-entropy.",
+    dek: "One update rule, two losses. Watch the same recipe fit a line by squared error and by cross-entropy.",
     readMinutes: 9,
     category: "Optimization",
     problemIds: ["ml-103", "ml-012", "op-001", "ml-083", "ml-002"],
     sections: [
       {
         kind: "prose",
-        text: "Training a model is an optimization problem. You choose parameters θ, measure how wrong the model is with a loss `L(θ)`, and then repeatedly take a step downhill: `θ ← θ − η·∇L(θ)`.\n\nThe learning rate η controls the step size. The gradient points in the direction of steepest ascent, so the negative gradient is the cheapest local way down.\n\nEverything else in deep learning is a variation on this sentence: different losses, different parameterizations, different ways of estimating the gradient from a batch of data.",
+        text: "Training a model means searching for the numbers that make it wrong as little as possible. Those numbers are called parameters, written θ (the Greek letter theta). 'Wrong' needs a number too: a loss function `L(θ)` that turns all the model's mistakes into a single score, where smaller is better.\n\nPicture standing on a hill in fog, wanting the bottom. The gradient `∇L(θ)` is a list of slopes: how the loss changes when you nudge each parameter one way or the other. It points uphill. So step the other way: `θ ← θ − η·∇L(θ)`. The Greek letter η (eta) is the learning rate — how big a step you take. Too big and you leap across the valley; too small and you crawl.\n\nAlmost everything in deep learning is a variation on that one sentence: different ways to measure wrongness, different numbers to move, different ways to estimate the slope from a sample of data.",
       },
       {
         kind: "prose",
-        text: "Start with linear regression and mean squared error. The model is `ŷ = w·x + b` and the loss is the average of `(ŷ − y)²`.\n\nIts gradient is beautifully simple. The derivative with respect to each weight is `2·(ŷ − y)·x`, and with respect to the bias it is `2·(ŷ − y)`. The error is multiplied by the input.\n\nA point far from the line and far from the origin produces a large correction. A point where the model is already right produces none. For linear models this loss is convex, so gradient descent converges to the global optimum given a small enough learning rate.",
+        text: "Start with the simplest model, a straight line: `ŷ = w·x + b`. Here x is the input, w is the slope (called a weight), b is where the line crosses zero (the bias), and ŷ is the prediction. Measure wrongness with mean squared error, the average of `(ŷ − y)²` over all the data, where y is the true answer. Squaring makes errors in both directions count and makes big misses count extra.\n\nThe slope of that loss is refreshingly simple. For each weight it is `2·(ŷ − y)·x`, and for the bias it is `2·(ŷ − y)`. In words: the correction is the error, multiplied by the input. A point where the model is far off and the input is large gets a big nudge; a point the model already gets right gets none. This loss has a single valley and no false bottoms, so with a small enough learning rate, descent finds the best line.",
       },
       {
         kind: "prose",
-        text: "Logistic regression keeps the linear score `z = w·x + b` but pushes it through a sigmoid, `σ(z) = 1/(1 + e^{−z})`. It switches the loss to binary cross-entropy: `L = −[y·log(p) + (1−y)·log(1−p)]` where `p = σ(z)`.\n\nThe logarithm punishes confident mistakes without bound. Squared error, by contrast, saturates at one.\n\nAnd then something lovely happens. The gradient of the log loss with respect to the weights is `(p − y)·x`. That is the same shape as the MSE gradient, with the prediction's probability replacing the raw prediction. No sigmoid derivative is left behind, because it cancels against the log.",
+        text: "Logistic regression keeps the same straight-line score `z = w·x + b` but turns it into a probability with the sigmoid function, `σ(z) = 1/(1 + e^{−z})`. The sigmoid squeezes any number between 0 and 1. Wrongness is then measured with cross-entropy, a loss built from logarithms: `L = −[y·log(p) + (1−y)·log(1−p)]`, where p is the predicted probability of the positive class and y is the true label, 1 for that class and 0 for the other. When the model is confident and right, this loss is near zero. When it is confident and wrong, the logarithm explodes: the penalty has no upper limit. Squared error, by comparison, tops out at 1, so it stops caring exactly when caring matters most.\n\nThen something elegant happens. The slope of the cross-entropy loss with respect to the weights is `(p − y)·x` — the same shape as the squared-error slope, except the raw prediction is replaced by the probability. The sigmoid's own derivative cancels perfectly against the logarithm.",
       },
       {
         kind: "demo",
@@ -227,25 +227,25 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "Click the canvas to add points and watch the decision boundary `w·x + b = 0` refit after every addition.\n\nPoints near the boundary exert the strongest pull: their `p − y` term is largest in magnitude. Points far on the correct side are already classified confidently. Their gradient nearly vanishes, so the boundary barely notices them.\n\nSwitch the update rule between mean squared error and log loss. MSE learns the same sign behavior, but its gradient carries an extra `p(1−p)` factor. It crawls when the model is confidently wrong — one reason cross-entropy is the default for classification.",
+        text: "Click the canvas to add points and watch the boundary line `w·x + b = 0` refit after each one. That line is where the model is exactly 50/50.\n\nPoints near the boundary pull hardest: their `p − y` has the largest size. Points far on the correct side are already called correctly with confidence, so their pull nearly vanishes. Switch the update rule between mean squared error and log loss. Squared error picks the same direction but carries an extra `p(1−p)` factor, so it slows to a crawl when the model is confidently wrong. That is one reason cross-entropy is the default for classification.",
       },
       {
         kind: "figure",
         figure: "descent-contours",
         caption:
-          "Same update rule, same start, same step size: circular contours give a straight path, elongated ones force a zig-zag — conditioning, not the algorithm, decides.",
+          "Same update rule, same start, same step size: round valleys give a straight path, elongated ones force a zig-zag. The shape of the loss, not the algorithm, decides.",
       },
       {
         kind: "prose",
-        text: "The loss curve underneath tells you whether the learning rate is sane. A curve that descends smoothly and flattens has converged. A curve that jumps up and down, or explodes, means η is too large. A curve still falling slowly after hundreds of steps means η is too small, or the data is poorly scaled.\n\nCycling through the points one at a time gives a noisy, stair-stepping curve. That is stochastic gradient descent, and the noise is a feature. It helps escape flat regions and saddle points that full-batch descent would circle forever.",
+        text: "The loss curve below the plot tells you whether the learning rate is sane. Falling smoothly and then flattening means converged. Jumping up and down or blowing up means the step size is too large. Still creeping down after hundreds of steps means it is too small, or the inputs sit on wildly different scales.\n\nUpdating after every single point gives a noisy staircase. That is stochastic gradient descent, and the noise is useful: it shakes the model out of flat spots and saddle points — places that slope down one way and up another — where full-batch descent could circle forever.",
       },
       {
         kind: "prose",
-        text: "With perfectly separable data, logistic regression has no finite optimum. The weights keep growing, so the sigmoid saturates and the loss keeps shrinking toward zero. In the demo the boundary stabilizes visually long before the weights stop moving.\n\nIn practice you stop early or add L2 regularization. That pulls the weights toward zero and restores a finite optimum.\n\nFor non-linear models the loss is no longer convex, and gradient descent can land in a local minimum. But in high dimensions, exact minima are rare. Saddle points are the more common obstacle, which is another argument for stochastic updates.",
+        text: "With data that can be split perfectly by a line, logistic regression has no best answer. The weights can keep growing forever, making the sigmoid more certain and the loss smaller. In the demo the boundary stops moving visually long before the weights do.\n\nIn practice you stop early or add L2 regularization: a small penalty on large weights that pulls them toward zero and makes the best answer finite again.\n\nFor nonlinear models the loss surface has many valleys, so descent can settle into a local minimum. In high dimensions, though, true dead ends are rare; saddle points are the usual obstacle — another reason the randomness of stochastic updates helps.",
       },
       {
         kind: "prose",
-        text: "Two implementation details matter more than they look. First, batch versus stochastic. The true gradient averages over all examples, while SGD estimates it from one example or a minibatch. Minibatches trade a little noise for much better hardware utilization and smoother curves.\n\nSecond, feature scaling. Gradient descent takes elliptical steps on badly scaled data because the curvature in each direction differs. Standardizing inputs is often the difference between converging in fifty steps and five thousand.\n\nThe problems below ask for the sigmoid, the logistic gradient, the squared-error gradient, and a single descent step.",
+        text: "Two implementation details matter more than they look. First, batch versus stochastic. The true gradient averages the slope over all examples. Stochastic methods estimate it from one example or a small batch. Small batches trade a little noise for much better hardware speed and smoother curves.\n\nSecond, scale your features. When one input ranges over thousands and another over fractions, the loss surface becomes a long thin valley and descent zig-zags instead of heading straight down. Standardizing the inputs is often the difference between converging in fifty steps and five thousand.\n\nThe problems below ask for the sigmoid, both gradients, and a single descent step.",
       },
     ],
   },
@@ -253,22 +253,22 @@ export const ARTICLES: Article[] = [
     id: "art-kmeans",
     slug: "k-means-assignment-to-convergence",
     title: "K-Means: Assignment to Convergence",
-    dek: "Two alternating steps, one stubborn objective. Step through the loop and watch inertia only ever fall.",
+    dek: "Two alternating steps, one stubborn goal. Step through the loop and watch the total spread only ever fall.",
     readMinutes: 7,
     category: "ML Fundamentals",
     problemIds: ["ml-003", "ml-032", "ml-033", "ml-034", "ml-145"],
     sections: [
       {
         kind: "prose",
-        text: "Clustering asks a question with no labels attached: given a cloud of points, what groups are hiding inside it? K-means answers with a concrete objective.\n\nPick a number of clusters k and place k centroids. Assign every point to its nearest centroid. Measure the total squared distance between points and their assigned centers. That quantity is called inertia.\n\nK-means is the search for centroids that make inertia as small as possible. It is a combinatorial problem, because the assignments are discrete. But the objective has enough structure to admit a simple iterative attack.",
+        text: "Clustering asks a question with no labels attached: given a cloud of points, what groups are hiding inside it? K-means answers with a concrete goal.\n\nFirst choose k, the number of groups you want. Place k centers, called centroids, among the points. Assign every point to its nearest centroid. Then add up the squared distances between each point and its assigned center — written `Σ ‖x − μ_c‖²`, where x runs over points, μ_c is the center of the group x joined, and the double bars mean distance. That total is called inertia. Small inertia means tight, compact groups.\n\nK-means searches for centroid positions that make inertia as small as possible. Because each point belongs to exactly one group, the assignments are discrete and there are far too many combinations to try them all. But the goal has enough structure for a simple two-step loop to make steady progress.",
       },
       {
         kind: "prose",
-        text: "The assignment step is exact given the centroids. For each point, compute the squared distance to every centroid and assign it to the closest one. Ties can be broken by index; the objective is indifferent.\n\nThis step can only decrease inertia. Moving a point to its nearest centroid never increases its distance to the center it ends up with. The squared distance `||x − μ_c||²` is cheap to compute. The whole step costs O(n·k·d) for n points, k clusters, and d dimensions.",
+        text: "The assignment step is exact once the centroids are fixed. For every point, measure its distance to each centroid and give the point to the nearest one. Ties can go to the lower index; inertia does not care.\n\nThis step can only lower inertia, because moving a point to its nearest center never increases its distance to the center it ends up with. The cost is mild: with n points, k clusters, and d dimensions, the step takes roughly n·k·d operations.",
       },
       {
         kind: "prose",
-        text: "The update step is exact given the assignments. For each cluster, replace its centroid with the mean of the points assigned to it. This is calculus, not guesswork. The sum of squared distances to a point μ is minimized when μ is the arithmetic mean of the cluster's members, because the gradient `2·Σ(x_i − μ)` vanishes exactly there.\n\nAssignments and updates alternate. Each full iteration weakly decreases inertia, and since there are finitely many possible assignments, the process terminates — usually in a handful of iterations.",
+        text: "The update step is exact once the assignments are fixed. For each cluster, replace its centroid with the average of the points in it. This is calculus, not guesswork: the sum of squared distances to a center is smallest when the center sits at the arithmetic mean of its members, because that is where the slope of the sum is zero.\n\nAssignment and update then alternate. Every full round either lowers inertia or leaves it unchanged, and there are only finitely many ways to assign the points, so the loop must eventually stop — usually after a handful of rounds.",
       },
       {
         kind: "demo",
@@ -276,7 +276,7 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "Step through the demo and watch inertia in the status line. It drops on every iteration, then stops moving when assignments stop changing.\n\nWhat you are also watching is the weakness of the method. The descent is monotone, but it is not guaranteed to reach the global minimum. Different starting positions can lead to different final clusters, some of them noticeably worse. That is why the initialization step deserves as much attention as the loop itself.",
+        text: "Step through the demo and watch inertia in the status line. It falls after every round, then freezes once the assignments stop changing.\n\nThe same picture shows the method's weakness. The descent is monotone, but it is not guaranteed to find the best possible clustering. Different starting positions can lead to different final clusters, some clearly worse. Initialization deserves as much attention as the loop itself.",
       },
       {
         kind: "figure",
@@ -286,11 +286,11 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "The standard fix for bad initialization is k-means++, which chooses starting centroids with a randomized rule weighted by squared distance. The first centroid is chosen uniformly from the data. Each subsequent one is drawn with probability proportional to its squared distance from the nearest already-chosen center.\n\nFar-apart seeds get picked often, so the clusters start spread out. It is still randomized, but it comes with an approximation guarantee and works well enough to be the default in most libraries.\n\nA related issue is empty clusters. If no point is nearest to a centroid, the usual repair is to keep the old position or re-seed it at the farthest point.",
+        text: "The standard fix for bad starting centers is k-means++. The first center is chosen uniformly at random from the data. Each next center is drawn at random too, but with probability proportional to its squared distance from the nearest already-chosen center. Far-apart seeds are likely to be picked, so the clusters start spread out. It is still random, but it comes with a guarantee of near-optimal results, which is why it is the default in most libraries.\n\nA related snag is an empty cluster: a centroid that no point is nearest to. The usual repair is to keep its old position or to move it onto the farthest point.",
       },
       {
         kind: "prose",
-        text: "K-means assumes clusters are roughly spherical, similar in size, and separated by distances that matter. It will happily slice an elongated cluster in half or merge two nearby ones. It also requires you to choose k.\n\nThe elbow method plots inertia against k and looks for the point where the curve stops falling quickly. Silhouette scores measure how much better each point fits its own cluster than the next nearest, and they work without a clear elbow.\n\nWhichever you use, remember that inertia decreases with more clusters by construction. It is the rate of improvement, not the raw value, that carries information. The problems below cover a single iteration, the assignment and update steps separately, inertia, and k-means++ initialization.",
+        text: "K-means assumes groups are roughly round, similar in size, and separated by distances that mean something. It will cheerfully slice an elongated cluster in half or merge two nearby ones. It also makes you choose k in advance.\n\nThe elbow method plots inertia against k and looks for the bend where the curve stops falling quickly. Silhouette scores compare how well each point fits its own cluster versus the next nearest one, and they work even when there is no clear bend.\n\nEither way, remember that inertia always shrinks as k grows, since more centers can only help. The interesting signal is how fast it shrinks, not its raw value. The problems below cover one iteration, the two steps separately, inertia, and k-means++ seeding.",
       },
     ],
   },
@@ -305,19 +305,19 @@ export const ARTICLES: Article[] = [
     sections: [
       {
         kind: "prose",
-        text: "Attention starts with a sequence of token vectors, one per position. The question it answers is relational: for this position, which other positions carry information that matters?\n\nThe mechanism answers with a convex combination — a weighted average — where the weights are learned from the data rather than fixed by position. That is the whole idea. The projections, the scaling, the masks, and the multiple heads all exist to make that average expressive and stable.",
+        text: "Attention begins with a sequence of vectors, one per token — a token being a word, a piece of a word, or any other unit the model works with. Each vector describes what that position means so far. The question attention answers is relational: for this position, which other positions carry information I need?\n\nThe answer is a weighted average of the other positions' vectors, where the weights are learned from data rather than fixed by distance. Each position gets its own private set of weights. That is the whole idea. Everything else in this article exists to make that average expressive and stable.",
       },
       {
         kind: "prose",
-        text: "Each token is projected three ways. The query `q = x·W_Q` says what this position is looking for. The key `k = x·W_K` says what this position offers. The value `v = x·W_V` is the content that gets mixed.\n\nSimilarity between a query and a key is measured with a dot product. A large positive `q·k` means the query is asking for something this key advertises.\n\nStack the queries into a matrix Q and the keys into K, and the entire table of pairwise similarities is one matrix multiply: `Q·Kᵀ`. Its entry `(i, j)` is how much query i likes key j.",
+        text: "Each token's vector is projected three ways, 'projected' meaning multiplied by a matrix the model learned during training.\n\n- The query `q = x·W_Q` is what this position is looking for.\n- The key `k = x·W_K` is what this position offers to others.\n- The value `v = x·W_V` is the content that gets passed along if this position is chosen.\n\nHere x is the token's vector, and W_Q, W_K, and W_V are the three learned matrices. A query and a key are compared with a dot product: multiply matching entries and add the products. A large positive `q·k` means the query is looking for something this key advertises.\n\nGather all the queries into a matrix Q, all the keys into K, and all the values into V. Then every comparison at once becomes one matrix multiplication, `Q·Kᵀ`, where the small T means rows and columns are swapped. Entry (i, j) of the result says how much query i likes key j.",
       },
       {
         kind: "prose",
-        text: "There is a scaling factor in the denominator: `Q·Kᵀ / √d_k`, where `d_k` is the dimension of each query and key vector. It is not cosmetic.\n\nIf the components of q and k are independent with mean zero and variance one, their dot product has variance proportional to `d_k`. Scores grow with dimension. Feed large scores into a softmax and it saturates: one weight becomes one and the rest become zero.\n\nThe gradient through the row dies, and learning stalls. Dividing by `√d_k` keeps the scores at a workable scale regardless of dimension.",
+        text: "The scores are divided by `√d_k`, where d_k is the number of entries in each query and key vector. The square root keeps the numbers from growing with dimension.\n\nSuppose the entries of q and k are independent random numbers with average zero and spread one. Their dot product is then a sum of d_k terms, so it gets bigger as d_k grows. Feed huge scores into the step that turns them into weights and it saturates: one weight becomes 1 and the rest become 0. The slope that learning needs dies, and training stalls. Dividing by `√d_k` holds the scores at a workable scale no matter how wide the vectors are.",
       },
       {
         kind: "prose",
-        text: "Softmax is applied to every row independently. Row i of the score matrix becomes a probability distribution over the keys, and those probabilities are the attention weights.\n\nEvery row sums to exactly one: each query spends its full budget of attention across the keys it can see. A concentrated row means the query is locked onto one position. A flat row means it is spreading its attention broadly. The entropy of the row is a useful summary of which regime it is in.",
+        text: "The step that turns scores into weights is called softmax. It is applied to each row of scores separately, and each row becomes weights between 0 and 1 that add up to exactly 1 — a budget of attention spent across the keys.\n\nA peaked row means the query is locked onto one position. A flat row means it is spreading its attention widely. The entropy of the row, a number that measures how spread out the weights are, summarizes which case you are in.",
       },
       {
         kind: "demo",
@@ -325,27 +325,27 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "The output is the weighted average of the values: `softmax(QKᵀ/√d)·V`. Row i of the output is a mixture of all value vectors, with the mixture proportions given by row i of the attention weights.\n\nThe shape is preserved: one output vector per input token, each of the same dimension as the values. That is what makes attention a drop-in layer. Around it sit residual connections, layer normalization, and a position-wise feed-forward network, but the mixing itself is exactly this one multiplication.",
+        text: "In the demo, flip between the raw scaled scores and the attention weights, and hover a cell to see one query-key pair. Then follow the output. It is the weighted average of the values: `softmax(QKᵀ/√d_k)·V`. Row i of the output mixes all the value vectors, using the weights from row i of the attention table.\n\nNotice what the shapes do: one output vector per input token, each of the same length as the values. That is what lets attention slot into a larger network. Around it sit residual connections (which add a layer's input back to its output), normalization steps, and a small feed-forward network, but the mixing itself is exactly this one multiplication.",
       },
       {
         kind: "figure",
         figure: "attention-pipeline",
         caption:
-          "The whole mechanism in one pass: project to Q, K, and V; score every query against every key; scale and softmax each row; then average the values.",
+          "The whole mechanism in one pass: project every token into a query, a key, and a value; score every query against every key; soften each row; then average the values.",
       },
       {
         kind: "prose",
-        text: "Real transformers run several attention operations in parallel, each with its own `W_Q`, `W_K`, and `W_V`. These are the heads.\n\nOne head might track syntactic dependencies, another coreference, another adjacency. Each works in a different learned subspace and can afford different similarity patterns.\n\nThe heads' outputs are concatenated and passed through an output projection `W_O`, which lets the model combine what the heads found. Splitting d_model across h heads keeps the parameter count and the floating-point cost roughly constant while changing the representational geometry.",
+        text: "A real transformer runs several attention operations side by side, each with its own W_Q, W_K, and W_V. These parallel copies are called heads.\n\nOne head might track grammar, another might track which pronoun refers to which noun, another might just look at nearby words. Each head has its own learned subspace and can develop its own notion of similarity.\n\nThe heads' outputs are stitched together and passed through one more learned matrix, W_O, so the model can combine what the heads found. Splitting the model's width d_model across h heads keeps the parameter count and the arithmetic roughly constant while giving the model several ways to look at the same sequence.",
       },
       {
         kind: "figure",
         figure: "attention-heatmap",
         caption:
-          "Softmax turns every row into a distribution that sums to 1 — peaked when one key wins, flat when attention spreads — and the causal mask keeps the future at zero.",
+          "Softmax turns every row into weights that add up to 1 — peaked when one key wins, flat when attention spreads — and the mask keeps forbidden positions at zero.",
       },
       {
         kind: "prose",
-        text: "Two practical facts finish the picture. First, masks. Adding −∞ (in practice a very negative number) to forbidden score entries before the softmax forces their weights to zero. That is how causal language models prevent a token from attending to the future, and how padding tokens are ignored.\n\nSecond, cost. The score matrix has n² entries for a sequence of length n, so attention is quadratic in sequence length. That single fact is why context windows are expensive and why so much engineering goes into sparse, sliding-window, and memory-efficient variants.\n\nThe problems below ask you to scale the scores, softmax the rows, take the weighted sum, and reproduce scaled dot-product attention end to end.",
+        text: "Two practical facts complete the picture. First, masks. If a position must not be looked at — say the future in a language model, or padding at the end of a batch — add a very large negative number (negative infinity in theory) to its score before the softmax. The exponential of that number is zero, so the forbidden position receives no attention.\n\nSecond, cost. For a sequence of length n, the table of scores has n² entries. Doubling the sequence length quadruples the table. That single fact is why long context windows are expensive and why so much engineering goes into sparse, sliding-window, and memory-saving variants.\n\nThe problems below ask you to scale the scores, soften the rows, take the weighted sum, and reproduce the whole computation end to end.",
       },
     ],
   },
@@ -353,22 +353,22 @@ export const ARTICLES: Article[] = [
     id: "art-bpe",
     slug: "tokenization-byte-pair-encoding",
     title: "Tokenization: Byte-Pair Encoding",
-    dek: "Before a model reads a word, it reads a merge table. BPE decides how text becomes tokens — and tokens set the units of cost, context, and failure.",
+    dek: "Before a model reads a word, it reads a merge list. BPE decides how text becomes tokens — and tokens decide cost, context, and where a model fails.",
     readMinutes: 7,
     category: "NLP",
     problemIds: ["nlp-001", "nlp-022", "nlp-096", "nlp-099", "nlp-235", "nlp-238"],
     sections: [
       {
         kind: "prose",
-        text: "A model does not read text. It reads a sequence of integer ids, and a tokenizer is the program that produces them.\n\nThe simplest tokenizer splits on whitespace. It breaks on `don't`, on `state-of-the-art`, and on every language that does not put spaces between words. It also throws away casing and punctuation unless you write special rules for each case.\n\nSplitting into single characters avoids all of that. Nothing is unknown, but a sentence becomes long. Longer sequences cost more to train and more to serve, because attention is quadratic in length.",
+        text: "A language model does not read text. It reads a sequence of whole numbers, and a tokenizer is the program that turns text into those numbers. That choice decides the length of every prompt, the price of every call, and how the model handles unusual words.\n\nThe simplest tokenizer splits on spaces. It breaks on `don't`, on `state-of-the-art`, and on every language that does not put spaces between words. It also throws away capitalization and punctuation unless you write a special rule for each case.\n\nSplitting into single characters avoids all of that. Nothing is ever unknown, but a sentence becomes long, and long sequences cost more to train and to serve.",
       },
       {
         kind: "prose",
-        text: "Whole words fail the other way. A vocabulary that holds every word form of a morphologically rich language is enormous, and any form outside it has no id at all. A single new name or a typo becomes an unknown token.\n\nSubword tokenization is the middle ground. Keep frequent pieces whole and split rare pieces into parts. The model still sees `low` inside `lowest`, and `est` stays a reusable piece.",
+        text: "Treating every whole word as one token fails the other way. A vocabulary holding every form of every word in a language that builds many forms from one root is enormous, and any word outside it has no number at all. A new name or a typo becomes a blank.\n\nSubword tokenization is the middle road. Frequent pieces stay whole; rare words break into reusable parts. The model sees `low` inside `lowest`, and `est` remains a shared ending.",
       },
       {
         kind: "prose",
-        text: "Byte-pair encoding, or BPE, builds those pieces from data. It starts with a tiny alphabet: the characters in the corpus, plus a marker for the end of a word, written `</w>` or `·`.\n\nThen it counts every adjacent pair across the corpus and merges the most frequent one into a single new symbol. It adds that merge to an ordered list and counts again on the updated corpus.\n\nEach round repeats the same move. The result is a ranked merge list. That list plus the base alphabet is the whole tokenizer.",
+        text: "Byte-pair encoding, BPE for short, builds those pieces from the data. It starts with a small alphabet: every character in the corpus — the training text — plus a marker for the end of a word, written `</w>`.\n\nThen it counts every neighboring pair of symbols across the corpus and merges the most frequent pair into one new symbol. That merge goes onto an ordered list, and the counts are refreshed. Repeat.\n\nEvery round performs the same move. What comes out is a ranked list of merges. That list plus the starting alphabet is the entire tokenizer.",
       },
       {
         kind: "demo",
@@ -376,25 +376,25 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "What you just stepped through is greedy. At every step BPE merges the single most frequent pair, then looks again. That is not the globally best vocabulary, but it is fast, deterministic, and still standard in 2026.\n\nTwo details matter. Ties are broken by scan order, so the direction of the scan is part of the algorithm. And merges apply left to right, which can combine a pair that blocks a different merge inside the same word.",
+        text: "What you just stepped through is greedy: each round takes the single most frequent pair. That is not the theoretically best vocabulary, but it is fast, repeatable, and still standard in 2026.\n\nTwo details matter. Ties are broken by the order of the scan, so scan direction is part of the algorithm. And merges apply left to right, so one merge can hide a pair that another merge would have used.",
       },
       {
         kind: "prose",
-        text: "After training, encoding is one pass. Split the text, append the end marker to each word, then apply the merge list in rank order. The number of resulting tokens is the cost. It sets the context budget, the latency, and the price of an API call.\n\nFertility is the average number of tokens per word. English sits around 1.3. A language whose script the tokenizer never learned can sit at 5 or 10. The same sentence then costs several times as much — tokenizer quality is a fairness problem, not only an engineering one.",
+        text: "After training, encoding is one pass: split the text, mark the end of every word, then apply the merges in rank order. How many tokens come out is the cost. It sets the context budget, the response time, and the price of an API call.\n\nFertility is the average number of tokens per word. English runs about 1.3. A language whose writing system the tokenizer rarely saw during training can run 5 or 10. The same sentence then costs several times more — tokenizer quality is a fairness problem, not just an engineering one.",
       },
       {
         kind: "figure",
         figure: "bpe-merge-cascade",
         caption:
-          "The most frequent pair collapses first and each merge removes that pair's count from the corpus: 95 tokens become 86, then 77, then 68 while the vocabulary only grows.",
+          "The most frequent pair merges first, and each merge removes that pair from the counts: 95 tokens become 86, then 77, then 68, while the vocabulary only grows.",
       },
       {
         kind: "prose",
-        text: "Byte-level BPE drops the character alphabet entirely and starts from the 256 byte values. Every string is then representable, so there is no `[UNK]` token and no crash on emoji, rare names, or code.\n\nThe cost moves into length. Byte-level tokenizers need more tokens for the same text, so the effective training sequence grows. Most modern models accept that trade.",
+        text: "Byte-level BPE skips the character alphabet and starts from the 256 possible byte values instead. Every string is representable that way, so there is no unknown token and no crash on emoji, unusual names, or code.\n\nThe price moves into length. Byte-level tokenizers need more tokens for the same text, so the effective training sequence grows. Most modern models accept that trade.",
       },
       {
         kind: "prose",
-        text: "Special tokens sit on top of the learned vocabulary. `[BOS]`, `[EOS]`, `[PAD]`, chat roles, and tool markers get reserved ids that the merge process never touches.\n\nA tokenizer is frozen when training starts, because the embedding matrix is indexed by token id. Swap the tokenizer later and every learned vector points at the wrong symbol.\n\nThe problems below start with a token count, move through byte-level BPE and WordPiece, and end at fertility and characters per token.",
+        text: "Special tokens sit on top of the learned vocabulary. Markers such as `[BOS]` (beginning of sequence), `[EOS]` (end), and `[PAD]` (filler), plus chat roles and tool markers, receive reserved numbers the merge process never touches.\n\nA tokenizer is frozen when training starts, because the model's embedding table is indexed by token number. Swap the tokenizer later and every learned vector points at the wrong symbol.\n\nThe problems below start with counting tokens, move through byte-level BPE and WordPiece (another subword method), and end at fertility and characters per token.",
       },
     ],
   },
@@ -409,15 +409,15 @@ export const ARTICLES: Article[] = [
     sections: [
       {
         kind: "prose",
-        text: "An embedding turns an object into a vector. A word, a sentence, an image, a user. No single coordinate carries a label. Meaning lives in direction and distance.\n\nTraining pushes vectors together when the objects appear in similar contexts and apart when they do not. That is the whole trick. After enough data, `dog` lands near `puppy`, and both land far from `semiconductor`.\n\nOnce meaning is geometry, every question about similarity becomes a question about vectors.",
+        text: "An embedding turns a thing into a vector — a list of numbers. The thing could be a word, a sentence, an image, a user. No single number carries a name; meaning lives in the direction the vector points.\n\nTraining nudges vectors together when two things appear in similar contexts, and apart when they do not. That is the whole trick. After enough examples, `dog` lands near `puppy`, and both land far from `semiconductor`.\n\nOnce meaning becomes geometry, every question about similarity becomes a question about arrows.",
       },
       {
         kind: "prose",
-        text: "The dot product measures agreement: `a·b = Σ a_i·b_i`. It is large and positive when two vectors point the same way, zero when they are perpendicular, and negative when they disagree.\n\nThe dot product also grows with length. Double one vector and the dot product doubles, even though the relationship did not change. Raw dot products are therefore a poor similarity score unless the vectors are already normalized.\n\nCosine similarity removes the lengths: `cos(a,b) = a·b / (‖a‖·‖b‖)`. It compares directions only.",
+        text: "The dot product measures agreement between two vectors: multiply matching entries and add the products, `a·b = Σ a_i·b_i`, where a_i and b_i are the entries of a and b. The result is large and positive when the arrows point the same way, zero when they meet at a right angle, and negative when they disagree.\n\nBut the dot product also grows with length. Double one vector and the score doubles, even though the relationship did not change. Raw dot products are therefore a poor similarity measure unless every vector has the same length.\n\nCosine similarity removes length: `cos(a,b) = a·b / (‖a‖·‖b‖)`. The double bars `‖a‖` mean the length of a, so the formula divides the dot product by both lengths. What remains depends only on direction.",
       },
       {
         kind: "prose",
-        text: "Cosine lives between -1 and 1. One means identical direction, zero means orthogonal, and minus one means exactly opposite. Values in between equal `cos θ`, where `θ` is the angle between the vectors.\n\nAfter normalization, magnitude carries no semantics. A short vector and a long vector that point the same way have cosine one. In many training setups, magnitude tracks frequency or confidence rather than meaning.\n\nSo the standard pipeline normalizes once, stores unit vectors, and lets a plain dot product act as cosine.",
+        text: "Cosine similarity always lands between −1 and 1. One means the same direction, zero means perpendicular, and −1 means exactly opposite. In between, the value equals the cosine of the angle θ (theta) between the arrows — which is exactly what the name says.\n\nAfter vectors are normalized to length one, size carries no meaning: a short arrow and a long arrow pointing the same way have cosine 1. In many trained systems, length tracks how common a thing is or how confident the model is, not what it means.\n\nSo the standard pipeline normalizes once, stores unit-length vectors, and lets a plain dot product do the work of cosine.",
       },
       {
         kind: "demo",
@@ -425,25 +425,25 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "Drag the query around the space and watch the ranking. The angle arc shows `θ` against the best neighbor, and the list re-sorts as the direction changes.\n\nSwitch the metric and the order can change. The dot product prefers long vectors. Euclidean distance cares about absolute position. Cosine ignores length by construction — drag the query far out along one ray and its scores barely move.",
+        text: "Drag the query arrow around the space and watch the ranking. The arc shows the angle θ to the best match, and the list re-sorts as the direction changes.\n\nSwitch the metric and the order can change. The dot product prefers long arrows. Euclidean distance — straight-line distance between arrow tips — cares about exact position. Cosine ignores length by design: drag the query far out along the same ray and its scores barely move.",
       },
       {
         kind: "prose",
-        text: "Normalization is also an engineering choice. With unit vectors, a dot product replaces a division, and that matters when a vector index scores millions of pairs per query. Quantized storage cuts the bill further: one byte per dimension with little retrieval loss, or Matryoshka embeddings truncated from 1024 dimensions to 256.\n\nThe ranking in the demo is exact nearest neighbors. Production systems use approximate indexes and trade a small amount of recall for a large amount of speed.",
+        text: "Normalization is also an engineering choice. With unit-length vectors, a dot product replaces a division, which matters when a vector search index scores millions of pairs per query. Storing fewer bytes per number cuts the bill further: one byte per dimension with little loss in retrieval quality, or trimming a 1024-dimension vector down to 256 — the 'Matryoshka' trick, where the first coordinates already carry most of the meaning.\n\nThe ranking in the demo is exact. Production systems use approximate indexes, trading a little accuracy for a large amount of speed.",
       },
       {
         kind: "figure",
         figure: "embedding-geometry",
         caption:
-          "Cosine is a projection onto the unit circle: it is 1 for identical directions, 0 at 90°, and −1 for opposites, and no amount of scaling moves it.",
+          "Cosine similarity is a projection onto the unit circle: it is 1 for the same direction, 0 at a right angle, and −1 for opposites, and no amount of stretching changes it.",
       },
       {
         kind: "prose",
-        text: "One ranking hides a subtlety. Two words can be close and still be wrong neighbors, because they are close for the wrong reason. Hard negatives are pairs that look similar but mean different things. Training on them sharpens the space.\n\nStack many queries against many candidates and retrieval becomes one matrix of cosine values. Top-k over that matrix is semantic search, and it is the core of every retrieval-augmented system.",
+        text: "One ranking hides a subtlety: two words can be close for the wrong reason. Hard negatives are pairs that look similar but mean different things. Training on them sharpens the space and separates lookalikes.\n\nLine up many queries against many candidates and retrieval becomes one table of cosine values. Picking the top k from that table is semantic search — the core of every system that finds documents to feed a model.",
       },
       {
         kind: "prose",
-        text: "Cosine is not the only choice. Euclidean distance is common in clustering and image pipelines. Dot product is standard inside attention, where learned projections already control the scale. Pick the metric that matches how the vectors were trained.\n\nThe problems below compute cosine between vectors, build cosine matrices, and rank embeddings by similarity.",
+        text: "Cosine is not the only option. Euclidean distance is common in clustering and image work. Dot product is standard inside attention, where learned projections already control the scale. The right choice is the metric the vectors were trained with.\n\nThe problems below compute cosine between vectors, build cosine tables, and rank embeddings by similarity.",
       },
     ],
   },
@@ -451,22 +451,22 @@ export const ARTICLES: Article[] = [
     id: "art-quantization",
     slug: "quantization-int8-to-fp8",
     title: "Quantization: INT8 to FP8",
-    dek: "Halving the bits roughly halves memory and doubles decode throughput. The price is a rounding error you can steer.",
+    dek: "Fewer bits per weight means less memory and faster decoding. The price is a rounding error you can steer.",
     readMinutes: 9,
     category: "Deep Learning",
     problemIds: ["dl-058", "dl-059", "dl-060", "dl-077", "dl-195", "dl-451"],
     sections: [
       {
         kind: "prose",
-        text: "Serving a model is a memory problem before it is a compute problem. Every weight sits in memory, and every generated token moves those weights through the chip. Halving the bytes roughly halves the transfer, which often doubles decode throughput.\n\nQuantization maps a wide range of floats onto a small set of codes. INT8 gives 256 levels and needs one byte per weight. That is four times smaller than float32 and half of float16 or bfloat16.\n\nThe price is rounding error. Quantization is lossy compression, and the job is to put the error where it hurts least.",
+        text: "Serving a model is a memory problem before it is a computing problem. Every weight sits in memory, and every generated token pulls those weights through the processor. Cut the bytes per weight in half and you roughly double the speed at which tokens come out.\n\nQuantization means storing numbers with fewer possible values. A standard 32-bit float takes 4 bytes. A quantized weight can use one byte, which allows 256 possible values. That is four times smaller than float32 and half the size of the 16-bit formats used for training.\n\nThe price is rounding error. Quantization is lossy compression, and the engineering job is to put the error where it hurts the model least.",
       },
       {
         kind: "prose",
-        text: "The usual map is affine: `x ≈ scale · (q − zero_point)`. Pick a `scale` and a `zero_point`, round each value to the nearest integer code, and store `q`.\n\nSymmetric quantization centers the range on zero, so `zero_point = 0` and the scale is `absmax / 127`. Zero maps to zero exactly, which is why it is popular for weights.\n\nAsymmetric quantization fits the actual `[min, max]` range, so the zero point is usually not zero. It spends all 256 codes when the data is skewed, at the cost of a little extra bookkeeping.",
+        text: "The usual recipe is a straight-line map: `x ≈ scale · (q − zero_point)`. Here x is the original value, q is the stored integer code, `scale` says how much real value one step of code is worth, and `zero_point` is the code that represents real zero.\n\nSymmetric quantization centers the range on zero. Then zero maps to exactly zero, the zero point is 0, and the scale is `absmax / 127`, where `absmax` is the largest absolute value in the data and 127 is the largest code in the signed 8-bit range. It is popular for weights because zero stays exact.\n\nAsymmetric quantization fits the actual smallest and largest values, so its zero point is usually not zero. It spends all 256 codes on the range you really have, which pays off when the values are lopsided, at the cost of the extra bookkeeping.",
       },
       {
         kind: "prose",
-        text: "Outliers decide how much resolution you lose. One weight at 5 while the rest sit in `[-2, 2]` forces a large scale, and every normal value gets a coarse step. The fix is to clip the range.\n\nClipping is a trade. A narrow range gives typical values finer steps, and everything outside becomes a constant at the edge. That error is the one you can steer.\n\nGranularity decides how local the scale is. Per-tensor shares one scale across the whole tensor, so one outlier damages every value. Per-channel gives each row or column its own scale, which isolates the damage. Per-tensor is cheaper; per-channel is the default for weights.\n\nFP8 enters here. An 8-bit float spends bits on an exponent, so its levels pack densely near zero and stretch far out. It covers a wide range without a custom scale, and Hopper and Blackwell run it at full speed.",
+        text: "Outliers decide how much precision everything else loses. If one weight is 5 while the rest sit between −2 and 2, the scale must cover 5, and every ordinary value gets a coarse step. The repair is clipping: cap the range at a threshold and accept error on the few values beyond it.\n\nClipping is a trade. A narrower range gives typical values finer steps, and everything outside becomes a constant at the edge. That is the error you can steer.\n\nGranularity decides how local the scale is. A tensor is just the general word for a grid of numbers. Per-tensor quantization shares one scale across the whole grid, so a single outlier damages every value. Per-channel gives each row or column its own scale, so the outlier only distorts its own channel. Per-tensor is cheaper; per-channel is the default for weights.\n\nFP8 — an 8-bit float — enters here. It spends some bits on an exponent, which records a number's scale, the way 10⁷ records the scale in scientific notation. This packs levels tightly near zero and stretches them far out, covering a wide range without a custom scale. Recent GPUs run FP8 at full speed.",
       },
       {
         kind: "demo",
@@ -474,29 +474,29 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "Drag the clip threshold and watch the error bars. Lower it and typical values get finer steps while the outliers pay. Raise it and the outliers survive at the cost of coarser steps everywhere.\n\nThe error histogram shows who pays. A tight distribution means the format fits the data. Long tails mean the range is too wide.\n\nSQNR summarizes the trade in decibels: signal power over error power. Above roughly 40 dB, a quantized model usually matches the original on benchmarks.",
+        text: "Drag the clip threshold and watch the error bars. Pull it down and typical values get finer steps while the outliers pay more. Push it up and the outliers survive at the cost of coarser steps everywhere.\n\nThe error histogram shows who pays. A tight clump means the number format fits the data. Long tails mean the range is too wide.\n\nSQNR — signal-to-quantization-noise ratio — captures the trade in decibels: signal power divided by error power, on a log scale. Above roughly 40 dB, a quantized model usually matches the original on benchmarks.",
       },
       {
         kind: "prose",
-        text: "Turn on per-channel and the histogram narrows at once. That is the outlier story in one click. Four channels carry four scales, so the large value only distorts its own channel.\n\nIn practice, weights use per-channel INT8 or grouped INT4. Activations are harder because they change with every input, so they use per-tensor scales calibrated on sample data or scales computed at run time.\n\nW8A8 keeps weights and activations in 8 bits and speeds up both prefill and decode. W4A16 keeps weights in 4 bits and runs the math in 16, which saves memory but not compute. GPTQ and AWQ are the common recipes for that split.",
+        text: "Turn on per-channel and the histogram narrows immediately. That is the outlier story in one click: with four channels there are four scales, so the big value only distorts its own channel.\n\nIn practice, weights use per-channel 8-bit codes, or 4-bit codes in small groups. Activations — the intermediate values computed while the model runs — are harder, because they change with every input, so they use one scale per tensor, calibrated on sample data or computed on the fly.\n\nW8A8 means weights and activations both use 8 bits, which speeds up both prompt processing and token generation. W4A16 keeps weights in 4 bits and runs the arithmetic in 16, which saves memory but not compute. GPTQ and AWQ are the common recipes for that split.",
       },
       {
         kind: "figure",
         figure: "quantization-number-line",
         caption:
-          "Uniform steps cover the clipped range evenly, an outlier at 5.2 collapses to 2.5 with a visible error, and fp8 packs its levels near zero instead of spreading them flat.",
+          "Even steps cover the clipped range, an outlier at 5.2 collapses to 2.5 with a visible error, and fp8 packs its levels near zero instead of spreading them flat.",
       },
       {
         kind: "prose",
-        text: "Error compounds through layers. A layer that receives quantized inputs quantizes its own outputs on top, so end-to-end accuracy is the number that matters. Per-layer error is only a proxy.\n\nCalibration data should look like production data. If the distribution shifts, a scale fitted on the old data clips the new values. Monitoring activation ranges catches the drift.\n\nThe format must also match the silicon. INT8 kernels are everywhere. FP8 needs Hopper, Blackwell, or newer hardware. NVFP4 and MXFP4 are Blackwell-native. Choosing a format the deployment chip does not accelerate is the most expensive quantization mistake.",
+        text: "Error compounds through layers. A layer that receives quantized inputs quantizes its own outputs on top of them, so end-to-end accuracy is the number that matters; per-layer error is only a hint.\n\nCalibration data should look like production data. If the input distribution shifts, a scale fitted on the old data clips the new values. Monitoring the ranges catches the drift.\n\nThe format must also match the hardware. INT8 kernels are everywhere. FP8 needs Hopper, Blackwell, or newer chips. NVFP4 and MXFP4 are Blackwell-native. Choosing a format the deployment chip does not accelerate is the most expensive quantization mistake.",
       },
       {
         kind: "prose",
-        text: "Quantization is also how large models fit on small hardware. QLoRA keeps the base model in 4-bit NF4 and trains small 16-bit adapters on top. The frozen base never changes, so its error is fixed and the adapters learn around it.\n\nKV cache quantization is the decode-time cousin. Caching keys and values in FP8 instead of BF16 nearly halves the memory per token, which is why FP8 KV is a common default at long context.",
+        text: "Quantization is also how large models fit on small hardware. QLoRA keeps the frozen base model in a 4-bit format called NF4 and trains small 16-bit adapters on top. The base never changes, so its error is fixed and the adapters learn around it.\n\nKV cache quantization is the decoding-time cousin. Caching attention keys and values in FP8 instead of the usual 16-bit format nearly halves the memory per token, which is why FP8 is a common default for long contexts.",
       },
       {
         kind: "prose",
-        text: "The problems below compute an INT8 scale, quantize and dequantize, work through per-channel scales, and compare INT4 against INT8 memory.\n\nWhen you write the code by hand, watch two things: the rounding mode and the clamp. A scale without a clamp silently overflows, and a clamp without the right scale throws away range for nothing.",
+        text: "The problems below compute an INT8 scale, quantize and dequantize, work through per-channel scales, and compare 4-bit against 8-bit memory.\n\nWhen you write the arithmetic by hand, watch two things: how you round and where you clamp. A scale without a clamp silently overflows, and a clamp without the right scale throws away range for nothing.",
       },
     ],
   },
@@ -504,22 +504,22 @@ export const ARTICLES: Article[] = [
     id: "art-kv-cache",
     slug: "kv-cache-and-flashattention",
     title: "KV Cache & FlashAttention",
-    dek: "Attention is O(n²) compute and O(n) memory that never shrinks. The KV cache is why long context costs what it costs — and FlashAttention is why it fits.",
+    dek: "Attention costs time that grows with the square of the sequence and memory that never shrinks. The KV cache is why long context costs what it costs — and FlashAttention is why it fits.",
     readMinutes: 11,
     category: "Deep Learning",
     problemIds: ["dl-075", "dl-124", "dl-186", "dl-211", "dl-370", "dl-401"],
     sections: [
       {
         kind: "prose",
-        text: "Attention scores every query against every key. In training and in prefill, the whole sequence arrives at once, so that table can be built in a single pass. Decoding is different. It produces one token at a time, and each new token needs keys and values from every token that came before it.\n\nWithout a cache, generating token 1,000 would recompute the keys and values of the first 999 tokens, in every layer, on every step. The arithmetic is identical every time. The KV cache removes the repetition: keep the K and V vectors you already computed, and append exactly one new key and one new value per layer per token.",
+        text: "Attention compares every position with every earlier position. During training, and during the first pass over a prompt, the whole sequence is available at once, so all those comparisons happen together.\n\nGenerating text is different. The model produces one token at a time, and each new token needs to look back at the keys and values — the vectors that say what earlier positions offer and pass along — of every token before it. Without a shortcut, token number 1,000 would recompute the keys and values of the first 999 tokens, in every layer, at every step. The arithmetic is identical every time.\n\nThe KV cache removes the repetition. Keep the keys and values already computed, and append exactly one new key and one new value per layer per token.",
       },
       {
         kind: "prose",
-        text: "The cache has a closed-form size: `2 × layers × KV heads × head dim × bytes per element` per token. The 2 is for K and V. The rest is the shape of the projections.\n\nWork a number. A 7B model with 32 layers, 32 query heads, head dim 128, stored in bf16, needs `2 × 32 × 32 × 128 × 2 = 524,288` bytes per token. That is 512 KiB per token, or 64 GiB at 128k tokens for a single sequence. The weights are 14 GB. At long context the cache is several times the model it serves.\n\nThat is the whole lesson in one multiplication: the cost of context is linear in tokens and quadratic in nothing. It is simply the projection shape, times the sequence length.",
+        text: "The cache size has a closed-form formula: `2 × layers × KV heads × head dim × bytes per element` per token. Each factor is plain. Layers: how many repeated blocks the model stacks. KV heads: how many parallel key/value projections it has. Head dim: how many numbers are in each key or value vector. Bytes per element: 2 for the usual 16-bit format. The leading 2 counts keys and values separately.\n\nWork an example. A 7-billion-parameter model with 32 layers, 32 key/value heads, and 128 numbers per head, stored in 16 bits, needs `2 × 32 × 32 × 128 × 2 = 524,288` bytes per token — 512 kilobytes for a single token. At 128,000 tokens that is 64 gigabytes for one conversation, while the model's weights take about 14 gigabytes. At long context the cache is several times larger than the model it serves.\n\nThat multiplication is the whole lesson: cache cost grows in a straight line with the number of tokens, and the slope is set by the projection shapes.",
       },
       {
         kind: "prose",
-        text: "Three architectural choices shrink the multiplier. Grouped-query attention (GQA) shares one key/value projection across several query heads — at 8 query heads per KV head the cache drops 8×. Multi-query attention (MQA) goes all the way to one KV head for every query head. Multi-head latent attention (MLA) compresses K and V into a shared low-rank latent and re-expands them on the fly, which buys 7–14×.\n\nDtype is the other lever. FP8 halves the bytes against bf16 with sub-1% accuracy cost on validated paths, which is why it is a common serving default. GQA and FP8 together routinely turn 64 GiB of cache into 8.",
+        text: "Three architecture choices shrink the slope. Grouped-query attention lets several query heads share one key/value projection; at 8 query heads per key/value head, the cache drops 8-fold. Multi-query attention goes all the way to one key/value head for every query head. Multi-head latent attention compresses keys and values into a small shared vector and expands them again when needed, buying 7 to 14 times less memory.\n\nNumber format is the other lever. Storing the cache in 8-bit floats instead of 16-bit halves the bytes with under 1 percent accuracy loss on validated setups, which is why it is a common serving default. Together, grouped-query attention and 8-bit storage regularly turn 64 gigabytes of cache into 8.",
       },
       {
         kind: "demo",
@@ -527,33 +527,33 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "In the decode panel, watch the cache grow one token at a time. Each append is cheap — two small projections per layer. The cost is bandwidth. Decode is memory-bound: every generated token streams the weights and the entire cache through the chip just to compute one new row of attention.\n\nThat is why batching raises throughput so much. The same cache read serves several sequences at once. It is also why a paged allocator matters: sequences start short and grow, so the cache must be allocated in blocks rather than one contiguous buffer reserved for the worst case.",
+        text: "In the decode panel, watch the cache grow one token at a time. Each append is cheap: two small projections per layer. The real cost is moving bytes. Decoding is memory-bound: every generated token streams the weights and the whole cache through the chip just to compute one new row of attention.\n\nThat is why batching raises throughput so much: one read of the cache serves several sequences at once. It is also why a paged allocator matters. Sequences start short and grow, so the cache should be handed out in blocks rather than one large buffer reserved for the worst case.",
       },
       {
         kind: "prose",
-        text: "FlashAttention attacks the other half of the problem. The naive implementation materializes the n×n score matrix in HBM, softmaxes each row, and multiplies by V. HBM can hold those bytes, but moving them is the bottleneck; a large intermediate that is written once and read once is exactly the wrong thing to put there.\n\nFlashAttention never writes the matrix. It tiles Q, K, and V into blocks that fit in on-chip SRAM, computes scores for one tile, updates a running softmax state, and discards the tile. The final output is bit-for-bit close to exact attention; only the memory traffic changes.",
+        text: "FlashAttention attacks the other half of the problem: the intermediate table produced while computing attention. The straightforward implementation writes the full n×n table of scores into the chip's main memory (HBM), softens each row, and multiplies by V. Main memory can hold those bytes, but moving them is the bottleneck, and a large intermediate that is written once and read once is exactly what you do not want to push through it.\n\nFlashAttention never stores the table. It slices the queries, keys, and values into blocks that fit in the chip's fast on-board memory (SRAM), computes the scores for one block, folds the result into a running summary, and throws the block away. The final answer is essentially identical to exact attention; only the memory traffic changes.",
       },
       {
         kind: "figure",
         figure: "kv-memory-tiling",
         caption:
-          "The cache overtakes 7B bf16 weights near 16k tokens and reaches 9× them at 128k, while FlashAttention keeps the n×n score matrix inside SRAM instead of HBM.",
+          "The cache passes 7B 16-bit weights around 16k tokens and reaches 9× their size at 128k, while FlashAttention keeps the n×n score table in fast on-chip memory instead of main memory.",
       },
       {
         kind: "prose",
-        text: "The running state is a pair: the maximum score seen so far, `m`, and the sum of exponentials so far, `l`. When a new tile arrives, its maximum may be larger than `m`. The old sum is now out of date, so it is rescaled: `l_new = l_old · exp(m_old − m_new) + Σ exp(s_i − m_new)`.\n\nThe partial output is rescaled by the same ratio. Because `m` only ever grows, every value corrected for the old maximum is corrected for the new one in a single multiply. Everything a tile needs lives in registers, so the full row never has to be revisited. That is the online softmax at the heart of every memory-efficient attention kernel.",
+        text: "The running summary is a pair of numbers: m, the largest score seen so far, and l, the sum of exponentials so far. When a new block arrives, its largest score may exceed m. The old sum is then out of date and must be rescaled: `l_new = l_old · exp(m_old − m_new) + Σ exp(s_i − m_new)`, where the sum runs over the scores s_i in the new block.\n\nThe partial output is rescaled by the same ratio. Because m only ever grows, a single multiply corrects everything that was computed against the old maximum. Every number a block needs lives in fast registers, so no row ever has to be revisited. That is the online softmax at the heart of every memory-efficient attention kernel.",
       },
       {
         kind: "prose",
-        text: "The trade changes with the phase. Prefill processes the whole prompt at once, so each weight read amortizes over many tokens and the kernel becomes compute-bound. Tiled attention wins there, because the score matrix never leaves SRAM. Decode is bandwidth-bound on the cache, so the wins come from GQA, FP8 KV, and eviction instead.\n\nA practical serving stack usually runs all three: GQA for the architecture, FP8 for the cache dtype, and a paged allocator that keeps memory contiguous as sequences grow. None of them changes what attention computes.",
+        text: "The trade changes with the phase. Processing a prompt happens all at once, so each weight read pays off across many tokens and the work becomes compute-bound. Tiled attention wins there, because the score table never leaves fast memory. Decoding, one token at a time, is bandwidth-bound on the cache, so the wins come from grouped-query attention, 8-bit cache storage, and dropping entries instead.\n\nA practical serving stack usually runs all three: grouped-query attention in the architecture, 8-bit storage for the cache, and a paged allocator that keeps memory compact as sequences grow. None of them changes what attention computes.",
       },
       {
         kind: "prose",
-        text: "Long-output reasoning models broke the old assumption that the input is the problem. A 2k-token prompt can trigger 100k tokens of generation, so the cache keeps growing while the model thinks. Two families of fixes exist.\n\nEviction keeps a budget. A sliding window drops the oldest tokens; attention sinks always keep the first few, which carry disproportionate weight; heavy-hitter policies keep the tokens whose accumulated attention is largest. Compression rewrites entries instead: quantize further, merge similar keys, or skip layers. Both trade a measurable accuracy loss for a fixed memory ceiling.",
+        text: "Long-answer reasoning models broke the old assumption that the prompt is the problem. A 2,000-token question can trigger 100,000 tokens of thinking, so the cache keeps growing while the model works. Two families of fixes exist.\n\nEviction keeps a budget. A sliding window drops the oldest tokens. Attention sinks always keep the first few, which carry outsized weight. Heavy-hitter policies keep the tokens that have received the most attention so far. Compression rewrites entries instead: store fewer bits, merge similar keys, or skip layers. Both families trade a measurable accuracy loss for a fixed memory ceiling.",
       },
       {
         kind: "prose",
-        text: "The problems below compute bytes per token, the full cache for a sequence, an append step, the online-softmax rescale, and the savings from GQA and tiled attention. They are pure arithmetic, so every number can be checked against the formulas above.",
+        text: "The problems below compute bytes per token, the cache for a whole sequence, one append step, the online-softmax rescale, and the savings from grouped-query attention and tiled attention. It is all arithmetic, so every number can be checked against the formulas above.",
       },
     ],
   },
@@ -568,19 +568,19 @@ export const ARTICLES: Article[] = [
     sections: [
       {
         kind: "prose",
-        text: "Retrieval-augmented generation is usually drawn as one box: query in, answer out. In practice it is a pipeline of six or seven stages, and most of its failures happen before the generator reads a single token.\n\nThe shape is fixed. Documents are parsed into text, split into chunks, indexed, retrieved for a query, fused and reranked into a short list, then packed into a context window with citation ids. The model's only job is to ground an answer in the passages it was handed.",
+        text: "Retrieval-augmented generation, RAG for short, is usually drawn as one box: a question goes in, an answer comes out. In reality it is a pipeline of six or seven steps, and most of its failures happen before the generator reads a single word.\n\nThe shape is fixed. Documents are parsed into plain text, cut into chunks, and indexed. A query is matched against that index, the candidates are merged and re-ranked into a short list, and the list is packed into the model's context window with a citation number on every passage. The model's only job is to ground an answer in the passages it was handed.",
       },
       {
         kind: "prose",
-        text: "Chunking decides what can be retrieved. Chunks that are too large dilute the embedding and waste context; chunks that are too small lose the sentence that explains them. Overlap between neighboring chunks is the standard patch, because a span that straddles a boundary is invisible to retrieval unless some chunk contains it whole.\n\nContextual retrieval pushes further. Before embedding, each chunk is prefixed with a short model-generated summary of its place in the document. The chunk now carries its own context instead of relying on the retriever to guess it.",
+        text: "Chunking decides what can be found later. Chunks that are too large blur the embedding — the vector that stands for the chunk — and waste context space; chunks that are too small lose the sentence that explains them. Overlapping neighboring chunks is the standard patch: if a sentence straddles a boundary, some chunk still contains it whole.\n\nContextual retrieval pushes further. Before embedding, each chunk is prefixed with a short model-written summary of where it sits in the document. The chunk then carries its own context instead of relying on the search step to guess it.",
       },
       {
         kind: "prose",
-        text: "Lexical retrieval scores term overlap. BM25 weights each query term by inverse document frequency and saturates term frequency, so a rare name or error code matches exactly while common words contribute little. It is fast, interpretable, and blind to paraphrase.\n\nDense retrieval embeds the query and the chunks into one vector space and scores cosine similarity. It matches meaning: `how do I reset my password` finds `change your passphrase`. It misses exact tokens that never appeared in training, like an order number.",
+        text: "Lexical retrieval scores word overlap. BM25 weights each query word by how rare it is across the documents (the inverse document frequency) and caps how much repeating a word can help, so a rare name or error code matches exactly while common words contribute little. It is fast, easy to inspect, and blind to paraphrase.\n\nDense retrieval turns the query and the chunks into vectors and compares them with cosine similarity, a measure of the angle between vectors where 1 means the same direction and 0 means unrelated. It matches meaning: `how do I reset my password` finds `change your passphrase`. It misses exact strings it never saw in training, like an order number.",
       },
       {
         kind: "prose",
-        text: "Hybrid retrieval runs both and keeps both ranked lists. Neither score is calibrated against the other — a BM25 score of 12 and a cosine of 0.71 are not comparable numbers — so the fusion step works on ranks instead. Ranks are always comparable, which is the whole trick.\n\nThe demo below makes the difference visible. Switch between BM25, dense, and hybrid on the same query, then move the fusion constant `k` and watch how much first place is trusted.",
+        text: "Hybrid retrieval runs both methods and keeps both ranked lists. The two scores are not comparable — a BM25 score of 12 and a cosine of 0.71 do not share a scale — so the merge step works on positions instead. Positions are always comparable, and that is the whole trick.\n\nThe demo below makes the difference visible. Switch between BM25, dense, and hybrid on the same query, then move the fusion constant k and watch how much first place is trusted.",
       },
       {
         kind: "demo",
@@ -588,29 +588,29 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "Reciprocal rank fusion is one line: `RRF(d) = Σ 1/(k + rank_i(d))`, summed over the lists where document d appears, with `k` commonly 60. A document that ranks high in either list scores well; a document near the top of both gets two contributions and usually wins.\n\nThe constant `k` damps the top of each list. Small `k` trusts first place, large `k` flattens the lists toward a vote. Because RRF only reads order, it survives score drift between retriever versions — one reason it is the default fusion in production stacks.",
+        text: "Reciprocal rank fusion is one line: `RRF(d) = Σ 1/(k + rank_i(d))`. For each list where document d appears, take its position (the first position counts as 0), add the constant k, and add up one divided by that number across all lists. A document near the top of either list scores well; a document near the top of both gets two contributions and usually wins.\n\nThe constant k, commonly 60, dampens the top of each list. A small k trusts first place heavily; a large k flattens the lists toward a simple vote. Because the fusion only reads order, it survives score drift between retriever versions, which is one reason it is the default merge in production.",
       },
       {
         kind: "prose",
-        text: "Fusion produces candidates, not a final order. A cross-encoder reranker takes each query-chunk pair, concatenates the text, and runs a small transformer over both at once. Unlike the bi-encoder behind dense retrieval, it sees the interaction between query and chunk, which is exactly what separates a related passage from a supporting one.\n\nReranking is the highest-leverage upgrade in the pipeline. Skipping it costs 10–30 recall@5 points; adding it after contextual retrieval cuts retrieval failures by roughly half, with published stacks reporting 49–67% reductions.",
+        text: "Merging produces candidates, not a final order. A reranker reads the query and one chunk together, as a single piece of text, and produces a relevance score. Unlike the dense method above, which scores the query and each chunk separately, it can see how the words interact — which is exactly what separates a related passage from one that answers the question.\n\nReranking is the highest-value upgrade in the pipeline. Skipping it costs 10 to 30 points of recall@5 — the share of queries whose top five results contain the relevant passage. Adding it after contextual retrieval cuts retrieval failures roughly in half, with published stacks reporting 49 to 67 percent reductions.",
       },
       {
         kind: "figure",
         figure: "rag-pipeline",
         caption:
-          "Parse, chunk with overlap, contextualize, index twice, retrieve both ways, fuse by rank, rerank with a cross-encoder, then cite — or refuse when nothing clears the evidence threshold.",
+          "Parse, chunk with overlap, add context, index twice, retrieve both ways, merge by rank, rerank with a cross-encoder, then cite — or refuse when nothing clears the evidence threshold.",
       },
       {
         kind: "prose",
-        text: "The context pack is a budget problem. Deduplicate near-identical chunks, sort by rerank score, cut at a token limit, and attach an id to every passage. Those ids are what make citations possible: the generator is instructed to attribute each claim to a bracketed source, and the interface can link that bracket back to the exact span.\n\nWithout span ids, citations are decorative. With them, a reader can verify a claim in one click, which is the entire point of retrieval.",
+        text: "Packing the context is a budget problem. Remove near-duplicate chunks, sort by rerank score, cut at a token limit, and attach an id to every passage. Those ids are what make citations possible: the model is told to tag each claim with its source, and the interface can turn that tag into a link to the exact passage.\n\nWithout passage ids, citations are decoration. With them, a reader can verify a claim in one click, which is the entire point of retrieval.",
       },
       {
         kind: "prose",
-        text: "Not every query deserves an answer. If the best reranked score falls below a threshold, the system should refuse rather than let the model answer from its weights — that is how a RAG system hallucinates with a straight face.\n\nThe threshold is a calibrated number, chosen so real evidence clears it and out-of-corpus queries do not. The refusal is a feature, not an admission of failure: a grounded 'I don't know' is worth more than a confident wrong answer.",
+        text: "Not every query deserves an answer. If the best reranked score falls below a threshold, the system should say it does not know rather than let the model answer from memory. Answering from memory is how a RAG system hallucinates with a straight face.\n\nThe threshold is a calibrated number: real evidence must clear it, and questions with nothing relevant in the corpus must not. Refusal is a feature, not an admission of failure — a grounded 'I don't know' is worth more than a confident wrong answer.",
       },
       {
         kind: "prose",
-        text: "Retrieval quality is measured before generation enters the picture. Precision@k counts how many of the k returned chunks are relevant, recall@k counts how many relevant chunks were returned, and mean reciprocal rank rewards putting the first relevant chunk high in the list. Chunk overlap and reranking are the two knobs that move recall the most.\n\nThe problems below compute top-k selection, precision and recall at k, reciprocal rank fusion, chunk overlap coverage, and mean reciprocal rank.",
+        text: "Retrieval quality is measured before the generator enters the picture. Precision@k asks how many of the k returned chunks are relevant. Recall@k asks how many of the relevant chunks were returned at all. Mean reciprocal rank rewards putting the first relevant chunk high in the list. Chunk overlap and reranking are the two settings that move recall the most.\n\nThe problems below compute top-k selection, precision and recall at k, reciprocal rank fusion, chunk overlap coverage, and mean reciprocal rank.",
       },
     ],
   },
@@ -618,22 +618,22 @@ export const ARTICLES: Article[] = [
     id: "art-post-training",
     slug: "post-training-rlhf-dpo-grpo",
     title: "Post-Training: RLHF → DPO → GRPO",
-    dek: "Pretraining teaches the model language. Post-training teaches it behavior — and by 2026 the preference label gave way to the verifiable reward.",
+    dek: "Pretraining teaches the model language. Post-training teaches it behavior — and by 2026 the human preference label gave way to the reward a program can check.",
     readMinutes: 11,
     category: "Reinforcement Learning",
     problemIds: ["dl-180", "dl-182", "rl-204", "rl-205", "rl-274", "rl-275"],
     sections: [
       {
         kind: "prose",
-        text: "Pretraining teaches a model the statistics of text. It does not teach it to follow instructions, to prefer helpful answers, or to show its work. Those are behaviors, and behaviors come from post-training.\n\nThe modern stack has three rungs. Supervised fine-tuning imitates demonstrations. Preference optimization learns from comparisons — this answer is better than that one. Reinforcement learning from verifiable rewards trains on tasks a checker can grade. Each rung teaches something the previous one cannot.",
+        text: "Pretraining teaches a model the statistics of text. It does not teach the model to follow instructions, to prefer helpful answers, or to show its reasoning. Those are behaviors, and behaviors come from a second stage called post-training.\n\nThe modern stack has three rungs. Supervised fine-tuning imitates demonstrations: show the model good examples and it copies their style. Preference optimization learns from comparisons: this answer is better than that one. Reinforcement learning from verifiable rewards trains on tasks a program can check, such as a math answer or a passing unit test. Each rung teaches something the one below cannot.",
       },
       {
         kind: "prose",
-        text: "RLHF was the original recipe. Start with SFT on demonstrations. Collect human comparisons between pairs of responses. Fit a reward model to predict which response a human would prefer, using the Bradley–Terry model `P(y_w ≻ y_l) = σ(r_w − r_l)`. Then optimize the policy against that reward with PPO while a KL penalty keeps it close to the reference model it started from.\n\nThe KL term is not decoration. Without it the policy drifts toward whatever maximizes the reward model, including the reward model's own mistakes. That failure is called reward hacking, and closing the gap between reward and quality is most of RLHF engineering.",
+        text: "RLHF, reinforcement learning from human feedback, was the original recipe. Step one: supervised fine-tuning on demonstrations. Step two: collect human comparisons between pairs of responses. Step three: train a reward model to predict which response a human would prefer. Step four: adjust the model to earn a high score from that reward model.\n\nThe comparison step uses a simple probability model. If the preferred answer scores `r_w` and the rejected one scores `r_l`, the chance a human picks the preferred answer is `σ(r_w − r_l)`, where σ is the sigmoid function that squeezes any number between 0 and 1. The reward model is trained to make that probability high.\n\nOne guardrail matters. The adjusted model is also penalized for drifting too far from the model it started from, measured by KL divergence, a number that says how different two probability distributions are. Without that penalty, the model — from here on called the policy, because it decides what to do — learns whatever tricks maximize the reward model, including the reward model's own mistakes. That failure is called reward hacking, and closing the gap between reward score and real quality is most of RLHF engineering.",
       },
       {
         kind: "prose",
-        text: "PPO is an online algorithm: sample from the current policy, score the samples, update, repeat. It carries a critic — a value network that estimates expected return at each token — to reduce the variance of the policy gradient. The clipped objective `min(r·A, clip(r, 1−ε, 1+ε)·A)` limits how far one update can move the policy.\n\nThe critic is a second model to train, tune, and store. Removing it is one reason GRPO took over.",
+        text: "PPO (proximal policy optimization) is the workhorse optimizer for that loop. It is online: sample answers from the current model, score them, update, and repeat. It also carries a critic, a second network that predicts how much reward the rest of an answer is likely to earn. The critic reduces the noise in the update direction.\n\nPPO limits how far one update can move the model with a clipped objective: `min(r·A, clip(r, 1−ε, 1+ε)·A)`. Here r is the ratio between the new and old probability of an answer, A is the advantage — how much better the answer did than the critic expected — and ε (epsilon) is a small cap such as 0.2. The clip says: do not chase a large ratio further than this.\n\nThe catch is that the critic is another model to train, tune, and store. Removing it is one reason GRPO took over.",
       },
       {
         kind: "demo",
@@ -641,29 +641,29 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "DPO skips the reward model entirely. For the same Bradley–Terry preference model, the optimal policy has a closed form, and it implies an implicit reward `β·log(π_θ(y) / π_ref(y))`. Substituting that into the preference likelihood leaves a loss over preference pairs alone: `L = −log σ(β·[(log π_θ(y_w) − log π_ref(y_w)) − (log π_θ(y_l) − log π_ref(y_l))])`.\n\nNo sampling, no critic, no reward model. DPO is a classification loss on log-ratios, which is why it is the stable default. Published comparisons put it within about 0.3 MT-Bench points of PPO at roughly a tenth of the compute.",
+        text: "DPO, direct preference optimization, skips the reward model entirely. For the same comparison model, the best possible adjusted policy has an exact mathematical answer, and it implies an implicit reward: `β·log(π_θ(y) / π_ref(y))`. In words: how much more likely the current model makes answer y than the original model did, multiplied by β (beta), a positive number that controls how far the model may drift.\n\nSubstituting that into the comparison probability leaves a loss built from preference pairs alone: `L = −log σ(β·[(log π_θ(y_w) − log π_ref(y_w)) − (log π_θ(y_l) − log π_ref(y_l))])`. The preferred answer y_w should gain probability relative to the original model more than the rejected answer y_l does. Here π_θ is the model being trained and π_ref is the frozen copy it started from.\n\nNo sampling, no critic, no reward model. DPO is a classification loss on log-ratios, which is why it is the stable default. Published comparisons put it within about 0.3 points of PPO on MT-Bench, a standard chat-quality benchmark, at roughly a tenth of the compute.",
       },
       {
         kind: "prose",
-        text: "GRPO keeps the online loop and drops the critic. For each prompt it samples a group of G completions, scores them, and normalizes the rewards inside the group: `A_i = (r_i − mean(r)) / std(r)`. The group mean is the baseline, so no value network is needed.\n\nWhen the reward comes from a program that can verify the answer — a math checker, a unit test, a schema validator — the loop becomes RLVR: reinforcement learning from verifiable rewards. There is no reward model to hack, because the checker is the ground truth. GRPO with RLVR is the standard way reasoning models are trained, and DAPO and GSPO are refinements that stabilize its clipping and normalization.",
+        text: "GRPO (group relative policy optimization) keeps the online loop and drops the critic. For each question it samples a group of G answers, scores them all, and compares each score to the average of the group: `A_i = (r_i − mean(r)) / std(r)`. An answer better than the group average gets a positive advantage; a worse one gets a negative advantage. Dividing by the standard deviation — a measure of how spread out the scores are — keeps the advantages on a consistent scale. The group average replaces the critic's prediction.\n\nWhen the score comes from a program that can check the answer — a math checker, a unit test, a schema validator — the loop is called RLVR: reinforcement learning from verifiable rewards. There is no reward model to hack, because the checker knows the truth. GRPO with verifiable rewards is the standard way reasoning models are trained, and DAPO and GSPO are refinements that stabilize its clipping and normalization.",
       },
       {
         kind: "figure",
         figure: "post-training-pipeline",
         caption:
-          "SFT imitates, preference optimization compares, RLVR verifies — and GRPO replaces PPO's learned critic with the group mean, crossed out above.",
+          "SFT imitates, preference optimization compares, and verifiable rewards check — while GRPO replaces PPO's learned critic with the group average, crossed out above.",
       },
       {
         kind: "prose",
-        text: "The choice depends on the data and the budget. DPO wins when preferences are static and pairs already exist, because it is one pass over a fixed dataset. GRPO wins when outcomes can be verified, because fresh rollouts explore beyond the demonstrations and the verifier cannot be gamed. SFT still owns format, tone, and tool-call syntax.\n\nRankings invert across scale. A controlled 2026 comparison found different winners at different model sizes, so 'best method' is always relative to where you measure. The QLoRA aside matters here too: a 4-bit base with 16-bit adapters is how DPO or GRPO fits on a single node.",
+        text: "The choice depends on the data and the budget. DPO wins when preferences are fixed and pairs already exist, because it is one pass over a fixed dataset. GRPO wins when outcomes can be verified, because fresh attempts explore beyond the demonstrations and the verifier cannot be fooled. Supervised fine-tuning still owns format, tone, and tool-call syntax.\n\nRankings flip with model size. A controlled 2026 comparison found different winners at different sizes, so 'best method' always depends on where you measure. One practical note applies throughout: a 4-bit base model with 16-bit adapters is how these methods fit on a single machine.",
       },
       {
         kind: "prose",
-        text: "Three failure modes are worth naming. Reward hacking: the policy finds the reward model's blind spot, so reward rises while humans disagree. Length bias: longer answers score higher, so the model learns to ramble. Distribution collapse: too much KL pressure or too little exploration narrows the policy until it gives one safe answer to everything.\n\nThe defenses are boring and effective. Hold out a human- or verifier-graded set, monitor response length, cap the KL or the update ratio, and refresh the reward model as the policy moves.",
+        text: "Three failure modes are worth naming. Reward hacking: the model finds the reward model's blind spot, so the score rises while human judges disagree. Length bias: longer answers score higher, so the model learns to ramble. Distribution collapse: too much pressure to stay near the original model, or too little exploration, narrows the model until it gives one safe answer to everything.\n\nThe defenses are boring and effective. Hold out a test set graded by humans or by the checker, watch response length, cap how far each update may move the model, and refresh the reward model as the policy changes.",
       },
       {
         kind: "prose",
-        text: "The problems below implement the Bradley–Terry likelihood, the reward-model loss, the DPO loss, its implicit reward gap, and the PPO clipped objective. Together they are the arithmetic behind every rung of the stack.",
+        text: "The problems below implement the comparison probability, the reward-model loss, the DPO loss, its implicit reward gap, and the PPO clipped objective. Together they are the arithmetic behind every rung of the stack.",
       },
     ],
   },
@@ -678,15 +678,15 @@ export const ARTICLES: Article[] = [
     sections: [
       {
         kind: "prose",
-        text: "Eigenvectors answered a theoretical question: which directions survive a matrix untouched? Practice asks a different one. Given a cloud of data, which directions carry the signal?\n\nCenter the points on their mean, form the covariance matrix `C = (1/n)·XᵀX`, and take its eigenvectors. Those are the principal components, and their eigenvalues are the variance along each one.\n\nThe first principal component is the single direction that maximizes projected variance. The second is the best direction orthogonal to the first, and so on. Nothing requires the data to be two-dimensional. The covariance matrix grows with the number of features, but the ordering story stays exactly the same.",
+        text: "The eigenvector article answered a theoretical question: which directions does a matrix leave alone? Practice asks a different one: given a cloud of data points, which directions carry the signal?\n\nThe recipe starts by centering: subtract the average point so the cloud sits around the origin. Then build the covariance matrix `C = (1/n)·XᵀX`. Here X is the table of centered points with one row per point, n is the number of points, and the small T means rows and columns are swapped. The covariance matrix records how each feature varies with every other. Its eigenvectors are the principal components, and its eigenvalues are the variance — the amount of spread — along each one.\n\nThe first principal component is the single direction that captures the most spread when the points are projected onto it. The second is the best direction at a right angle to the first, and so on. The cloud does not have to be two-dimensional: the covariance table grows with the number of features, but the ordering story stays the same.",
       },
       {
         kind: "prose",
-        text: "Principal components are also the right singular vectors of the centered data matrix. The SVD is `X = UΣVᵀ`: the columns of V are the principal directions, the singular values are the square roots of the eigenvalues, and U holds each point's coordinates in that basis. The SVD works on rectangular matrices, which is why it is the version that ships.\n\nThe decomposition has a second payoff. For any rank r, `X_r = U_rΣ_rV_rᵀ` is the best possible rank-r approximation of X, and the squared Frobenius error is exactly the tail of the squared singular values, `Σ_{i>r} σ_i²`. That is the Eckart–Young theorem. Truncating an SVD is not a heuristic; it is optimal.",
+        text: "The principal components are also the right singular vectors of the centered data matrix. The singular value decomposition writes any matrix as `X = UΣVᵀ`. V holds the principal directions. Σ (capital sigma) is a diagonal table of numbers called singular values — the square roots of the eigenvalues. U holds each point's coordinates in the new basis. SVD works on rectangular tables, not just square ones, which is why it is the version that ships in software.\n\nThe rank of a matrix is the number of genuinely independent directions it contains. For any rank r — keeping the top r directions and dropping the rest — `X_r = U_rΣ_rV_rᵀ` is the best possible rank-r approximation of the data, and the squared error equals exactly the sum of the squared singular values you dropped, `Σ_{i>r} σ_i²`. That is the Eckart–Young theorem. Truncating an SVD is not a guess; it is provably optimal.",
       },
       {
         kind: "prose",
-        text: "Preprocessing changes the answer, so it is part of the method. Centering shifts the axes to explain variance around the mean instead of around the origin. Standardizing each column to unit variance first turns the covariance matrix into the correlation matrix, so a feature measured in centimeters cannot dominate one measured in kilometers.\n\nThat is usually what you want when the units differ, and rarely what you want when they do not. PCA on standardized data is a different decomposition than PCA on centered data — the axes swing, the eigenvalues change, and the demo lets you watch it happen.",
+        text: "Preprocessing changes the answer, so it is part of the method. Centering moves the axes so they explain spread around the average point instead of around the origin. Standardizing makes each feature's spread equal to one before the analysis, which turns the covariance table into a correlation table. Then a feature measured in centimeters cannot dominate one measured in kilometers.\n\nThat is usually what you want when the units differ, and usually not when they do not. PCA on standardized data is a genuinely different decomposition: the axes swing and the eigenvalues change. The demo lets you watch it happen.",
       },
       {
         kind: "demo",
@@ -694,7 +694,7 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "Start in the project tab and drag the tip of u. The dashed blue lines are the true principal axes for the current preprocessing choice, and the residual readout is the variance your direction leaves on the table.\n\nDrag u onto the first principal axis and the residual hits its floor, which is the second eigenvalue. Any other direction explains less, and that is what makes PCA a maximization problem rather than a change of basis you pick by eye.\n\nSwitch to reconstruct and keep `r = 1` components. Every point collapses onto the first principal axis, and the warm segments show exactly what each point lost. With `r = 2` the rebuild is exact, because the space itself is two-dimensional. Toggle centering and standardization and watch the axes — and the reconstruction — change underneath the same cloud.",
+        text: "Start in the project tab and drag the tip of the direction arrow u. The dashed blue lines are the true principal axes for the current preprocessing choice, and the residual readout is the variance your chosen direction leaves on the table.\n\nDrag u onto the first principal axis and the residual hits its lowest possible value, which equals the second eigenvalue. Every other direction explains less. That is what makes PCA a maximization problem rather than a change of basis you pick by eye.\n\nSwitch to reconstruct and keep one component. Every point collapses onto the first principal axis, and the warm segments show exactly what each point lost. Keep two and the rebuild is exact, because the space itself is two-dimensional. Toggle centering and standardization and watch the axes — and the reconstruction — change under the same cloud.",
       },
       {
         kind: "figure",
@@ -704,11 +704,11 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "At scale nobody forms the full covariance matrix. Randomized SVD computes the top k components by multiplying X by a small random sketch, orthonormalizing the result, and running a tiny decomposition on the reduced matrix. A few passes recover the dominant subspace to high accuracy, and the cost is linear in the data times k instead of cubic in the dimension.\n\nWhat people do with the components falls into four buckets. Denoise: drop the tail, where the noise lives. Compress: store only the top r coordinates. Whiten: rescale the components to unit variance so downstream models see uncorrelated features. Diagnose: read the scree plot to see whether the data is closer to rank 3 or rank 300.",
+        text: "At scale nobody forms the full covariance table. Randomized SVD computes the top k components by multiplying the data by a small random sketch, cleaning up the result so its columns meet at right angles, and running a tiny decomposition on what is left. A few passes recover the dominant directions to high accuracy, and the cost grows with k instead of cubing with the dimension.\n\nWhat people do with the components falls into four buckets. Denoise: drop the tail, where the noise lives. Compress: store only the top r coordinates. Whiten: rescale the components to equal variance so later models see uncorrelated features. Diagnose: read the scree plot, which shows how much variance each component holds, to see whether the data is closer to rank 3 or rank 300.",
       },
       {
         kind: "prose",
-        text: "Low-rank thinking is everywhere in 2026. Matryoshka embeddings are trained so that truncating a 1024-dimensional vector to its first 256 coordinates keeps most of the retrieval quality — the PCA truncation argument, baked into the loss. LoRA fine-tunes a model by learning a low-rank update `ΔW = BA` instead of the full matrix.\n\nNeither trick runs an explicit SVD at inference time, but both are legible only if you know what truncation costs. The pseudoinverse is the same story from the other side: `X⁺ = VΣ⁺Uᵀ`, with tiny singular values replaced rather than inverted, which is ridge regression in disguise.\n\nThe problems below center the data, build a rank-1 approximation, reconstruct at rank r, run power iteration for singular vectors, and compute the pseudoinverse and 2×2 singular values by hand.",
+        text: "Low-rank thinking is everywhere in 2026. Matryoshka embeddings are trained so that cutting a 1024-dimension vector down to its first 256 coordinates keeps most of the retrieval quality — the PCA truncation argument baked into the loss. LoRA fine-tunes a model by learning a low-rank update `ΔW = BA` instead of the full matrix.\n\nNeither trick runs an explicit SVD at inference time, but both are understandable only if you know what truncation costs. The pseudoinverse — the closest thing to an inverse for a table that cannot be inverted — is the same story from the other side: `X⁺ = VΣ⁺Uᵀ`, where tiny singular values are replaced rather than inverted — ridge regression in disguise.\n\nThe problems below center the data, build a rank-1 approximation, reconstruct at rank r, run power iteration for singular vectors, and compute the pseudoinverse and 2x2 singular values by hand.",
       },
     ],
   },
@@ -716,22 +716,22 @@ export const ARTICLES: Article[] = [
     id: "art-calibration",
     slug: "calibration-and-uncertainty",
     title: "Calibration & Uncertainty",
-    dek: "A model that says 90% should be right 90% of the time. Modern nets are not — and one scalar fitted on a validation set fixes most of the gap.",
+    dek: "A model that says 90% should be right 90% of the time. Modern networks are not — and one number fitted on held-out data fixes most of the gap.",
     readMinutes: 7,
     category: "ML Fundamentals",
     problemIds: ["ml-065", "ml-072", "ml-101", "ml-337", "dl-086", "ml-291"],
     sections: [
       {
         kind: "prose",
-        text: "A classifier that outputs 0.9 is making a promise: in the long run, nine of every ten cases it labels at that confidence should be correct. Calibration is the property that the promise holds.\n\nA model can be accurate and badly calibrated at the same time, and modern deep nets usually are. They are systematically overconfident, reporting 0.96 on cases they get right 86% of the time. The score is a ranking signal that was never trained to be a probability.\n\nThe reliability diagram is the standard picture. Bin the predictions by confidence, plot the average accuracy in each bin against the average confidence, and compare against the diagonal. Points below the diagonal are overconfidence; points above it are underconfidence.",
+        text: "A classifier that outputs 0.9 is making a promise: among the cases it labels with 90 percent confidence, about nine in ten should be correct. Calibration means the promise holds.\n\nAccuracy and calibration are different things, and a model can be good at one and bad at the other. Modern deep networks are usually overconfident: they report 0.96 on cases they get right 86 percent of the time. The score is a ranking signal that was never trained to be a real probability.\n\nThe standard picture is the reliability diagram. Group predictions by confidence, measure the average accuracy in each group, and plot accuracy against confidence. A perfectly calibrated model lies on the diagonal. Points below the diagonal mean overconfidence; points above mean underconfidence.",
       },
       {
         kind: "prose",
-        text: "The headline number is expected calibration error: `ECE = Σ (n_b/n)·|accuracy_b − confidence_b|`. Each bin's gap is weighted by how many samples landed there, so the sparsely populated extremes cannot dominate the score.\n\nBin construction matters more than people expect. Equal-width bins split the interval into fixed ranges, which can leave the extremes empty or crowded. Equal-frequency bins sort the predictions and cut them into chunks of equal count, so every bin has enough samples to say something.\n\nThe same model can report a different calibration gap under each scheme. That is a property of the metric, not a contradiction: the number is only as meaningful as the binning behind it.",
+        text: "The headline number is expected calibration error: `ECE = Σ (n_b/n)·|accuracy_b − confidence_b|`. For each confidence group b, take the gap between its average accuracy and its average confidence, then weight that gap by how many samples landed there: n_b samples out of n total. The weighting stops the sparse extremes from dominating the score.\n\nHow you build the groups matters more than people expect. Equal-width bins cut the confidence range into fixed slices, which can leave the extremes empty or crowded. Equal-frequency bins sort the predictions and cut them into groups of equal size, so every group has enough samples to say something.\n\nThe same model can report a different gap under each scheme. That is a property of the measure, not a contradiction: the number is only as meaningful as the grouping behind it.",
       },
       {
         kind: "prose",
-        text: "Temperature scaling is the cheapest fix that works. Take the logits, divide them by a single scalar `T`, and fit T on a held-out set by minimizing negative log-likelihood. It is the same temperature as the softmax article, used for a different purpose: there it shaped sampling, here it repairs probabilities.\n\nBecause T is positive, it cannot change the ranking. Accuracy and every threshold-free metric stay exactly where they were. Only the confidences move — which is precisely what a refusal threshold or an agent's self-report reads.",
+        text: "Temperature scaling is the cheapest fix that works. Take the raw scores (the logits) from the model, divide them all by a single number T, and choose T on data the model has not seen by minimizing negative log-likelihood — the score that punishes confident mistakes. It is the same temperature as in the softmax article, used for a different purpose: there it shaped random sampling, here it repairs probabilities.\n\nBecause T is positive, it cannot change the ranking. Accuracy and every threshold-free measure stay exactly where they were. Only the confidences move — and that is precisely what a refusal threshold or an agent's self-report reads.",
       },
       {
         kind: "demo",
@@ -739,21 +739,21 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "The fixture is 320 predictions from a deliberately overconfident model, with the logit scaled by 2.4. At `T = 1` the points sit well below the diagonal and ECE is high. Raise T and the confidences soften toward accuracy while the accuracy line stays pinned.\n\nPress Fit T to jump to the NLL-optimal temperature, then switch the bin mode and watch equal-width and equal-frequency gaps disagree about the exact number. Both report a large drop. The shape of the story never changes: overconfidence shrinks, ordering does not.",
+        text: "The demo's fixture is 320 predictions from a deliberately overconfident model, with the scores inflated by a factor of 2.4. At `T = 1` the points sit well below the diagonal and the calibration error is high. Raising T softens the confidences toward the accuracy line while accuracy itself stays pinned.\n\nPress Fit T to jump to the best temperature, then switch the bin mode and watch equal-width and equal-frequency disagree about the exact number. Both report a large drop. The story never changes: overconfidence shrinks, ordering does not.",
       },
       {
         kind: "figure",
         figure: "calibration-reliability",
         caption:
-          "Below the diagonal is overconfidence, above it is underconfidence. Temperature scaling holds accuracy and ranking fixed and moves the points vertically onto the diagonal — which is what turns a threshold into a decision.",
+          "Below the diagonal is overconfidence, above it is underconfidence. Temperature scaling holds accuracy and ranking fixed and moves the points straight onto the diagonal — which is what turns a threshold into a decision.",
       },
       {
         kind: "prose",
-        text: "In 2026 calibration stopped being a statistics footnote. A RAG system refuses when the best evidence scores below a threshold, so that score has to mean something or the system either answers without evidence or refuses everything. Agent confidence is monitored as a live signal. And any LLM judge used to grade outputs is calibrated against human labels before it is trusted to automate a pipeline — published guidance puts the target around 80–85% agreement.\n\nSelective prediction is the deployment face of calibration. Pick a confidence threshold, abstain below it, answer above it, and the coverage-accuracy curve tells you whether abstention actually buys reliability or just hides the hard cases.",
+        text: "Calibration stopped being a statistics footnote. A RAG system refuses when the best evidence scores below a threshold, so that score has to mean something; otherwise the system either answers without evidence or refuses everything. Agent confidence is monitored as a live signal. And any language model used as a judge is calibrated against human labels before it is trusted to grade a pipeline — published guidance puts the target around 80 to 85 percent agreement.\n\nSelective prediction is the deployment face of calibration: pick a confidence threshold, abstain below it, answer above it, and the coverage–accuracy curve shows whether abstaining buys reliability or just hides the hard cases.",
       },
       {
         kind: "prose",
-        text: "Two caveats keep the method honest. Calibration is not sharpness: a model that says 0.5 for everything can be perfectly calibrated and useless, so read ECE next to a proper scoring rule like NLL or the Brier score. And calibration does not travel. A temperature fitted on last quarter's data fails silently when the distribution shifts, so refit it whenever the inputs move.\n\nThe problems below compute temperature scaling, build calibration bins, and measure expected calibration error three ways, including equal-frequency bins and the uplift variant.",
+        text: "Two caveats keep the method honest. Calibration is not sharpness: a model that says 0.5 for everything can be perfectly calibrated and useless, so read the calibration error next to a scoring rule such as negative log-likelihood or the Brier score, which measures squared error on probabilities. And calibration does not travel: a temperature fitted on last quarter's data fails silently when the inputs shift, so refit it whenever the inputs move.\n\nThe problems below compute temperature scaling, build calibration bins, and measure expected calibration error three ways, including equal-frequency bins and the uplift variant.",
       },
     ],
   },
@@ -761,22 +761,22 @@ export const ARTICLES: Article[] = [
     id: "art-lora",
     slug: "lora-low-rank-fine-tuning",
     title: "LoRA / PEFT: Low-Rank Fine-Tuning",
-    dek: "Freeze the model, train a rank-16 shadow. In 2026 that shadow is most fine-tuning — and at serving time it disappears into the weights.",
+    dek: "Freeze the model, train a small rank-16 shadow. In 2026 that shadow is most fine-tuning — and at serving time it disappears into the weights.",
     readMinutes: 9,
     category: "Deep Learning",
     problemIds: ["dl-151", "dl-152", "dl-153", "dl-154", "dl-219", "dl-220"],
     sections: [
       {
         kind: "prose",
-        text: "Full fine-tuning updates every weight in the model. That means optimizer state for every weight, a checkpoint as large as the base model for every task, and a separate deployment for every adaptation.\n\nThe arithmetic is brutal. Sixteen-bit weights plus gradients plus two fp32 Adam moments is about 12 bytes per parameter, so a 7B model needs on the order of 84 GB before activations enter the picture.\n\nLoRA starts from a suspicion that most of the useful update is low-rank. Fine-tuning a pretrained model for one task does not need to move independent parameters in every direction. It needs to move a few directions a lot.",
+        text: "Full fine-tuning updates every weight in the model. That means storing a gradient for every weight, optimizer state for every weight, and a full-size checkpoint for every task — plus a separate deployment for every adaptation.\n\nThe memory arithmetic is large. A 16-bit weight takes 2 bytes. Its gradient takes 2 more. The two standard Adam optimizer tables take 8 (4 bytes each). That is about 12 bytes per parameter, so a 7-billion-parameter model needs on the order of 84 gigabytes before activations — the intermediate values produced during a forward pass — are even counted.\n\nLoRA starts from an observation: most of the useful change is low-rank. Adapting a pretrained model to one task does not need to move every direction independently. It needs to move a few directions a lot.",
       },
       {
         kind: "prose",
-        text: "The method is exactly that. Freeze `W` and learn `ΔW = B·A`, where A is `r × d_in` and B is `d_out × r` with r tiny. The layer computes `h = Wx + (α/r)·BAx`.\n\nB is initialized to zero, so the model begins as the pretrained model, and A takes small random values so the first gradient is informative. Parameter count falls from `d_in·d_out` to `r(d_in + d_out)`.\n\nAt d = 4096 and r = 16 that is 131k against 16.8M, about 0.8% — and there is no optimizer state for the frozen base. Training a 7B model on a single 24 GB card becomes routine rather than heroic.",
+        text: "The method does exactly that. Freeze the original weight matrix W and learn only a correction, `ΔW = B·A`. Here A is a small matrix with r rows, B is a small matrix with r columns, and r — the rank — is tiny, say 16. The layer computes `h = Wx + (α/r)·BAx`, where x is the layer's input, h is its output, and α (alpha) is a scaling number that keeps the correction's size steady when you change r.\n\nB starts at zero, so the model begins as the pretrained model, and A starts with small random numbers so the first learning signal is informative. The number of trained parameters drops from `d_in·d_out` to `r(d_in + d_out)`, where d_in and d_out are the input and output widths of the layer: the product becomes a sum, times the small rank.\n\nWith width 4096 and rank 16, that is 131,000 parameters instead of 16.8 million — about 0.8 percent. And the frozen base needs no optimizer state. Training a 7-billion-parameter model on one 24-gigabyte card becomes routine rather than heroic.",
       },
       {
         kind: "prose",
-        text: "QLoRA pushes the base further down. Store the frozen weights in 4-bit NF4, dequantize on the fly, and keep the adapters in bf16. Paged optimizers absorb memory spikes, and the base costs half a byte per parameter.\n\nThe 4-bit rounding is fixed, because the frozen base never changes; the adapters learn around it. LoftQ initialization starts the factor pair from a quantization-aware decomposition instead of zeros and recovers a little of the gap.\n\nThe rank itself matters less than the target modules. Early LoRA attached to the query and value projections only. Current guidance is every linear layer — attention projections and the MLP — because that is where the update energy lives.",
+        text: "QLoRA pushes the frozen base even smaller. Store it in a 4-bit format, unpack each value on the fly during the forward pass, and keep the adapter — the learned pair A and B — in 16-bit. Paged optimizers absorb memory spikes, and the base costs half a byte per parameter.\n\nThe 4-bit rounding is fixed, because the frozen base never changes; the adapters learn around it. A smarter initialization called LoftQ starts the factor pair from a quantization-aware decomposition instead of zeros and recovers a little of the gap.\n\nWhich layers you adapt matters more than the rank. Early LoRA attached only to the query and value projections in attention. Current guidance is every linear layer — the attention projections and the feed-forward network — because that is where the useful change lives.",
       },
       {
         kind: "demo",
@@ -784,21 +784,21 @@ export const ARTICLES: Article[] = [
       },
       {
         kind: "prose",
-        text: "The canvas shows the target update `ΔW`, its best rank-r approximation `B·A`, and the merged result. Raise the rank and the error collapses: most of the energy sits in the first component, and `B·A` is the Eckart–Young optimum of the update, so no other rank-r pair can do better at that rank.\n\nThe calculator applies the same arithmetic to real shapes. At d = 4096 and r = 16 the adapter is a rounding error next to the dense matrix, and the QLoRA toggle shows where a 7B base actually fits. Flip Merge adapter and watch `W + BA` fold into one matrix: after merging there is nothing extra to run, no additional kernel, no added latency.",
+        text: "The canvas shows the target update ΔW, its best rank-r approximation B·A, and the two merged together. Raise the rank and the error collapses: most of the change's energy sits in the first component, and B·A is the provably best rank-r approximation, so no other rank-r pair can do better.\n\nThe calculator applies the same arithmetic to real model shapes. At width 4096 and rank 16, the adapter is a rounding error next to the dense matrix, and the QLoRA toggle shows where a 7-billion-parameter base actually fits. Flip Merge adapter and watch `W + BA` fold into one matrix: after merging there is nothing extra to run, no additional kernel, no added latency.",
       },
       {
         kind: "figure",
         figure: "lora-adapter",
         caption:
-          "W stays frozen and the elbow B·A learns the task: r(d_in + d_out) parameters instead of d_in·d_out, and a merge that makes the adapter invisible at serving time.",
+          "W stays frozen and the narrow pair B·A learns the task: r(d_in + d_out) parameters instead of d_in·d_out, and a merge that makes the adapter invisible at serving time.",
       },
       {
         kind: "prose",
-        text: "Serving is where LoRA pays off twice. A merged adapter adds zero inference overhead. An unmerged one can be swapped per request, so a single base model serves many tasks from a library of small adapters.\n\nThat is the same memory economics as prefix caching. In agent and multi-tenant workloads, prompt prefixes repeat constantly and cache hit rates of 60–85% mean most of the prompt is never recomputed. Adapters change which weights answer; prefix caches avoid re-reading the context that gets them there.\n\nA rank of 8–16 with `α/r ≈ 2` and all-linear targets is the 2026 default. Bigger ranks help less than a better target set, and they cost checkpoint size and overfitting risk.",
+        text: "Serving is where LoRA pays off twice. A merged adapter adds zero inference overhead. An unmerged one can be swapped per request, so a single base model serves many tasks from a library of small adapters.\n\nThe memory economics are the same as prefix caching, where the repeated opening of a prompt is computed once and reused. In agent and multi-tenant workloads, prompt openings repeat constantly, and cache hit rates of 60 to 85 percent mean most of the prompt is never recomputed. Adapters change which weights answer the request; prefix caches avoid re-reading the context that leads up to it.\n\nA rank of 8 to 16, with alpha around twice the rank and all linear layers as targets, is the 2026 default. Bigger ranks help less than a better target set, and they cost checkpoint size and overfitting risk.",
       },
       {
         kind: "prose",
-        text: "The failure modes are ordinary training failures with a low-rank accent. Too much rank on too little data overfits. Too few target modules plateaus at a mediocre loss. Merging into a quantized base without dequantizing first corrupts the weights. Adapters fitted on drifting data go stale like any model.\n\nOne honest rule: LoRA is not a free replacement for full fine-tuning when the task needs a genuinely new capability. It steers what is already there. Prompt tuning is the even lighter cousin — a handful of learned vectors and no weight changes at all — and it is the right tool when the shift is style or format rather than knowledge.\n\nThe problems below count LoRA and adapter parameters, size a QLoRA run, merge the update back into W, and compute a prefix cache hit ratio.",
+        text: "The failure modes are ordinary training failures with a low-rank accent. Too much rank on too little data overfits. Too few target layers plateau at a mediocre loss. Merging into a quantized base without unpacking it first corrupts the weights. Adapters fitted on drifting data go stale like any model.\n\nOne honest rule: LoRA is not a free replacement for full fine-tuning when the task needs a genuinely new capability. It steers what is already there. Prompt tuning is the even lighter cousin — a handful of learned vectors and no weight changes at all — and it is the right tool when the shift is style or format rather than knowledge.\n\nThe problems below count LoRA and adapter parameters, size a QLoRA run, merge the update back into W, and compute a prefix cache hit ratio.",
       },
     ],
   },

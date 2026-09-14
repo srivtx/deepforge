@@ -1,9 +1,19 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/motion/Reveal";
-import { DAILY_CHANGE_EVENT, getDailyDateKey, getDailyState } from "@/lib/daily";
+import {
+  applyShield,
+  DAILY_CHANGE_EVENT,
+  getDailyDateKey,
+  getDailyShieldUsedDates,
+  getDailyState,
+  getShieldStatus,
+  MAX_SHIELDS,
+  SHIELD_EARN_INTERVAL,
+  type ShieldStatus,
+} from "@/lib/daily";
 import { getCurrentStreak, getLongestStreak } from "@/lib/leaderboard";
 import { getProgress } from "@/lib/progress";
 
@@ -13,6 +23,7 @@ interface DayDot {
   key: string;
   label: string;
   solved: boolean;
+  covered: boolean;
   today: boolean;
 }
 
@@ -20,14 +31,33 @@ interface StreakSnapshot {
   current: number;
   longest: number;
   days: DayDot[];
+  shields: ShieldStatus;
 }
 
-const EMPTY_SNAPSHOT: StreakSnapshot = { current: 0, longest: 0, days: [] };
+const EMPTY_SHIELDS: ShieldStatus = {
+  available: 0,
+  max: MAX_SHIELDS,
+  spent: 0,
+  lastUsedDate: null,
+  solvedToday: false,
+  coveredYesterday: false,
+  atRisk: false,
+  protectedToday: false,
+  dailyStreak: 0,
+};
+
+const EMPTY_SNAPSHOT: StreakSnapshot = {
+  current: 0,
+  longest: 0,
+  days: [],
+  shields: EMPTY_SHIELDS,
+};
 
 const PLACEHOLDER_DAYS: DayDot[] = Array.from({ length: 7 }, (_, index) => ({
   key: `placeholder-${index}`,
   label: "Loading",
   solved: false,
+  covered: false,
   today: false,
 }));
 
@@ -35,6 +65,7 @@ let cached: StreakSnapshot | null = null;
 
 function buildSnapshot(): StreakSnapshot {
   const progress = getProgress();
+  const daily = getDailyState();
   const solvedKeys = new Set<string>();
   for (const record of Object.values(progress)) {
     if (!record?.solvedAt) continue;
@@ -42,7 +73,8 @@ function buildSnapshot(): StreakSnapshot {
     if (Number.isNaN(at.getTime())) continue;
     solvedKeys.add(getDailyDateKey(at));
   }
-  for (const key of getDailyState().solvedDates) solvedKeys.add(key);
+  for (const key of daily.solvedDates) solvedKeys.add(key);
+  const coveredKeys = new Set(getDailyShieldUsedDates(daily));
 
   const now = new Date();
   const days: DayDot[] = [];
@@ -58,6 +90,7 @@ function buildSnapshot(): StreakSnapshot {
         day: "numeric",
       })}${offset === 0 ? " (today)" : ""}`,
       solved: solvedKeys.has(key),
+      covered: !solvedKeys.has(key) && coveredKeys.has(key),
       today: offset === 0,
     });
   }
@@ -66,6 +99,7 @@ function buildSnapshot(): StreakSnapshot {
     current: getCurrentStreak(progress),
     longest: getLongestStreak(progress),
     days,
+    shields: getShieldStatus(now),
   };
 }
 
@@ -107,12 +141,66 @@ function FlameGlyph() {
   );
 }
 
+function ShieldGlyph({
+  filled,
+  className,
+}: {
+  filled: boolean;
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M12 3 19 6v5c0 4.4-2.9 8.4-7 10-4.1-1.6-7-5.6-7-10V6l7-3Z" />
+    </svg>
+  );
+}
+
+/** Honest, state-specific shield copy. Never claims more than a save. */
+function shieldCopy(status: ShieldStatus): string {
+  if (status.solvedToday) {
+    if (status.available >= status.max) {
+      return "Both shields ready — streak safe.";
+    }
+    const remaining =
+      SHIELD_EARN_INTERVAL - (status.dailyStreak % SHIELD_EARN_INTERVAL);
+    return `Streak safe — ${remaining} more day${
+      remaining === 1 ? "" : "s"
+    } to the next shield.`;
+  }
+  if (status.coveredYesterday) {
+    return "A shield covered yesterday — solve today's daily challenge to keep it going.";
+  }
+  if (status.atRisk) {
+    return "No shield left — solve today's daily challenge or the streak resets.";
+  }
+  if (status.protectedToday) {
+    return "Solve today's daily challenge — a shield covers one missed day.";
+  }
+  return `Solve ${SHIELD_EARN_INTERVAL} daily challenges in a row to earn a shield.`;
+}
+
 /**
  * Compact streak widget sourced from the canonical stores: current/longest
- * from `getCurrentStreak`/`getLongestStreak` over progress, and the 7-day row
- * from both solve timestamps and daily-challenge solve dates.
+ * from `getCurrentStreak`/`getLongestStreak` over progress, the 7-day row from
+ * both solve timestamps and daily-challenge solve dates, and streak shields
+ * from the daily state (auto-cover runs on mount, before the snapshot is read).
  */
 export function StreakCard() {
+  // Visiting the card is the auto-cover trigger: a single missed day is
+  // covered here, before the next solve could reset the streak.
+  useEffect(() => {
+    applyShield();
+  }, []);
+
   const snapshot = useSyncExternalStore(
     subscribe,
     getSnapshot,
@@ -120,6 +208,12 @@ export function StreakCard() {
   );
   const days = snapshot.days.length === 7 ? snapshot.days : PLACEHOLDER_DAYS;
   const solvedThisWeek = days.filter((day) => day.solved).length;
+  const coveredThisWeek = days.filter((day) => day.covered).length;
+  const shields = snapshot.shields;
+  const slots = Array.from(
+    { length: shields.max },
+    (_, index) => index < shields.available,
+  );
 
   return (
     <Reveal className="h-full">
@@ -143,18 +237,30 @@ export function StreakCard() {
 
         <div
           role="img"
-          aria-label={`Last 7 days — solved on ${solvedThisWeek} of them`}
+          aria-label={`Last 7 days — solved on ${solvedThisWeek} of them${
+            coveredThisWeek > 0
+              ? `, ${coveredThisWeek} covered by a shield`
+              : ""
+          }`}
           className="mt-4 flex items-center justify-between gap-1.5"
         >
           {days.map((day, index) => (
             <span
               key={`${day.key}-${index}`}
-              title={`${day.label} — ${day.solved ? "solved" : "no solve"}`}
+              title={`${day.label} — ${
+                day.solved
+                  ? "solved"
+                  : day.covered
+                    ? "covered by a shield"
+                    : "no solve"
+              }`}
               className={cn(
                 "h-2.5 w-2.5 shrink-0 rounded-full",
                 day.solved
                   ? "bg-accent"
-                  : "border border-hairline bg-canvas-soft",
+                  : day.covered
+                    ? "border border-accent/60 bg-accent/20"
+                    : "border border-hairline bg-canvas-soft",
                 day.today && !day.solved && "ring-1 ring-accent/40",
                 day.today && day.solved && "ring-2 ring-accent/30",
               )}
@@ -162,8 +268,41 @@ export function StreakCard() {
           ))}
         </div>
 
+        <div className="mt-4 border-t border-hairline pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-body-mid">Streak shields</span>
+            <span className="font-mono text-xs text-body">
+              {shields.available}/{shields.max}
+            </span>
+          </div>
+          <div
+            role="img"
+            aria-label={`Streak shields: ${shields.available} of ${shields.max} available, ${shields.spent} spent`}
+            className="mt-2 flex items-center gap-1.5"
+          >
+            {slots.map((filled, index) => (
+              <ShieldGlyph
+                key={index}
+                filled={filled}
+                className={cn(
+                  "h-4 w-4",
+                  filled ? "text-accent" : "text-body-mid opacity-30",
+                )}
+              />
+            ))}
+            {shields.spent > 0 && (
+              <span className="ml-1 text-[11px] text-body-mid">
+                {shields.spent} spent
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-body-mid">{shieldCopy(shields)}</p>
+        </div>
+
         <p className="mt-auto pt-3 text-xs text-body-mid">
-          Solve any problem today to keep it alive.
+          Earn one at every {SHIELD_EARN_INTERVAL}-day daily streak, up to{" "}
+          {MAX_SHIELDS}. A shield keeps the streak through one missed day; it
+          never counts as a solve.
         </p>
       </div>
     </Reveal>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Aurora } from "@/components/motion/Aurora";
+import { TodayEntry } from "@/components/today/TodayEntry";
 
 interface HeroProps {
   problemCount: number;
@@ -38,6 +39,7 @@ export function Hero({ problemCount, categoryCount }: HeroProps) {
             Start practicing
             <span aria-hidden>→</span>
           </Link>
+          <TodayEntry />
           <Link
             href="/paths"
             className="inline-flex items-center gap-2 rounded-lg border border-hairline px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-accent/40 hover:bg-canvas-soft"

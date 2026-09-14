@@ -84,6 +84,18 @@ self.addEventListener("message", (event) => {
   self.skipWaiting();
 });
 
+// Reminder clicks: focus an open DeepForge window for the target route when
+// one exists, otherwise open a new one. Locally installed workers unregister
+// themselves, so this handler never runs in development.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  if (IS_LOCAL) return;
+  const data = event.notification.data || {};
+  const target =
+    typeof data.url === "string" && data.url.length > 0 ? data.url : "/";
+  event.waitUntil(handleNotificationClick(target));
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
@@ -216,6 +228,38 @@ async function staleWhileRevalidate(event, cacheName) {
 
   const response = await revalidate;
   return response || Response.error();
+}
+
+/**
+ * Focus an existing window on the reminder's route (any query string), or
+ * open a fresh one. Best-effort: a failed click must never reject.
+ */
+async function handleNotificationClick(targetUrl) {
+  try {
+    const target = new URL(targetUrl, self.location.origin);
+    const windows = await self.clients.matchAll({
+      type: "window",
+      includeUncontrolled: true,
+    });
+    for (const client of windows) {
+      let clientUrl;
+      try {
+        clientUrl = new URL(client.url);
+      } catch {
+        continue;
+      }
+      if (clientUrl.origin !== target.origin) continue;
+      if (clientUrl.pathname === target.pathname) {
+        if ("focus" in client) await client.focus();
+        return;
+      }
+    }
+    if (self.clients.openWindow) {
+      await self.clients.openWindow(target.href);
+    }
+  } catch {
+    // Best-effort only.
+  }
 }
 
 /**

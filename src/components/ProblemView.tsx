@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { Problem } from "@/types/problem";
@@ -38,6 +38,23 @@ import {
   markSolved,
   saveCode,
 } from "@/lib/progress";
+import {
+  getLatestExplanation,
+  gradeExplanation,
+  hasExplained,
+  isExplainEnabled,
+  recordExplanation,
+  recordSkip,
+  setExplainEnabled as persistExplainEnabled,
+  type ExplainGrade,
+} from "@/lib/explain";
+import {
+  generateBugMutants,
+  hashString,
+  scoreBugAnswer,
+  type BugMutant,
+  type BugScore,
+} from "@/lib/spotBug";
 
 interface ProblemViewProps {
   problem: Problem;
@@ -100,10 +117,41 @@ export function ProblemView({
   } | null>(null);
   const [celebrationNonce, setCelebrationNonce] = useState(0);
 
+  // F7 — Self-Explanation Gate ("Feynman mode").
+  const [explainEnabled, setExplainEnabledState] = useState(() =>
+    isExplainEnabled(),
+  );
+  const [explainGate, setExplainGate] = useState<{
+    problemId: string;
+    phase: "prompt" | "graded" | "skipped";
+    pending: boolean;
+    kind: "first" | "again";
+  } | null>(null);
+  const [explainText, setExplainText] = useState("");
+  const [explainGrade, setExplainGrade] = useState<ExplainGrade | null>(null);
+  const [explainVersion, setExplainVersion] = useState(0);
+
+  // F8 — Spot-the-Bug ("debug the AI").
+  const [bugHunt, setBugHunt] = useState<{
+    problemId: string;
+    mutant: BugMutant;
+    phase: "find" | "scored";
+  } | null>(null);
+  const [bugLine, setBugLine] = useState(1);
+  const [bugReason, setBugReason] = useState("");
+  const [bugScore, setBugScore] = useState<BugScore | null>(null);
+  const [bugShowFix, setBugShowFix] = useState(false);
+  const [bugLoading, setBugLoading] = useState(false);
+  const [bugUnavailable, setBugUnavailable] = useState(false);
+
   const pyRef = useRef<any>(null);
   const celebratedRef = useRef<Set<string>>(new Set());
   const dialogRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const bugReasonRef = useRef<HTMLTextAreaElement>(null);
+  const explainTextRef = useRef<HTMLTextAreaElement>(null);
+  const preBugCodeRef = useRef<string | null>(null);
+  const attemptsBugRef = useRef(0);
   const cellsRef = useRef<NotebookCell[] | null>(null);
   const pendingCellsRef = useRef<{
     problemId: string;
@@ -120,6 +168,17 @@ export function ProblemView({
     mobileTabState.problemId === problem.id ? mobileTabState.tab : "problem";
   const setMobileTab = (tab: "problem" | "code") =>
     setMobileTabState({ problemId: problem.id, tab });
+
+  // F7/F8 derived state — all tagged with the problem id.
+  const gate = explainGate?.problemId === problem.id ? explainGate : null;
+  const latestExplanation = useMemo(
+    () => getLatestExplanation(problem.id),
+    [problem.id, explainVersion],
+  );
+  const bugActive = bugHunt?.problemId === problem.id ? bugHunt : null;
+  const bugMutant = bugActive?.mutant ?? null;
+  const bugCandidates = useMemo(() => generateBugMutants(problem), [problem]);
+  const codeLineCount = code.split("\n").length;
 
   // Roving tabindex for the mobile tab switcher: one tab stop, arrow keys move
   // selection and focus (APG tabs pattern).
@@ -265,6 +324,162 @@ export function ProblemView({
     setCelebrationNonce((n) => n + 1);
   };
 
+  // Shared by the editor and notebook runs. The solve is always recorded;
+  // when the explanation gate is on, only the celebration waits.
+  const handleAllPass = () => {
+    const wasSolved = getProblemProgress(problem.id).solved === true;
+    markSolved(problem.id);
+    if (gate !== null) return;
+    const kind: "first" | "again" = wasSolved ? "again" : "first";
+    if (!wasSolved && explainEnabled && !hasExplained(problem.id)) {
+      setExplainText("");
+      setExplainGrade(null);
+      setExplainGate({ problemId: problem.id, phase: "prompt", pending: true, kind });
+    } else {
+      if (!wasSolved) maybeCelebrate(problem.id);
+      setSolveFeedback({
+        problemId: problem.id,
+        kind,
+        streak: getCurrentStreak(getProgress()),
+      });
+    }
+  };
+
+  const finishExplainGate = (kind: "first" | "again") => {
+    maybeCelebrate(problem.id);
+    setSolveFeedback({
+      problemId: problem.id,
+      kind,
+      streak: getCurrentStreak(getProgress()),
+    });
+  };
+
+  const openExplainGate = () => {
+    setExplainText("");
+    setExplainGrade(null);
+    setExplainGate({
+      problemId: problem.id,
+      phase: "prompt",
+      pending: false,
+      kind: getProblemProgress(problem.id).solved === true ? "again" : "first",
+    });
+  };
+
+  const submitExplanation = () => {
+    const text = explainText.trim();
+    if (!text) return;
+    const grade = gradeExplanation(problem, text);
+    recordExplanation(problem.id, text, grade);
+    setExplainGrade(grade);
+    setExplainVersion((v) => v + 1);
+    setExplainGate((prev) => (prev ? { ...prev, phase: "graded" } : prev));
+  };
+
+  const skipExplanation = () => {
+    recordSkip(problem.id);
+    setExplainVersion((v) => v + 1);
+    setExplainGrade(null);
+    if (gate?.pending) finishExplainGate(gate.kind);
+    setExplainGate((prev) =>
+      prev ? { ...prev, phase: "skipped", pending: false } : prev,
+    );
+  };
+
+  const continueAfterExplain = () => {
+    if (gate?.pending) finishExplainGate(gate.kind);
+    setExplainGate(null);
+  };
+
+  const toggleExplainEnabled = () => {
+    const next = !explainEnabled;
+    setExplainEnabledState(next);
+    persistExplainEnabled(next);
+    if (!next) {
+      // Turning the gate off must never hold a solve hostage.
+      if (gate?.pending) finishExplainGate(gate.kind);
+      setExplainGate(null);
+    }
+  };
+
+  // Focus the explanation field whenever the prompt opens (including Rewrite).
+  useEffect(() => {
+    if (gate?.phase === "prompt") explainTextRef.current?.focus();
+  }, [gate?.phase, gate?.problemId, problem.id]);
+
+  const startBugRound = async (seed?: number) => {
+    if (bugLoading || running) return;
+    const candidates = generateBugMutants(problem, {
+      seed: seed ?? hashString(problem.id) + attemptsBugRef.current,
+      limit: 8,
+    });
+    if (candidates.length === 0) {
+      setBugUnavailable(true);
+      return;
+    }
+    setBugLoading(true);
+    try {
+      const py = await ensurePyodide();
+      let found: BugMutant | null = null;
+      for (const candidate of candidates) {
+        const r = await runTests(py, candidate.code, problem.testCases);
+        if (r.some((x) => !x.ok)) {
+          found = candidate;
+          break;
+        }
+      }
+      if (!found) {
+        setBugUnavailable(true);
+        return;
+      }
+      if (preBugCodeRef.current === null) preBugCodeRef.current = code;
+      if (mode === "notebook") switchMode("editor");
+      setCode(found.code);
+      setResults(null);
+      setBugHunt({ problemId: problem.id, mutant: found, phase: "find" });
+      setBugLine(1);
+      setBugReason("");
+      setBugScore(null);
+      setBugShowFix(false);
+      setMobileTab("code");
+      window.setTimeout(() => bugReasonRef.current?.focus(), 0);
+    } catch (e: any) {
+      setPyStatus("error");
+      setPyError(e?.message || String(e));
+    } finally {
+      setBugLoading(false);
+    }
+  };
+
+  const exitBugHunt = () => {
+    const restore = preBugCodeRef.current;
+    preBugCodeRef.current = null;
+    setBugHunt(null);
+    setBugScore(null);
+    setBugReason("");
+    setBugShowFix(false);
+    setResults(null);
+    if (restore !== null) setCode(restore);
+  };
+
+  const tryAnotherBug = () => {
+    attemptsBugRef.current += 1;
+    void startBugRound();
+  };
+
+  const useCursorLine = () => {
+    const ta = editorRef.current;
+    if (!ta) return;
+    const pos = ta.selectionStart ?? 0;
+    const line = code.slice(0, pos).split("\n").length;
+    setBugLine(Math.min(Math.max(1, line), codeLineCount));
+  };
+
+  const lockBugAnswer = () => {
+    if (!bugMutant || !bugReason.trim()) return;
+    setBugScore(scoreBugAnswer(bugMutant, { line: bugLine, reason: bugReason }));
+    setBugHunt((prev) => (prev ? { ...prev, phase: "scored" } : prev));
+  };
+
   const runCode = async () => {
     setRunning(true);
     setResults(null);
@@ -273,17 +488,8 @@ export function ProblemView({
       const r = await runTests(py, code, problem.testCases);
       setResults(r);
       const allPass = r.length > 0 && r.every((x) => x.ok);
-      if (allPass) {
-        const wasSolved = getProblemProgress(problem.id).solved === true;
-        markSolved(problem.id);
-        if (!wasSolved) maybeCelebrate(problem.id);
-        setSolveFeedback({
-          problemId: problem.id,
-          kind: wasSolved ? "again" : "first",
-          streak: getCurrentStreak(getProgress()),
-        });
-      }
-      onProgressChange?.();
+      if (allPass && !bugActive) handleAllPass();
+      if (!bugActive) onProgressChange?.();
     } catch (e: any) {
       setPyStatus("error");
       setPyError(e?.message || String(e));
@@ -310,7 +516,7 @@ export function ProblemView({
       const end = ta.selectionEnd;
       const next = code.slice(0, start) + "    " + code.slice(end);
       setCode(next);
-      saveCode(problem.id, next);
+      if (!bugActive) saveCode(problem.id, next);
       requestAnimationFrame(() => {
         ta.selectionStart = ta.selectionEnd = start + 4;
       });
@@ -326,7 +532,8 @@ export function ProblemView({
 
   const onCodeChange = (v: string) => {
     setCode(v);
-    saveCode(problem.id, v);
+    // The mutated code is practice material — never overwrite saved work with it.
+    if (!bugActive) saveCode(problem.id, v);
   };
 
   // Mobile indent row — insert four spaces at the caret in the editor.
@@ -338,7 +545,7 @@ export function ProblemView({
     const end = ta.selectionEnd ?? start;
     const next = code.slice(0, start) + "    " + code.slice(end);
     setCode(next);
-    saveCode(problem.id, next);
+    if (!bugActive) saveCode(problem.id, next);
     requestAnimationFrame(() => {
       ta.focus();
       ta.selectionStart = ta.selectionEnd = start + 4;
@@ -346,6 +553,11 @@ export function ProblemView({
   };
 
   const reset = () => {
+    // Reset leaves any active bug round: the code returns to the starter.
+    preBugCodeRef.current = null;
+    setBugHunt(null);
+    setBugScore(null);
+    setBugShowFix(false);
     setCode(problem.starterCode);
     setResults(null);
     setShowSolution(false);
@@ -443,17 +655,8 @@ export function ProblemView({
           const r = await runTests(py, combined, problem.testCases);
           setResults(r);
           const allPass = r.length > 0 && r.every((x) => x.ok);
-          if (allPass) {
-            const wasSolved = getProblemProgress(problem.id).solved === true;
-            markSolved(problem.id);
-            if (!wasSolved) maybeCelebrate(problem.id);
-            setSolveFeedback({
-              problemId: problem.id,
-              kind: wasSolved ? "again" : "first",
-              streak: getCurrentStreak(getProgress()),
-            });
-          }
-          onProgressChange?.();
+          if (allPass && !bugActive) handleAllPass();
+          if (!bugActive) onProgressChange?.();
         }
       }
     } catch (e: any) {
@@ -1047,12 +1250,373 @@ export function ProblemView({
                 >
                   {showSolution ? "Hide solution" : "Show solution"}
                 </button>
+                {!bugActive && (
+                  <button
+                    type="button"
+                    aria-pressed={explainEnabled}
+                    onClick={toggleExplainEnabled}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+                      explainEnabled
+                        ? "border-accent/40 text-accent hover:bg-accent/5"
+                        : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
+                    )}
+                  >
+                    Explain first: {explainEnabled ? "on" : "off"}
+                  </button>
+                )}
+                {!bugActive && explainEnabled && gate === null && (
+                  <button
+                    type="button"
+                    onClick={openExplainGate}
+                    className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                  >
+                    Explain it back
+                  </button>
+                )}
+                {!bugActive && bugCandidates.length > 0 && !bugUnavailable && (
+                  <button
+                    type="button"
+                    onClick={() => void startBugRound()}
+                    disabled={running || bugLoading}
+                    className="rounded-lg border border-warning/40 px-3 py-1.5 text-xs text-warning transition-colors hover:bg-warning/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-warning/40 disabled:opacity-50"
+                  >
+                    {bugLoading ? "Preparing bug…" : "Debug the AI"}
+                  </button>
+                )}
+                {bugActive && (
+                  <button
+                    type="button"
+                    onClick={exitBugHunt}
+                    className="rounded-lg border border-warning/40 px-3 py-1.5 text-xs text-warning transition-colors hover:bg-warning/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-warning/40"
+                  >
+                    Exit bug mode
+                  </button>
+                )}
                 {pyStatus === "error" && (
                   <span className="text-xs text-error sm:text-[11px]">
                     Pyodide failed to load
                   </span>
                 )}
               </div>
+
+              {/* F8 — Spot-the-Bug ("debug the AI") */}
+              {bugActive && bugMutant && (
+                <section
+                  aria-labelledby="df-bug-heading"
+                  className="df-fade-in border-t border-warning/40 bg-warning/5 px-4 py-4 sm:px-6"
+                >
+                  <h3
+                    id="df-bug-heading"
+                    className="text-xs font-medium text-warning"
+                  >
+                    The AI wrote this — find the bug
+                  </h3>
+                  <p className="mt-1 text-xs leading-relaxed text-body-mid">
+                    The tests fail on this copy. Pick the line that is wrong and
+                    say why in one or two sentences. Your own code is safe — this
+                    is a practice copy you can leave at any time.
+                  </p>
+
+                  {bugActive.phase === "find" ? (
+                    <div className="mt-3 space-y-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="flex items-center gap-2 text-xs text-body-mid">
+                          Buggy line
+                          <input
+                            type="number"
+                            min={1}
+                            max={codeLineCount}
+                            value={bugLine}
+                            onChange={(e) =>
+                              setBugLine(
+                                Math.min(
+                                  Math.max(1, Number(e.target.value) || 1),
+                                  codeLineCount,
+                                ),
+                              )
+                            }
+                            aria-describedby="df-bug-line-help"
+                            className="w-20 rounded-md border border-hairline bg-canvas px-2 py-1 font-mono text-xs text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={useCursorLine}
+                          className="rounded-md border border-hairline px-2.5 py-1 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                        >
+                          Use cursor line
+                        </button>
+                        <span id="df-bug-line-help" className="text-[11px] text-mute">
+                          Place the cursor in the editor, then use it here.
+                        </span>
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="df-bug-reason"
+                          className="text-xs text-body-mid"
+                        >
+                          Why is this line wrong?
+                        </label>
+                        <textarea
+                          id="df-bug-reason"
+                          ref={bugReasonRef}
+                          value={bugReason}
+                          onChange={(e) => setBugReason(e.target.value)}
+                          rows={3}
+                          className="mt-1 w-full resize-y rounded-md border border-hairline bg-canvas px-3 py-2 text-sm leading-relaxed text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={lockBugAnswer}
+                          disabled={!bugReason.trim()}
+                          className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50"
+                        >
+                          Lock in answer
+                        </button>
+                        <span className="text-[11px] text-mute">
+                          The fix is revealed after you lock in.
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 space-y-3" aria-live="polite">
+                      {bugScore && (
+                        <>
+                          <p className="text-xs leading-relaxed text-body">
+                            {bugScore.lineCorrect
+                              ? `Found it — line ${bugMutant.lineNumber} is the mutation and your reasoning covers why.`
+                              : bugScore.lineNear
+                                ? `Close — the bug lives on line ${bugMutant.lineNumber}, inside the statement you picked.`
+                                : `The bug is on line ${bugMutant.lineNumber}, not line ${bugLine}.`}
+                          </p>
+                          <p className="font-mono text-[11px] text-body-mid">
+                            score {bugScore.total}/100 · line{" "}
+                            {bugScore.lineCorrect
+                              ? "exact"
+                              : bugScore.lineNear
+                                ? "near"
+                                : "off"}{" "}
+                            · reasoning{" "}
+                            {Math.round(bugScore.reasonScore * 100)}%
+                          </p>
+                          {bugScore.matched.length > 0 && (
+                            <p className="text-xs text-body-mid">
+                              You explained: {bugScore.matched.join(", ")}.
+                            </p>
+                          )}
+                          {bugScore.missed.length > 0 && (
+                            <p className="text-xs text-body-mid">
+                              Worth adding: {bugScore.missed.join(", ")}.
+                            </p>
+                          )}
+                        </>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setBugShowFix((v) => !v)}
+                          aria-expanded={bugShowFix}
+                          className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                        >
+                          {bugShowFix ? "Hide the fix" : "Show the fix"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={tryAnotherBug}
+                          disabled={bugLoading || running}
+                          className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-50"
+                        >
+                          {bugLoading ? "Preparing…" : "Try another bug"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={exitBugHunt}
+                          className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                        >
+                          Exit
+                        </button>
+                      </div>
+                      {bugShowFix && (
+                        <div className="rounded-md border border-hairline bg-canvas p-3">
+                          <div className="font-mono text-[10px] text-mute">
+                            line {bugMutant.lineNumber}
+                          </div>
+                          <pre className="df-scroll mt-1 overflow-x-auto font-mono text-[11px] leading-relaxed">
+                            <div className="text-error">
+                              - {bugMutant.mutatedLine.trimStart()}
+                            </div>
+                            <div className="text-accent">
+                              + {bugMutant.originalLine.trimStart()}
+                            </div>
+                          </pre>
+                          <p className="mt-2 text-xs leading-relaxed text-body">
+                            {bugMutant.rationale}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* F7 — Self-Explanation Gate */}
+              {!bugActive && explainEnabled && (gate !== null || latestExplanation) && (
+                <section
+                  aria-labelledby="df-explain-heading"
+                  className="df-fade-in border-t border-hairline bg-canvas-soft/50 px-4 py-4 sm:px-6"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3
+                        id="df-explain-heading"
+                        className="text-xs font-medium text-body-mid"
+                      >
+                        Explain it back
+                      </h3>
+                      {gate?.phase === "prompt" && (
+                        <p className="mt-1 text-xs leading-relaxed text-body-mid">
+                          In your own words, why does this work? Say what the
+                          key step does and why it gives the right answer. There
+                          is no wrong answer here — it just shows which ideas
+                          you covered, and it stays on this device.
+                        </p>
+                      )}
+                    </div>
+                    {gate?.phase === "prompt" && (
+                      <button
+                        type="button"
+                        onClick={skipExplanation}
+                        className="rounded-md text-xs text-mute underline-offset-2 hover:text-body hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                      >
+                        Skip for now
+                      </button>
+                    )}
+                  </div>
+
+                  {gate?.phase === "prompt" && (
+                    <div className="mt-3">
+                      <label htmlFor="df-explain-text" className="sr-only">
+                        Your explanation
+                      </label>
+                      <textarea
+                        id="df-explain-text"
+                        ref={explainTextRef}
+                        value={explainText}
+                        onChange={(e) => setExplainText(e.target.value)}
+                        rows={4}
+                        placeholder="The key step is…"
+                        className="w-full resize-y rounded-md border border-hairline bg-canvas px-3 py-2 text-sm leading-relaxed text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                      />
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={submitExplanation}
+                          disabled={!explainText.trim()}
+                          className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50"
+                        >
+                          Check my explanation
+                        </button>
+                        <span className="text-[11px] text-mute">
+                          Skipping is fine — it just leaves a marker you can
+                          revisit.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {gate?.phase === "graded" && explainGrade && (
+                    <div className="mt-3 space-y-2" aria-live="polite">
+                      <p className="text-xs leading-relaxed text-body">
+                        {explainGrade.feedback}
+                      </p>
+                      <p className="font-mono text-[11px] text-body-mid">
+                        key ideas: {explainGrade.hits.length} of{" "}
+                        {explainGrade.hits.length + explainGrade.gaps.length} ·
+                        reasoning depth:{" "}
+                        {explainGrade.band === "solid"
+                          ? "solid"
+                          : explainGrade.band === "developing"
+                            ? "getting there"
+                            : "just starting"}
+                      </p>
+                      {explainGrade.gaps.length > 0 && (
+                        <ul className="space-y-1">
+                          {explainGrade.gaps.map((gap) => (
+                            <li key={gap.id} className="text-xs text-body-mid">
+                              {gap.question}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={continueAfterExplain}
+                          className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                        >
+                          Continue
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExplainGate((prev) =>
+                              prev ? { ...prev, phase: "prompt" } : prev,
+                            )
+                          }
+                          className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                        >
+                          Rewrite
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {gate?.phase === "skipped" && (
+                    <div className="mt-3 space-y-2" aria-live="polite">
+                      <p className="text-xs leading-relaxed text-body-mid">
+                        Skipped — that is allowed. Your solve still counts; this
+                        is marked so you can come back to it whenever you like.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExplainGate((prev) =>
+                              prev ? { ...prev, phase: "prompt" } : prev,
+                            )
+                          }
+                          className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                        >
+                          Explain it now
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setExplainGate(null)}
+                          className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {gate === null && latestExplanation && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer rounded-md text-xs text-body-mid focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40">
+                        What you said last time
+                      </summary>
+                      <p className="mt-2 whitespace-pre-wrap rounded-md border border-hairline bg-canvas p-3 text-xs leading-relaxed text-body">
+                        {latestExplanation.skipped
+                          ? "You skipped this one. The offer stands."
+                          : latestExplanation.text}
+                      </p>
+                    </details>
+                  )}
+                </section>
+              )}
 
               {allPass && solveNotice && (
                 <div className="px-4 py-4 sm:px-6">

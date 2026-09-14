@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getProblemProgress } from "@/lib/progress";
 import { problemHref } from "@/lib/problemLinks";
@@ -12,6 +13,11 @@ import {
   markDailySolved,
   type DailyState,
 } from "@/lib/daily";
+import {
+  getReviewBucketCounts,
+  getReviewMap,
+  REVIEWS_CHANGE_EVENT,
+} from "@/lib/reviewQueue";
 import { cn, difficultyClasses } from "@/lib/utils";
 import { FlameGlyph } from "@/components/SolvedBanner";
 
@@ -44,6 +50,7 @@ export function DailyChallenge() {
   const router = useRouter();
   const [now, setNow] = useState<Date | null>(null);
   const [dailyState, setDailyState] = useState<DailyState>(EMPTY_DAILY_STATE);
+  const [dueCount, setDueCount] = useState(0);
 
   const problem = getDailyProblem(now ?? new Date());
   const dateKey = getDailyDateKey(now ?? new Date());
@@ -51,6 +58,9 @@ export function DailyChallenge() {
 
   const refresh = useCallback(() => {
     setDailyState(getDailyState());
+    const clock = new Date();
+    const counts = getReviewBucketCounts(getReviewMap(clock), clock);
+    setDueCount(counts.due + counts.learning);
   }, []);
 
   // Live clock — drives the countdown and the day rollover. Starts null so
@@ -73,9 +83,13 @@ export function DailyChallenge() {
     onProgress();
     window.addEventListener(PROGRESS_CHANGE_EVENT, onProgress);
     window.addEventListener(DAILY_CHANGE_EVENT, onDaily);
+    window.addEventListener(REVIEWS_CHANGE_EVENT, onDaily);
+    window.addEventListener("storage", onDaily);
     return () => {
       window.removeEventListener(PROGRESS_CHANGE_EVENT, onProgress);
       window.removeEventListener(DAILY_CHANGE_EVENT, onDaily);
+      window.removeEventListener(REVIEWS_CHANGE_EVENT, onDaily);
+      window.removeEventListener("storage", onDaily);
     };
   }, [problem.id, refresh]);
 
@@ -115,7 +129,16 @@ export function DailyChallenge() {
               </h2>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {dueCount > 0 && (
+                <Link
+                  href="/today"
+                  aria-label={`Open Today — ${dueCount} review${dueCount === 1 ? "" : "s"} due`}
+                  className="inline-flex min-h-11 items-center rounded-full border border-hairline px-3 text-[10px] font-medium text-body-mid transition-colors hover:border-accent/40 hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0 sm:py-1"
+                >
+                  Review {dueCount} due
+                </Link>
+              )}
               {solvedToday && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/5 px-2.5 py-1 text-[10px] font-medium text-accent">
                   <svg

@@ -17,6 +17,7 @@ import {
   type CheckpointReport,
 } from "@/lib/pathCheckpoints";
 import { getProgress, type ProgressMap } from "@/lib/progress";
+import { summarizeCoverage } from "@/lib/readiness";
 import { problemHref } from "@/lib/problemLinks";
 import { cn, difficultyClasses } from "@/lib/utils";
 
@@ -343,6 +344,7 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
   const problemMap = new Map(problems.map((problem) => [problem.id, problem]));
   const from = `/paths/${path.slug}`;
   const overall = pathProgress(path, progress);
+  const readiness = summarizeCoverage(path.problemIds, progress);
   const prerequisites = resolvePrerequisites(path.prerequisites);
   const nextStep = nextProblemInPath(path, progress);
   const nextProblem = nextStep ? problemMap.get(nextStep.problemId) : undefined;
@@ -417,6 +419,20 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
           pct={overall.pct}
           label={`${path.title} progress`}
         />
+        <p
+          role="status"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-body-mid"
+        >
+          <span>
+            Path readiness{" "}
+            <span className="font-mono text-ink">{readiness.percent}%</span>
+          </span>
+          <span className="font-mono">
+            Easy {readiness.byDifficulty.Easy.percent}% · Medium{" "}
+            {readiness.byDifficulty.Medium.percent}% · Hard{" "}
+            {readiness.byDifficulty.Hard.percent}%
+          </span>
+        </p>
         {nextStep && nextProblem ? (
           <Link
             href={problemHref(nextStep.problemId, from)}

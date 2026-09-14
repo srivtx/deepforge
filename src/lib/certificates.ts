@@ -2,8 +2,13 @@
  * Completion certificates: localStorage-backed records for finished learning
  * paths, curated collections, and category milestones. Certificates are
  * claimed explicitly by the user and can be printed, copied as text, or
- * exported as PNG. The verification code is a deterministic FNV-1a hash of
- * the certificate fields, so a shared text can be checked without a server.
+ * exported as PNG.
+ *
+ * Shared certificates carry a self-verifying credential code built by
+ * `src/lib/credentials.ts`: a canonical JSON evidence payload plus its
+ * SHA-256 fingerprint, checkable offline at `/verify/<code>`. The legacy
+ * FNV-1a fingerprint below is kept only for records and text generated
+ * before that format existed.
  *
  * Everything here is SSR-safe and never throws: reads on the server return
  * empty results and writes without storage are silent no-ops.
@@ -15,6 +20,13 @@ import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { getUserName } from "@/lib/leaderboard";
+import {
+  CREDENTIAL_VERSION,
+  encodeCredential,
+  fingerprintFromCode,
+  formatFingerprint,
+  type CredentialPayload,
+} from "@/lib/credentials";
 import type { Category } from "@/types/problem";
 
 const STORAGE_KEY = "deepforge:certificates:v1";
@@ -38,6 +50,10 @@ export interface Certificate {
   recipient: string;
   issuedAt: string;
   detail: string;
+  /** Completed problem count when the record was issued after v2. */
+  solved?: number;
+  /** Problem count of the milestone when the record was issued after v2. */
+  total?: number;
 }
 
 /** A claimable milestone as returned by `getEligible`. */
@@ -59,6 +75,9 @@ function isCertificateKind(value: unknown): value is CertificateKind {
 function isCertificate(value: unknown): value is Certificate {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
+  const countsOk =
+    (v.solved === undefined || typeof v.solved === "number") &&
+    (v.total === undefined || typeof v.total === "number");
   return (
     typeof v.id === "string" &&
     isCertificateKind(v.kind) &&
@@ -66,7 +85,8 @@ function isCertificate(value: unknown): value is Certificate {
     typeof v.title === "string" &&
     typeof v.recipient === "string" &&
     typeof v.issuedAt === "string" &&
-    typeof v.detail === "string"
+    typeof v.detail === "string" &&
+    countsOk
   );
 }
 
@@ -240,6 +260,8 @@ export function issueCertificate(entry: CertificateEntry): Certificate {
     recipient: getRecipient(),
     issuedAt,
     detail: entry.detail || `${entry.solved} of ${entry.total} problems`,
+    solved: entry.solved,
+    total: entry.total,
   };
   try {
     const existing = read().find(
@@ -281,9 +303,10 @@ function fnv1a(input: string): number {
 }
 
 /**
- * Stable short code for a certificate: the base36 FNV-1a hash of
- * `kind|refId|recipient|issuedAt`, truncated to 8 characters. Same record
- * always produces the same code.
+ * Legacy short code for a certificate: the base36 FNV-1a hash of
+ * `kind|refId|recipient|issuedAt`, truncated to 8 characters. Kept only so
+ * pre-existing records and copied text still resolve; new shares use
+ * `certificateCredentialCode`.
  */
 export function verificationCode(
   cert: Pick<Certificate, "kind" | "refId" | "recipient" | "issuedAt">,
@@ -298,6 +321,43 @@ export function verificationCode(
   }
 }
 
+/* ──────────────────── credential codes (self-verifying) ─────────────────── */
+
+function parseDetailCounts(detail: string): { solved: number; total: number } {
+  const match = /(\d+)\s+of\s+(\d+)/.exec(detail);
+  if (!match) return { solved: 0, total: 0 };
+  return {
+    solved: Number.parseInt(match[1], 10) || 0,
+    total: Number.parseInt(match[2], 10) || 0,
+  };
+}
+
+/**
+ * Evidence payload for a certificate: the canonical fields `/verify`
+ * re-checks. Records issued before counts were stored fall back to parsing
+ * the human-readable `detail` line.
+ */
+export function payloadFromCertificate(cert: Certificate): CredentialPayload {
+  const parsed = parseDetailCounts(cert.detail);
+  return {
+    v: CREDENTIAL_VERSION,
+    kind: cert.kind,
+    ref: cert.refId,
+    title: cert.title,
+    recipient: cert.recipient,
+    solved: typeof cert.solved === "number" ? cert.solved : parsed.solved,
+    total: typeof cert.total === "number" ? cert.total : parsed.total,
+    issued: formatCertificateDate(cert.issuedAt),
+  };
+}
+
+/** Self-verifying code for a certificate; rejects when its fields are invalid. */
+export async function certificateCredentialCode(
+  cert: Certificate,
+): Promise<string> {
+  return encodeCredential(payloadFromCertificate(cert));
+}
+
 /** `YYYY-MM-DD` for a stored ISO timestamp; falls back to the raw value. */
 export function formatCertificateDate(iso: string): string {
   try {
@@ -309,9 +369,21 @@ export function formatCertificateDate(iso: string): string {
   }
 }
 
-/** Plain-text share block for a certificate. */
-export function buildCertificateText(cert: Certificate): string {
+/**
+ * Plain-text share block for a certificate. Pass the credential code to show
+ * its fingerprint in place of the legacy FNV one.
+ */
+export function buildCertificateText(
+  cert: Certificate,
+  credentialCode?: string,
+): string {
   try {
+    const fingerprint = credentialCode
+      ? fingerprintFromCode(credentialCode)
+      : null;
+    const code = fingerprint
+      ? formatFingerprint(fingerprint)
+      : verificationCode(cert);
     return [
       "DEEPFORGE CERTIFICATE OF COMPLETION",
       "",
@@ -319,7 +391,7 @@ export function buildCertificateText(cert: Certificate): string {
       `Awarded to ${cert.recipient}`,
       cert.detail,
       `Issued ${formatCertificateDate(cert.issuedAt)}`,
-      `Verification code: ${verificationCode(cert)}`,
+      `Verification code: ${code}`,
       "",
       "DeepForge",
     ].join("\n");

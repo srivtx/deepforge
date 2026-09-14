@@ -1,6 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { ReminderSettings } from "@/components/ReminderSettings";
+import {
+  dispatchReminders,
+  getReminderPrefs,
+  recordEngagement,
+  REMINDER_CHECK_INTERVAL_MS,
+  REMINDER_EVENT,
+  REMINDERS_CHANGE_EVENT,
+  snoozeReminders,
+  startReminderSession,
+  type Reminder,
+} from "@/lib/reminders";
 
 /**
  * Client-side PWA glue: registers the service worker, surfaces the browser
@@ -110,7 +123,27 @@ function getIosHintServerSnapshot(): boolean {
   return false;
 }
 
+function BellGlyph() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+    </svg>
+  );
+}
+
 export function PwaManager() {
+  const router = useRouter();
   const installed = useSyncExternalStore(
     subscribeInstalled,
     getInstalledSnapshot,
@@ -131,6 +164,9 @@ export function PwaManager() {
     useState<BeforeInstallPromptEvent | null>(null);
   const [installDismissed, setInstallDismissed] = useState(false);
   const [updateReady, setUpdateReady] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [inAppReminder, setInAppReminder] = useState<Reminder | null>(null);
 
   const waitingWorkerRef = useRef<ServiceWorker | null>(null);
   // True only after the user asks to apply an update — guards the
@@ -249,6 +285,53 @@ export function PwaManager() {
     };
   }, []);
 
+  // Reminder engine (local-only): schedule while the page is open. The
+  // session clock gates everything (nothing in the first hour) and the
+  // evaluator enforces per-category daily caps and quiet hours.
+  useEffect(() => {
+    startReminderSession();
+    const check = () => {
+      void dispatchReminders().catch(() => {});
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    const onEngagement = () => recordEngagement();
+    check();
+    const interval = window.setInterval(check, REMINDER_CHECK_INTERVAL_MS);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("deepforge:progress-change", onEngagement);
+    window.addEventListener("deepforge:daily-change", onEngagement);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("deepforge:progress-change", onEngagement);
+      window.removeEventListener("deepforge:daily-change", onEngagement);
+    };
+  }, []);
+
+  // Keep the bell affordance in sync with the opt-in flag.
+  useEffect(() => {
+    const refresh = () => setRemindersEnabled(getReminderPrefs().enabled);
+    refresh();
+    window.addEventListener(REMINDERS_CHANGE_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(REMINDERS_CHANGE_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
+  // In-app fallback channel: emitted when a system notification can't be shown.
+  useEffect(() => {
+    const onReminder = (event: Event) => {
+      const detail = (event as CustomEvent<Reminder>).detail;
+      if (detail && typeof detail.title === "string") setInAppReminder(detail);
+    };
+    window.addEventListener(REMINDER_EVENT, onReminder);
+    return () => window.removeEventListener(REMINDER_EVENT, onReminder);
+  }, []);
+
   const handleInstall = async () => {
     if (!installEvent) return;
     try {
@@ -284,15 +367,57 @@ export function PwaManager() {
     window.dispatchEvent(new Event(IOS_HINT_EVENT));
   };
 
+  const openReminder = () => {
+    if (!inAppReminder) return;
+    router.push(inAppReminder.href);
+    setInAppReminder(null);
+  };
+
+  const snoozeReminder = () => {
+    snoozeReminders();
+    setInAppReminder(null);
+  };
+
   const showInstallButton = installEvent !== null && !installDismissed && !installed;
   const showOfflineChip = !online;
 
-  if (!showInstallButton && !showOfflineChip && !shouldShowIosHint && !updateReady) {
-    return null;
-  }
-
   return (
     <div className="pointer-events-none fixed bottom-4 left-4 z-[60] flex max-w-[calc(100vw-2rem)] flex-col items-start gap-2">
+      {inAppReminder && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-auto max-w-xs rounded-md border border-hairline bg-canvas-card px-3 py-2.5 text-xs text-ink shadow-xl"
+        >
+          <p className="font-medium">{inAppReminder.title}</p>
+          <p className="mt-1 text-body-mid">{inAppReminder.body}</p>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openReminder}
+              className="rounded-md bg-accent px-2.5 py-1 font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+            >
+              Open
+            </button>
+            <button
+              type="button"
+              onClick={snoozeReminder}
+              className="rounded-md border border-hairline px-2.5 py-1 text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+            >
+              Snooze 24h
+            </button>
+            <button
+              type="button"
+              onClick={() => setInAppReminder(null)}
+              aria-label="Dismiss reminder"
+              className="rounded-md border border-hairline px-2.5 py-1 text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {updateReady && (
         <div
           role="status"
@@ -391,6 +516,26 @@ export function PwaManager() {
           </button>
         </div>
       )}
+
+      {settingsOpen && (
+        <ReminderSettings onClose={() => setSettingsOpen(false)} />
+      )}
+
+      <button
+        type="button"
+        onClick={() => setSettingsOpen((open) => !open)}
+        aria-label={settingsOpen ? "Close reminder settings" : "Open reminder settings"}
+        aria-expanded={settingsOpen}
+        className="pointer-events-auto relative flex h-8 w-8 items-center justify-center rounded-md border border-hairline bg-canvas-card text-body-mid shadow-lg transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+      >
+        <BellGlyph />
+        {remindersEnabled && (
+          <span
+            className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent"
+            aria-hidden
+          />
+        )}
+      </button>
     </div>
   );
 }

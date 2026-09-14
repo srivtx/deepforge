@@ -1,4 +1,5 @@
 export type SectionId =
+  | "today"
   | "daily"
   | "problems"
   | "paths"
@@ -49,6 +50,16 @@ export const SECTION_GROUPS: SectionGroup[] = [
 ];
 
 const SECTION_LIST: SectionMeta[] = [
+  {
+    id: "today",
+    href: "/today",
+    title: "Today",
+    blurb:
+      "Your pre-built session: the daily problem, due reviews, and one weak-area pick.",
+    group: "Practice",
+    icon: "M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z",
+    keywords: ["today", "session", "reviews", "due", "plan", "spaced"],
+  },
   {
     id: "daily",
     href: "/daily",

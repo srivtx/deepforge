@@ -11,6 +11,7 @@ import { PROJECTS, type Project } from "@/data/projects";
 import { INTERVIEW_TRACKS, type InterviewTrack } from "@/data/interview";
 import { cn, difficultyClasses } from "@/lib/utils";
 import { getProgress, type ProgressMap } from "@/lib/progress";
+import { summarizeCoverage } from "@/lib/readiness";
 import { problemHref } from "@/lib/problemLinks";
 import {
   INTERVIEW_CHANGE_EVENT,
@@ -393,6 +394,7 @@ function InterviewPrepContent({
           {INTERVIEW_TRACKS.map((track) => {
             const allIds = [...fullPathIds(track), ...track.mockProblemIds];
             const spread = difficultySpread(allIds);
+            const readiness = summarizeCoverage(allIds, progress);
             const bestResult = best[track.id];
             const projectLinks = (track.resumeProjectIds ?? [])
               .map((id) => PROJECTS.find((project) => project.id === id))
@@ -463,6 +465,30 @@ function InterviewPrepContent({
                   <span className="text-accent">{spread.easy} Easy</span>
                   <span className="text-warning">{spread.medium} Medium</span>
                   <span className="text-error">{spread.hard} Hard</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span role="status" className="shrink-0 text-[11px] text-body-mid">
+                    Readiness{" "}
+                    <span className="font-mono text-ink">
+                      {readiness.percent}%
+                    </span>
+                  </span>
+                  <div
+                    role="progressbar"
+                    aria-label={`${track.company} ${track.role} readiness`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={readiness.percent}
+                    className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-canvas-soft"
+                  >
+                    <div
+                      className="h-full rounded-full bg-accent"
+                      style={{ width: `${readiness.percent}%` }}
+                    />
+                  </div>
+                  <span className="shrink-0 font-mono text-[10px] text-mute">
+                    {readiness.solved}/{readiness.total}
+                  </span>
                 </div>
                 {projectLinks.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">

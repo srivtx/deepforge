@@ -20,6 +20,7 @@ import type {
   ResearchChallengeState,
   ResearchState,
 } from "@/lib/research";
+import { sanitizeReviewState, type ReviewMap } from "@/lib/reviewQueue";
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -341,6 +342,40 @@ export function mergePenPaper(
       correct: Boolean(left.correct || right.correct),
       lastAt: laterValue(left.lastAt, right.lastAt) ?? "",
     };
+  }
+  return merged;
+}
+
+/* ─────────────────────────────── reviews ──────────────────────────────── */
+
+function reviewRecencyAt(state: { due: string; lastReviewedAt: string | null }): number {
+  const at = state.lastReviewedAt
+    ? timestamp(state.lastReviewedAt)
+    : timestamp(`${state.due}T00:00:00Z`);
+  return Number.isNaN(at) ? 0 : at;
+}
+
+/**
+ * Per-problem merge: the entry with the newer `lastReviewedAt` (falling back
+ * to `due`) wins; ties keep local. Invalid payloads are dropped.
+ */
+export function mergeReviews(local: ReviewMap, remote: ReviewMap): ReviewMap {
+  const localMap = asRecord<ReviewMap>(local) ?? {};
+  const remoteMap = asRecord<ReviewMap>(remote) ?? {};
+  const merged: ReviewMap = {};
+  const ids = new Set([...Object.keys(localMap), ...Object.keys(remoteMap)]);
+  for (const id of ids) {
+    const left = sanitizeReviewState(localMap[id]);
+    const right = sanitizeReviewState(remoteMap[id]);
+    if (!left) {
+      if (right) merged[id] = right;
+      continue;
+    }
+    if (!right) {
+      merged[id] = left;
+      continue;
+    }
+    merged[id] = reviewRecencyAt(right) > reviewRecencyAt(left) ? right : left;
   }
   return merged;
 }
