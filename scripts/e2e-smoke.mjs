@@ -176,7 +176,7 @@ const linkedStatus = new Map(linkedPages.map(({ slug, status }) => [slug, status
 for (const { path, status, body, url } of newPathPages) {
   const h1 = count(body, /<h1[\s>]/gi);
   const headline = h1 === 1 && has(body, path.marker);
-  const checkpoint = has(body, "Stage checkpoint") && has(body, "boss problems");
+  const checkpoint = has(body, "Stage checkpoint") && has(body, "to pass");
   const prereqLinked = path.prerequisites.every((slug) => has(body, `href="/paths/${slug}"`));
   const prereqResolved = path.prerequisites.every((slug) => linkedStatus.get(slug) === 200);
   record("new paths: status 200", status === 200, url, statusReason({ status }));
