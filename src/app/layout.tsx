@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { PwaManager } from "@/components/PwaManager";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -20,8 +22,10 @@ const jetbrainsMono = JetBrains_Mono({
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app";
 
+const problemCount = PROBLEM_META.length.toLocaleString("en-US");
+
 const siteDescription =
-  "Forge your ML skills from scratch. 5,050+ problems across 15 categories with real Python execution in your browser via Pyodide — no account needed, free and MIT-licensed.";
+  `Forge your ML skills from scratch. ${problemCount}+ problems across 15 categories with real Python execution in your browser via Pyodide — no account needed, free and MIT-licensed.`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -152,6 +156,7 @@ export default function RootLayout({
         />
         <ThemeProvider attribute="class" defaultTheme="dark">
           {children}
+          <PwaManager />
         </ThemeProvider>
       </body>
     </html>

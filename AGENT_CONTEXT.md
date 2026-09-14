@@ -20,14 +20,14 @@ DeepForge is a practice platform for machine learning, math, and engineering. Us
 
 | Area | DeepForge today |
 |---|---|
-| Problems | **5,050**, every solution Python-verified |
+| Problems | **5,550**, every solution Python-verified |
 | Categories | **15** |
 | In-browser execution | Yes (Pyodide) |
 | Design | svx dark + light; see [`docs/DESIGN-SYSTEM.md`](./docs/DESIGN-SYSTEM.md) |
 | Account required | No — local-first, sync is optional |
 | Open source | Yes (MIT) |
 | Mobile-friendly | Yes |
-| Learning paths | **28** with stages, goals, prerequisites, hours |
+| Learning paths | **33** with stages, goals, verified prerequisites, per-stage checkpoints, artifact links, hours |
 | Projects (multi-step labs) | **5 labs · 36 steps** |
 | Contests (timed) | **12 sets (10–60 min)** + Speedrun |
 | Leaderboard | Flame Score + streaks + username; global view when signed in |
@@ -36,7 +36,8 @@ DeepForge is a practice platform for machine learning, math, and engineering. Us
 | Collections / playlists | **24 premade** + user sets + shareable playlists |
 | Interview prep | **13 company tracks** + timed mocks |
 | Pen-and-paper math | **60 no-code problems** + SM-2 mastery review |
-| Blog | Engineering write-ups with SVG diagrams + RSS (`/blog`) |
+| Blog | **4** engineering write-ups with SVG diagrams + RSS (`/blog`) |
+| Interactive articles | **11** lessons with live demos + a figure per topic |
 
 Honest caveats: without an account everything stays on one device. Signing in with a magic link or Google syncs progress, streaks, leaderboard and community data through Supabase.
 
@@ -44,16 +45,16 @@ Honest caveats: without an account everything stays on one device. Signing in wi
 
 | Category | Problems | | Category | Problems |
 |---|---:|---|---|---:|
-| Algorithms | 395 | | Optimization | 275 |
-| ML Fundamentals | 360 | | NLP | 320 |
-| Data Structures | 355 | | Statistics | 320 |
-| Computer Vision | 395 | | Probability | 320 |
-| Linear Algebra | 275 | | Calculus | 275 |
+| Algorithms | 395 | | Optimization | 375 |
+| ML Fundamentals | 360 | | NLP | 420 |
+| Data Structures | 355 | | Statistics | 420 |
+| Computer Vision | 395 | | Probability | 420 |
+| Linear Algebra | 275 | | Calculus | 375 |
 | Deep Learning | 455 | | Graph Algorithms | 315 |
 | Reinforcement Learning | 360 | | Information Theory | 315 |
-| Time Series | 315 | | **Total** | **5,050** |
+| Time Series | 315 | | **Total** | **5,550** |
 
-Difficulty mix: 1,819 Easy · 2,248 Medium · 983 Hard.
+Difficulty mix: 1,994 Easy · 2,473 Medium · 1,083 Hard.
 
 ---
 
@@ -151,14 +152,14 @@ deepforge/
 │   ├── data/
 │   │   ├── problems/
 │   │   │   ├── meta.ts         # CATEGORIES (15)
-│   │   │   ├── paths.ts        # LEARNING_PATHS (24)
+│   │   │   ├── paths.ts        # LEARNING_PATHS (33)
 │   │   │   ├── index.ts        # Aggregates PROBLEMS + re-exports, getProblemById, getProblemsByCategory
 │   │   │   └── <category>/     # linear-algebra/, algorithms/, ... each with part-NN.ts + index.ts
-│   │   ├── contests.ts         # CONTESTS (8)
+│   │   ├── contests.ts         # CONTESTS (12)
 │   │   ├── projects.ts         # PROJECTS (5) + PROJECT_STEPS (36)
-│   │   ├── interview.ts        # INTERVIEW_TRACKS (4)
+│   │   ├── interview.ts        # INTERVIEW_TRACKS (13)
 │   │   ├── penpaper.ts         # PENPAPER_PROBLEMS (60)
-│   │   └── collections.ts      # PREMADE_COLLECTIONS (6)
+│   │   └── collections.ts      # PREMADE_COLLECTIONS (24)
 │   ├── lib/
 │   │   ├── pyodide.ts          # Pyodide loader + code execution
 │   │   ├── progress.ts         # localStorage progress + saved code
@@ -259,7 +260,7 @@ bun run build                                 # production build
 ## Roadmap
 
 ### Phase 1: Problems — ✅ Complete
-5,050 verified problems across 15 categories. Every solution passes real-Python verification.
+5,550 verified problems across 15 categories. Every solution passes real-Python verification.
 
 ### Phase 2: Features — ✅ Complete
 - **Contests** — 12 timed sets (10–60 min), countdown, difficulty-weighted scores, local results
@@ -271,22 +272,22 @@ bun run build                                 # production build
 - **Interview Prep** — 13 company tracks + timed mocks
 - **Pen-and-paper math** — 60 no-code problems, multiple choice + numeric, SM-2 mastery review
 - **Sync/social backend** — Supabase (projects klogjcspyiygnggmugjy): local-first sync, magic link + Google, RLS
-- **Blog** — `/blog` engineering write-ups with SVG diagrams and RSS
+- **Blog** — 4 engineering write-ups at `/blog` with SVG diagrams and RSS
 
 ### Phase 3: Polish — ✅ Partially complete
 - ✅ SEO: metadata + OpenGraph, PWA manifest, robots.txt, sitemap.xml
 - ✅ Dark/light mode across all views
 - ✅ Bundle split: light problem index; home 283 KB gzip (from 1,553 KB)
 - ✅ Mobile audits at 375px across new views
-- 🔲 Formal accessibility pass: screen reader sweep, keyboard traps, contrast in every dialog
-- 🔲 PWA offline verification for every route (worker exists and is localhost-safe)
+- ✅ Keyboard/focus pass across dialogs, menus, command palette, and social threads; 🔲 full screen-reader + contrast sweep
+- ✅ Offline shell with route fallback (network-first navigations fall back to the cached `/`); 🔲 per-route offline verification
 
 ### Next steps (sensible order)
-1. **Path upgrades** — implement [`docs/research/path-curation.md`](./docs/research/path-curation.md): per-stage checkpoints, mixed-kind steps (problems + labs + math + projects), capstone per path, 5 new paths.
-2. **Content growth** — +500 problems, rebalancing the thinnest categories (Linear Algebra, Calculus, Optimization at 275) and the level mix.
+1. **Path curation, continued** — 33 paths shipped with stage checkpoints, artifact links, and resolved prerequisites; still open from [`docs/research/path-curation.md`](./docs/research/path-curation.md): mixed-kind steps (problems + labs + math + projects) and a capstone per path.
+2. **Content growth** — 5,550 problems shipped; keep rebalancing the thinnest categories (Linear Algebra at 275; Information Theory, Time Series, Graph Algorithms at 315) and the level mix.
 3. **Production hardening** — Vercel deploy, custom SMTP for magic links, rate limits, two-account RLS spot check.
-4. **Social scale** — realtime subscriptions and pagination for forum/comments; global leaderboard polish.
-5. **E2E in CI** — wire `scripts/e2e-smoke.mjs` into the pipeline; keep 252+ tests green.
+4. **Social scale** — realtime subscriptions and pagination shipped for forum/comments; remaining: global-leaderboard polish.
+5. **E2E in CI** — wire `scripts/e2e-smoke.mjs` into the pipeline; keep 378 unit tests and the 94-check smoke green.
 
 ---
 
@@ -338,20 +339,24 @@ If you are an AI agent working on DeepForge:
 
 ## Current Status (as of last update)
 
-- **Problems:** 5,050 (1,819 Easy · 2,248 Medium · 983 Hard) — ✅ target exceeded
+- **Problems:** 5,550 (1,994 Easy · 2,473 Medium · 1,083 Hard) — ✅ target exceeded
 - **Categories:** 15 — ✅
-- **Learning paths:** 24 — ✅
+- **Learning paths:** 33 — ✅ (stage checkpoints + artifact links)
+- **Interactive articles:** ✅ 11 with live demos + a figure per topic
+- **Blog:** ✅ 4 engineering posts + RSS
 - **Light mode:** ✅ Working
 - **Dark mode:** ✅ Working
 - **Pyodide execution:** ✅ Working
-- **Contests:** ✅ 8 timed contests
-- **Leaderboard:** ✅ Local, Flame Score + streaks + username
+- **Contests:** ✅ 12 timed contests
+- **Leaderboard:** ✅ Flame Score + streaks + username; global when signed in
 - **Projects:** ✅ 5 labs · 36 steps
-- **Discuss:** ✅ Per-problem threads (local)
-- **Study assistant:** ✅ 3-tier hints
-- **Collections:** ✅ 6 premade + user sets + shareable URLs
-- **Interview prep:** ✅ 4 timed tracks
+- **Discuss:** ✅ Paginated threads + live updates; server-backed when signed in
+- **Study assistant:** ✅ Zero: catalogue-grounded, code-aware
+- **Collections:** ✅ 24 premade + user sets + shareable URLs
+- **Interview prep:** ✅ 13 timed tracks
 - **Pen-and-paper:** ✅ 60 no-code problems
+- **Avatars:** ✅ 12 character presets, two art styles (Illustrated + Pixel)
+- **Tests:** ✅ 378 unit tests + 94 e2e smoke checks
 - **SEO:** ✅ Metadata, manifest, robots, sitemap
 
 **Next priority:** push the Supabase migration to project `klogjcspyiygnggmugjy` (see docs/SETUP-SUPABASE.md), configure Auth redirect URLs, then bundle code-splitting and continued LLM-systems content growth. Sync code is shipped and env-gated: the app stays 100% local until `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set and a user signs in.

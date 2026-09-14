@@ -1,4 +1,5 @@
 import { POSTS } from "@/data/blog";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 
 const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app"
@@ -6,7 +7,7 @@ const siteUrl = (
 
 const feedTitle = "DeepForge Engineering";
 const feedDescription =
-  "Notes from building DeepForge: verification, offline-first sync, performance, and the design system behind 5,050 problems.";
+  `Notes from building DeepForge: verification, offline-first sync, performance, and the design system behind ${PROBLEM_META.length.toLocaleString("en-US")} problems.`;
 
 export const dynamic = "force-static";
 

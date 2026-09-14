@@ -1,13 +1,16 @@
 /**
  * Measure first-load JS per prerendered route from the latest `.next` build.
  *
- *   bun run scripts/measure-bundle.ts
+ *   bun run scripts/measure-bundle.ts            # informational report
+ *   bun run scripts/measure-bundle.ts --check    # enforce gzip budgets (nonzero on breach)
+ *   CI=1 bun run scripts/measure-bundle.ts       # same gate when CI is set
  *
  * Parses every `.next/server/app/**\/*.html`, collects the chunk files the
  * browser must load for that route, and reports:
  *   - distinct route signatures (routes that load the same chunks collapsed)
  *   - per-route totals for the key destinations
  *   - the largest static chunks
+ *   - budget PASS/FAIL table in --check / CI mode
  * Sizes are raw bytes plus gzip, mirroring Next's `First Load JS` columns.
  */
 
@@ -19,6 +22,24 @@ const ROOT = process.cwd();
 const NEXT = join(ROOT, ".next");
 const APP = join(NEXT, "server", "app");
 const CHUNKS = join(NEXT, "static", "chunks");
+
+const CHECK_MODE = process.argv.includes("--check") || Boolean(process.env.CI);
+
+/**
+ * Gzip first-load budgets (KB) enforced by `--check` / `CI`.
+ *
+ * Derived from the current `.next` build's measured gzip first-load JS
+ * (`/` 343.9, `/problems` 307.8, `/about` 305.7, `/stats` 361.9) plus 15%
+ * headroom. When no build output is available, README's table
+ * (283/251/183/301) is the fallback basis; that table predates the current
+ * build and is only used when the numbers above cannot be measured.
+ */
+const BUDGETS_KB: Record<string, number> = {
+  "/": 396,
+  "/problems": 354,
+  "/about": 352,
+  "/stats": 417,
+};
 
 const KEY_ROUTES = [
   "/",
@@ -160,3 +181,35 @@ for (const chunk of chunkTotals.slice(0, 20)) {
 }
 console.log();
 console.log(`chunk total: ${formatKb(chunkTotals.reduce((sum, c) => sum + c.raw, 0))} raw / ${formatKb(chunkTotals.reduce((sum, c) => sum + c.gzip, 0))} gzip across ${chunkTotals.length} files`);
+
+if (CHECK_MODE) {
+  console.log();
+  console.log(`## budget check${process.argv.includes("--check") ? " (--check)" : " (CI env)"}`);
+  const failed: string[] = [];
+  for (const [route, budgetKb] of Object.entries(BUDGETS_KB)) {
+    const chunks = routeChunks.get(route);
+    if (!chunks) {
+      failed.push(route);
+      console.log(`${route.padEnd(12)} ${"n/a".padStart(10)} gzip vs ${`${budgetKb} kB`.padStart(8)} budget  FAIL (not prerendered)`);
+      continue;
+    }
+    let gzip = 0;
+    for (const chunk of chunks) gzip += sizesFor(join(CHUNKS, chunk)).gzip;
+    const measuredKb = gzip / 1024;
+    const over = measuredKb > budgetKb;
+    if (over) failed.push(route);
+    console.log(
+      `${route.padEnd(12)} ${formatKb(gzip).padStart(10)} gzip vs ${`${budgetKb} kB`.padStart(8)} budget  ${over ? "FAIL" : "PASS"}`,
+    );
+  }
+  console.log();
+  if (failed.length > 0) {
+    console.log(`BUDGETS FAIL: ${failed.length}/${Object.keys(BUDGETS_KB).length} route(s) over budget (${failed.join(", ")})`);
+    process.exitCode = 1;
+  } else {
+    console.log(`BUDGETS PASS: ${Object.keys(BUDGETS_KB).length}/${Object.keys(BUDGETS_KB).length} routes within gzip first-load budget`);
+  }
+} else {
+  console.log();
+  console.log("informational mode (pass --check or set CI to enforce gzip budgets)");
+}

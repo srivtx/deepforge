@@ -3,11 +3,14 @@ import {
   AttentionHeatmap,
   AttentionPipeline,
   BpeMergeCascade,
+  CalibrationReliability,
   DescentContours,
   EigenvectorGrid,
   EmbeddingGeometry,
   KMeansLoop,
   KvMemoryTiling,
+  LoraAdapterDiagram,
+  PcaEllipseScree,
   PostTrainingPipeline,
   QuantizationNumberLine,
   RagPipeline,
@@ -25,7 +28,10 @@ export type DemoKind =
   | "quantization-scale"
   | "kv-cache"
   | "rag-retrieval"
-  | "post-training";
+  | "post-training"
+  | "pca-projection"
+  | "calibration-uncertainty"
+  | "lora-rank";
 
 export type FigureKind =
   | "softmax-temperature-curve"
@@ -39,7 +45,10 @@ export type FigureKind =
   | "quantization-number-line"
   | "kv-memory-tiling"
   | "rag-pipeline"
-  | "post-training-pipeline";
+  | "post-training-pipeline"
+  | "pca-ellipse-scree"
+  | "calibration-reliability"
+  | "lora-adapter";
 
 export interface ProseSection {
   kind: "prose";
@@ -73,6 +82,9 @@ export const FIGURES: Record<FigureKind, ComponentType> = {
   "kv-memory-tiling": KvMemoryTiling,
   "rag-pipeline": RagPipeline,
   "post-training-pipeline": PostTrainingPipeline,
+  "pca-ellipse-scree": PcaEllipseScree,
+  "calibration-reliability": CalibrationReliability,
+  "lora-adapter": LoraAdapterDiagram,
 };
 
 export interface Article {
@@ -652,6 +664,141 @@ export const ARTICLES: Article[] = [
       {
         kind: "prose",
         text: "The problems below implement the Bradley–Terry likelihood, the reward-model loss, the DPO loss, its implicit reward gap, and the PPO clipped objective. Together they are the arithmetic behind every rung of the stack.",
+      },
+    ],
+  },
+  {
+    id: "art-pca-svd",
+    slug: "pca-and-svd-in-practice",
+    title: "PCA & SVD in Practice",
+    dek: "The eigenvector article ends at Av = λv. This one starts there: project the cloud, keep the top axes, rebuild — and account for every bit of what you threw away.",
+    readMinutes: 8,
+    category: "Linear Algebra",
+    problemIds: ["ml-041", "la-139", "la-249", "la-250", "la-251", "la-089"],
+    sections: [
+      {
+        kind: "prose",
+        text: "Eigenvectors answered a theoretical question: which directions survive a matrix untouched? Practice asks a different one. Given a cloud of data, which directions carry the signal?\n\nCenter the points on their mean, form the covariance matrix `C = (1/n)·XᵀX`, and take its eigenvectors. Those are the principal components, and their eigenvalues are the variance along each one.\n\nThe first principal component is the single direction that maximizes projected variance. The second is the best direction orthogonal to the first, and so on. Nothing requires the data to be two-dimensional. The covariance matrix grows with the number of features, but the ordering story stays exactly the same.",
+      },
+      {
+        kind: "prose",
+        text: "Principal components are also the right singular vectors of the centered data matrix. The SVD is `X = UΣVᵀ`: the columns of V are the principal directions, the singular values are the square roots of the eigenvalues, and U holds each point's coordinates in that basis. The SVD works on rectangular matrices, which is why it is the version that ships.\n\nThe decomposition has a second payoff. For any rank r, `X_r = U_rΣ_rV_rᵀ` is the best possible rank-r approximation of X, and the squared Frobenius error is exactly the tail of the squared singular values, `Σ_{i>r} σ_i²`. That is the Eckart–Young theorem. Truncating an SVD is not a heuristic; it is optimal.",
+      },
+      {
+        kind: "prose",
+        text: "Preprocessing changes the answer, so it is part of the method. Centering shifts the axes to explain variance around the mean instead of around the origin. Standardizing each column to unit variance first turns the covariance matrix into the correlation matrix, so a feature measured in centimeters cannot dominate one measured in kilometers.\n\nThat is usually what you want when the units differ, and rarely what you want when they do not. PCA on standardized data is a different decomposition than PCA on centered data — the axes swing, the eigenvalues change, and the demo lets you watch it happen.",
+      },
+      {
+        kind: "demo",
+        demo: "pca-projection",
+      },
+      {
+        kind: "prose",
+        text: "Start in the project tab and drag the tip of u. The dashed blue lines are the true principal axes for the current preprocessing choice, and the residual readout is the variance your direction leaves on the table.\n\nDrag u onto the first principal axis and the residual hits its floor, which is the second eigenvalue. Any other direction explains less, and that is what makes PCA a maximization problem rather than a change of basis you pick by eye.\n\nSwitch to reconstruct and keep `r = 1` components. Every point collapses onto the first principal axis, and the warm segments show exactly what each point lost. With `r = 2` the rebuild is exact, because the space itself is two-dimensional. Toggle centering and standardization and watch the axes — and the reconstruction — change underneath the same cloud.",
+      },
+      {
+        kind: "figure",
+        figure: "pca-ellipse-scree",
+        caption:
+          "The covariance matrix is a shape: the ellipse is one standard deviation out, its axes are the eigenvectors, and the scree plot says how much variance each direction holds. Dropping the tail is the Eckart–Young optimum, not a guess.",
+      },
+      {
+        kind: "prose",
+        text: "At scale nobody forms the full covariance matrix. Randomized SVD computes the top k components by multiplying X by a small random sketch, orthonormalizing the result, and running a tiny decomposition on the reduced matrix. A few passes recover the dominant subspace to high accuracy, and the cost is linear in the data times k instead of cubic in the dimension.\n\nWhat people do with the components falls into four buckets. Denoise: drop the tail, where the noise lives. Compress: store only the top r coordinates. Whiten: rescale the components to unit variance so downstream models see uncorrelated features. Diagnose: read the scree plot to see whether the data is closer to rank 3 or rank 300.",
+      },
+      {
+        kind: "prose",
+        text: "Low-rank thinking is everywhere in 2026. Matryoshka embeddings are trained so that truncating a 1024-dimensional vector to its first 256 coordinates keeps most of the retrieval quality — the PCA truncation argument, baked into the loss. LoRA fine-tunes a model by learning a low-rank update `ΔW = BA` instead of the full matrix.\n\nNeither trick runs an explicit SVD at inference time, but both are legible only if you know what truncation costs. The pseudoinverse is the same story from the other side: `X⁺ = VΣ⁺Uᵀ`, with tiny singular values replaced rather than inverted, which is ridge regression in disguise.\n\nThe problems below center the data, build a rank-1 approximation, reconstruct at rank r, run power iteration for singular vectors, and compute the pseudoinverse and 2×2 singular values by hand.",
+      },
+    ],
+  },
+  {
+    id: "art-calibration",
+    slug: "calibration-and-uncertainty",
+    title: "Calibration & Uncertainty",
+    dek: "A model that says 90% should be right 90% of the time. Modern nets are not — and one scalar fitted on a validation set fixes most of the gap.",
+    readMinutes: 7,
+    category: "ML Fundamentals",
+    problemIds: ["ml-065", "ml-072", "ml-101", "ml-337", "dl-086", "ml-291"],
+    sections: [
+      {
+        kind: "prose",
+        text: "A classifier that outputs 0.9 is making a promise: in the long run, nine of every ten cases it labels at that confidence should be correct. Calibration is the property that the promise holds.\n\nA model can be accurate and badly calibrated at the same time, and modern deep nets usually are. They are systematically overconfident, reporting 0.96 on cases they get right 86% of the time. The score is a ranking signal that was never trained to be a probability.\n\nThe reliability diagram is the standard picture. Bin the predictions by confidence, plot the average accuracy in each bin against the average confidence, and compare against the diagonal. Points below the diagonal are overconfidence; points above it are underconfidence.",
+      },
+      {
+        kind: "prose",
+        text: "The headline number is expected calibration error: `ECE = Σ (n_b/n)·|accuracy_b − confidence_b|`. Each bin's gap is weighted by how many samples landed there, so the sparsely populated extremes cannot dominate the score.\n\nBin construction matters more than people expect. Equal-width bins split the interval into fixed ranges, which can leave the extremes empty or crowded. Equal-frequency bins sort the predictions and cut them into chunks of equal count, so every bin has enough samples to say something.\n\nThe same model can report a different calibration gap under each scheme. That is a property of the metric, not a contradiction: the number is only as meaningful as the binning behind it.",
+      },
+      {
+        kind: "prose",
+        text: "Temperature scaling is the cheapest fix that works. Take the logits, divide them by a single scalar `T`, and fit T on a held-out set by minimizing negative log-likelihood. It is the same temperature as the softmax article, used for a different purpose: there it shaped sampling, here it repairs probabilities.\n\nBecause T is positive, it cannot change the ranking. Accuracy and every threshold-free metric stay exactly where they were. Only the confidences move — which is precisely what a refusal threshold or an agent's self-report reads.",
+      },
+      {
+        kind: "demo",
+        demo: "calibration-uncertainty",
+      },
+      {
+        kind: "prose",
+        text: "The fixture is 320 predictions from a deliberately overconfident model, with the logit scaled by 2.4. At `T = 1` the points sit well below the diagonal and ECE is high. Raise T and the confidences soften toward accuracy while the accuracy line stays pinned.\n\nPress Fit T to jump to the NLL-optimal temperature, then switch the bin mode and watch equal-width and equal-frequency gaps disagree about the exact number. Both report a large drop. The shape of the story never changes: overconfidence shrinks, ordering does not.",
+      },
+      {
+        kind: "figure",
+        figure: "calibration-reliability",
+        caption:
+          "Below the diagonal is overconfidence, above it is underconfidence. Temperature scaling holds accuracy and ranking fixed and moves the points vertically onto the diagonal — which is what turns a threshold into a decision.",
+      },
+      {
+        kind: "prose",
+        text: "In 2026 calibration stopped being a statistics footnote. A RAG system refuses when the best evidence scores below a threshold, so that score has to mean something or the system either answers without evidence or refuses everything. Agent confidence is monitored as a live signal. And any LLM judge used to grade outputs is calibrated against human labels before it is trusted to automate a pipeline — published guidance puts the target around 80–85% agreement.\n\nSelective prediction is the deployment face of calibration. Pick a confidence threshold, abstain below it, answer above it, and the coverage-accuracy curve tells you whether abstention actually buys reliability or just hides the hard cases.",
+      },
+      {
+        kind: "prose",
+        text: "Two caveats keep the method honest. Calibration is not sharpness: a model that says 0.5 for everything can be perfectly calibrated and useless, so read ECE next to a proper scoring rule like NLL or the Brier score. And calibration does not travel. A temperature fitted on last quarter's data fails silently when the distribution shifts, so refit it whenever the inputs move.\n\nThe problems below compute temperature scaling, build calibration bins, and measure expected calibration error three ways, including equal-frequency bins and the uplift variant.",
+      },
+    ],
+  },
+  {
+    id: "art-lora",
+    slug: "lora-low-rank-fine-tuning",
+    title: "LoRA / PEFT: Low-Rank Fine-Tuning",
+    dek: "Freeze the model, train a rank-16 shadow. In 2026 that shadow is most fine-tuning — and at serving time it disappears into the weights.",
+    readMinutes: 9,
+    category: "Deep Learning",
+    problemIds: ["dl-151", "dl-152", "dl-153", "dl-154", "dl-219", "dl-220"],
+    sections: [
+      {
+        kind: "prose",
+        text: "Full fine-tuning updates every weight in the model. That means optimizer state for every weight, a checkpoint as large as the base model for every task, and a separate deployment for every adaptation.\n\nThe arithmetic is brutal. Sixteen-bit weights plus gradients plus two fp32 Adam moments is about 12 bytes per parameter, so a 7B model needs on the order of 84 GB before activations enter the picture.\n\nLoRA starts from a suspicion that most of the useful update is low-rank. Fine-tuning a pretrained model for one task does not need to move independent parameters in every direction. It needs to move a few directions a lot.",
+      },
+      {
+        kind: "prose",
+        text: "The method is exactly that. Freeze `W` and learn `ΔW = B·A`, where A is `r × d_in` and B is `d_out × r` with r tiny. The layer computes `h = Wx + (α/r)·BAx`.\n\nB is initialized to zero, so the model begins as the pretrained model, and A takes small random values so the first gradient is informative. Parameter count falls from `d_in·d_out` to `r(d_in + d_out)`.\n\nAt d = 4096 and r = 16 that is 131k against 16.8M, about 0.8% — and there is no optimizer state for the frozen base. Training a 7B model on a single 24 GB card becomes routine rather than heroic.",
+      },
+      {
+        kind: "prose",
+        text: "QLoRA pushes the base further down. Store the frozen weights in 4-bit NF4, dequantize on the fly, and keep the adapters in bf16. Paged optimizers absorb memory spikes, and the base costs half a byte per parameter.\n\nThe 4-bit rounding is fixed, because the frozen base never changes; the adapters learn around it. LoftQ initialization starts the factor pair from a quantization-aware decomposition instead of zeros and recovers a little of the gap.\n\nThe rank itself matters less than the target modules. Early LoRA attached to the query and value projections only. Current guidance is every linear layer — attention projections and the MLP — because that is where the update energy lives.",
+      },
+      {
+        kind: "demo",
+        demo: "lora-rank",
+      },
+      {
+        kind: "prose",
+        text: "The canvas shows the target update `ΔW`, its best rank-r approximation `B·A`, and the merged result. Raise the rank and the error collapses: most of the energy sits in the first component, and `B·A` is the Eckart–Young optimum of the update, so no other rank-r pair can do better at that rank.\n\nThe calculator applies the same arithmetic to real shapes. At d = 4096 and r = 16 the adapter is a rounding error next to the dense matrix, and the QLoRA toggle shows where a 7B base actually fits. Flip Merge adapter and watch `W + BA` fold into one matrix: after merging there is nothing extra to run, no additional kernel, no added latency.",
+      },
+      {
+        kind: "figure",
+        figure: "lora-adapter",
+        caption:
+          "W stays frozen and the elbow B·A learns the task: r(d_in + d_out) parameters instead of d_in·d_out, and a merge that makes the adapter invisible at serving time.",
+      },
+      {
+        kind: "prose",
+        text: "Serving is where LoRA pays off twice. A merged adapter adds zero inference overhead. An unmerged one can be swapped per request, so a single base model serves many tasks from a library of small adapters.\n\nThat is the same memory economics as prefix caching. In agent and multi-tenant workloads, prompt prefixes repeat constantly and cache hit rates of 60–85% mean most of the prompt is never recomputed. Adapters change which weights answer; prefix caches avoid re-reading the context that gets them there.\n\nA rank of 8–16 with `α/r ≈ 2` and all-linear targets is the 2026 default. Bigger ranks help less than a better target set, and they cost checkpoint size and overfitting risk.",
+      },
+      {
+        kind: "prose",
+        text: "The failure modes are ordinary training failures with a low-rank accent. Too much rank on too little data overfits. Too few target modules plateaus at a mediocre loss. Merging into a quantized base without dequantizing first corrupts the weights. Adapters fitted on drifting data go stale like any model.\n\nOne honest rule: LoRA is not a free replacement for full fine-tuning when the task needs a genuinely new capability. It steers what is already there. Prompt tuning is the even lighter cousin — a handful of learned vectors and no weight changes at all — and it is the right tool when the shift is style or format rather than knowledge.\n\nThe problems below count LoRA and adapter parameters, size a QLoRA run, merge the update back into W, and compute a prefix cache hit ratio.",
       },
     ],
   },

@@ -57,7 +57,7 @@ function isErrorPage(body) {
 console.log(`\nDeepForge e2e smoke -> ${BASE_URL}\n`);
 
 // --- 1. Top-level routes: 200 + brand + exactly one <h1> -------------------
-console.log("[1/8] Top-level routes (200 + brand + single <h1>)");
+console.log("[1/11] Top-level routes (200 + brand + single <h1>)");
 const routeResults = await Promise.all(
   ROUTES.map(async (route) => ({ route, ...(await get(route)) })),
 );
@@ -72,7 +72,7 @@ for (const { route, url, status, body, error } of routeResults) {
 }
 
 // --- 2. Home page markers ---------------------------------------------------
-console.log("\n[2/8] Home page markers");
+console.log("\n[2/11] Home page markers");
 const home = await get("/");
 const homeChecks = [
   ["df-aurora marker", has(home.body, "df-aurora")],
@@ -86,7 +86,7 @@ for (const [label, ok] of homeChecks) {
 }
 
 // --- 3. /problems practice browser -----------------------------------------
-console.log("\n[3/8] /problems practice browser");
+console.log("\n[3/11] /problems practice browser");
 const problems = await get("/problems");
 const wrapperOk = /id="problems"/.test(problems.body);
 record("problems: wrapper id", wrapperOk, problems.url, 'PracticeBrowser section id="problems" missing');
@@ -104,7 +104,7 @@ record("problems: filtered", problemsFiltered.status === 200, problemsFiltered.u
 line(problemsFiltered.status === 200, `GET /problems?category=linear-algebra  status=${problemsFiltered.status}`);
 
 // --- 4. /paths catalog + detail ---------------------------------------------
-console.log("\n[4/8] /paths catalog");
+console.log("\n[4/11] /paths catalog");
 const paths = await get("/paths");
 const pathLinks = count(paths.body, /href="\/paths\//g);
 record("paths: link count", pathLinks >= 28, paths.url, `expected >= 28 path links, found ${pathLinks}`);
@@ -124,8 +124,107 @@ if (slug) {
     `GET /paths/${slug}  status=${detail.status} back-link=${back ? "yes" : "NO"} problem-links=${problemLinks}`);
 }
 
-// --- 5. Problem workspace via sitemap ---------------------------------------
-console.log("\n[5/8] Problem workspace (first /problems/<id> in sitemap)");
+// --- 5. New advanced paths: checkpoint cards + prerequisite links -----------
+console.log("\n[5/11] New advanced paths (checkpoints + prerequisites)");
+const NEW_PATHS = [
+  {
+    slug: "computer-vision-deep-learning",
+    marker: "Computer Vision Deep Learning",
+    prerequisites: ["computer-vision-starter", "deep-learning-essentials"],
+  },
+  {
+    slug: "production-ml-serving-quantization-monitoring",
+    marker: "Production ML: Serving, Quantization and Monitoring",
+    prerequisites: ["ml-engineer-track", "deep-learning-essentials"],
+  },
+  {
+    slug: "data-pipelines-and-feature-engineering",
+    marker: "Data Pipelines &amp; Feature Engineering",
+    prerequisites: ["ml-from-scratch", "statistics-mastery"],
+  },
+  {
+    slug: "build-a-transformer-from-scratch",
+    marker: "Build a Transformer from Scratch",
+    prerequisites: ["deep-learning-essentials"],
+  },
+  {
+    slug: "causal-inference-and-uplift",
+    marker: "Causal Inference &amp; Uplift",
+    prerequisites: ["statistics-mastery"],
+  },
+];
+
+const indexedPaths = NEW_PATHS.filter((path) => has(paths.body, `href="/paths/${path.slug}"`));
+record("new paths: all slugs on index", indexedPaths.length === NEW_PATHS.length, paths.url,
+  `expected ${NEW_PATHS.length} new path links on /paths, found ${indexedPaths.length}`);
+line(indexedPaths.length === NEW_PATHS.length,
+  `GET /paths  new-path-links=${indexedPaths.length}/${NEW_PATHS.length}`);
+
+const newPathPages = await Promise.all(
+  NEW_PATHS.map(async (path) => ({ path, ...(await get(`/paths/${path.slug}`)) })),
+);
+
+const linkedSlugs = new Set();
+for (const { body } of newPathPages) {
+  for (const match of body.matchAll(/href="\/paths\/([a-z0-9-]+)"/g)) linkedSlugs.add(match[1]);
+}
+const linkedPages = await Promise.all(
+  [...linkedSlugs].map(async (slug) => ({ slug, ...(await get(`/paths/${slug}`)) })),
+);
+const linkedStatus = new Map(linkedPages.map(({ slug, status }) => [slug, status]));
+
+for (const { path, status, body, url } of newPathPages) {
+  const h1 = count(body, /<h1[\s>]/gi);
+  const headline = h1 === 1 && has(body, path.marker);
+  const checkpoint = has(body, "Stage checkpoint") && has(body, "boss problems");
+  const prereqLinked = path.prerequisites.every((slug) => has(body, `href="/paths/${slug}"`));
+  const prereqResolved = path.prerequisites.every((slug) => linkedStatus.get(slug) === 200);
+  record("new paths: status 200", status === 200, url, statusReason({ status }));
+  record(`new paths: headline (${path.slug})`, headline, url,
+    `expected single <h1> containing "${path.marker}", found h1=${h1}`);
+  record(`new paths: checkpoint card (${path.slug})`, checkpoint, url,
+    '"Stage checkpoint" card marker missing on path detail');
+  record(`new paths: prerequisite links (${path.slug})`, prereqLinked, url,
+    `missing href /paths/ for: ${path.prerequisites.filter((s) => !has(body, `href="/paths/${s}"`)).join(", ") || "none"}`);
+  record(`new paths: prerequisites resolve (${path.slug})`, prereqResolved, url,
+    `non-200 prerequisite pages: ${path.prerequisites.filter((s) => linkedStatus.get(s) !== 200).map((s) => `${s}=${linkedStatus.get(s) ?? "unfetched"}`).join(", ") || "none"}`);
+  line(status === 200 && headline && checkpoint && prereqLinked && prereqResolved,
+    `GET /paths/${path.slug}  status=${status} h1=${h1} checkpoint=${checkpoint ? "yes" : "NO"} prereq-links=${prereqLinked ? "yes" : "NO"} prereq-200=${prereqResolved ? "yes" : "NO"}`);
+}
+
+// --- 6. New articles ---------------------------------------------------------
+console.log("\n[6/11] New articles");
+const NEW_ARTICLES = [
+  { slug: "kv-cache-and-flashattention", marker: "FlashAttention" },
+  { slug: "rag-from-chunks-to-citations", marker: "From Chunks to Citations" },
+  { slug: "post-training-rlhf-dpo-grpo", marker: "RLHF" },
+];
+const articlesIndex = await get("/articles");
+const indexedArticles = NEW_ARTICLES.filter((article) =>
+  has(articlesIndex.body, `href="/articles/${article.slug}"`),
+);
+record("articles: all new slugs on index", indexedArticles.length === NEW_ARTICLES.length, articlesIndex.url,
+  `expected ${NEW_ARTICLES.length} new article links on /articles, found ${indexedArticles.length}`);
+line(indexedArticles.length === NEW_ARTICLES.length,
+  `GET /articles  new-article-links=${indexedArticles.length}/${NEW_ARTICLES.length}`);
+
+const articlePages = await Promise.all(
+  NEW_ARTICLES.map(async (article) => ({ article, ...(await get(`/articles/${article.slug}`)) })),
+);
+for (const { article, status, body, url } of articlePages) {
+  const h1 = count(body, /<h1[\s>]/gi);
+  const headline = h1 === 1 && has(body, article.marker);
+  const branded = /<title[^>]*>[^<]*—\s*Article/i.test(body);
+  record(`article: status 200 (${article.slug})`, status === 200, url, statusReason({ status }));
+  record(`article: single <h1> + headline (${article.slug})`, headline, url,
+    `expected single <h1> containing "${article.marker}", found h1=${h1}`);
+  record(`article: article title (${article.slug})`, branded, url, 'title should contain "— Article"');
+  line(status === 200 && headline && branded,
+    `GET /articles/${article.slug}  status=${status} h1=${h1} headline=${headline ? "yes" : "NO"} article-title=${branded ? "yes" : "NO"}`);
+}
+
+// --- 7. Problem workspace via sitemap ---------------------------------------
+console.log("\n[7/11] Problem workspace (first /problems/<id> in sitemap)");
 const sitemap = await get("/sitemap.xml");
 const problemMatch = sitemap.body.match(/\/problems\/([a-z0-9-]+)/i);
 if (!problemMatch) {
@@ -145,8 +244,8 @@ if (!problemMatch) {
     `GET ${problemUrl}  status=${problem.status} starter=${starter ? "yes" : "NO"} back-link=${back ? "yes" : "NO"} h1=${h1}`);
 }
 
-// --- 6. Sitemap + robots ----------------------------------------------------
-console.log("\n[6/8] Sitemap and robots");
+// --- 8. Sitemap + robots ----------------------------------------------------
+console.log("\n[8/11] Sitemap and robots");
 const pathEntries = count(sitemap.body, /\/paths\//g);
 const noUndefined = !has(sitemap.body, "undefined");
 record("sitemap: /paths/ entries", pathEntries >= 28, sitemap.url, `expected >= 28 /paths/ entries, found ${pathEntries}`);
@@ -155,9 +254,19 @@ line(pathEntries >= 28 && noUndefined, `GET /sitemap.xml  path-entries=${pathEnt
 const robots = await get("/robots.txt");
 record("robots: status 200", robots.status === 200, robots.url, statusReason(robots));
 line(robots.status === 200, `GET /robots.txt  status=${robots.status}`);
+const sitemapArticles = NEW_ARTICLES.filter((article) => has(sitemap.body, `/articles/${article.slug}`));
+record("sitemap: new article entries", sitemapArticles.length === NEW_ARTICLES.length, sitemap.url,
+  `expected ${NEW_ARTICLES.length} new article URLs, found ${sitemapArticles.length}`);
+line(sitemapArticles.length === NEW_ARTICLES.length,
+  `GET /sitemap.xml  new-article-entries=${sitemapArticles.length}/${NEW_ARTICLES.length}`);
+const sitemapPaths = NEW_PATHS.filter((path) => has(sitemap.body, `/paths/${path.slug}`));
+record("sitemap: new path entries", sitemapPaths.length === NEW_PATHS.length, sitemap.url,
+  `expected ${NEW_PATHS.length} new path URLs, found ${sitemapPaths.length}`);
+line(sitemapPaths.length === NEW_PATHS.length,
+  `GET /sitemap.xml  new-path-entries=${sitemapPaths.length}/${NEW_PATHS.length}`);
 
-// --- 7. Legacy deep links (client-side redirects) ---------------------------
-console.log("\n[7/8] Legacy deep links");
+// --- 9. Legacy deep links (client-side redirects) ---------------------------
+console.log("\n[9/11] Legacy deep links");
 if (problemMatch) {
   const legacy = await get(`/?p=${problemMatch[1]}`);
   const legacyError = isErrorPage(legacy.body);
@@ -176,8 +285,33 @@ record("legacy: /?category=", catOk, legacyCategory.url,
   `expected 200 without an error page, got ${legacyCategory.status}${catError ? " (error page)" : ""}`);
 line(catOk, `GET /?category=linear-algebra  status=${legacyCategory.status} error-page=${catError ? "YES" : "no"}`);
 
-// --- 8. Summary -------------------------------------------------------------
-console.log("\n[8/8] Summary");
+// --- 10. /discuss threads ---------------------------------------------------
+console.log("\n[10/11] /discuss threads");
+const discuss = await get("/discuss");
+const discussForum = has(discuss.body, 'aria-label="Discuss forum"');
+const discussThreads = has(discuss.body, '>Threads</h2>') && /aria-label="\d+ threads"/.test(discuss.body);
+record("discuss: status 200", discuss.status === 200, discuss.url, statusReason(discuss));
+record("discuss: forum section", discussForum, discuss.url, 'section aria-label="Discuss forum" missing');
+record("discuss: threads list", discussThreads, discuss.url,
+  "Threads heading or thread-count badge missing");
+const discussHasLoadMore = has(discuss.body, "Load more");
+if (discussHasLoadMore) {
+  const loadMore = has(discuss.body, 'aria-label="Load more threads"');
+  record("discuss: load more affordance", loadMore, discuss.url,
+    'Load more text without aria-label="Load more threads"');
+  line(loadMore, `GET /discuss  Load more threads  aria=${loadMore ? "yes" : "NO"}`);
+} else {
+  const emptyState = has(discuss.body, "No threads yet") || has(discuss.body, "Start a thread");
+  record("discuss: signed-out thread state", emptyState, discuss.url,
+    'signed-out /discuss should render "No threads yet" or thread articles');
+  line(emptyState,
+    "GET /discuss  load-more not rendered signed-out (0 local threads); threads list asserted");
+}
+line(discuss.status === 200 && discussForum && discussThreads,
+  `GET /discuss  status=${discuss.status} forum=${discussForum ? "yes" : "NO"} threads-list=${discussThreads ? "yes" : "NO"}`);
+
+// --- 11. Summary -------------------------------------------------------------
+console.log("\n[11/11] Summary");
 const groupNames = [...new Set(checks.map((c) => c.group))];
 console.table(
   groupNames.map((group) => {

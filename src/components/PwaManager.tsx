@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 /**
  * Client-side PWA glue: registers the service worker, surfaces the browser
- * install prompt, shows an offline status chip, and nudges iOS Safari users
- * toward Add to Home Screen. Mounted once near the root of the app.
+ * install prompt, shows an offline status chip, offers an "update available"
+ * prompt when a new worker is waiting, and nudges iOS Safari users toward Add
+ * to Home Screen. Mounted once near the root of the app.
  *
  * All browser state is read through `useSyncExternalStore` so the server
  * snapshot is stable and hydration never mismatches.
@@ -22,6 +23,12 @@ interface BeforeInstallPromptEvent extends Event {
 
 const IOS_HINT_KEY = "deepforge:pwa-hint-dismissed";
 const IOS_HINT_EVENT = "deepforge:pwa-hint-dismissed";
+
+const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "0.0.0.0"];
+
+function isLocalHostname(): boolean {
+  return LOCAL_HOSTNAMES.includes(window.location.hostname);
+}
 
 function isStandaloneDisplay(): boolean {
   const iosNavigator = navigator as Navigator & { standalone?: boolean };
@@ -123,15 +130,57 @@ export function PwaManager() {
   const [installEvent, setInstallEvent] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [installDismissed, setInstallDismissed] = useState(false);
+  const [updateReady, setUpdateReady] = useState(false);
 
+  const waitingWorkerRef = useRef<ServiceWorker | null>(null);
+  // True only after the user asks to apply an update — guards the
+  // controllerchange reload so a first install (clients.claim) never reloads.
+  const applyRequestedRef = useRef(false);
+
+  // Register the worker in production only, and never on localhost: a stale
+  // worker serving immutable-looking chunks cache-first is the exact bug the
+  // dev self-heal below exists to repair. A waiting worker means an update is
+  // installed but held back; surface it instead of swapping it silently.
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") return;
+    if (isLocalHostname()) return;
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
       return;
     }
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
-      // Best-effort: the app works fine without an active service worker.
-    });
+
+    let cancelled = false;
+
+    const revealWaiting = (registration: ServiceWorkerRegistration) => {
+      if (cancelled || !registration.waiting) return;
+      // No controller means this is a first install, not an update.
+      if (!navigator.serviceWorker.controller) return;
+      waitingWorkerRef.current = registration.waiting;
+      setUpdateReady(true);
+    };
+
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then((registration) => {
+        if (cancelled) return;
+        revealWaiting(registration);
+        registration.addEventListener("updatefound", () => {
+          const installing = registration.installing;
+          if (!installing) return;
+          installing.addEventListener("statechange", () => {
+            if (installing.state === "installed") revealWaiting(registration);
+          });
+        });
+        // Ask the browser to check for a newer worker now so the prompt is
+        // timely rather than only on the next navigation.
+        registration.update().catch(() => {});
+      })
+      .catch(() => {
+        // Best-effort: the app works fine without an active service worker.
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Dev / localhost self-heal: remove any service worker and cached build
@@ -140,10 +189,7 @@ export function PwaManager() {
   // cache-first, which shows up as stale CSS after state changes until a hard
   // refresh. Registrations are empty in a clean browser, so this is a no-op.
   useEffect(() => {
-    const host = window.location.hostname;
-    const isLocal =
-      host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
-    if (process.env.NODE_ENV === "production" && !isLocal) return;
+    if (process.env.NODE_ENV === "production" && !isLocalHostname()) return;
     if (!("serviceWorker" in navigator)) return;
     void (async () => {
       try {
@@ -164,6 +210,29 @@ export function PwaManager() {
         // Best-effort cleanup only.
       }
     })();
+  }, []);
+
+  // Reload exactly once after the promoted worker takes control. The refs
+  // keep first installs and duplicate events from triggering a reload loop.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+    let reloading = false;
+    const onControllerChange = () => {
+      if (reloading || !applyRequestedRef.current) return;
+      reloading = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      onControllerChange,
+    );
+    return () =>
+      navigator.serviceWorker.removeEventListener(
+        "controllerchange",
+        onControllerChange,
+      );
   }, []);
 
   useEffect(() => {
@@ -192,6 +261,20 @@ export function PwaManager() {
     }
   };
 
+  const handleUpdate = () => {
+    const waiting = waitingWorkerRef.current;
+    if (!waiting) return;
+    applyRequestedRef.current = true;
+    waiting.postMessage({ type: "SKIP_WAITING" });
+    setUpdateReady(false);
+  };
+
+  const dismissUpdate = () => {
+    // Dismisses for this page session; the next full load prompts again while
+    // the update is still waiting.
+    setUpdateReady(false);
+  };
+
   const dismissIosHint = () => {
     try {
       window.localStorage.setItem(IOS_HINT_KEY, "1");
@@ -204,12 +287,43 @@ export function PwaManager() {
   const showInstallButton = installEvent !== null && !installDismissed && !installed;
   const showOfflineChip = !online;
 
-  if (!showInstallButton && !showOfflineChip && !shouldShowIosHint) {
+  if (!showInstallButton && !showOfflineChip && !shouldShowIosHint && !updateReady) {
     return null;
   }
 
   return (
     <div className="pointer-events-none fixed bottom-4 left-4 z-[60] flex max-w-[calc(100vw-2rem)] flex-col items-start gap-2">
+      {updateReady && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-auto max-w-xs rounded-md border border-hairline bg-canvas-card px-3 py-2.5 text-xs text-ink shadow-xl"
+        >
+          <p className="font-medium">Update available</p>
+          <p className="mt-1 text-body-mid">
+            A new version of DeepForge is ready. Reload to apply it.
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleUpdate}
+              aria-label="Update DeepForge and reload"
+              className="rounded-md bg-accent px-2.5 py-1 font-medium text-canvas transition-colors hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+            >
+              Reload
+            </button>
+            <button
+              type="button"
+              onClick={dismissUpdate}
+              aria-label="Dismiss update notification"
+              className="rounded-md border border-hairline px-2.5 py-1 text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+            >
+              Later
+            </button>
+          </div>
+        </div>
+      )}
+
       {shouldShowIosHint && (
         <div className="pointer-events-auto max-w-xs rounded-md border border-hairline bg-canvas-card px-3 py-2.5 text-xs text-ink shadow-xl">
           <p className="font-medium">Add to Home Screen</p>
@@ -221,7 +335,7 @@ export function PwaManager() {
           <button
             type="button"
             onClick={dismissIosHint}
-            className="mt-2 rounded-md border border-hairline px-2 py-1 text-[11px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+            className="mt-2 rounded-md border border-hairline px-2 py-1 text-[11px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
             Got it
           </button>
@@ -247,7 +361,7 @@ export function PwaManager() {
             type="button"
             onClick={handleInstall}
             aria-label="Install DeepForge app"
-            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-ink transition-colors hover:bg-canvas-soft"
+            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-ink transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
             <svg
               width="14"
@@ -271,7 +385,7 @@ export function PwaManager() {
             type="button"
             onClick={() => setInstallDismissed(true)}
             aria-label="Dismiss install prompt"
-            className="flex items-center border-l border-hairline px-2.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
+            className="flex items-center border-l border-hairline px-2.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
             ✕
           </button>

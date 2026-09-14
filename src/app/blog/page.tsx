@@ -4,10 +4,11 @@ import { PageShell } from "@/components/PageShell";
 import { PostMeta } from "@/components/blog";
 import { Reveal } from "@/components/motion/Reveal";
 import { POSTS } from "@/data/blog";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
 
 const title = "Engineering";
 const description =
-  "Notes from building DeepForge: verifying 5,050 problems with real Python, offline-first sync with Supabase, and the routing and performance work behind 24 destinations.";
+  `Notes from building DeepForge: verifying ${PROBLEM_META.length.toLocaleString("en-US")} problems with real Python, offline-first sync with Supabase, and the routing and performance work behind 24 destinations.`;
 
 export const metadata: Metadata = {
   title,

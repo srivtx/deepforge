@@ -8,9 +8,9 @@
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg?style=flat-square&logo=typescript)
 ![Pyodide](https://img.shields.io/badge/Pyodide-0.26-3776AB.svg?style=flat-square&logo=python)
-![Problems](https://img.shields.io/badge/Problems-5%2C050-7FFF9F.svg?style=flat-square)
+![Problems](https://img.shields.io/badge/Problems-5%2C550-7FFF9F.svg?style=flat-square)
 ![Categories](https://img.shields.io/badge/Categories-15-507aa4.svg?style=flat-square)
-![Learning paths](https://img.shields.io/badge/Learning%20paths-28-507aa4.svg?style=flat-square)
+![Learning paths](https://img.shields.io/badge/Learning%20paths-33-507aa4.svg?style=flat-square)
 
 ---
 
@@ -20,32 +20,32 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 
 ## Why DeepForge
 
-- **Verified from scratch** — 5,050 problems, every single solution executed in real Python (1e-6 deep-equality) before it ships
+- **Verified from scratch** — 5,550 problems, every single solution executed in real Python (1e-6 deep-equality) before it ships
 - **Runs in your browser** — Pyodide executes your code client-side; nothing to install, works offline once warm
 - **Local-first, sync optional** — no account needed; sign in with a magic link or Google only if you want cross-device progress, a global leaderboard, and shared discussions
-- **Real curriculum** — 28 learning paths with stages, goals, prerequisites, and hour estimates, each with its own page
+- **Real curriculum** — 33 learning paths with stages, goals, verified prerequisites, per-stage checkpoints, and a mini-project artifact per stage, each with its own page
 - **Beyond problems** — labs, research benchmarks, timeds contests, speedruns, sims, notebook mode, pen-and-paper math with spaced review
 - **Fast by design** — a light problem index keeps the landing page at ~283 KB gzip; the full bank loads on demand
-- **Discoverable** — 5,050 statically generated problem pages, 15 category hubs, 28 path pages, JSON-LD, OG images, sitemap, RSS
+- **Discoverable** — 5,550 statically generated problem pages, 15 category hubs, 33 path pages, JSON-LD, OG images, sitemap, RSS
 - **Open source** — MIT, file-based content, verifiable and diffable
 
 ## Categories (15)
 
 | Category | Problems | | Category | Problems |
 |---|---:|---|---|---:|
-| Algorithms | 395 | | Optimization | 275 |
-| ML Fundamentals | 360 | | NLP | 320 |
-| Data Structures | 355 | | Statistics | 320 |
-| Computer Vision | 395 | | Probability | 320 |
-| Linear Algebra | 275 | | Calculus | 275 |
+| Algorithms | 395 | | Optimization | 375 |
+| ML Fundamentals | 360 | | NLP | 420 |
+| Data Structures | 355 | | Statistics | 420 |
+| Computer Vision | 395 | | Probability | 420 |
+| Linear Algebra | 275 | | Calculus | 375 |
 | Deep Learning | 455 | | Graph Algorithms | 315 |
 | Reinforcement Learning | 360 | | Information Theory | 315 |
-| Time Series | 315 | | **Total** | **5,050** |
+| Time Series | 315 | | **Total** | **5,550** |
 
 ## Features
 
 - **Problems** — code editor, in-browser Pyodide execution, test cases, one-line hints, saved code per problem
-- **Paths** — 28 curated learning paths with stages, goals, prerequisites, and progress; every path has a detail page
+- **Paths** — 33 curated learning paths with stages, goals, verified prerequisites, per-stage checkpoints, a mini-project artifact per stage, and progress; every path has a detail page
 - **Projects** — 5 multi-step builds: GPT from scratch, neural network framework, search engine, recommender, CNN
 - **Labs** — 8 dataset-driven challenges with metrics, baselines, and time limits, scored in-browser
 - **Research** — 5 beat-the-baseline benchmarks against hidden test sets, best submissions saved locally
@@ -57,17 +57,18 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Pen & Paper Math** — 60 no-code problems (multiple choice + numeric) with SM-2 mastery review
 - **Notebook mode** — per-cell Python execution with run-all and test validation, persisted per problem
 - **Sims** — optimizer race, neural-net trainer with decision boundary, Dijkstra step-through
-- **Articles** — 8 interactive lessons with live demos (softmax temperature, eigenvectors, gradient descent, k-means, attention, BPE tokenization, embeddings, quantization) and a figure for every topic
-- **Blog** — engineering write-ups with SVG diagrams and RSS at `/blog`
-- **Discuss** — forum with threads, replies, upvotes, problem references; server-backed when signed in
-- **Problem comments** — per-problem discussion with upvotes, live on the problem page
+- **Articles** — 11 interactive lessons with live demos (softmax temperature, eigenvectors, gradient descent, k-means, attention, BPE tokenization, embeddings, quantization, KV cache & FlashAttention, RAG chunk retrieval, post-training RLHF/DPO/GRPO) and a figure for every topic
+- **Blog** — 4 engineering write-ups with SVG diagrams and RSS at `/blog`
+- **Discuss** — paginated forum with threads, replies, upvotes, problem references, and live updates; server-backed when signed in
+- **Problem comments** — per-problem discussion with upvotes, load-more pagination, and live updates on the problem page
 - **Zero assistant** — catalogue-grounded study coach: recommends problems, explains concepts, reviews your code, builds playlists
-- **Profile & badges** — 24 badges, XP/levels, 52-week heatmap, deterministic daily quests, streak card, username editing, and trait-based generative avatars in two art styles (Illustrated + Pixel) with photo upload (synced to Supabase Storage when signed in)
+- **Profile & badges** — 24 badges, XP/levels, 52-week heatmap, deterministic daily quests, streak card, username editing, and trait-based generative avatars with 12 character presets across two art styles (Illustrated + Pixel), plus photo upload (synced to Supabase Storage when signed in)
 - **Stats & Certificates** — personal dashboard with trends, records, mastery estimate; printable/PNG certificates
 - **Submit a Problem** — author problems locally, validate with real Python, export ready-to-paste TS
 - **Leaderboard** — Flame Score (Easy 1, Medium 3, Hard 5), streaks, username; global view when signed in
 - **Sync** — local-first progress/streaks/collections sync through Supabase (magic link or Google) when you opt in
-- **PWA** — installable, offline shell, service worker that never caches dev assets
+- **Accessibility** — keyboard pass across dialogs, menus, comment threads, and the command palette: Tab containment, Escape-to-close, focus-visible rings, and aria-live status
+- **PWA** — installable, offline shell with route fallback, service worker that never caches dev assets
 
 ## Optional: sync & accounts
 
@@ -111,7 +112,7 @@ src/
 ├── app/                      # routes: /problems, /paths, /labs, /blog, /collections, ...
 ├── components/               # UI + motion/ (Aurora, Reveal, CountUp) + blog/ (prose, diagrams)
 ├── data/
-│   ├── problems/             # 15 categories · 5,050 problems · paths.ts · generated problem-meta.ts
+│   ├── problems/             # 15 categories · 5,550 problems · paths.ts · generated problem-meta.ts
 │   ├── blog/                 # engineering posts (TSX) + registry
 │   ├── contests.ts · projects.ts · interview.ts · penpaper.ts · collections.ts · articles.ts
 ├── lib/
@@ -127,12 +128,12 @@ docs/                         # DESIGN-SYSTEM, SETUP-SUPABASE, research, plans
 ## Verification
 
 ```bash
-bun run scripts/verify-problems.ts        # real-Python execution of all 5,050 solutions
-bun run scripts/verify-paths.ts           # 28 paths: slugs, stages, problem ids
+bun run scripts/verify-problems.ts        # real-Python execution of all 5,550 solutions
+bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 320 unit tests
+bun test                                  # 378 unit tests
 bun run build
 bunx next start -p 3099 &                 # production server the smoke suite expects
 bun run scripts/e2e-smoke.mjs             # 94-check end-to-end smoke against :3099

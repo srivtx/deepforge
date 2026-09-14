@@ -10,3 +10,6 @@ export { QuantizationNumberLine } from "./QuantizationNumberLine";
 export { KvMemoryTiling } from "./KvMemoryTiling";
 export { RagPipeline } from "./RagPipeline";
 export { PostTrainingPipeline } from "./PostTrainingPipeline";
+export { PcaEllipseScree } from "./PcaEllipseScree";
+export { CalibrationReliability } from "./CalibrationReliability";
+export { LoraAdapterDiagram } from "./LoraAdapterDiagram";

@@ -1,18 +1,28 @@
 /* DeepForge service worker — hand-rolled, no build step.
  *
- * Versioned cache names: bump VERSION to invalidate everything.
+ * VERSION bumps swap every versioned cache. The Pyodide runtime cache is
+ * intentionally unversioned so the multi-megabyte CDN download survives app
+ * deployments (see PYODIDE below).
+ *
  * Strategies:
  *   /_next/static/** + font files ....... cache-first (immutable build output)
  *   cdn.jsdelivr.net/pyodide/** ......... cache-first (offline Python solving)
- *   navigations ......................... network-first, offline fallback "/"
+ *   navigations ......................... network-first; the exact page is
+ *                                         cached per pathname, then the app
+ *                                         shell, then a self-contained
+ *                                         offline page for any other route
  *   other same-origin GETs .............. stale-while-revalidate
  *   everything else ..................... straight to the network
+ *
+ * Updates: a new worker installs and waits instead of activating itself. The
+ * page can post { type: "SKIP_WAITING" } to promote it; activate() deletes
+ * stale caches and claims open clients, and the page reloads once.
  *
  * Non-GET requests are never cached. Browser-extension and non-http(s)
  * schemes are ignored entirely.
  */
 
-const VERSION = "v2";
+const VERSION = "v3";
 
 const IS_LOCAL = ["localhost", "127.0.0.1", "0.0.0.0"].includes(
   self.location.hostname,
@@ -20,10 +30,13 @@ const IS_LOCAL = ["localhost", "127.0.0.1", "0.0.0.0"].includes(
 
 const PRECACHE = `deepforge-${VERSION}-precache`;
 const STATIC = `deepforge-${VERSION}-static`;
-const PYODIDE = `deepforge-${VERSION}-pyodide`;
 const RUNTIME = `deepforge-${VERSION}-runtime`;
+// Deliberately NOT versioned: Pyodide is ~30 MB of immutable JS/WASM fetched
+// from the CDN, so a DeepForge deploy must never evict it. Legacy versioned
+// Pyodide caches are migrated here before cleanup removes them.
+const PYODIDE = "deepforge-pyodide";
 
-const EXPECTED_CACHES = [PRECACHE, STATIC, PYODIDE, RUNTIME];
+const EXPECTED_CACHES = [PRECACHE, STATIC, RUNTIME, PYODIDE];
 
 const OFFLINE_URL = "/";
 const PYODIDE_ORIGIN = "https://cdn.jsdelivr.net";
@@ -39,7 +52,8 @@ self.addEventListener("install", (event) => {
       }
       const cache = await caches.open(PRECACHE);
       await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
-      await self.skipWaiting();
+      // No skipWaiting(): a worker that replaces a live one waits so the page
+      // can surface the update and apply it through the message below.
     })(),
   );
 });
@@ -48,6 +62,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
+      await migratePyodideCache(keys);
       await Promise.all(
         keys
           .filter(
@@ -61,11 +76,20 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Update-apply path: the page promotes the waiting worker once the user asks
+// for the update. The resulting controllerchange triggers a single reload.
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (IS_LOCAL || !data || data.type !== "SKIP_WAITING") return;
+  self.skipWaiting();
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
   // Local development must never be cached: dev asset URLs are stable, so
-  // cache-first would serve stale CSS/JS across edits and sessions.
+  // cache-first would serve stale CSS/JS across edits and sessions. The SW
+  // also unregisters itself on install, so this is a second line of defence.
   if (IS_LOCAL) return;
 
   // Never cache POST/PUT/... — only GET is safe.
@@ -75,6 +99,12 @@ self.addEventListener("fetch", (event) => {
 
   // Ignore chrome-extension://, data:, blob: and other non-http schemes.
   if (url.protocol !== "http:" && url.protocol !== "https:") return;
+
+  // Requests that forbid the network must be answered from cache or not at
+  // all — calling fetch() on them would reject.
+  if (request.cache === "only-if-cached" && request.mode !== "same-origin") {
+    return;
+  }
 
   // Pyodide runtime — cache-first so solving keeps working offline.
   if (
@@ -88,7 +118,7 @@ self.addEventListener("fetch", (event) => {
   // Any other cross-origin request goes straight to the network.
   if (url.origin !== self.location.origin) return;
 
-  // App navigations — network-first with the cached shell as fallback.
+  // App navigations — network-first with an offline fallback chain.
   if (request.mode === "navigate") {
     event.respondWith(networkFirstNavigation(request));
     return;
@@ -123,27 +153,41 @@ async function cacheFirst(request, cacheName) {
   return response;
 }
 
+/** Cache key for page documents: origin + pathname, query-independent. */
+function navigationKey(url) {
+  return new Request(`${url.origin}${url.pathname}`);
+}
+
 async function networkFirstNavigation(request) {
-  const cache = await caches.open(RUNTIME);
+  const url = new URL(request.url);
+  const runtime = await caches.open(RUNTIME);
   try {
     const response = await fetch(request);
-    if (response && response.ok && new URL(request.url).pathname === OFFLINE_URL) {
-      // Keep the offline shell fresh with the latest successful "/" HTML.
+    if (isCacheable(response)) {
+      // Keep every visited route available offline, keyed by pathname so
+      // ?from=... style query strings still resolve to the same document.
+      const key = navigationKey(url);
       try {
-        await cache.put(OFFLINE_URL, response.clone());
+        await runtime.put(key, response.clone());
+        if (url.pathname === OFFLINE_URL) {
+          // Keep the install-time app shell fresh with the latest "/" HTML.
+          const precache = await caches.open(PRECACHE);
+          await precache.put(OFFLINE_URL, response.clone());
+        }
       } catch {
         // Best-effort refresh.
       }
     }
     return response;
   } catch {
+    // Offline (or network failure) fallback chain: the exact visited page,
+    // then the cached app shell, then a self-contained offline page so any
+    // route gets a usable response instead of a browser error.
     const cached =
-      (await cache.match(request)) || (await caches.match(OFFLINE_URL));
+      (await caches.match(navigationKey(url))) ||
+      (await caches.match(OFFLINE_URL));
     if (cached) return cached;
-    return new Response(
-      "<!doctype html><title>Offline</title><h1>Offline</h1><p>DeepForge is unavailable without a network connection right now.</p>",
-      { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } },
-    );
+    return offlinePage();
   }
 }
 
@@ -174,8 +218,101 @@ async function staleWhileRevalidate(event, cacheName) {
   return response || Response.error();
 }
 
+/**
+ * Copy legacy versioned Pyodide caches into the stable cache before the
+ * activate cleanup deletes them, so bumping VERSION never forces a re-download
+ * of the Python runtime. Best-effort only.
+ */
+async function migratePyodideCache(keys) {
+  const legacy = keys.filter(
+    (key) =>
+      key.startsWith("deepforge-") &&
+      key.endsWith("-pyodide") &&
+      key !== PYODIDE,
+  );
+  if (legacy.length === 0) return;
+
+  try {
+    const target = await caches.open(PYODIDE);
+    for (const name of legacy) {
+      try {
+        const source = await caches.open(name);
+        for (const request of await source.keys()) {
+          try {
+            if (await target.match(request)) continue;
+            const response = await source.match(request);
+            if (response) await target.put(request, response);
+          } catch {
+            // Individual entries are best-effort.
+          }
+        }
+      } catch {
+        // A cache that cannot be opened is skipped.
+      }
+    }
+  } catch {
+    // Caching is best-effort; cleanup still runs.
+  }
+}
+
 function isCacheable(response) {
   if (!response) return false;
   if (response.status === 206) return false;
+  const cacheControl = response.headers.get("cache-control");
+  if (cacheControl && cacheControl.includes("no-store")) return false;
   return response.ok || response.type === "opaque";
+}
+
+/** Self-contained offline document — no network, no fonts, dark-first. */
+function offlinePage() {
+  const html = [
+    "<!doctype html>",
+    '<html lang="en">',
+    "<head>",
+    '<meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    "<title>Offline — DeepForge</title>",
+    "<style>",
+    ":root{color-scheme:dark}",
+    "*,*::before,*::after{box-sizing:border-box}",
+    "body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;",
+    "background:#0a0a0a;color:#d4d4d4;",
+    "font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif}",
+    "main{width:100%;max-width:420px;background:#111;border:1px solid #1f1f1f;",
+    "border-radius:12px;padding:28px}",
+    "h1{margin:0;font-size:20px;line-height:1.3;color:#fff}",
+    "p{margin:12px 0 0;font-size:14px;line-height:1.6}",
+    ".actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}",
+    "button,a{font:inherit;font-size:13px;border-radius:8px;padding:9px 14px;cursor:pointer;",
+    "text-decoration:none}",
+    "button{background:#7fff9f;color:#0a0a0a;border:0}",
+    "a{color:#fff;border:1px solid #1f1f1f}",
+    "button:focus-visible,a:focus-visible{outline:2px solid #7fff9f;outline-offset:2px}",
+    "</style>",
+    "</head>",
+    "<body>",
+    "<main>",
+    "<h1>You're offline</h1>",
+    "<p>DeepForge can't reach the network right now. Pages you've already opened stay available on this device.</p>",
+    '<div class="actions">',
+    '<button type="button" id="retry">Try again</button>',
+    '<a href="/">Go to home page</a>',
+    "</div>",
+    "</main>",
+    "<script>",
+    'document.getElementById("retry").addEventListener("click", function () {',
+    "window.location.reload();",
+    "});",
+    "</script>",
+    "</body></html>",
+  ].join("");
+
+  return new Response(html, {
+    status: 503,
+    statusText: "Offline",
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
 }

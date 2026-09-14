@@ -39,6 +39,48 @@ import {
   policyUpdate,
   softmax,
 } from "@/components/articles/DemoPostTraining";
+import {
+  PCA_POINTS,
+  explainedRatio,
+  meanOf,
+  momentMatrix,
+  pcaAxes,
+  projectionVariance,
+  rankReconstruction,
+  residualError,
+  standardDeviationOf,
+  toWorkingSpace,
+  type PcaOptions,
+} from "@/components/articles/DemoPcaProjection";
+import {
+  CALIBRATION_SAMPLES,
+  accuracyOf,
+  buildCalibrationSamples,
+  calibratedConfidence,
+  expectedCalibrationError,
+  fitTemperature,
+  logit,
+  meanConfidence,
+  negativeLogLikelihood,
+  reliabilityBins,
+  sigmoid,
+} from "@/components/articles/DemoCalibrationUncertainty";
+import {
+  FROZEN_W,
+  LORA_TARGET,
+  addMats,
+  denseParamCount,
+  frobeniusNorm,
+  fullFinetuneMemoryBytes,
+  identity,
+  loraParamCount,
+  matmul,
+  mergeWeights,
+  qloraMemoryBytes,
+  rankApproximation,
+  symmetricEigen,
+  transpose,
+} from "@/components/articles/DemoLoraRank";
 
 const problemIds = new Set(PROBLEMS.map((problem) => problem.id));
 
@@ -57,6 +99,9 @@ const EXPECTED_DEMO_KINDS: DemoKind[] = [
   "kv-cache",
   "rag-retrieval",
   "post-training",
+  "pca-projection",
+  "calibration-uncertainty",
+  "lora-rank",
 ];
 
 const EXPECTED_FIGURE_KINDS: FigureKind[] = [
@@ -72,6 +117,9 @@ const EXPECTED_FIGURE_KINDS: FigureKind[] = [
   "kv-memory-tiling",
   "rag-pipeline",
   "post-training-pipeline",
+  "pca-ellipse-scree",
+  "calibration-reliability",
+  "lora-adapter",
 ];
 
 const EXPECTED_SLUGS = [
@@ -86,6 +134,9 @@ const EXPECTED_SLUGS = [
   "kv-cache-and-flashattention",
   "rag-from-chunks-to-citations",
   "post-training-rlhf-dpo-grpo",
+  "pca-and-svd-in-practice",
+  "calibration-and-uncertainty",
+  "lora-low-rank-fine-tuning",
 ];
 
 describe("article catalogue", () => {
@@ -127,7 +178,7 @@ describe("article catalogue", () => {
     }
   });
 
-  test("ships the eleven expected articles with a demo and a figure each", () => {
+  test("ships the fourteen expected articles with a demo and a figure each", () => {
     expect(ARTICLES.map((article) => article.slug)).toEqual(EXPECTED_SLUGS);
     for (const article of ARTICLES) {
       expect(
@@ -178,6 +229,45 @@ describe("article catalogue", () => {
         article.sections.filter((section) => section.kind === "figure"),
         id,
       ).toHaveLength(1);
+    }
+  });
+
+  test("the wave-28 articles ship one demo and one figure with the spec practice ids", () => {
+    const expected = {
+      "art-pca-svd": {
+        category: "Linear Algebra",
+        problemIds: ["ml-041", "la-139", "la-249", "la-250", "la-251", "la-089"],
+        demo: "pca-projection",
+        figure: "pca-ellipse-scree",
+      },
+      "art-calibration": {
+        category: "ML Fundamentals",
+        problemIds: ["ml-065", "ml-072", "ml-101", "ml-337", "dl-086", "ml-291"],
+        demo: "calibration-uncertainty",
+        figure: "calibration-reliability",
+      },
+      "art-lora": {
+        category: "Deep Learning",
+        problemIds: ["dl-151", "dl-152", "dl-153", "dl-154", "dl-219", "dl-220"],
+        demo: "lora-rank",
+        figure: "lora-adapter",
+      },
+    } as const;
+
+    for (const [id, spec] of Object.entries(expected)) {
+      const article = ARTICLES.find((entry) => entry.id === id);
+      expect(article, id).not.toBeUndefined();
+      if (!article) continue;
+      expect(article.category, id).toBe(spec.category);
+      expect(article.problemIds, id).toEqual([...spec.problemIds]);
+      const demos = article.sections.filter((section) => section.kind === "demo");
+      const figures = article.sections.filter((section) => section.kind === "figure");
+      expect(demos, id).toHaveLength(1);
+      expect(figures, id).toHaveLength(1);
+      expect(demos[0]?.kind === "demo" ? demos[0].demo : "", id).toBe(spec.demo);
+      expect(figures[0]?.kind === "figure" ? figures[0].figure : "", id).toBe(
+        spec.figure,
+      );
     }
   });
 
@@ -460,5 +550,244 @@ describe("post-training demo logic", () => {
         expect(after[action]).toBeLessThan(before[action]);
       }
     }
+  });
+});
+
+describe("pca demo logic", () => {
+  const centered: PcaOptions = { center: true, standardize: false };
+  const standardized: PcaOptions = { center: true, standardize: true };
+  const raw: PcaOptions = { center: false, standardize: false };
+
+  test("mean and standard deviation match the fixture", () => {
+    expect(PCA_POINTS).toHaveLength(18);
+    const mean = meanOf(PCA_POINTS);
+    expect(near(mean[0], 1.19 / 18, 1e-9)).toBe(true);
+    expect(near(mean[1], 0.44 / 18, 1e-9)).toBe(true);
+    const std = standardDeviationOf(PCA_POINTS);
+    expect(std[0]).toBeGreaterThan(std[1]);
+    expect(std[1]).toBeGreaterThan(0);
+  });
+
+  test("principal axes are orthonormal and ordered", () => {
+    const { values, axes } = pcaAxes(PCA_POINTS, centered);
+    expect(values[0]).toBeGreaterThan(values[1]);
+    expect(values[1]).toBeGreaterThan(0);
+    for (const axis of axes) {
+      expect(near(Math.hypot(axis[0], axis[1]), 1, 1e-9)).toBe(true);
+    }
+    const dot = axes[0][0] * axes[1][0] + axes[0][1] * axes[1][1];
+    expect(Math.abs(dot)).toBeLessThan(1e-9);
+  });
+
+  test("the best axis explains the top eigenvalue and floors the residual", () => {
+    const { values, axes } = pcaAxes(PCA_POINTS, centered);
+    expect(
+      near(projectionVariance(PCA_POINTS, axes[0], centered), values[0], 1e-8),
+    ).toBe(true);
+    expect(
+      near(residualError(PCA_POINTS, axes[0], centered), values[1], 1e-8),
+    ).toBe(true);
+    const other = residualError(PCA_POINTS, axes[1], centered);
+    expect(near(other, values[0], 1e-8)).toBe(true);
+    expect(near(explainedRatio({ values, axes }, 0) + explainedRatio({ values, axes }, 1), 1, 1e-9)).toBe(true);
+  });
+
+  test("rank-r reconstruction is exact at full rank and matches the residual", () => {
+    const { values } = pcaAxes(PCA_POINTS, centered);
+    const rankOne = rankReconstruction(PCA_POINTS, 1, centered);
+    expect(near(rankOne.error, values[1], 1e-8)).toBe(true);
+    expect(near(rankOne.retained, values[0] / (values[0] + values[1]), 1e-9)).toBe(true);
+    const rankTwo = rankReconstruction(PCA_POINTS, 2, centered);
+    expect(rankTwo.error).toBeLessThan(1e-9);
+    expect(near(rankTwo.retained, 1, 1e-9)).toBe(true);
+  });
+
+  test("preprocessing changes the working space and the axes", () => {
+    const working = toWorkingSpace(PCA_POINTS, standardized);
+    const mean = meanOf(working);
+    const std = standardDeviationOf(working);
+    expect(Math.abs(mean[0])).toBeLessThan(1e-9);
+    expect(Math.abs(mean[1])).toBeLessThan(1e-9);
+    expect(near(std[0], 1, 1e-9)).toBe(true);
+    expect(near(std[1], 1, 1e-9)).toBe(true);
+
+    const standardAxes = pcaAxes(PCA_POINTS, standardized);
+    const centeredAxes = pcaAxes(PCA_POINTS, centered);
+    expect(near(standardAxes.values[0] + standardAxes.values[1], 2, 1e-9)).toBe(true);
+    const alignment = Math.abs(
+      standardAxes.axes[0][0] * centeredAxes.axes[0][0] +
+        standardAxes.axes[0][1] * centeredAxes.axes[0][1],
+    );
+    expect(alignment).toBeLessThan(0.999);
+
+    const shifted = PCA_POINTS.map(
+      ([x, y]) => [x + 2.5, y - 1.5] as [number, number],
+    );
+    const shiftedCentered = pcaAxes(shifted, centered);
+    const shiftedAlignment = Math.abs(
+      shiftedCentered.axes[0][0] * centeredAxes.axes[0][0] +
+        shiftedCentered.axes[0][1] * centeredAxes.axes[0][1],
+    );
+    expect(near(shiftedAlignment, 1, 1e-9)).toBe(true);
+    expect(near(shiftedCentered.values[0], centeredAxes.values[0], 1e-9)).toBe(true);
+
+    const rawAxes = pcaAxes(PCA_POINTS, raw);
+    const shiftedRaw = pcaAxes(shifted, raw);
+    const rawAlignment = Math.abs(
+      rawAxes.axes[0][0] * shiftedRaw.axes[0][0] +
+        rawAxes.axes[0][1] * shiftedRaw.axes[0][1],
+    );
+    expect(rawAlignment).toBeLessThan(0.999);
+    const rawTrace = momentMatrix(PCA_POINTS, false);
+    const centeredTrace = momentMatrix(toWorkingSpace(PCA_POINTS, centered), true);
+    expect(rawTrace[0] + rawTrace[2]).toBeGreaterThan(centeredTrace[0] + centeredTrace[2]);
+  });
+});
+
+describe("calibration demo logic", () => {
+  test("sigmoid and logit are inverses on the fixture range", () => {
+    for (const p of [0.05, 0.25, 0.5, 0.75, 0.95]) {
+      expect(near(sigmoid(logit(p)), p, 1e-9)).toBe(true);
+    }
+    expect(sigmoid(0)).toBe(0.5);
+  });
+
+  test("the fixture is deterministic and well formed", () => {
+    expect(CALIBRATION_SAMPLES).toHaveLength(320);
+    expect(buildCalibrationSamples(16)).toEqual(buildCalibrationSamples(16));
+    for (const sample of CALIBRATION_SAMPLES) {
+      expect(Number.isFinite(sample.score)).toBe(true);
+      expect(sample.outcome === 0 || sample.outcome === 1).toBe(true);
+    }
+    expect(accuracyOf(CALIBRATION_SAMPLES)).toBeGreaterThan(0.3);
+    expect(accuracyOf(CALIBRATION_SAMPLES)).toBeLessThan(0.7);
+  });
+
+  test("softening with temperature lowers confidence but never accuracy", () => {
+    const atOne = meanConfidence(CALIBRATION_SAMPLES, 1);
+    const atTwo = meanConfidence(CALIBRATION_SAMPLES, 2);
+    const atFour = meanConfidence(CALIBRATION_SAMPLES, 4);
+    expect(atOne).toBeGreaterThan(atTwo);
+    expect(atTwo).toBeGreaterThan(atFour);
+    expect(accuracyOf(CALIBRATION_SAMPLES)).toBe(accuracyOf(CALIBRATION_SAMPLES));
+    expect(
+      Math.abs(calibratedConfidence(CALIBRATION_SAMPLES[0].score, 3) - 0.5),
+    ).toBeLessThan(
+      Math.abs(calibratedConfidence(CALIBRATION_SAMPLES[0].score, 1) - 0.5),
+    );
+  });
+
+  test("bins partition the sample and gaps are non-negative", () => {
+    for (const mode of ["equal-width", "equal-frequency"] as const) {
+      const bins = reliabilityBins(CALIBRATION_SAMPLES, 1, 8, mode);
+      expect(bins).toHaveLength(8);
+      const total = bins.reduce((sum, bin) => sum + bin.count, 0);
+      expect(total).toBe(CALIBRATION_SAMPLES.length);
+      for (const bin of bins) {
+        expect(bin.gap).toBeGreaterThanOrEqual(0);
+        expect(bin.confidence).toBeGreaterThanOrEqual(0);
+        expect(bin.confidence).toBeLessThanOrEqual(1);
+        expect(bin.accuracy).toBeGreaterThanOrEqual(0);
+        expect(bin.accuracy).toBeLessThanOrEqual(1);
+      }
+    }
+    const frequency = reliabilityBins(CALIBRATION_SAMPLES, 1, 8, "equal-frequency");
+    const counts = frequency.map((bin) => bin.count);
+    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+  });
+
+  test("fitting temperature lowers ECE and NLL from the overconfident baseline", () => {
+    const fitted = fitTemperature(CALIBRATION_SAMPLES);
+    expect(fitted).toBeGreaterThan(1);
+    expect(fitted).toBeLessThan(6);
+    const baseBins = reliabilityBins(CALIBRATION_SAMPLES, 1, 8, "equal-width");
+    const fittedBins = reliabilityBins(CALIBRATION_SAMPLES, fitted, 8, "equal-width");
+    const baseEce = expectedCalibrationError(baseBins, CALIBRATION_SAMPLES.length);
+    const fittedEce = expectedCalibrationError(fittedBins, CALIBRATION_SAMPLES.length);
+    expect(baseEce).toBeGreaterThan(0.02);
+    expect(fittedEce).toBeLessThan(baseEce);
+    expect(fittedEce).toBeGreaterThanOrEqual(0);
+    expect(fittedEce).toBeLessThanOrEqual(1);
+    const baseNll = negativeLogLikelihood(CALIBRATION_SAMPLES, 1);
+    const fittedNll = negativeLogLikelihood(CALIBRATION_SAMPLES, fitted);
+    expect(fittedNll).toBeLessThanOrEqual(baseNll + 1e-9);
+    expect(fittedNll).toBeLessThanOrEqual(
+      negativeLogLikelihood(CALIBRATION_SAMPLES, 5) + 1e-9,
+    );
+  });
+});
+
+describe("lora demo logic", () => {
+  test("matrix helpers behave", () => {
+    const eye = identity(3);
+    expect(near(frobeniusNorm(eye), Math.sqrt(3), 1e-9)).toBe(true);
+    expect(matmul(LORA_TARGET, eye)).toEqual(LORA_TARGET);
+    expect(transpose(transpose(LORA_TARGET))).toEqual(LORA_TARGET);
+    expect(addMats(LORA_TARGET, eye)[0][0]).toBe(LORA_TARGET[0][0] + 1);
+  });
+
+  test("symmetric eigendecomposition reconstructs the matrix", () => {
+    const { values, vectors } = symmetricEigen([
+      [2, 1],
+      [1, 2],
+    ]);
+    expect(near(values[0], 3, 1e-9)).toBe(true);
+    expect(near(values[1], 1, 1e-9)).toBe(true);
+    for (let i = 0; i < 2; i++) {
+      for (let j = 0; j < 2; j++) {
+        const rebuilt =
+          values[0] * vectors[0][i] * vectors[0][j] +
+          values[1] * vectors[1][i] * vectors[1][j];
+        const original = i === j ? 2 : 1;
+        expect(near(rebuilt, original, 1e-9)).toBe(true);
+      }
+    }
+  });
+
+  test("rank-r approximation is Eckart-Young optimal and improves with rank", () => {
+    const rankOne = rankApproximation(LORA_TARGET, 1);
+    const rankTwo = rankApproximation(LORA_TARGET, 2);
+    const rankThree = rankApproximation(LORA_TARGET, 3);
+    expect(rankOne.error).toBeGreaterThan(rankTwo.error);
+    expect(rankTwo.error).toBeGreaterThan(rankThree.error);
+    expect(rankThree.error).toBeLessThan(1e-6);
+    expect(near(rankOne.retainedEnergy + rankOne.error ** 2, rankOne.totalEnergy, 1e-9)).toBe(true);
+    expect(rankOne.retainedEnergy).toBeLessThan(rankTwo.retainedEnergy);
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        expect(near(rankThree.approx[i][j], LORA_TARGET[i][j], 1e-6)).toBe(true);
+      }
+    }
+  });
+
+  test("merging folds the adapter into the frozen weight", () => {
+    const { b, a, approx } = rankApproximation(LORA_TARGET, 2);
+    const merged = mergeWeights(FROZEN_W, b, a);
+    const expected = addMats(FROZEN_W, approx);
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        expect(near(merged[i][j], expected[i][j], 1e-12)).toBe(true);
+      }
+    }
+  });
+
+  test("parameter and memory arithmetic follows the formulas", () => {
+    expect(loraParamCount(4096, 4096, 16)).toBe(131072);
+    expect(denseParamCount(4096, 4096)).toBe(16777216);
+    expect(
+      near(
+        loraParamCount(4096, 4096, 16) / denseParamCount(4096, 4096),
+        0.0078125,
+        1e-9,
+      ),
+    ).toBe(true);
+    expect(loraParamCount(4096, 2048, 8)).toBe(8 * (4096 + 2048));
+    const full = fullFinetuneMemoryBytes(7e9);
+    const qlora = qloraMemoryBytes(7e9, 4096, 4096, 16);
+    expect(qlora).toBeLessThan(full / 20);
+    expect(qlora).toBeGreaterThan(3.5e9);
+    expect(
+      qloraMemoryBytes(7e9, 4096, 4096, 32) - qloraMemoryBytes(7e9, 4096, 4096, 16),
+    ).toBe(12 * loraParamCount(4096, 4096, 16));
   });
 });

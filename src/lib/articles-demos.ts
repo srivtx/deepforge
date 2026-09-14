@@ -11,6 +11,9 @@ import { QuantizationScaleDemo } from "@/components/articles/DemoQuantizationSca
 import { KvCacheDemo } from "@/components/articles/DemoKvCache";
 import { RagRetrievalDemo } from "@/components/articles/DemoRagRetrieval";
 import { PostTrainingDemo } from "@/components/articles/DemoPostTraining";
+import { PcaProjectionDemo } from "@/components/articles/DemoPcaProjection";
+import { CalibrationUncertaintyDemo } from "@/components/articles/DemoCalibrationUncertainty";
+import { LoraRankDemo } from "@/components/articles/DemoLoraRank";
 
 export interface DemoProps {
   params?: Record<string, number>;
@@ -88,4 +91,7 @@ export const DEMOS: Record<DemoKind, ComponentType<DemoProps>> = {
   "kv-cache": KvCacheDemo,
   "rag-retrieval": RagRetrievalDemo,
   "post-training": PostTrainingDemo,
+  "pca-projection": PcaProjectionDemo,
+  "calibration-uncertainty": CalibrationUncertaintyDemo,
+  "lora-rank": LoraRankDemo,
 };
