@@ -36,9 +36,6 @@ const XP_CACHE_KEY = "deepforge:xp:v1";
 const QUEST_STORE_KEY = "deepforge:quests:v1";
 const QUEST_HISTORY_DAYS = 60;
 
-/** Fired after an explicit quest completion (the component subscribes). */
-export const QUESTS_CHANGE_EVENT = "deepforge:quests-change";
-
 /* ─────────────────────────────── XP constants ───────────────────────────── */
 
 export const XP_BASE: Record<Difficulty, number> = {
@@ -916,6 +913,16 @@ function researchAttemptsOnDay(snapshot: BadgeSnapshot, dayKey: string): number 
   return count;
 }
 
+/** Was any lab scored on this calendar day? */
+function labsRunOnDay(snapshot: BadgeSnapshot, dayKey: string): number {
+  for (const record of Object.values(snapshot.labs)) {
+    if (!record.lastScoredAt) continue;
+    const at = parseIso(record.lastScoredAt);
+    if (at && getDailyDateKey(at) === dayKey) return 1;
+  }
+  return 0;
+}
+
 /** XP earned on a calendar day from solves and research runs. */
 function xpOnDay(
   snapshot: BadgeSnapshot,
@@ -957,8 +964,7 @@ const QUEST_POOL: QuestDefinition[] = [
     label: "Run a lab",
     detail: "One scored submission.",
     target: 1,
-    // Labs store no run timestamps, so this is marked by the UI on lab events.
-    measure: () => 0,
+    measure: (snapshot, _derived, dayKey) => labsRunOnDay(snapshot, dayKey),
   },
   {
     id: "research-2",
@@ -1048,23 +1054,6 @@ export function getDailyQuests(
     writeQuestStore(store);
   }
   return quests;
-}
-
-/**
- * Mark a quest done explicitly. Used for quests whose stores carry no
- * timestamps (labs), where completion cannot be derived from progress.
- */
-export function completeQuest(id: string, d = new Date()): void {
-  const dayKey = getDailyDateKey(d);
-  const store = readQuestStore();
-  const done = new Set(store[dayKey] ?? []);
-  if (done.has(id)) return;
-  done.add(id);
-  store[dayKey] = [...done];
-  writeQuestStore(store);
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(QUESTS_CHANGE_EVENT));
-  }
 }
 
 /* ─────────────────────────────── heatmap ────────────────────────────────── */

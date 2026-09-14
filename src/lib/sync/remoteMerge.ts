@@ -10,7 +10,12 @@
 import { RESEARCH_CHALLENGES } from "@/data/research";
 import type { UserCollection } from "@/lib/collections";
 import type { ContestResult } from "@/lib/contestStore";
-import type { DailyState } from "@/lib/daily";
+import { MAX_SHIELDS, type DailyState } from "@/lib/daily";
+import {
+  EXPLANATION_HISTORY_LIMIT,
+  type ExplanationEntry,
+  type ExplanationMap,
+} from "@/lib/explain";
 import type { InterviewResult } from "@/lib/interview";
 import type { LabRecord, LabRecords } from "@/lib/labs";
 import type { PenPaperProgressMap } from "@/lib/penpaper";
@@ -128,24 +133,90 @@ export function streakFromDates(dates: string[]): number {
 }
 
 /**
- * Union of solved dates, sorted; `streak` is recomputed from the dates and
- * `lastSolvedDate` becomes the latest date.
+ * Streak across a union of solved and shield-covered days: the trailing run
+ * of consecutive active days ending at the latest active date, counting only
+ * days that were really solved. A covered day keeps the run alive without
+ * extending it, matching `markDailySolved`.
+ */
+function streakFromActivity(
+  solvedDates: string[],
+  coveredDates: string[],
+): number {
+  if (coveredDates.length === 0) return streakFromDates(solvedDates);
+  const solved = new Set(solvedDates);
+  const active = [...new Set([...solvedDates, ...coveredDates])].sort();
+  let streak = 0;
+  for (let i = active.length - 1; i >= 0; i -= 1) {
+    if (i < active.length - 1) {
+      const current = Date.parse(`${active[i]}T00:00:00Z`);
+      const next = Date.parse(`${active[i + 1]}T00:00:00Z`);
+      if (next - current !== 86_400_000) break;
+    }
+    if (solved.has(active[i])) streak += 1;
+  }
+  return streak;
+}
+
+/** Shields sanitized like `daily.ts`: finite, floored, clamped to the cap. */
+function sanitizeShieldCount(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(MAX_SHIELDS, Math.floor(value)));
+}
+
+/** Valid "YYYY-MM-DD" keys from an unknown list, de-duplicated and sorted. */
+function unionDateKeys(...lists: unknown[]): string[] {
+  const dates = new Set<string>();
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const value of list) {
+      if (typeof value === "string" && DATE_KEY.test(value)) dates.add(value);
+    }
+  }
+  return [...dates].sort();
+}
+
+/**
+ * Union of solved dates, sorted; `streak` is recomputed from solved dates
+ * only (a shield-covered day never extends a run).
+ *
+ * The optional shield fields are merged explicitly instead of being rebuilt
+ * away: `shieldUsedDates` is a sticky union so no spent-shield record is
+ * lost, and `shields` takes the max of both sides so an earned shield is
+ * never forfeited by merging in a stale device (consumables carry no
+ * timestamp to order sides by, and over-crediting is the safe failure).
+ * `lastSolvedDate` is the latest solved *or* covered day, which is what
+ * preserves shield-carried streak continuity. The shield fields are only
+ * emitted when at least one side had them, so legacy payloads keep their
+ * exact shape.
  */
 export function mergeDaily(local: DailyState, remote: DailyState): DailyState {
   const left = asRecord<DailyState>(local);
   const right = asRecord<DailyState>(remote);
-  const dates = new Set<string>();
-  const localDates = Array.isArray(left?.solvedDates) ? left.solvedDates : [];
-  const remoteDates = Array.isArray(right?.solvedDates) ? right.solvedDates : [];
-  for (const value of [...localDates, ...remoteDates]) {
-    if (typeof value === "string" && DATE_KEY.test(value)) dates.add(value);
-  }
-  const solvedDates = [...dates].sort();
-  return {
-    lastSolvedDate: solvedDates.length > 0 ? solvedDates[solvedDates.length - 1] : null,
-    streak: streakFromDates(solvedDates),
+  const solvedDates = unionDateKeys(left?.solvedDates, right?.solvedDates);
+  const shieldUsedDates = unionDateKeys(
+    left?.shieldUsedDates,
+    right?.shieldUsedDates,
+  );
+  const activityDates = [...new Set([...solvedDates, ...shieldUsedDates])].sort();
+  const merged: DailyState = {
+    lastSolvedDate:
+      activityDates.length > 0 ? activityDates[activityDates.length - 1] : null,
+    streak: streakFromActivity(solvedDates, shieldUsedDates),
     solvedDates,
   };
+  if (left?.shields !== undefined || right?.shields !== undefined) {
+    merged.shields = Math.max(
+      sanitizeShieldCount(left?.shields),
+      sanitizeShieldCount(right?.shields),
+    );
+  }
+  if (
+    left?.shieldUsedDates !== undefined ||
+    right?.shieldUsedDates !== undefined
+  ) {
+    merged.shieldUsedDates = shieldUsedDates;
+  }
+  return merged;
 }
 
 /* ───────────────────────────── collections ────────────────────────────── */
@@ -212,20 +283,29 @@ function maxBest(
   return values.length > 0 ? Math.max(...values) : null;
 }
 
-/** max(best), max(attempts), `passed` OR. Keys on either side are kept. */
+/**
+ * max(best), max(attempts), `passed` OR; `lastScoredAt` is LWW so the most
+ * recent run time is never dropped. Keys on either side are kept, but
+ * entries that are not records on either side are dropped rather than
+ * resurrected as empty records.
+ */
 export function mergeLabs(local: LabRecords, remote: LabRecords): LabRecords {
   const localMap = asRecord<LabRecords>(local) ?? {};
   const remoteMap = asRecord<LabRecords>(remote) ?? {};
   const merged: LabRecords = {};
   const ids = new Set([...Object.keys(localMap), ...Object.keys(remoteMap)]);
   for (const id of ids) {
-    const left: Partial<LabRecord> = localMap[id] ?? {};
-    const right: Partial<LabRecord> = remoteMap[id] ?? {};
-    merged[id] = {
-      best: maxBest(left.best, right.best),
-      attempts: Math.max(Number(left.attempts) || 0, Number(right.attempts) || 0),
-      passed: Boolean(left.passed || right.passed),
+    const left = asRecord<Partial<LabRecord>>(localMap[id]);
+    const right = asRecord<Partial<LabRecord>>(remoteMap[id]);
+    if (!left && !right) continue;
+    const entry: LabRecord = {
+      best: maxBest(left?.best, right?.best),
+      attempts: Math.max(Number(left?.attempts) || 0, Number(right?.attempts) || 0),
+      passed: Boolean(left?.passed || right?.passed),
     };
+    const lastScoredAt = laterValue(left?.lastScoredAt, right?.lastScoredAt);
+    if (lastScoredAt !== undefined) entry.lastScoredAt = lastScoredAt;
+    merged[id] = entry;
   }
   return merged;
 }
@@ -296,6 +376,7 @@ function normalizeChallengeState(value: unknown): ResearchChallengeState {
 /**
  * Best score per challenge (direction-aware), `beatenBaseline` OR, and the
  * union of attempts (deduped, chronological, capped at the last 50).
+ * Malformed entries are dropped, never materialized as empty challenges.
  */
 export function mergeResearch(
   local: ResearchState,
@@ -306,6 +387,7 @@ export function mergeResearch(
   const merged: ResearchState = {};
   const ids = new Set([...Object.keys(localMap), ...Object.keys(remoteMap)]);
   for (const id of ids) {
+    if (!asRecord(localMap[id]) && !asRecord(remoteMap[id])) continue;
     const left = normalizeChallengeState(localMap[id]);
     const right = normalizeChallengeState(remoteMap[id]);
     const higherIsBetter = researchHigherIsBetter(id);
@@ -325,7 +407,10 @@ export function mergeResearch(
 
 /* ─────────────────────────────── penpaper ─────────────────────────────── */
 
-/** `attempted` / `correct` sticky true, `lastAt` LWW; keys are unioned. */
+/**
+ * `attempted` / `correct` sticky true, `lastAt` LWW; keys are unioned.
+ * Malformed entries are dropped, matching the local `parseProgress`.
+ */
 export function mergePenPaper(
   local: PenPaperProgressMap,
   remote: PenPaperProgressMap,
@@ -335,12 +420,13 @@ export function mergePenPaper(
   const merged: PenPaperProgressMap = {};
   const ids = new Set([...Object.keys(localMap), ...Object.keys(remoteMap)]);
   for (const id of ids) {
-    const left = localMap[id] ?? {};
-    const right = remoteMap[id] ?? {};
+    const left = asRecord<Partial<PenPaperProgressMap[string]>>(localMap[id]);
+    const right = asRecord<Partial<PenPaperProgressMap[string]>>(remoteMap[id]);
+    if (!left && !right) continue;
     merged[id] = {
-      attempted: Boolean(left.attempted || right.attempted),
-      correct: Boolean(left.correct || right.correct),
-      lastAt: laterValue(left.lastAt, right.lastAt) ?? "",
+      attempted: Boolean(left?.attempted || right?.attempted),
+      correct: Boolean(left?.correct || right?.correct),
+      lastAt: laterValue(left?.lastAt, right?.lastAt) ?? "",
     };
   }
   return merged;
@@ -376,6 +462,78 @@ export function mergeReviews(local: ReviewMap, remote: ReviewMap): ReviewMap {
       continue;
     }
     merged[id] = reviewRecencyAt(right) > reviewRecencyAt(left) ? right : left;
+  }
+  return merged;
+}
+
+/* ──────────────────────────── explanations ───────────────────────────── */
+
+function numberOrZero(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+/** Validate one explanation entry; mirrors `explain.ts` normalization. */
+function sanitizeExplanationEntry(value: unknown): ExplanationEntry | null {
+  const record = asRecord<Record<string, unknown>>(value);
+  if (!record || typeof record.at !== "string" || record.at.length === 0) {
+    return null;
+  }
+  return {
+    text: typeof record.text === "string" ? record.text : "",
+    at: record.at,
+    coverage: numberOrZero(record.coverage),
+    completeness: numberOrZero(record.completeness),
+    score: numberOrZero(record.score),
+    hits: Array.isArray(record.hits)
+      ? record.hits.filter((hit): hit is string => typeof hit === "string")
+      : [],
+    skipped: record.skipped === true,
+  };
+}
+
+/** Validated history for one problem, capped like the store. */
+export function sanitizeExplanationList(value: unknown): ExplanationEntry[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(sanitizeExplanationEntry)
+    .filter((entry): entry is ExplanationEntry => entry !== null)
+    .slice(-EXPLANATION_HISTORY_LIMIT);
+}
+
+function latestExplanationAt(entries: ExplanationEntry[]): number {
+  let latest = 0;
+  for (const entry of entries) {
+    const at = timestamp(entry.at);
+    if (!Number.isNaN(at) && at > latest) latest = at;
+  }
+  return latest;
+}
+
+/**
+ * Per-problem LWW: the side whose newest entry (`at`) is later wins; ties
+ * keep local. Malformed histories are dropped; non-array values never throw.
+ */
+export function mergeExplanations(
+  local: ExplanationMap,
+  remote: ExplanationMap,
+): ExplanationMap {
+  const localMap = asRecord<ExplanationMap>(local) ?? {};
+  const remoteMap = asRecord<ExplanationMap>(remote) ?? {};
+  const merged: ExplanationMap = {};
+  const ids = new Set([...Object.keys(localMap), ...Object.keys(remoteMap)]);
+  for (const id of ids) {
+    const left = sanitizeExplanationList(localMap[id]);
+    const right = sanitizeExplanationList(remoteMap[id]);
+    if (left.length === 0) {
+      if (right.length > 0) merged[id] = right;
+      continue;
+    }
+    if (right.length === 0) {
+      merged[id] = left;
+      continue;
+    }
+    merged[id] =
+      latestExplanationAt(right) > latestExplanationAt(left) ? right : left;
   }
   return merged;
 }

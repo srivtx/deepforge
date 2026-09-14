@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ProblemMeta } from "@/data/problems/problem-meta";
 import type { LearningPath } from "@/types/problem";
@@ -11,6 +12,18 @@ import {
   pathSlug,
   resolveStages,
 } from "@/lib/paths";
+import {
+  CHECKPOINT_CHANGE_EVENT,
+  readCheckpointAttempts,
+  summarizeCheckpoints,
+  type CheckpointAttemptMap,
+  type CheckpointSummary,
+} from "@/lib/pathCheckpoints";
+import {
+  getReviewMap,
+  REVIEWS_CHANGE_EVENT,
+  type ReviewMap,
+} from "@/lib/reviewQueue";
 
 interface PathsProps {
   paths: LearningPath[];
@@ -49,8 +62,64 @@ function pathMeta(path: LearningPath): {
   };
 }
 
+function checkpointChip(
+  summary: CheckpointSummary,
+): { label: string; classes: string } | null {
+  if (summary.total === 0) return null;
+  if (summary.failed > 0) {
+    return {
+      label:
+        summary.failed === 1
+          ? "Retry checkpoint"
+          : `${summary.failed} checkpoints to retry`,
+      classes: "border-warning/40 bg-warning/5 text-warning",
+    };
+  }
+  if (summary.due > 0) {
+    return {
+      label: summary.due === 1 ? "Review due" : `${summary.due} reviews due`,
+      classes: "border-info/40 bg-info/5 text-info",
+    };
+  }
+  if (summary.complete >= summary.total) {
+    return {
+      label: "Checkpoints passed",
+      classes: "border-accent/40 bg-accent/5 text-accent",
+    };
+  }
+  return {
+    label: `${summary.passed}/${summary.total} checkpoints`,
+    classes: "border-hairline bg-canvas-soft text-body-mid",
+  };
+}
+
 export function Paths({ paths, problems, progress }: PathsProps) {
   const problemMap = new Map(problems.map((p) => [p.id, p]));
+  const [checkpointState, setCheckpointState] = useState<{
+    reviews: ReviewMap;
+    attempts: CheckpointAttemptMap;
+    now: Date;
+  }>(() => ({ reviews: {}, attempts: {}, now: new Date() }));
+
+  useEffect(() => {
+    const load = () => {
+      const current = new Date();
+      setCheckpointState({
+        reviews: getReviewMap(current),
+        attempts: readCheckpointAttempts(),
+        now: current,
+      });
+    };
+    load();
+    window.addEventListener("storage", load);
+    window.addEventListener(REVIEWS_CHANGE_EVENT, load);
+    window.addEventListener(CHECKPOINT_CHANGE_EVENT, load);
+    return () => {
+      window.removeEventListener("storage", load);
+      window.removeEventListener(REVIEWS_CHANGE_EVENT, load);
+      window.removeEventListener(CHECKPOINT_CHANGE_EVENT, load);
+    };
+  }, []);
 
   return (
     <section
@@ -65,6 +134,15 @@ export function Paths({ paths, problems, progress }: PathsProps) {
           const nextProblem = next ? problemMap.get(next.problemId) : undefined;
           const { level, tags, stageCount } = pathMeta(path);
           const visibleTags = tags.slice(0, 4);
+          const { stages } = resolveStages(path);
+          const chip = checkpointChip(
+            summarizeCheckpoints(stages, problemMap, progress, {
+              pathId: path.id,
+              reviews: checkpointState.reviews,
+              attempts: checkpointState.attempts,
+              now: checkpointState.now,
+            }),
+          );
           return (
             <div
               key={path.id}
@@ -91,7 +169,7 @@ export function Paths({ paths, problems, progress }: PathsProps) {
                 </span>
               </div>
 
-              {(level || tags.length > 0) && (
+              {(level || tags.length > 0 || chip) && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {level && (
                     <span
@@ -100,6 +178,13 @@ export function Paths({ paths, problems, progress }: PathsProps) {
                       )}`}
                     >
                       {level}
+                    </span>
+                  )}
+                  {chip && (
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${chip.classes}`}
+                    >
+                      {chip.label}
                     </span>
                   )}
                   {visibleTags.map((tag) => (

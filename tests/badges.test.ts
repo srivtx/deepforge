@@ -211,3 +211,55 @@ describe("XP", () => {
     expect(info.progress).toBe(0);
   });
 });
+
+describe("lab quest", () => {
+  test("derives completion from lab timestamps, not a mounted view", () => {
+    function labQuest(now: Date) {
+      const snapshot: BadgeSnapshot = {
+        ...emptySnapshot(now),
+        labs: {
+          "lab-01": {
+            best: 0.9,
+            attempts: 1,
+            passed: true,
+            lastScoredAt: now.toISOString(),
+          },
+        },
+      };
+      return getDailyQuests(snapshot).find((quest) => quest.id === "lab");
+    }
+
+    function dayWithLabQuest(): Date | null {
+      for (let offset = 0; offset < 30; offset += 1) {
+        const now = new Date(2026, 0, 14 + offset, 12, 0, 0, 0);
+        if (getDailyQuests(emptySnapshot(now)).some((quest) => quest.id === "lab")) {
+          return now;
+        }
+      }
+      return null;
+    }
+
+    const day = dayWithLabQuest();
+    expect(day, "expected a day whose quest pick includes a lab run").not.toBeNull();
+    if (!day) return;
+
+    const yesterday = new Date(day.getTime() - 86_400_000);
+    const stale = getDailyQuests({
+      ...emptySnapshot(day),
+      labs: {
+        "lab-01": {
+          best: 0.9,
+          attempts: 1,
+          passed: true,
+          lastScoredAt: yesterday.toISOString(),
+        },
+      },
+    }).find((quest) => quest.id === "lab");
+    expect(stale?.done).toBe(false);
+    expect(stale?.progress).toBe(0);
+
+    const today = labQuest(day);
+    expect(today?.done).toBe(true);
+    expect(today?.progress).toBe(1);
+  });
+});

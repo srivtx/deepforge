@@ -28,16 +28,18 @@ DeepForge is a practice platform for machine learning, math, and engineering. Us
 | Open source | Yes (MIT) |
 | Mobile-friendly | Yes |
 | Learning paths | **33** with stages, goals, verified prerequisites, per-stage checkpoints, artifact links, hours |
-| Projects (multi-step labs) | **5 labs · 36 steps** |
+| Projects / Labs | **5 multi-step projects · 36 steps** · **8 scored labs** |
 | Contests (timed) | **12 sets (10–60 min)** + Speedrun |
 | Leaderboard | Flame Score + streaks + username; global view when signed in |
-| Discuss / community | Threads, replies, upvotes, problem refs; server-backed when signed in |
+| Discuss / community | Threads, replies, upvotes, problem refs; paginated + live updates; per-problem comments; server-backed when signed in |
 | Study assistant | Zero: 6 intents, catalogue-grounded, code-aware |
 | Collections / playlists | **24 premade** + user sets + shareable playlists |
 | Interview prep | **13 company tracks** + timed mocks |
 | Pen-and-paper math | **60 no-code problems** + SM-2 mastery review |
+| Review & today | Spaced review queue for solved problems; one-screen daily session at `/today` |
+| Certificates | Printable/PNG; SHA-256 verification code + `/verify` |
 | Blog | **4** engineering write-ups with SVG diagrams + RSS (`/blog`) |
-| Interactive articles | **11** lessons with live demos + a figure per topic |
+| Interactive articles | **14** lessons with live demos + a figure per topic |
 
 Honest caveats: without an account everything stays on one device. Signing in with a magic link or Google syncs progress, streaks, leaderboard and community data through Supabase.
 
@@ -121,71 +123,35 @@ Difficulty mix: 1,994 Easy · 2,473 Medium · 1,083 Hard.
 ```
 deepforge/
 ├── src/
-│   ├── app/
+│   ├── app/                    # one directory per route: /problems, /paths, /today,
+│   │   │                       #   /verify, /badges, /certificates, ... + og/ images
 │   │   ├── layout.tsx          # Root layout (fonts, metadata, ThemeProvider)
-│   │   ├── page.tsx            # Main page (view state, wires all sections)
+│   │   ├── page.tsx            # Landing page (short hub)
 │   │   ├── globals.css         # CSS variables (dark+light), Tailwind
-│   │   ├── manifest.ts         # PWA manifest
-│   │   ├── robots.ts           # robots.txt
-│   │   └── sitemap.ts          # sitemap.xml
-│   ├── components/
-│   │   ├── Header.tsx          # Nav + theme toggle + solved counter
-│   │   ├── Footer.tsx          # Minimal footer
-│   │   ├── Hero.tsx            # Landing hero
-│   │   ├── StatsStrip.tsx      # Problem count stats
-│   │   ├── CategoryGrid.tsx    # Category cards on home
-│   │   ├── ProblemCard.tsx     # Problem list item
-│   │   ├── ProblemList.tsx     # Filterable problem grid
-│   │   ├── ProblemView.tsx     # Full-screen problem overlay (editor + Pyodide + hints + discuss)
-│   │   ├── Paths.tsx           # Learning paths view
-│   │   ├── Projects.tsx        # Multi-step labs view
-│   │   ├── Contests.tsx        # Timed contests view
-│   │   ├── Leaderboard.tsx     # Flame Score, streaks, username
-│   │   ├── Discuss.tsx         # Per-problem comment threads
-│   │   ├── StudyAssistant.tsx  # 3-tier progressive hints
-│   │   ├── Collections.tsx     # Premade + user collections
-│   │   ├── InterviewPrep.tsx   # Timed interview tracks
-│   │   ├── PenPaper.tsx        # No-code math problems
-│   │   ├── About.tsx           # About page
-│   │   ├── ThemeProvider.tsx   # next-themes wrapper
-│   │   └── ThemeToggle.tsx     # Sun/moon button
+│   │   └── manifest.ts         # PWA manifest (robots.ts, sitemap.ts alongside)
+│   ├── components/             # UI: Header, PageShell, ProblemView, Badges, Today,
+│   │                           #   Certificates, StatsDashboard, ZeroAssistant,
+│   │                           #   ProblemComments, StreakCard, articles/, blog/,
+│   │                           #   motion/, avatars/, sims/
 │   ├── data/
-│   │   ├── problems/
-│   │   │   ├── meta.ts         # CATEGORIES (15)
-│   │   │   ├── paths.ts        # LEARNING_PATHS (33)
-│   │   │   ├── index.ts        # Aggregates PROBLEMS + re-exports, getProblemById, getProblemsByCategory
-│   │   │   └── <category>/     # linear-algebra/, algorithms/, ... each with part-NN.ts + index.ts
-│   │   ├── contests.ts         # CONTESTS (12)
-│   │   ├── projects.ts         # PROJECTS (5) + PROJECT_STEPS (36)
-│   │   ├── interview.ts        # INTERVIEW_TRACKS (13)
-│   │   ├── penpaper.ts         # PENPAPER_PROBLEMS (60)
-│   │   └── collections.ts      # PREMADE_COLLECTIONS (24)
+│   │   ├── problems/           # 15 categories · 5,550 problems · paths.ts · problem-meta.ts
+│   │   └── contests.ts · projects.ts · labs.ts · interview.ts · penpaper.ts ·
+│   │       collections.ts · articles.ts · blog/
 │   ├── lib/
-│   │   ├── pyodide.ts          # Pyodide loader + code execution
-│   │   ├── progress.ts         # localStorage progress + saved code
-│   │   ├── leaderboard.ts      # Flame Score, streaks, username
-│   │   ├── comments.ts         # Discuss threads (local)
-│   │   ├── hints.ts            # 3-tier hint generation
-│   │   ├── collections.ts      # User collections + URL encode/decode
-│   │   ├── contestStore.ts     # Contest results (local)
-│   │   ├── interview.ts        # Interview results (local)
-│   │   ├── projects.ts         # Project step progress
-│   │   └── utils.ts            # Helpers
-│   └── types/
-│       └── problem.ts          # Problem, TestCase, Category, LearningPath types
-├── scripts/
-│   ├── verify-problems.ts      # Structural + real-Python verification
-│   ├── py_verify.py            # Python harness (deep equality, 1e-6 tolerance)
-│   └── dump-solutions.ts       # Solution export utility
-├── package.json
-├── next.config.ts
-├── tsconfig.json
-├── tailwind.config.ts
-├── postcss.config.mjs
-├── eslint.config.mjs
-├── agent-quickstart.sh         # Environment check script
-├── README.md
-├── LICENSE
+│   │   ├── sync/               # local-first store seam + Supabase engine
+│   │   ├── progress.ts · badges.ts · reviewQueue.ts · daily.ts · stats.ts
+│   │   ├── certificates.ts · credentials.ts · labs.ts · pyodide.ts · paths.ts
+│   │   └── ...
+│   └── types/problem.ts
+├── tests/                      # 567+ bun tests
+├── scripts/                    # verify-problems, verify-paths(-content), e2e-smoke, measure-bundle
+├── supabase/migrations/        # init, avatars, hardening
+├── docs/                       # DESIGN-SYSTEM, SETUP-SUPABASE, next-wave-plan, research/
+├── .github/workflows/ci.yml
+├── package.json · next.config.ts · tsconfig.json · tailwind.config.ts
+├── eslint.config.mjs · postcss.config.mjs
+├── agent-quickstart.sh
+├── README.md · LICENSE
 ├── AGENT_BRIEF.md              # Task-scoped rules for parallel agents
 └── AGENT_CONTEXT.md            # This file
 ```
@@ -265,12 +231,17 @@ bun run build                                 # production build
 ### Phase 2: Features — ✅ Complete
 - **Contests** — 12 timed sets (10–60 min), countdown, difficulty-weighted scores, local results
 - **Leaderboard** — Flame Score (Easy=1, Medium=3, Hard=5), solved count, current/longest streak, editable username; global Supabase view when signed in
-- **Projects** — 5 multi-step labs / 36 steps: GPT from scratch, neural network framework, search engine, recommender, CNN
-- **Discuss** — threads, replies, upvotes, problem references; server-backed when signed in
+- **Projects** — 5 multi-step builds / 36 steps: GPT from scratch, neural network framework, search engine, recommender, CNN
+- **Labs** — 8 dataset-driven challenges with metrics, baselines, and time limits, scored in-browser
+- **Discuss** — threads, replies, upvotes, problem references, pagination, live updates, and per-problem comments; server-backed when signed in
 - **Study Assistant** — Zero: 6 intents, catalogue-grounded, code-aware
 - **Collections** — 24 premade sets with detail pages, user-created sets, shareable URLs
 - **Interview Prep** — 13 company tracks + timed mocks
 - **Pen-and-paper math** — 60 no-code problems, multiple choice + numeric, SM-2 mastery review
+- **Review queue + Today** — spaced review of solved problems; one-screen daily session at `/today`
+- **Habit mechanics** — streak shields, opt-in reminders, readiness + target-date projection
+- **Pedagogy** — self-explanation gate and spot-the-bug practice mode
+- **Certificates** — printable/PNG with a SHA-256 verification code and a public `/verify` page
 - **Sync/social backend** — Supabase (projects klogjcspyiygnggmugjy): local-first sync, magic link + Google, RLS
 - **Blog** — 4 engineering write-ups at `/blog` with SVG diagrams and RSS
 
@@ -280,14 +251,16 @@ bun run build                                 # production build
 - ✅ Bundle split: light problem index; home 283 KB gzip (from 1,553 KB)
 - ✅ Mobile audits at 375px across new views
 - ✅ Keyboard/focus pass across dialogs, menus, command palette, and social threads; 🔲 full screen-reader + contrast sweep
-- ✅ Offline shell with route fallback (network-first navigations fall back to the cached `/`); 🔲 per-route offline verification
+- ✅ PWA offline: route fallback chain + “update available” prompt (SW v3); 🔲 per-route offline verification
+- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 136-check smoke
 
 ### Next steps (sensible order)
 1. **Path curation, continued** — 33 paths shipped with stage checkpoints, artifact links, and resolved prerequisites; still open from [`docs/research/path-curation.md`](./docs/research/path-curation.md): mixed-kind steps (problems + labs + math + projects) and a capstone per path.
 2. **Content growth** — 5,550 problems shipped; keep rebalancing the thinnest categories (Linear Algebra at 275; Information Theory, Time Series, Graph Algorithms at 315) and the level mix.
-3. **Production hardening** — Vercel deploy, custom SMTP for magic links, rate limits, two-account RLS spot check.
-4. **Social scale** — realtime subscriptions and pagination shipped for forum/comments; remaining: global-leaderboard polish.
-5. **E2E in CI** — wire `scripts/e2e-smoke.mjs` into the pipeline; keep 378 unit tests and the 94-check smoke green.
+3. **Production hardening** — Vercel deploy, custom SMTP for magic links, two-account RLS spot check.
+4. **Social scale** — realtime subscriptions, pagination, and the per-problem comments UI shipped; remaining: global-leaderboard polish.
+5. **E2E in CI** — shipped: the 136-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
+6. **Deploy & credentials** — work the human items in [`docs/next-wave-plan.md`](./docs/next-wave-plan.md), then certificate signing (phase 2).
 
 ---
 
@@ -342,21 +315,26 @@ If you are an AI agent working on DeepForge:
 - **Problems:** 5,550 (1,994 Easy · 2,473 Medium · 1,083 Hard) — ✅ target exceeded
 - **Categories:** 15 — ✅
 - **Learning paths:** 33 — ✅ (stage checkpoints + artifact links)
-- **Interactive articles:** ✅ 11 with live demos + a figure per topic
+- **Interactive articles:** ✅ 14 with live demos + a figure per topic
 - **Blog:** ✅ 4 engineering posts + RSS
 - **Light mode:** ✅ Working
 - **Dark mode:** ✅ Working
 - **Pyodide execution:** ✅ Working
 - **Contests:** ✅ 12 timed contests
 - **Leaderboard:** ✅ Flame Score + streaks + username; global when signed in
-- **Projects:** ✅ 5 labs · 36 steps
-- **Discuss:** ✅ Paginated threads + live updates; server-backed when signed in
+- **Projects:** ✅ 5 multi-step projects · 36 steps
+- **Labs:** ✅ 8 scored benchmarks
+- **Discuss:** ✅ Paginated threads + live updates + per-problem comments; server-backed when signed in
 - **Study assistant:** ✅ Zero: catalogue-grounded, code-aware
 - **Collections:** ✅ 24 premade + user sets + shareable URLs
 - **Interview prep:** ✅ 13 timed tracks
 - **Pen-and-paper:** ✅ 60 no-code problems
+- **Review & today:** ✅ Spaced review queue + `/today` session
+- **Habit mechanics:** ✅ Streak shields, reminders, readiness projection
+- **Certificates:** ✅ SHA-256 code + public `/verify`
 - **Avatars:** ✅ 12 character presets, two art styles (Illustrated + Pixel)
-- **Tests:** ✅ 378 unit tests + 94 e2e smoke checks
+- **Tests:** ✅ 567+ unit tests + 136 e2e smoke checks (CI)
+- **PWA:** ✅ Offline route fallback + update prompt
 - **SEO:** ✅ Metadata, manifest, robots, sitemap
 
-**Next priority:** push the Supabase migration to project `klogjcspyiygnggmugjy` (see docs/SETUP-SUPABASE.md), configure Auth redirect URLs, then bundle code-splitting and continued LLM-systems content growth. Sync code is shipped and env-gated: the app stays 100% local until `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set and a user signs in.
+**Next priority:** push the Supabase hardening migration to project `klogjcspyiygnggmugjy` (see docs/SETUP-SUPABASE.md), configure Auth redirect URLs, then deploy per [`docs/next-wave-plan.md`](./docs/next-wave-plan.md) (U-1..U-5) and start certificate signing (phase 2). Sync code is shipped and env-gated: the app stays 100% local until `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set and a user signs in.

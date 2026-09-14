@@ -174,4 +174,15 @@ describe("setLabBest", () => {
   test("unknown lab ids return null and record nothing", () => {
     expect(getLabBest("missing-lab")).toBeNull();
   });
+
+  test("stamps each scored run with the run time", () => {
+    const at = new Date(2026, 0, 14, 12, 0, 0, 0);
+    const first = setLabBest(higher.id, higher.target - 0.2, at);
+    expect(first.lastScoredAt).toBe(at.toISOString());
+
+    const later = new Date(2026, 0, 15, 9, 30, 0, 0);
+    const second = setLabBest(higher.id, higher.target, later);
+    expect(second.lastScoredAt).toBe(later.toISOString());
+    expect(getLabBest(higher.id)!.lastScoredAt).toBe(later.toISOString());
+  });
 });

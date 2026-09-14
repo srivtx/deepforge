@@ -21,6 +21,7 @@ import {
 } from "@/lib/comments";
 import { getAuthEmail, isSupabaseConfigured, onAuthChange } from "@/lib/auth";
 import { getUserName } from "@/lib/leaderboard";
+import { StudyGroups } from "@/components/groups/StudyGroups";
 import {
   createReply,
   createThread,
@@ -80,6 +81,22 @@ function useGlobalForumHint(): boolean {
     return onAuthChange(update);
   }, []);
   return show;
+}
+
+function subscribeLocationJoin(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+}
+
+function getLocationJoin(): string | null {
+  if (typeof window === "undefined") return null;
+  const code = new URLSearchParams(window.location.search).get("join");
+  return code && code.trim() ? code.trim().toUpperCase() : null;
+}
+
+function getServerLocationJoin(): string | null {
+  return null;
 }
 
 function useSocialSync(): {
@@ -324,6 +341,16 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
   );
   const { notice, report, run } = useSocialSync();
   const signedOutHint = useGlobalForumHint();
+
+  const [surfaceChoice, setSurfaceChoice] = useState<"forum" | "groups" | null>(
+    null,
+  );
+  const linkJoinCode = useSyncExternalStore(
+    subscribeLocationJoin,
+    getLocationJoin,
+    getServerLocationJoin,
+  );
+  const surface = surfaceChoice ?? (linkJoinCode ? "groups" : "forum");
 
   const [filter, setFilter] = useState<ForumCategory | "All">("All");
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
@@ -626,6 +653,35 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
       }
       aria-label="Discuss forum"
     >
+      {isPage && (
+        <div
+          className="mb-4 flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Discuss sections"
+        >
+          {(["forum", "groups"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setSurfaceChoice(option)}
+              aria-pressed={surface === option}
+              className={cn(
+                CHIP_BUTTON_CLASSES,
+                surface === option
+                  ? "border-accent/40 bg-accent/5 text-accent"
+                  : "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink",
+              )}
+            >
+              {option === "forum" ? "Forum" : "Study groups"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isPage && surface === "groups" ? (
+        <StudyGroups initialJoinCode={linkJoinCode} />
+      ) : (
+        <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           {isPage ? (
@@ -1058,6 +1114,8 @@ export function Discuss({ problemId, variant = "embedded" }: DiscussProps) {
               )}
             </>
           )}
+        </>
+      )}
         </>
       )}
     </section>

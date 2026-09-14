@@ -1,15 +1,22 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import { PROBLEMS } from "@/data/problems";
 import { getAuthEmail, signInWithEmail, signOut } from "@/lib/auth";
-import { getDailyState, type DailyState } from "@/lib/daily";
+import { getDailyState, markDailySolved, type DailyState } from "@/lib/daily";
+import { recordExplanation } from "@/lib/explain";
 import { getLabRecords } from "@/lib/labs";
 import { getProgress } from "@/lib/progress";
-import { setCachedSession } from "@/lib/sync/backend";
+import { registerSyncer, setCachedSession } from "@/lib/sync/backend";
 import {
   mergeCollections,
   mergeContests,
+  mergeDaily,
+  mergeExplanations,
+  mergeInterview,
+  mergeLabs,
   mergePenPaper,
+  mergeProgress,
   mergeResearch,
+  mergeReviews,
   mergeUsername,
 } from "@/lib/sync/remoteMerge";
 import {
@@ -24,6 +31,7 @@ import {
   type RemoteResult,
   type RemoteSession,
 } from "@/lib/sync/remote";
+import type { StoreId } from "@/lib/sync/types";
 
 /* ────────────────────────────── test window ─────────────────────────────── */
 
@@ -62,11 +70,23 @@ beforeEach(() => {
   originalWindow = globalScope.window;
   stub = createStorageStub();
   dispatched = [];
+  const windowListeners = new Map<string, Set<(event: Event) => void>>();
   globalScope.window = {
     localStorage: stub,
     location: { origin: "http://localhost:3001", href: "http://localhost:3001/" },
+    addEventListener: (type: string, listener: (event: Event) => void) => {
+      const set = windowListeners.get(type) ?? new Set();
+      set.add(listener);
+      windowListeners.set(type, set);
+    },
+    removeEventListener: (type: string, listener: (event: Event) => void) => {
+      windowListeners.get(type)?.delete(listener);
+    },
     dispatchEvent: (event: Event) => {
       dispatched.push((event as CustomEvent).type);
+      for (const listener of windowListeners.get(event.type) ?? []) {
+        listener(event);
+      }
       return true;
     },
   };
@@ -453,7 +473,12 @@ describe("remotePull", () => {
       user_id: "u-1",
       store_id: "labs",
       data: {
-        "lab-01": { best: 0.9, attempts: 2, passed: true },
+        "lab-01": {
+          best: 0.9,
+          attempts: 2,
+          passed: true,
+          lastScoredAt: "2026-01-03T00:00:00.000Z",
+        },
         "lab-02": { best: null, attempts: 3, passed: false },
       },
       updated_at: "2026-01-03T00:00:00.000Z",
@@ -462,8 +487,199 @@ describe("remotePull", () => {
     await remotePull("labs");
 
     const records = getLabRecords();
-    expect(records["lab-01"]).toEqual({ best: 0.9, attempts: 2, passed: true });
+    expect(records["lab-01"]).toEqual({
+      best: 0.9,
+      attempts: 2,
+      passed: true,
+      lastScoredAt: "2026-01-03T00:00:00.000Z",
+    });
     expect(records["lab-02"]).toEqual({ best: null, attempts: 3, passed: false });
+  });
+
+  test("keeps shield fields and continues the streak across a covered day", async () => {
+    const { client, db } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+    enableSession();
+
+    const today = dateKeyDaysAgo(0);
+    const yesterday = dateKeyDaysAgo(1);
+    const twoDaysAgo = dateKeyDaysAgo(2);
+    const threeDaysAgo = dateKeyDaysAgo(3);
+    stub.setItem(
+      "deepforge:daily:v1",
+      JSON.stringify({
+        lastSolvedDate: yesterday,
+        streak: 2,
+        solvedDates: [threeDaysAgo, twoDaysAgo],
+        shields: 1,
+        shieldUsedDates: [yesterday],
+      }),
+    );
+    db.userStores.set("u-1:daily", {
+      user_id: "u-1",
+      store_id: "daily",
+      data: {
+        lastSolvedDate: twoDaysAgo,
+        streak: 2,
+        solvedDates: [threeDaysAgo, twoDaysAgo],
+      },
+      updated_at: "2026-01-01T00:00:00.000Z",
+    });
+
+    await remotePull("daily");
+
+    const state = getDailyState();
+    expect(state.shields).toBe(1);
+    expect(state.shieldUsedDates).toEqual([yesterday]);
+    expect(state.lastSolvedDate).toBe(yesterday);
+
+    const after = markDailySolved(new Date());
+    expect(after.streak).toBe(3);
+    expect(after.solvedDates).toContain(today);
+    expect(after.solvedDates).not.toContain(yesterday);
+  });
+
+  test("merges explanations per problem and dispatches the store event", async () => {
+    const { client, db } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+    enableSession();
+
+    const entry = (text: string, at: string) => ({
+      text,
+      at,
+      coverage: 1,
+      completeness: 1,
+      score: 1,
+      hits: [],
+      skipped: false,
+    });
+    stub.setItem(
+      "deepforge:explanations:v1",
+      JSON.stringify({
+        p1: [entry("local", "2026-01-01T00:00:00.000Z")],
+      }),
+    );
+    db.userStores.set("u-1:explanations", {
+      user_id: "u-1",
+      store_id: "explanations",
+      data: {
+        p1: [entry("remote", "2026-02-01T00:00:00.000Z")],
+        p2: [entry("remote-only", "2026-02-01T00:00:00.000Z")],
+      },
+      updated_at: "2026-02-01T00:00:00.000Z",
+    });
+
+    await remotePull("explanations");
+
+    const stored = JSON.parse(stub.getItem("deepforge:explanations:v1") as string);
+    expect(stored.p1[0].text).toBe("remote");
+    expect(stored.p2[0].text).toBe("remote-only");
+    expect(dispatched).toContain("deepforge:explanation-change");
+  });
+
+  test("never throws on a malformed remote payload", async () => {
+    const { client, db } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+    enableSession();
+
+    db.userStores.set("u-1:progress", {
+      user_id: "u-1",
+      store_id: "progress",
+      data: ["not", "a", "map"],
+      updated_at: "2026-01-01T00:00:00.000Z",
+    });
+    db.userStores.set("u-1:explanations", {
+      user_id: "u-1",
+      store_id: "explanations",
+      data: "junk",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    });
+
+    await remotePull("progress");
+    await remotePull("explanations");
+
+    expect(getProgress()).toEqual({});
+    expect(stub.getItem("deepforge:progress:v1")).toBe("{}");
+    expect(stub.getItem("deepforge:explanations:v1")).toBe("{}");
+  });
+
+  test("merges reviews with the newer schedule on pull", async () => {
+    const { client, db } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+    enableSession();
+
+    const older = {
+      ease: 2.5,
+      interval: 6,
+      due: "2026-01-10",
+      reps: 2,
+      lapses: 0,
+      lastGrade: 5,
+      lastReviewedAt: "2026-01-04T00:00:00.000Z",
+    };
+    const newer = {
+      ease: 2.3,
+      interval: 1,
+      due: "2026-02-01",
+      reps: 0,
+      lapses: 1,
+      lastGrade: 4,
+      lastReviewedAt: "2026-01-20T00:00:00.000Z",
+    };
+    stub.setItem("deepforge:reviews:v1", JSON.stringify({ p1: older }));
+    db.userStores.set("u-1:reviews", {
+      user_id: "u-1",
+      store_id: "reviews",
+      data: { p1: newer, p2: newer },
+      updated_at: "2026-02-01T00:00:00.000Z",
+    });
+
+    await remotePull("reviews");
+
+    const stored = JSON.parse(stub.getItem("deepforge:reviews:v1") as string);
+    expect(stored.p1.lastReviewedAt).toBe("2026-01-20T00:00:00.000Z");
+    expect(stored.p2.lastReviewedAt).toBe("2026-01-20T00:00:00.000Z");
+    expect(dispatched).toContain("deepforge:reviews-change");
+  });
+
+  test("pulls junk payloads for every registered store without throwing", async () => {
+    const { client, db } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+    enableSession();
+
+    const ids: StoreId[] = [
+      "progress",
+      "daily",
+      "collections",
+      "contests",
+      "interview",
+      "penpaper",
+      "labs",
+      "research",
+      "reviews",
+      "explanations",
+      "username",
+    ];
+    const junk = [null, 42, "junk", ["a", "b"]];
+    ids.forEach((id, index) => {
+      db.userStores.set(`u-1:${id}`, {
+        user_id: "u-1",
+        store_id: id,
+        data: junk[index % junk.length],
+        updated_at: "2026-01-01T00:00:00.000Z",
+      });
+    });
+
+    for (const id of ids) await remotePull(id);
+
+    expect(stub.getItem("deepforge:progress:v1")).toBe("{}");
+    expect(stub.getItem("deepforge:daily:v1")).toBe(
+      JSON.stringify({ lastSolvedDate: null, streak: 0, solvedDates: [] }),
+    );
+    expect(stub.getItem("deepforge:collections:v1")).toBe("[]");
+    expect(stub.getItem("deepforge:labs")).toBe("{}");
+    expect(stub.getItem("deepforge:reviews:v1")).toBe("{}");
+    expect(stub.getItem("deepforge:explanations:v1")).toBe("{}");
   });
 
   test("pushes local state when the remote row is missing", async () => {
@@ -586,6 +802,225 @@ describe("merge rules", () => {
     expect(mergeUsername("local", "remote")).toBe("local");
     expect(mergeUsername("", "")).toBe("");
   });
+
+  test("daily preserves shield fields and the covered-day anchor", () => {
+    const merged = mergeDaily(
+      {
+        lastSolvedDate: "2026-01-05",
+        streak: 3,
+        solvedDates: ["2026-01-03", "2026-01-04", "2026-01-05"],
+        shields: 2,
+        shieldUsedDates: ["2026-01-06", "not-a-date"],
+      },
+      {
+        lastSolvedDate: "2026-01-04",
+        streak: 2,
+        solvedDates: ["2026-01-03", "2026-01-04"],
+        shields: 1,
+        shieldUsedDates: ["2026-01-06"],
+      },
+    );
+    expect(merged.shields).toBe(2);
+    expect(merged.shieldUsedDates).toEqual(["2026-01-06"]);
+    expect(merged.lastSolvedDate).toBe("2026-01-06");
+    expect(merged.streak).toBe(3);
+    expect(merged.solvedDates).toEqual([
+      "2026-01-03",
+      "2026-01-04",
+      "2026-01-05",
+    ]);
+  });
+
+  test("daily counts the streak across a shield-covered gap", () => {
+    const merged = mergeDaily(
+      {
+        lastSolvedDate: "2026-01-04",
+        streak: 3,
+        solvedDates: ["2026-01-01", "2026-01-02", "2026-01-04"],
+        shields: 1,
+        shieldUsedDates: ["2026-01-03"],
+      },
+      {
+        lastSolvedDate: "2026-01-02",
+        streak: 2,
+        solvedDates: ["2026-01-01", "2026-01-02"],
+      },
+    );
+    expect(merged.lastSolvedDate).toBe("2026-01-04");
+    expect(merged.streak).toBe(3);
+    expect(merged.shields).toBe(1);
+    expect(merged.shieldUsedDates).toEqual(["2026-01-03"]);
+  });
+
+  test("daily keeps the legacy shape when neither side has shield fields", () => {
+    const legacy: DailyState = {
+      lastSolvedDate: "2026-01-02",
+      streak: 2,
+      solvedDates: ["2026-01-01", "2026-01-02"],
+    };
+    const merged = mergeDaily(legacy, legacy);
+    expect("shields" in merged).toBe(false);
+    expect("shieldUsedDates" in merged).toBe(false);
+    expect(merged).toEqual(legacy);
+  });
+
+  test("explanations resolve per problem by the newest entry", () => {
+    const entry = (text: string, at: string) => ({
+      text,
+      at,
+      coverage: 1,
+      completeness: 1,
+      score: 1,
+      hits: [],
+      skipped: false,
+    });
+    const merged = mergeExplanations(
+      {
+        p1: [entry("local", "2026-01-01T00:00:00.000Z")],
+        p2: [entry("local-only", "2026-01-01T00:00:00.000Z")],
+        p3: "not-an-array" as unknown as never,
+      },
+      {
+        p1: [entry("remote", "2026-02-01T00:00:00.000Z")],
+        p3: [entry("remote-only", "2026-02-01T00:00:00.000Z")],
+        p4: [{ at: "" } as unknown as never],
+      },
+    );
+    expect(merged.p1[0].text).toBe("remote");
+    expect(merged.p2[0].text).toBe("local-only");
+    expect(merged.p3[0].text).toBe("remote-only");
+    expect(merged.p4).toBeUndefined();
+  });
+
+  test("explanations cap history at 20 and keep local on an equal newest time", () => {
+    const entries = (prefix: string) =>
+      Array.from({ length: 25 }, (_, index) => ({
+        text: `${prefix}-${index}`,
+        at: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+        coverage: 0,
+        completeness: 0,
+        score: 0,
+        hits: [],
+        skipped: false,
+      }));
+    const merged = mergeExplanations(
+      { p1: entries("local") },
+      { p1: entries("remote") },
+    );
+    expect(merged.p1).toHaveLength(20);
+    expect(merged.p1[19].text).toBe("local-24");
+  });
+
+  test("reviews keep the newer schedule and drop malformed entries", () => {
+    const older = {
+      ease: 2.5,
+      interval: 6,
+      due: "2026-01-10",
+      reps: 2,
+      lapses: 0,
+      lastGrade: 5 as const,
+      lastReviewedAt: "2026-01-04T00:00:00.000Z",
+    };
+    const newer = {
+      ease: 2.3,
+      interval: 1,
+      due: "2026-02-01",
+      reps: 0,
+      lapses: 1,
+      lastGrade: 0 as const,
+      lastReviewedAt: "2026-01-20T00:00:00.000Z",
+    };
+    const merged = mergeReviews(
+      { p1: older, p2: older },
+      { p1: newer, p2: "junk" as unknown as never, p3: newer },
+    );
+    expect(merged.p1.lastReviewedAt).toBe("2026-01-20T00:00:00.000Z");
+    expect(merged.p2.lastReviewedAt).toBe("2026-01-04T00:00:00.000Z");
+    expect(merged.p3.lastReviewedAt).toBe("2026-01-20T00:00:00.000Z");
+  });
+
+  test("labs keep the latest scored-run timestamp and legacy shape", () => {
+    const merged = mergeLabs(
+      { "lab-01": { best: 0.5, attempts: 1, passed: false } },
+      {
+        "lab-01": {
+          best: 0.9,
+          attempts: 2,
+          passed: true,
+          lastScoredAt: "2026-01-03T00:00:00.000Z",
+        },
+      },
+    );
+    expect(merged["lab-01"]).toEqual({
+      best: 0.9,
+      attempts: 2,
+      passed: true,
+      lastScoredAt: "2026-01-03T00:00:00.000Z",
+    });
+
+    const olderRemote = mergeLabs(
+      {
+        "lab-01": {
+          best: 0.9,
+          attempts: 2,
+          passed: true,
+          lastScoredAt: "2026-02-01T00:00:00.000Z",
+        },
+      },
+      {
+        "lab-01": {
+          best: 0.5,
+          attempts: 1,
+          passed: false,
+          lastScoredAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    );
+    expect(olderRemote["lab-01"].lastScoredAt).toBe("2026-02-01T00:00:00.000Z");
+
+    const legacy = mergeLabs(
+      { "lab-01": { best: 0.5, attempts: 1, passed: false } },
+      { "lab-01": { best: 0.9, attempts: 2, passed: true } },
+    );
+    expect("lastScoredAt" in legacy["lab-01"]).toBe(false);
+  });
+
+  test("every merge survives partial, legacy, and malformed payloads", () => {
+    const anyOf = (value: unknown): any => value;
+    const junk = [null, undefined, 42, "junk", [], true];
+    for (const value of junk) {
+      // A throw here fails the test; the point is that none of them do.
+      mergeProgress(anyOf(value), anyOf(value));
+      mergeDaily(anyOf(value), anyOf(value));
+      mergeCollections(anyOf(value), anyOf(value));
+      mergeContests(anyOf(value), anyOf(value));
+      mergeInterview(anyOf(value), anyOf(value));
+      mergePenPaper(anyOf(value), anyOf(value));
+      mergeLabs(anyOf(value), anyOf(value));
+      mergeResearch(anyOf(value), anyOf(value));
+      mergeReviews(anyOf(value), anyOf(value));
+      mergeExplanations(anyOf(value), anyOf(value));
+      mergeUsername(anyOf(value), anyOf(value));
+    }
+
+    expect(mergeProgress(anyOf({ p1: "junk" }), anyOf({ p2: null }))).toEqual({});
+    expect(mergeDaily(anyOf({ streak: 4 }), anyOf(null))).toEqual({
+      lastSolvedDate: null,
+      streak: 0,
+      solvedDates: [],
+    });
+    expect(mergeLabs(anyOf({ bad: "junk" }), anyOf({ worse: 7 }))).toEqual({});
+    expect(mergePenPaper(anyOf({ bad: "junk" }), anyOf({ worse: 7 }))).toEqual({});
+    expect(mergeResearch(anyOf({ bad: "junk" }), anyOf({ worse: 7 }))).toEqual({});
+    expect(mergeReviews(anyOf({ bad: "junk" }), anyOf({ worse: 7 }))).toEqual({});
+    expect(mergeExplanations(anyOf({ bad: "junk" }), anyOf({ worse: 7 }))).toEqual(
+      {},
+    );
+    expect(mergeCollections(anyOf(null), anyOf(null))).toEqual([]);
+    expect(mergeContests(anyOf("junk"), anyOf(42))).toEqual([]);
+    expect(mergeInterview(anyOf("junk"), anyOf(42))).toEqual([]);
+    expect(mergeUsername(anyOf(null), anyOf([1, 2]))).toBe("");
+  });
 });
 
 /* ──────────────────────────── first sign-in ─────────────────────────────── */
@@ -612,6 +1047,8 @@ describe("afterSignIn", () => {
       "penpaper",
       "labs",
       "research",
+      "reviews",
+      "explanations",
       "username",
     ];
     for (const id of storeIds) {
@@ -639,6 +1076,38 @@ describe("afterSignIn", () => {
 
     expect(db.profiles.get("u-1").username).toBe("grace-2");
     expect(stub.getItem("deepforge:username:v1")).toBe("grace-2");
+  });
+});
+
+/* ─────────────────────── explanations push bridge ───────────────────────── */
+
+describe("explanation push bridge", () => {
+  test("explanation writes schedule a debounced push", async () => {
+    const { client } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+
+    await initRemoteSync();
+
+    const calls: StoreId[] = [];
+    registerSyncer(async (id) => {
+      calls.push(id);
+    });
+
+    jest.useFakeTimers();
+    try {
+      recordExplanation("p-1", "because the loop advances the pointer", {
+        coverage: 1,
+        completeness: 1,
+        score: 1,
+        hits: [],
+      });
+      expect(calls).toEqual([]);
+
+      jest.advanceTimersByTime(1500);
+      expect(calls).toEqual(["explanations"]);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 
@@ -680,6 +1149,20 @@ describe("syncNow", () => {
     await syncNow();
 
     expect(db.userStores.has("u-1:progress")).toBe(true);
+    for (const id of [
+      "progress",
+      "daily",
+      "collections",
+      "contests",
+      "interview",
+      "penpaper",
+      "labs",
+      "research",
+      "reviews",
+      "explanations",
+    ]) {
+      expect(db.userStores.has(`u-1:${id}`)).toBe(true);
+    }
     expect(db.userStores.has("u-1:username")).toBe(false);
     expect(getSyncState().lastSyncedAt).not.toBeNull();
     expect(stub.getItem("deepforge:sync:v1")).not.toBeNull();

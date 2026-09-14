@@ -24,6 +24,7 @@ function categorySlug(name: string): string {
 }
 
 const ROUTES = [
+  { path: "/start", changeFrequency: "monthly", priority: 0.7 },
   { path: "/paths", changeFrequency: "weekly", priority: 0.9 },
   { path: "/daily", changeFrequency: "daily", priority: 0.8 },
   { path: "/projects", changeFrequency: "weekly", priority: 0.8 },

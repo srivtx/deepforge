@@ -20,9 +20,7 @@ import { AvatarPicker } from "@/components/AvatarPicker";
 import { StreakCard } from "@/components/StreakCard";
 import {
   BADGE_CATALOG,
-  QUESTS_CHANGE_EVENT,
   TOTAL_BADGES,
-  completeQuest,
   computeXp,
   earnedBadges,
   getActivityHeatmap,
@@ -67,7 +65,6 @@ const PROFILE_EVENTS = [
   "deepforge:research-change",
   "deepforge:contest-change",
   "deepforge:username-change",
-  QUESTS_CHANGE_EVENT,
 ];
 
 let cached: ProfileData | null = null;
@@ -499,19 +496,6 @@ export function Badges() {
     nameNotice && validation?.value === nameNotice.name
       ? nameNotice.text
       : null;
-
-  // Labs have no timestamps in their store, so the lab quest is marked on
-  // the change event instead of being derived.
-  useEffect(() => {
-    const onLabChange = () => {
-      for (const quest of getDailyQuests()) {
-        if (quest.id === "lab" && !quest.done) completeQuest(quest.id);
-      }
-    };
-    window.addEventListener("deepforge:lab-change", onLabChange);
-    return () =>
-      window.removeEventListener("deepforge:lab-change", onLabChange);
-  }, []);
 
   const earnedIds = new Set(profile.earned.map((badge) => badge.id));
   const earnedAtById = new Map(

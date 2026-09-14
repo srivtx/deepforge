@@ -12,11 +12,22 @@ import {
   slugify,
   stageProgress,
 } from "@/lib/paths";
+import { getDailyDateKey } from "@/lib/daily";
 import {
+  CHECKPOINT_CHANGE_EVENT,
   evaluateStageCheckpoint,
+  isCheckpointSolved,
+  readCheckpointAttempts,
+  recordCheckpointAttempt,
+  type CheckpointAttemptMap,
   type CheckpointReport,
 } from "@/lib/pathCheckpoints";
 import { getProgress, type ProgressMap } from "@/lib/progress";
+import {
+  getReviewMap,
+  REVIEWS_CHANGE_EVENT,
+  type ReviewMap,
+} from "@/lib/reviewQueue";
 import { summarizeCoverage } from "@/lib/readiness";
 import { problemHref } from "@/lib/problemLinks";
 import { cn, difficultyClasses } from "@/lib/utils";
@@ -102,45 +113,68 @@ const ARTIFACT_LABELS: Record<"lab" | "project" | "sim", string> = {
 };
 
 function CheckpointCard({
+  stageTitle,
+  pathId,
   report,
   problems,
   progress,
+  reviews,
+  now,
   from,
 }: {
+  stageTitle: string;
+  pathId: string;
   report: CheckpointReport;
   problems: Map<string, ProblemMeta>;
   progress: ProgressMap;
+  reviews: ReviewMap;
+  now: Date;
   from: string;
 }) {
   const checkpoint = report.checkpoint;
   if (!checkpoint) return null;
+  const todayKey = getDailyDateKey(now);
+  const revisit = report.revisit;
+  const firstMissedId = revisit?.firstProblemId ?? null;
+  const firstMissed = firstMissedId ? problems.get(firstMissedId) : undefined;
+
+  const status = report.passed
+    ? { label: "Passed", classes: "border-accent/40 bg-accent/5 text-accent" }
+    : report.outcome === "failed"
+      ? {
+          label: "Retry ready",
+          classes: "border-warning/40 bg-warning/5 text-warning",
+        }
+      : {
+          label: `${report.bossSolved}/${report.required} to pass`,
+          classes: "border-hairline bg-canvas-card text-body-mid",
+        };
+
   return (
     <Reveal>
       <div className="rounded-lg border border-hairline bg-canvas-soft p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-medium text-ink">Stage checkpoint</h3>
           <span
+            role="status"
             className={cn(
               "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-              report.passed
-                ? "border-accent/40 bg-accent/5 text-accent"
-                : "border-hairline bg-canvas-card text-body-mid",
+              status.classes,
             )}
           >
-            {report.passed
-              ? "Passed"
-              : `${report.bossSolved}/${report.required} to pass`}
+            {status.label}
           </span>
         </div>
         <p className="mt-1 max-w-2xl text-xs leading-relaxed text-body-mid">
           {report.passed
-            ? "Checkpoint passed. This stage counts as complete even if a few problems remain."
-            : `Solve ${report.required} of ${checkpoint.bossIds.length} boss problems to mark this stage complete, even if a few problems remain.`}
+            ? `You hit the pass mark (${report.required} of ${checkpoint.bossIds.length}), so this stage counts as complete even if a few problems remain.`
+            : `A checkpoint is a short retrieval test drawn from this stage: solve ${report.required} of ${checkpoint.bossIds.length} from memory to mark the stage complete. The stage stays open either way.`}
         </p>
         <ul className="mt-3 flex flex-col gap-1.5">
           {checkpoint.bossIds.map((id) => {
             const problem = problems.get(id);
-            const solved = Boolean(progress[id]?.solved);
+            const solved = isCheckpointSolved(id, progress, reviews, todayKey);
+            const reason = checkpoint.selection.reasons[id];
             return (
               <li key={id} className="flex items-center gap-2">
                 <SolvedMark solved={solved} />
@@ -152,6 +186,16 @@ function CheckpointCard({
                     >
                       {problem.title}
                     </Link>
+                    {reason === "due-review" && (
+                      <span className="shrink-0 rounded-full border border-info/40 bg-info/5 px-1.5 py-0.5 text-[10px] font-medium text-info">
+                        Review due
+                      </span>
+                    )}
+                    {reason === "replacement" && (
+                      <span className="shrink-0 rounded-full border border-warning/40 bg-warning/5 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                        Fresh pick
+                      </span>
+                    )}
                     <span
                       className={cn(
                         "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
@@ -173,6 +217,92 @@ function CheckpointCard({
             );
           })}
         </ul>
+
+        {revisit && (
+          <div className="mt-3 rounded-lg border border-warning/40 bg-warning/5 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-xs font-semibold text-ink">
+                {report.passed ? "Worth revisiting" : "Revisit these"}
+              </h4>
+              <span className="text-[10px] font-medium text-warning">
+                {revisit.missedIds.length} still open
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-body-mid">
+              {revisit.hint}
+            </p>
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {revisit.missedIds.map((id) => {
+                const problem = problems.get(id);
+                return (
+                  <li key={id} className="flex min-w-0 items-center gap-2">
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning"
+                    />
+                    {problem ? (
+                      <>
+                        <Link
+                          href={problemHref(id, from)}
+                          className="min-w-0 flex-1 truncate rounded-sm text-sm text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                        >
+                          {problem.title}
+                        </Link>
+                        <span className="shrink-0 text-[10px] text-body-mid">
+                          {problem.category}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="min-w-0 flex-1 truncate text-sm text-body-mid">
+                        <span className="font-mono text-[11px]">{id}</span>
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {firstMissedId && (
+              <Link
+                href={problemHref(firstMissedId, from)}
+                aria-label={`Review the ${revisit.missedIds.length} checkpoint ${
+                  revisit.missedIds.length === 1 ? "problem" : "problems"
+                } you missed, starting with ${firstMissed?.title ?? firstMissedId}`}
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-warning/40 bg-canvas-card px-4 text-sm font-medium text-ink transition-colors hover:border-warning/60 hover:text-warning focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-9 sm:w-auto"
+              >
+                Review these{" "}
+                {revisit.missedIds.length === 1
+                  ? "1 problem"
+                  : `${revisit.missedIds.length} problems`}
+              </Link>
+            )}
+          </div>
+        )}
+
+        {!report.passed && !report.allSolved && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-hairline pt-3">
+            <button
+              type="button"
+              onClick={() =>
+                recordCheckpointAttempt(
+                  pathId,
+                  checkpoint.stageId,
+                  checkpoint.bossIds,
+                  progress,
+                  { reviews, now: new Date() },
+                )
+              }
+              aria-label={`Record a checkpoint attempt for ${stageTitle}`}
+              className="inline-flex min-h-11 items-center rounded-lg border border-hairline bg-canvas-card px-3 text-xs font-medium text-body-mid transition-colors hover:border-accent/40 hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-8"
+            >
+              Record attempt
+            </button>
+            <span className="text-[11px] text-body-mid">
+              Tried this set and did not pass? Record it — the next set swaps in
+              fresh problems from the same stage.
+            </span>
+          </div>
+        )}
+
         {checkpoint.artifact && (
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-hairline pt-3">
             <span className="rounded-full border border-hairline bg-canvas-card px-1.5 py-0.5 text-[10px] font-medium text-body-mid">
@@ -208,19 +338,32 @@ function StageSection({
   stage,
   index,
   showHeader,
+  pathId,
   problems,
   progress,
+  reviews,
+  attempts,
+  now,
   from,
 }: {
   stage: PathStage;
   index: number;
   showHeader: boolean;
+  pathId: string;
   problems: Map<string, ProblemMeta>;
   progress: ProgressMap;
+  reviews: ReviewMap;
+  attempts: CheckpointAttemptMap;
+  now: Date;
   from: string;
 }) {
   const stats = stageProgress(stage, progress);
-  const report = evaluateStageCheckpoint(stage, problems, progress);
+  const report = evaluateStageCheckpoint(stage, problems, progress, {
+    pathId,
+    reviews,
+    attempts,
+    now,
+  });
   return (
     <section className="flex flex-col gap-3">
       {showHeader && (
@@ -317,9 +460,13 @@ function StageSection({
       </div>
       {report.checkpoint && (
         <CheckpointCard
+          stageTitle={stage.title}
+          pathId={pathId}
           report={report}
           problems={problems}
           progress={progress}
+          reviews={reviews}
+          now={now}
           from={from}
         />
       )}
@@ -329,15 +476,28 @@ function StageSection({
 
 export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
   const [progress, setProgress] = useState<ProgressMap>({});
+  const [reviews, setReviews] = useState<ReviewMap>({});
+  const [attempts, setAttempts] = useState<CheckpointAttemptMap>({});
+  const [now, setNow] = useState<Date>(() => new Date());
 
   useEffect(() => {
-    const load = () => setProgress(getProgress());
+    const load = () => {
+      const current = new Date();
+      setProgress(getProgress());
+      setReviews(getReviewMap(current));
+      setAttempts(readCheckpointAttempts());
+      setNow(current);
+    };
     load();
     window.addEventListener("storage", load);
     window.addEventListener("deepforge:progress-change", load);
+    window.addEventListener(REVIEWS_CHANGE_EVENT, load);
+    window.addEventListener(CHECKPOINT_CHANGE_EVENT, load);
     return () => {
       window.removeEventListener("storage", load);
       window.removeEventListener("deepforge:progress-change", load);
+      window.removeEventListener(REVIEWS_CHANGE_EVENT, load);
+      window.removeEventListener(CHECKPOINT_CHANGE_EVENT, load);
     };
   }, []);
 
@@ -512,8 +672,12 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
               stage={stage}
               index={index}
               showHeader
+              pathId={path.id}
               problems={problemMap}
               progress={progress}
+              reviews={reviews}
+              attempts={attempts}
+              now={now}
               from={from}
             />
           ))
@@ -522,8 +686,12 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
             stage={path.stages[0]}
             index={0}
             showHeader={false}
+            pathId={path.id}
             problems={problemMap}
             progress={progress}
+            reviews={reviews}
+            attempts={attempts}
+            now={now}
             from={from}
           />
         )}

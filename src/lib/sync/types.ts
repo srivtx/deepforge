@@ -16,6 +16,7 @@ export type StoreId =
   | "labs"
   | "research"
   | "reviews"
+  | "explanations"
   | "username";
 
 export interface StoreSpec<T> {

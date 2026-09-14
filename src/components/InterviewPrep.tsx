@@ -13,6 +13,7 @@ import { cn, difficultyClasses } from "@/lib/utils";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { summarizeCoverage } from "@/lib/readiness";
 import { problemHref } from "@/lib/problemLinks";
+import { AgenticRound } from "@/components/interview/AgenticRound";
 import {
   INTERVIEW_CHANGE_EVENT,
   getBestInterviewResult,
@@ -137,13 +138,20 @@ export function InterviewPrep() {
 
 function InterviewPrepWithSearch() {
   const searchParams = useSearchParams();
-  return <InterviewPrepContent autoTrackId={searchParams.get("track")} />;
+  return (
+    <InterviewPrepContent
+      autoTrackId={searchParams.get("track")}
+      autoAgenticTrackId={searchParams.get("agentic")}
+    />
+  );
 }
 
 function InterviewPrepContent({
   autoTrackId,
+  autoAgenticTrackId = null,
 }: {
   autoTrackId: string | null;
+  autoAgenticTrackId?: string | null;
 }) {
   const router = useRouter();
   const [progress, setProgress] = useState<ProgressMap>({});
@@ -171,6 +179,12 @@ function InterviewPrepContent({
     [],
   );
 
+  const agenticTrackId =
+    autoAgenticTrackId &&
+    INTERVIEW_TRACKS.some((track) => track.id === autoAgenticTrackId)
+      ? autoAgenticTrackId
+      : autoTrackId;
+
   useEffect(() => {
     const load = () => {
       setProgress(getProgress());
@@ -190,11 +204,11 @@ function InterviewPrepContent({
   }, []);
 
   useEffect(() => {
-    if (autoStartedRef.current || !autoTrackId) return;
+    if (autoStartedRef.current || !autoTrackId || autoAgenticTrackId) return;
     autoStartedRef.current = true;
     const track = INTERVIEW_TRACKS.find((entry) => entry.id === autoTrackId);
     if (track) startSession(track, track.mockProblemIds);
-  }, [autoTrackId]);
+  }, [autoTrackId, autoAgenticTrackId]);
 
   useEffect(() => {
     if (!activeTrack || summary) return;
@@ -389,6 +403,11 @@ function InterviewPrepContent({
             mock
           </h2>
         </div>
+
+        <AgenticRound
+          defaultTrackId={agenticTrackId}
+          autoOpen={autoAgenticTrackId !== null}
+        />
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {INTERVIEW_TRACKS.map((track) => {

@@ -23,6 +23,8 @@ export interface LabRecord {
   attempts: number;
   /** Has any run met the target? */
   passed: boolean;
+  /** ISO timestamp of the most recent scored run, when known. */
+  lastScoredAt?: string;
 }
 
 export type LabRecords = Record<string, LabRecord>;
@@ -213,7 +215,11 @@ export function getLabBest(labId: string): LabRecord | null {
  * Record one scored run. Increments attempts, keeps the best score in the
  * direction that fits the metric, and flips passed once the target is met.
  */
-export function setLabBest(labId: string, score: number): LabRecord {
+export function setLabBest(
+  labId: string,
+  score: number,
+  at: Date = new Date(),
+): LabRecord {
   const lab = LABS.find((item) => item.id === labId) ?? null;
   const records = labStore.get();
   const current: LabRecord = records[labId] ?? {
@@ -232,6 +238,7 @@ export function setLabBest(labId: string, score: number): LabRecord {
     best: better ? score : current.best,
     attempts: current.attempts + 1,
     passed: current.passed || (lab !== null && meetsTarget(lab, score)),
+    lastScoredAt: at.toISOString(),
   };
   records[labId] = next;
   labStore.set(records);

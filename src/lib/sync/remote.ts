@@ -13,12 +13,18 @@
 import { COLLECTIONS_SPEC } from "@/lib/collections";
 import { CONTEST_SPEC } from "@/lib/contestStore";
 import { DAILY_SPEC, getDailyState } from "@/lib/daily";
+import {
+  EXPLANATION_CHANGE_EVENT,
+  EXPLANATION_STORAGE_KEY,
+  type ExplanationMap,
+} from "@/lib/explain";
 import { INTERVIEW_SPEC } from "@/lib/interview";
 import { LAB_SPEC } from "@/lib/labs";
 import {
   getCachedSession,
   getSupabase,
   isSupabaseConfigured,
+  notifyLocalWrite,
   registerSyncer,
   setCachedSession,
 } from "@/lib/sync/backend";
@@ -27,6 +33,7 @@ import {
   mergeCollections,
   mergeContests,
   mergeDaily,
+  mergeExplanations,
   mergeInterview,
   mergeLabs,
   mergePenPaper,
@@ -34,6 +41,7 @@ import {
   mergeResearch,
   mergeReviews,
   mergeUsername,
+  sanitizeExplanationList,
 } from "@/lib/sync/remoteMerge";
 import type { StoreId, StoreSpec } from "@/lib/sync/types";
 import { PENPAPER_SPEC } from "@/lib/penpaper";
@@ -107,6 +115,34 @@ export interface SyncState {
 
 const SYNC_STATE_KEY = "deepforge:sync:v1";
 const SYNC_CHANGE_EVENT = "deepforge:sync-change";
+
+/**
+ * Store inventory, audited against every `deepforge:` key in `src/lib/`.
+ *
+ * Synced through `user_stores`: progress, daily, collections, contests,
+ * interview, penpaper, labs (`deepforge:labs`, unversioned), research,
+ * reviews, explanations, username.
+ *
+ * Local-only on purpose (keys that never travel through this engine):
+ *   deepforge:avatar:v1          avatars.ts — device-local choice; photos use avatarStorage
+ *   deepforge:assistant:v1       assistant.ts — scratch chat (plus per-problem keys)
+ *   deepforge:badge-dates:v1     badges.ts — first-seen cache derived from synced stores
+ *   deepforge:xp:v1              badges.ts — recomputed XP cache
+ *   deepforge:quests:v1          badges.ts — local quest-completion markers
+ *   deepforge:certificates:v1    certificates.ts — shareable via credential codes instead
+ *   deepforge:concepts:v1        concepts.ts — local concept schedule (no spec/merge yet)
+ *   deepforge:notebook:v1        notebook.ts — local code scratch cells
+ *   deepforge:playlists:v1       playlists.ts — portable via share codes instead
+ *   deepforge:readiness-goal:v1  readiness.ts — device-level target-date plan
+ *   deepforge:reminders:v1       reminders.ts — local-only by design (no account)
+ *   deepforge:runs:v1            runs.ts — honor-system local speedrun history
+ *   deepforge:submissions:v1     submissions.ts — browser-only authoring drafts
+ *   deepforge:explain-prefs:v1   explain.ts — per-device gate opt-out
+ *   deepforge:comments:v1        comments.ts / social.ts — social engine owns its own tables
+ *   deepforge:forum              comments.ts — social engine owns its own tables
+ *   deepforge:session:v1         backend.ts — cached auth session (per device)
+ *   deepforge:sync:v1            remote.ts — last-synced stamp (per device)
+ */
 const ALL_STORE_IDS: StoreId[] = [
   "progress",
   "daily",
@@ -117,8 +153,45 @@ const ALL_STORE_IDS: StoreId[] = [
   "labs",
   "research",
   "reviews",
+  "explanations",
   "username",
 ];
+
+/**
+ * Sync-side view of `explain.ts`. That module predates its registration and
+ * persists through raw read/write instead of `createStore`, so it cannot
+ * notify the backend on its own. `attachExplanationBridge` routes its change
+ * event through `notifyLocalWrite` at init, giving explanation writes the
+ * same debounced push as every other store; full cycles still push/pull.
+ */
+function parseExplanations(raw: string | null): ExplanationMap {
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    const map: ExplanationMap = {};
+    for (const [problemId, value] of Object.entries(
+      parsed as Record<string, unknown>,
+    )) {
+      const entries = sanitizeExplanationList(value);
+      if (entries.length > 0) map[problemId] = entries;
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+const EXPLANATIONS_SPEC: StoreSpec<ExplanationMap> = {
+  id: "explanations",
+  storageKey: EXPLANATION_STORAGE_KEY,
+  event: EXPLANATION_CHANGE_EVENT,
+  empty: () => ({}),
+  parse: parseExplanations,
+  serialize: (v) => JSON.stringify(v),
+};
 
 const STORE_SPECS: Record<StoreId, StoreSpec<any>> = {
   progress: PROGRESS_SPEC,
@@ -130,6 +203,7 @@ const STORE_SPECS: Record<StoreId, StoreSpec<any>> = {
   labs: LAB_SPEC,
   research: RESEARCH_SPEC,
   reviews: REVIEWS_SPEC,
+  explanations: EXPLANATIONS_SPEC,
   username: USERNAME_SPEC,
 };
 
@@ -236,6 +310,24 @@ function dispatchStoreEvent(spec: StoreSpec<any>): void {
   }
 }
 
+let explanationBridgeTarget: unknown = null;
+
+/**
+ * `explain.ts` writes through raw storage instead of `createStore`, so it
+ * cannot call `notifyLocalWrite` itself. Bridging its change event gives
+ * explanation writes the same debounced push as every other synced store.
+ * Re-attaches per window object (tests and HMR may swap `window`).
+ */
+function attachExplanationBridge(): void {
+  if (typeof window === "undefined") return;
+  if (typeof window.addEventListener !== "function") return;
+  if (explanationBridgeTarget === window) return;
+  explanationBridgeTarget = window;
+  window.addEventListener(EXPLANATION_CHANGE_EVENT, () => {
+    notifyLocalWrite("explanations");
+  });
+}
+
 function applySignedOut(): void {
   setCachedSession(null);
   busy = false;
@@ -320,6 +412,8 @@ function mergeStoreValue(id: StoreId, local: any, remote: any): any {
       return mergeResearch(local ?? {}, remote ?? {});
     case "reviews":
       return mergeReviews(local ?? {}, remote ?? {});
+    case "explanations":
+      return mergeExplanations(local ?? {}, remote ?? {});
     case "username":
       return mergeUsername(local, remote);
   }
@@ -620,6 +714,7 @@ async function initialize(): Promise<void> {
     const client = await getRemoteClient();
     if (!client) return;
     registerSyncer(remotePush);
+    attachExplanationBridge();
     const subscription = client.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         applySignedOut();
