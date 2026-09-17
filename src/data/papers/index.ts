@@ -10,6 +10,7 @@
 import { EFFICIENCY_PAPERS } from "./efficiency";
 import { FOUNDING_PAPERS } from "./founding";
 import { FRONTIER_PAPERS } from "./frontier";
+import { FRONTIER2_PAPERS } from "./frontier2";
 import { REASONING_PAPERS } from "./reasoning";
 import type { Paper, PaperEra } from "./types";
 
@@ -58,7 +59,7 @@ const ERA_SOURCES: Record<PaperEra, Paper[]> = {
   founding: FOUNDING_PAPERS,
   efficiency: EFFICIENCY_PAPERS,
   reasoning: REASONING_PAPERS,
-  frontier: FRONTIER_PAPERS,
+  frontier: [...FRONTIER_PAPERS, ...FRONTIER2_PAPERS],
 };
 
 /** Chronological within an era, with a stable id tiebreak for equal dates. */

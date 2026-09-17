@@ -225,6 +225,74 @@ for s in (0, 1000, 2000, 7000, 8500, 9500):
       articles: ["art-softmax-temperature", "art-bpe", "art-kv-cache"],
       problems: ["dl-003", "dl-017", "nlp-026"],
     },
+    project: {
+      title: "Fit a Compute-Optimal Scaling Law",
+      pitch:
+        "Reproduce the paper's budgeting move at toy scale: generate synthetic IsoFLOP profiles from a hidden loss law, recover its exponents by least squares in log space, and use the fitted curve to predict the optimal model/data split at 100x the compute.",
+      difficulty: "intermediate",
+      timeEstimate: "3-5 hours",
+      milestones: [
+        "Implement synthetic_loss as the hidden ground-truth law and generate IsoFLOP profiles over a grid of model sizes and token budgets.",
+        "Take logs of both sides and fit a least-squares line to recover alpha and beta from the loss-versus-N and loss-versus-D slices.",
+        "Refit the full law (A, alpha, B, beta, E) with a small coordinate search and report the residual at every grid point.",
+        "For each compute budget, find the loss-minimizing split and check that the best model size grows with C.",
+        "Extrapolate to C = 1e10 from the fitted law and compare the predicted optimal N and D with the closed-form optimum.",
+        "Add the paper's multi-step learning-rate schedule and compare its toy loss trace against a cosine decay.",
+      ],
+      starterCode: `# Fit DeepSeek-LLM-style scaling laws on synthetic IsoFLOP data.
+import random
+random.seed(0)
+A, B, E = 406.4, 410.7, 1.69
+ALPHA, BETA = 0.34, 0.28
+
+def synthetic_loss(n, d):
+    # Toy ground-truth law: L = A / N^alpha + B / D^beta + E.
+    return A / n ** ALPHA + B / d ** BETA + E
+
+def fit_exponent(xs, ys):
+    # TODO: least-squares fit of log y = c + k log x, return the slope k.
+    return -0.5
+
+def iso_flop_profiles():
+    # Three budgets, five N/D splits each, with C = N * D.
+    return {c: [(n, c / n, synthetic_loss(n, c / n))
+                for n in (1e2, 3e2, 1e3, 3e3, 1e4)]
+            for c in (1e6, 1e7, 1e8)}
+
+def best_split(points):
+    return min(points, key=lambda p: p[2])
+
+# EXPECTED: 15 data points; the token exponent prints -0.5 until the TODO is
+# fitted to the true 0.28; the best split slides toward larger N as C grows;
+# a complete fit should predict N and D at C=1e10 and check the grid answer.
+
+def main():
+    profiles = iso_flop_profiles()
+    points = [p for pts in profiles.values() for p in pts]
+    slope = fit_exponent([p[1] for p in points], [p[2] for p in points])
+    print("data points: %d" % len(points))
+    print("token exponent: %.3f (true %.2f, todo: fit in log space)"
+          % (slope, BETA))
+    for c in sorted(profiles):
+        n, d, loss = best_split(profiles[c])
+        print("C=%.0e best N=%.0f D=%.0f loss=%.3f" % (c, n, d, loss))
+    print("C=1e10 prediction: todo (fit A, alpha, beta, E, then minimize)")
+
+if __name__ == "__main__":
+    main()`,
+      successCriteria: [
+        "The refitted exponents land within 0.03 of the synthetic ground truth (alpha = 0.34, beta = 0.28).",
+        "The predicted optimal N at C = 1e10 is within 20% of the closed-form optimum, and the run prints both numbers.",
+        "Every grid point's residual from the refitted law is under 1% of its loss.",
+        "The multi-step schedule finishes within 2% of cosine's final toy loss.",
+      ],
+      stretch: [
+        "Refit a second synthetic corpus with different exponents and show the optimal split shifting toward the model, the paper's 0.450/0.550 to 0.524/0.476 story.",
+        "Swap the synthetic law for a real curve: train a bigram model on the same text at several data sizes and fit loss versus tokens.",
+        "Print a text histogram of residuals to see where the power law bends.",
+      ],
+      relatedProblemIds: ["dl-003", "dl-017", "nlp-026"],
+    },
   },
   {
     id: "deepseek-moe",
@@ -431,6 +499,77 @@ def moe_layer(u, centroids, experts, k):
       concepts: ["opt-methods"],
       problems: ["dl-310", "dl-311", "dl-312", "dl-313", "dl-314"],
     },
+    project: {
+      title: "Route Tokens Through a Tiny MoE",
+      pitch:
+        "Build a top-1 mixture-of-experts layer from scratch and race it against a dense logistic baseline on a task that is not linearly separable, then add the paper's expert-level balance loss and watch per-expert token counts.",
+      difficulty: "intermediate",
+      timeEstimate: "4-6 hours",
+      milestones: [
+        "Generate the ring dataset and train the dense logistic baseline with SGD until its accuracy plateaus near 0.68.",
+        "Implement top-k routing over expert affinities and the gate-weighted expert combination for one token.",
+        "Train each selected expert by SGD on the tokens routed to it and print per-expert token counts.",
+        "Add the balance loss alpha * sum_j f_j * P_j and sweep alpha over 0, 0.01, and 0.05.",
+        "Add a shared expert that runs for every token and subtract it from the routed budget so per-token expert passes stay fixed.",
+        "Compare dense and MoE accuracy, then count expert passes per token to show where the compute goes.",
+      ],
+      starterCode: `# DeepSeekMoE: top-1 routed experts with a balance loss vs a dense baseline.
+import math, random
+def make_data(n=240, seed=0):
+    # Inner disc is label 1, outer ring is label 0: not linearly separable.
+    rng = random.Random(seed)
+    pts = [(rng.random() * math.tau, rng.choice((0.0, 2.0)) + rng.gauss(0, 0.3))
+           for _ in range(n)]
+    return [((r * math.cos(a), r * math.sin(a)), 1.0 if r < 1.2 else 0.0)
+            for a, r in pts]
+def predict(model, x):
+    w, b = model
+    return 1.0 / (1.0 + math.exp(-(w[0] * x[0] + w[1] * x[1] + b)))
+def train_dense(data, steps=300, lr=0.5):
+    w, b = [0.0, 0.0], 0.0
+    for _ in range(steps):
+        for x, y in data:
+            g = predict((w, b), x) - y
+            w[0] -= lr * g * x[0]
+            w[1] -= lr * g * x[1]
+            b -= lr * g
+    return (w, b)
+def route(x, routers, k=1):
+    scores = [r[0] * x[0] + r[1] * x[1] for r in routers]
+    return sorted(range(len(scores)), key=lambda i: -scores[i])[:k]
+def train_moe(data, n_experts=2, balance=0.01, steps=300, lr=0.5):
+    # TODO: return (experts, routers). Train each routed expert by SGD and
+    # update routers with cross-entropy plus balance * f_j * P_j per expert.
+    return ([([0.0, 0.0], 0.0) for _ in range(n_experts)],
+            [[0.0, 0.0] for _ in range(n_experts)])
+def accuracy(model, data):
+    return sum((model(x) >= 0.5) == (y >= 0.5) for x, y in data) / len(data)
+# EXPECTED: dense about 0.68; the untrained MoE sits at chance with usage
+# [240, 0]; after the TODO routed MoE clears 0.90 and usage splits near even.
+def main():
+    data = make_data()
+    dense = train_dense(data)
+    experts, routers = train_moe(data)
+    print("dense accuracy: %.3f" % accuracy(lambda x: predict(dense, x), data))
+    print("MoE accuracy: %.3f (todo: train experts with a balance loss)"
+          % accuracy(lambda x: predict(experts[route(x, routers)[0]], x), data))
+    print("expert usage:", [sum(1 for x, _ in data if route(x, routers)[0] == j)
+                            for j in range(len(experts))],
+          "(todo: balance to roughly [120, 120])")
+if __name__ == "__main__":
+    main()`,
+      successCriteria: [
+        "Routed MoE with 2 experts beats the dense baseline by at least 0.10 accuracy on the ring task.",
+        "With the balance loss on, expert usage lands within 25% of even across 20 seeds; the run prints the usage vector for each alpha.",
+        "The shared-expert variant matches routed-only accuracy while keeping the same number of expert passes per token.",
+      ],
+      stretch: [
+        "Move to 4 experts with top-2 gates and compare the combination count against 2-of-2.",
+        "Replace hard top-1 assignment with soft gates and check whether usage stays balanced without the extra loss.",
+        "Add unit tests for the router: ties, k equal to the number of experts, and a single-expert layer.",
+      ],
+      relatedProblemIds: ["dl-310", "dl-311", "dl-312", "dl-313", "dl-314"],
+    },
   },
   {
     id: "deepseek-coder",
@@ -627,6 +766,75 @@ def build_fim(doc, rate=0.5, rng=None):
     practice: {
       articles: ["art-bpe", "art-embeddings"],
       problems: ["nlp-020", "nlp-021", "dl-015"],
+    },
+    project: {
+      title: "Build a Repository-Level FIM Pipeline",
+      pitch:
+        "Implement the paper's data pipeline for real: shingle-based repository fingerprints, near-duplicate detection that drops whole projects instead of files, dependency-ordered concatenation, and PSM fill-in-the-middle examples.",
+      difficulty: "starter",
+      timeEstimate: "2-3 hours",
+      milestones: [
+        "Turn every file into n-gram shingles and compute Jaccard similarity between files and between repositories.",
+        "Implement repository-level dedup so a project edited in a few places is dropped while unrelated projects survive.",
+        "Implement a relaxed topological sort that emits the remaining file with the fewest unmet dependencies at each step.",
+        "Concatenate files in dependency order behind a path comment and raise the FIM rate to 50% in PSM order.",
+        "Check that the hole and end sentinels land between the prefix and the moved middle span, then measure the observed FIM rate over 1000 documents.",
+      ],
+      starterCode: `# DeepSeek-Coder: repository-level dedup, dependency order, PSM infilling.
+import random
+def shingles(text, n=4):
+    words = text.split()
+    return {tuple(words[i:i + n]) for i in range(max(0, len(words) - n + 1))}
+def jaccard(a, b):
+    return len(a & b) / max(1, len(a | b))
+def repo_shingles(repo):
+    # TODO: union the shingle sets of every file so dedup sees whole projects.
+    return set()
+def dedup_repos(repos, threshold=0.4):
+    # TODO: keep the first repo of each near-duplicate pair, drop the rest.
+    return list(range(len(repos))), []
+def topo_order(files, deps):
+    # TODO: repeatedly emit the remaining file with the fewest unmet deps.
+    return [name for name, _, _ in files]
+def build_fim(doc, rate=0.5, rng=None):
+    rng = rng or random.Random(0)
+    words = doc.split()
+    if rng.random() > rate or len(words) < 3:
+        return doc
+    p = rng.randrange(1, len(words))
+    s = rng.randrange(p, len(words))
+    return " ".join(words[:p] + ["<fim_hole>"] + words[s:] +
+                    ["<fim_end>"] + words[p:s])
+REPOS = [[("app.py", "import lib call helper print result", ["lib.py"]),
+          ("lib.py", "def helper value return value plus one", [])],
+         [("parser.py", "def parse text split tokens lower", []),
+          ("main.py", "import parse tokens join output", ["parser.py"])],
+         [("lib.py", "def helper value return value plus two", []),
+          ("app.py", "import lib call helper print result", ["lib.py"])]]
+# EXPECTED: 3 repos with the near-duplicate third dropped after the TODO;
+# repo 0 ordered "lib.py app.py"; a PSM sample with the hole and end
+# sentinels between the prefix and the moved middle span.
+def main():
+    kept, dropped = dedup_repos(REPOS)
+    print("repos: %d, kept: %d (todo: drop repo 3 as a near-duplicate)"
+          % (len(REPOS), len(kept)))
+    order = topo_order(REPOS[0], {"app.py": ["lib.py"], "lib.py": []})
+    print("repo 0 order:", " ".join(order), "(todo: put dependencies first)")
+    print("fim sample:",
+          build_fim("alpha beta gamma delta epsilon", rng=random.Random(1)))
+if __name__ == "__main__":
+    main()`,
+      successCriteria: [
+        "Repo-level dedup drops the edited near-duplicate repository and keeps the unrelated one, printing the dropped index.",
+        "Dependency order places every import before its consumer on a sample project that contains a cycle.",
+        "Over 1000 synthetic documents the observed FIM rate is within 0.03 of the requested 0.5.",
+      ],
+      stretch: [
+        "Swap Jaccard shingles for MinHash and compare runtime and recall on 10,000 synthetic files.",
+        "Score files the way the paper's filters do (line length, alphabetic ratio) and reject low-quality files before shingling.",
+        "Round-trip an infilling example: hide a function body, rebuild the prompt, and assert the middle comes back.",
+      ],
+      relatedProblemIds: ["nlp-020", "nlp-021", "dl-015"],
     },
   },
   {
@@ -857,6 +1065,77 @@ def clipped_objective(ratios, advantages, eps=0.2):
       articles: ["art-post-training"],
       problems: ["rl-271", "rl-272", "rl-273", "dl-181"],
     },
+    project: {
+      title: "Make GRPO Beat REINFORCE on a Bandit",
+      pitch:
+        "Implement group-relative advantages and the clipped surrogate on a small multi-armed bandit, then compare against REINFORCE at an equal number of reward pulls.",
+      difficulty: "intermediate",
+      timeEstimate: "3-5 hours",
+      milestones: [
+        "Implement the softmax policy and the sampler, then check empirical arm frequencies against the policy's probabilities.",
+        "Implement REINFORCE with a plain score-function update and record its reward after 2000 pulls.",
+        "Implement group sampling and group_advantages with the epsilon guard for zero-variance groups.",
+        "Update the logits with advantage * (onehot - probs) per sampled arm and match REINFORCE's pull budget.",
+        "Add the clipped ratio objective and run several inner epochs per group, tracking the KL from the sampling policy.",
+        "Average both algorithms over 20 seeds and print the comparison table.",
+      ],
+      starterCode: `# DeepSeekMath: GRPO group-relative advantages vs REINFORCE on a bandit.
+import math, random
+def softmax(logits):
+    exps = [math.exp(z - max(logits)) for z in logits]
+    return [e / sum(exps) for e in exps]
+def sample(probs, rng):
+    r, acc = rng.random(), 0.0
+    for i, p in enumerate(probs):
+        acc += p
+        if r < acc:
+            return i
+    return len(probs) - 1
+def group_advantages(rewards):
+    # TODO: A_i = (r_i - mean) / (std + eps); all zeros if std is tiny.
+    return [0.0] * len(rewards)
+def train_reinforce(true_p, pulls=2000, lr=0.05, seed=1):
+    rng = random.Random(seed)
+    logits = [0.0] * len(true_p)
+    for _ in range(pulls):
+        probs = softmax(logits)
+        a = sample(probs, rng)
+        r = 1.0 if rng.random() < true_p[a] else 0.0
+        for i in range(len(logits)):
+            logits[i] += lr * r * ((1.0 if i == a else 0.0) - probs[i])
+    return softmax(logits)
+def train_grpo(true_p, group=8, pulls=2000, lr=0.05, seed=1):
+    rng = random.Random(seed)
+    logits = [0.0] * len(true_p)
+    # TODO: for each group of \`group\` sampled arms, score them, call
+    # group_advantages, then update logits by advantage * (onehot - probs).
+    return softmax(logits)
+def value(policy, true_p):
+    return sum(p * q for p, q in zip(policy, true_p))
+TRUE_P = [0.85, 0.55, 0.25, 0.10]
+# EXPECTED: best arm pays 0.85; REINFORCE reaches 0.840 after 2000 pulls;
+# GRPO prints 0.438 (uniform) until the TODO lands, then beats REINFORCE at
+# the same pull budget (mean 0.846 over 20 seeds).
+def main():
+    print("best arm reward: %.2f" % max(TRUE_P))
+    print("REINFORCE reward (2000 pulls): %.3f"
+          % value(train_reinforce(TRUE_P), TRUE_P))
+    print("GRPO reward (2000 pulls): %.3f (todo: implement group advantages)"
+          % value(train_grpo(TRUE_P), TRUE_P))
+if __name__ == "__main__":
+    main()`,
+      successCriteria: [
+        "At 2000 reward pulls, GRPO's mean expected reward over 20 seeds exceeds REINFORCE's over the same seeds (reference: 0.846 versus 0.840).",
+        "A group with identical rewards yields all-zero advantages and leaves the policy unchanged.",
+        "With clipping on and multiple inner epochs, the measured KL from the sampling policy stays bounded; the run reports the maximum.",
+      ],
+      stretch: [
+        "Move from a bandit to toy arithmetic: sample short expressions, reward exact answers, and parse the final answer with a string rule.",
+        "Ablate the standard-deviation normalization and report which seeds become unstable.",
+        "Print a text learning curve of reward against pull count for both algorithms.",
+      ],
+      relatedProblemIds: ["rl-271", "rl-272", "rl-273", "dl-181"],
+    },
   },
   {
     id: "deepseek-vl",
@@ -1042,6 +1321,75 @@ def clipped_objective(ratios, advantages, eps=0.2):
       concepts: ["la-vectors", "stats-correlation"],
       articles: ["art-attention", "art-embeddings"],
       problems: ["cv-188", "cv-249", "cv-296"],
+    },
+    project: {
+      title: "Compress an Image into a Fixed Token Budget",
+      pitch:
+        "Reproduce the vision side of DeepSeek-VL at toy scale: patchify synthetic images, encode patches into small token vectors, and pool the grid down the way the adaptor does without losing the classifier.",
+      difficulty: "starter",
+      timeEstimate: "2-4 hours",
+      milestones: [
+        "Generate 16x16 images whose class is defined by a horizontal or vertical bright bar plus a noise floor.",
+        "Patchify each image into an 8x8 grid and encode each patch as a 2-d token (mean brightness, variance).",
+        "Implement 2x2 average pooling with stride 2 and run it twice to turn 64 tokens into 4.",
+        "Fit a nearest-centroid classifier on raw and pooled tokens and compare accuracy at each budget.",
+        "Sweep the number of pooling steps and report the smallest token budget that keeps accuracy within 0.05 of raw.",
+      ],
+      starterCode: `# DeepSeek-VL: patchify an image and pool tokens to a fixed budget.
+import random
+def make_image(label, rng):
+    # 16x16: label 0 bars rows 5-7, label 1 bars columns 10-12.
+    img = [[rng.random() * 0.3 for _ in range(16)] for _ in range(16)]
+    for i in (range(5, 8) if label == 0 else range(16)):
+        for j in (range(16) if label == 0 else range(10, 13)):
+            img[i][j] += 0.7
+    return img
+def patchify(img, grid=8):
+    step = len(img) // grid
+    return [[img[r * step + i][c * step + j] for i in range(step)
+             for j in range(step)] for r in range(grid) for c in range(grid)]
+def encode(patches):
+    # One 2-d token per patch: mean brightness and variance.
+    return [[sum(p) / len(p), sum((v - sum(p) / len(p)) ** 2 for v in p) / len(p)]
+            for p in patches]
+def pool_once(tokens, grid):
+    # TODO: 2x2 average pooling with stride 2; return (tokens, grid // 2).
+    return tokens[:4], 2
+def classify(train, test):
+    dim = len(train[0][0])
+    cents = [[sum(r[d] for r in [t for t, y in train if y == lab]) /
+              len([t for t, y in train if y == lab]) for d in range(dim)]
+             for lab in (0, 1)]
+    return sum((0 if sum((a - b) ** 2 for a, b in zip(t, cents[0]))
+                < sum((a - b) ** 2 for a, b in zip(t, cents[1])) else 1) == y
+               for t, y in test) / len(test)
+# EXPECTED: raw 64 tokens near 1.00; truncated 4 tokens near chance; after
+# the TODO two real pool_once calls keep ~1.00 with the fixed 4-token budget.
+def main():
+    rng = random.Random(0)
+    train = [(encode(patchify(make_image(y, rng))), y)
+             for y in (0, 1) for _ in range(30)]
+    test = [(encode(patchify(make_image(y, rng))), y)
+            for y in (0, 1) for _ in range(30)]
+    toy = lambda d: [(sum(pool_once(t, 8)[0], []), y) for t, y in d]
+    print("raw tokens: 64 with accuracy %.3f" % classify(
+        [(sum(t, []), y) for t, y in train],
+        [(sum(t, []), y) for t, y in test]))
+    print("pooled tokens: 4 with accuracy %.3f (todo: implement pooling)"
+          % classify(toy(train), toy(test)))
+if __name__ == "__main__":
+    main()`,
+      successCriteria: [
+        "Pooled-token accuracy is within 0.05 of raw-token accuracy while using at most 16 tokens per image.",
+        "An 8x8 patch grid becomes a 2x2 token grid after two stride-2 pools, matching the paper's (96 / 2 / 2)^2 pattern at toy scale.",
+        "The pooling sweep prints accuracy for 64, 16, and 4 tokens and names the smallest budget that holds the within-0.05 bar.",
+      ],
+      stretch: [
+        "Add a second encoder branch (blur versus edge features) and concatenate its tokens with the first while keeping the token count fixed.",
+        "Replace nearest-centroid with a tiny softmax classifier trained by SGD in pure Python.",
+        "Implement the paper's 7:3 text/vision batch sampler and show the vision share holds between 0.28 and 0.32 across 100 batches.",
+      ],
+      relatedProblemIds: ["cv-188", "cv-249", "cv-296"],
     },
   },
 ];

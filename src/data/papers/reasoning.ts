@@ -178,6 +178,77 @@ export const REASONING_PAPERS: Paper[] = [
           "Lean checks the formal statement, not the translation from English. Autoformalization errors can make the proved theorem different from the intended one, which the paper acknowledges as a core limitation of the whole approach.",
       },
     ],
+    project: {
+      title: "Proof Search in a Toy Rewrite System",
+      pitch:
+        "Encode Peano arithmetic as tuples, give the system two rewrite rules, and write a breadth-first search that discharges random additions. Generation plus a mechanical checker is the paper's data loop in miniature, and prove rate is the metric.",
+      difficulty: "starter",
+      timeEstimate: "2-3 hours",
+      milestones: [
+        "Encode numerals as nested tuples and write the two addition rewrite rules.",
+        "Implement match so a pattern such as (\"+\", (\"s\", \"x\"), \"y\") binds x and y to subterms.",
+        "Enumerate every one-step rewrite, including rewrites inside subterms rather than only at the root.",
+        "Run breadth-first search from a start term to a goal term with a depth cap and return the proof path.",
+        "Generate 30 random a + b equalities from a fixed seed and report the fraction proved.",
+        "Add a multiplication rule and watch the depth cap start to bind on longer proofs.",
+      ],
+      starterCode: `import random
+from collections import deque
+def numeral(k):
+    return ("z",) if k == 0 else ("s", numeral(k - 1))
+
+# Toy Peano-arithmetic rewrite system: patterns and term builders.
+RULES = [
+    (("+", ("z",), "x"), lambda env: env["x"]),
+    (("+", ("s", "x"), "y"), lambda env: ("s", ("+", env["x"], env["y"]))),
+]
+
+def match(pattern, term, env):
+    # TODO: bind pattern variables ("x", "y") to subterms and return the
+    # extended env, or None when the shapes do not line up.
+    return None
+
+def rewrites(term):
+    out = []
+    for pattern, build in RULES:
+        env = match(pattern, term, {})
+        if env is not None:
+            out.append(build(env))
+    if isinstance(term, tuple):
+        for i, child in enumerate(term):
+            for new_child in rewrites(child):
+                out.append(term[:i] + (new_child,) + term[i + 1:])
+    return out
+
+def prove(start, goal, depth):
+    # TODO: breadth-first search over rewrites() up to depth steps; return
+    # the list of terms from start to goal, or None if no proof is found.
+    return None
+
+def main():
+    rng = random.Random(0)
+    total, solved = 30, 0
+    for _ in range(total):
+        a, b = rng.randint(0, 3), rng.randint(0, 3)
+        if prove(("+", numeral(a), numeral(b)), numeral(a + b), 20):
+            solved += 1
+    print("rules:", len(RULES), "theorems:", total)
+    print("proved:", solved)
+    # EXPECTED: after the TODOs, rules: 2 theorems: 30 / proved: 30; the
+    # unfilled starter prints proved: 0.
+main()`,
+      successCriteria: [
+        "All 30 seeded equalities are proved: the run ends with proved: 30.",
+        "Every returned proof replays one rewrite at a time under rewrites() and ends at the goal term.",
+        "Deleting a basis rule makes the corresponding equalities unprovable, confirming the search cannot bypass the rules.",
+      ],
+      stretch: [
+        "Add multiplication and prove distributivity, a * (b + c) = a * b + a * c, which needs many more steps.",
+        "Replace breadth-first search with iterative deepening and report expansions on proofs of length 10 or more.",
+        "Estimate pass@k by sampling random rewrite walks and compare with the exhaustive search at equal budgets.",
+      ],
+      relatedProblemIds: ["al-261", "ds-003"],
+    },
   },
   {
     id: "deepseek-prover-v1-5",
@@ -379,6 +450,77 @@ def intrinsic_reward(new_nodes_added):
     practice: {
       problems: ["rl-347", "rl-012", "rl-023"],
     },
+    project: {
+      title: "RMaxTS: Verifier-Guided Proof Tree Search",
+      pitch:
+        "Keep the verified prefix of a failed tactic script and resume from there. Build a proof tree over a toy proof assistant, select nodes with discounted UCB, pay a reward for each newly verified node, and compare expansions against whole-proof sampling.",
+      difficulty: "intermediate",
+      timeEstimate: "4-6 hours",
+      milestones: [
+        "Define the toy assistant: depth-10 goals, three tactics per state, and a hidden accept rule the verifier exposes.",
+        "Implement whole-proof sampling, which draws all ten tactics and checks them only at the end.",
+        "Implement the discounted UCB score with an exploration bonus measured against parent visits.",
+        "Implement the search loop: select a frontier node, resume a random continuation, attach only tactics the verifier accepts.",
+        "Reward each newly attached node and backpropagate visits and rewards to the root.",
+        "Run both methods on 20 hidden proofs and compare mean samples or expansions.",
+      ],
+      starterCode: `import math
+import random
+DEPTH, BRANCH, BUDGET, TRIALS = 10, 3, 120, 20
+
+def tactic_ok(d, path, action):
+    # The proof assistant accepts this tactic combination.
+    return (action + sum(path) + d) % 3 != 0
+
+class Node:
+    def __init__(self, state, parent=None):
+        self.state, self.parent = state, parent
+        self.children, self.visits, self.rewards = [], 0, []
+
+    def ucb(self, c=1.2):
+        # TODO: discounted win rate over self.rewards plus the exploration
+        # bonus sqrt(log(parent.visits + 1) / self.visits).
+        return 0.0
+
+def backprop(node, reward):
+    while node is not None:
+        node.visits += 1
+        node.rewards.append(reward)
+        node = node.parent
+
+def rmax_ts(rng, budget=BUDGET):
+    # TODO: select a frontier node by ucb(), resume a random tactic
+    # continuation from it, keep only verified nodes, reward new nodes, and
+    # stop when a continuation reaches DEPTH.
+    return budget
+
+def random_search(rng, budget=BUDGET):
+    # TODO: sample whole proofs and check every tactic only at the end.
+    return budget
+
+def main():
+    rng = random.Random(0)
+    random_total, rmax_total = 0, 0
+    for _ in range(TRIALS):
+        random_total += random_search(rng)
+        rmax_total += rmax_ts(rng)
+    print("random whole-proof mean samples:", round(random_total / TRIALS, 1))
+    print("rmax-ts mean expansions:", round(rmax_total / TRIALS, 1))
+    # EXPECTED: after the TODOs, about 47.4 vs about 6.8 over 20 hidden
+    # proofs; the unfilled starter prints 120.0 for both.
+main()`,
+      successCriteria: [
+        "Tree search finds a proof in under 10 expansions on average while whole-proof sampling needs dozens of samples.",
+        "No unverified tactic appears in the tree: every attached node passed the verifier call.",
+        "Removing the exploration bonus makes selection greedy and increases expansions, showing UCB is doing work.",
+      ],
+      stretch: [
+        "Make some verified prefixes dead ends so the search must backtrack, and check that UCB still beats sampling.",
+        "Decay the exploration constant as the tree fills and measure the effect on expansions.",
+        "Compare at an equal verifier-call budget rather than an equal attempt count.",
+      ],
+      relatedProblemIds: ["rl-347", "rl-078", "rl-012", "rl-023"],
+    },
   },
   {
     id: "deepseek-r1",
@@ -575,6 +717,77 @@ print(group_advantages([1.0, 1.0, 1.0, 1.0]))`,
       problems: ["rl-272", "rl-273", "rl-306", "rl-207", "nlp-268", "dl-149"],
       articles: ["art-post-training"],
     },
+    project: {
+      title: "GRPO vs REINFORCE on a Verifiable Bandit",
+      pitch:
+        "Implement group-relative advantages on a contextual bandit with 0/1 rule rewards, then run the same sample budget through REINFORCE with a running baseline. The toy isolates the variance reduction the group baseline buys without a critic.",
+      difficulty: "intermediate",
+      timeEstimate: "3-5 hours",
+      milestones: [
+        "Build the bandit: six contexts, four arms, one correct arm per context, and a 0/1 reward rule.",
+        "Write softmax sampling from per-context logits.",
+        "Implement grpo_update: standardize the group's rewards into advantages and apply the score-function update.",
+        "Implement reinforce_update with a running mean baseline.",
+        "Run both methods for the same 1600 sampled actions across five seeds.",
+        "Average rewards and confirm GRPO leads on every seed, not only on average.",
+      ],
+      starterCode: `import math, random
+BEST = [0, 2, 1, 3, 2, 0]
+ARMS, CONTEXTS, GROUP, BUDGET, SEEDS = 4, 6, 8, 1600, 5
+def reward(ctx, arm, rng):
+    return 1.0 if rng.random() < (0.9 if arm == BEST[ctx] else 0.1) else 0.0
+
+def softmax(logits):
+    top = max(logits)
+    exps = [math.exp(x - top) for x in logits]
+    total = sum(exps)
+    return [x / total for x in exps]
+
+def sample(probs, rng):
+    r, acc = rng.random(), 0.0
+    for i, p in enumerate(probs):
+        acc += p
+        if r < acc:
+            return i
+    return len(probs) - 1
+
+def grpo_update(logits, ctx, rewards, actions, probs, lr=0.1):
+    # TODO: turn rewards into group-relative advantages, then update each
+    # sampled action by lr * advantage * (onehot - probs).
+    return logits
+
+def reinforce_update(logits, ctx, action, r, baseline, probs, lr=0.1):
+    # TODO: single-sample update with advantage r - baseline.
+    return logits
+
+def train(kind, seed):
+    rng = random.Random(seed)
+    logits = [[0.0] * ARMS for _ in range(CONTEXTS)]
+    total, b_sum, b_n, batch = 0.0, 0.0, 0, GROUP if kind == "grpo" else 1
+    for _ in range(BUDGET // batch):
+        ctx = rng.randrange(CONTEXTS); probs = softmax(logits[ctx])
+        # TODO: sample a batch of actions, score each with reward(), update
+        # the matching policy, and track a running baseline for REINFORCE.
+    return total / BUDGET
+
+def main():
+    for kind in ("grpo", "reinforce"):
+        mean = sum(train(kind, s) for s in range(SEEDS)) / SEEDS
+        print(kind, "mean reward:", round(mean, 3))
+    # EXPECTED: after the TODOs, grpo ~0.78 and reinforce ~0.71 over 5 seeds.
+main()`,
+      successCriteria: [
+        "GRPO mean reward is at least 0.05 above REINFORCE over five seeds.",
+        "GRPO wins on all five seeds in the printed output.",
+        "Setting the group size to 1 zeroes every advantage, so the policy stops improving.",
+      ],
+      stretch: [
+        "Add a cold-start phase that pretrains logits on a few correct trajectories, then run RL.",
+        "Swap the bandit for a two-state gridworld with terminal reward and repeat the comparison.",
+        "Add a KL penalty toward the initial logits and trace the reward-drift tradeoff.",
+      ],
+      relatedProblemIds: ["rl-272", "rl-273", "rl-306", "rl-068", "rl-178"],
+    },
   },
   {
     id: "code-i-o",
@@ -765,6 +978,67 @@ print(group_advantages([1.0, 1.0, 1.0, 1.0]))`,
     ],
     practice: {
       problems: ["al-261", "ds-003"],
+    },
+    project: {
+      title: "Condensed Features Beat Surface Matching",
+      pitch:
+        "Train nearest-neighbor predictors on the same (input, output) pairs and change only the distance: raw tuples against a multiset representation of the computation. The condensed view generalizes to held-out inputs while surface matching cannot.",
+      difficulty: "starter",
+      timeEstimate: "2-3 hours",
+      milestones: [
+        "Generate all 256 length-4 tuples of digits 1-4; the target output is the sorted tuple.",
+        "Keep 150 inputs as (input, sorted output) training pairs and hold out the other 106.",
+        "Implement surface_distance as position mismatches and multiset_distance as the number of elements that must move.",
+        "Implement knn_predict with a majority vote over the k nearest training outputs.",
+        "Compare accuracies and read the mispredictions to see why surface matching fails.",
+        "Vary k and the split and record where each representation saturates.",
+      ],
+      starterCode: `import random
+from itertools import product
+
+SLOTS, SPLIT = 4, 150
+DATA = list(product(range(1, 5), repeat=SLOTS))
+
+def surface_distance(a, b):
+    return sum(x != y for x, y in zip(a, b))
+
+def multiset_distance(a, b):
+    # TODO: how many elements must move for the two multisets to match?
+    return 0
+
+def knn_predict(train, x, distance, k=3):
+    # TODO: rank the training (input, output) pairs by distance, then take a
+    # majority vote over the outputs of the k nearest.
+    return ()
+
+def accuracy(train, test, distance):
+    # TODO: fraction of test inputs whose sorted tuple is predicted exactly.
+    return 0.0
+
+def main():
+    rng = random.Random(0)
+    data = list(DATA)
+    rng.shuffle(data)
+    train = [(x, tuple(sorted(x))) for x in data[:SPLIT]]
+    test = data[SPLIT:]
+    print("examples:", len(data), "train:", len(train), "test:", len(test))
+    print("surface kNN accuracy:", round(accuracy(train, test, surface_distance), 3))
+    print("condensed kNN accuracy:", round(accuracy(train, test, multiset_distance), 3))
+    # EXPECTED: after the TODOs, surface near 0.0 and condensed near 0.97,
+    # so the representation, not the data, is doing the generalizing.
+
+main()`,
+      successCriteria: [
+        "Multiset kNN accuracy is above 0.9 while surface kNN stays below 0.1 on the same split.",
+        "Every test input whose multiset appears in training is predicted exactly.",
+        "Shuffling the training outputs drops both accuracies toward chance, confirming the pairing matters.",
+      ],
+      stretch: [
+        "Use distance-weighted voting instead of a plain majority and report the change.",
+        "Swap sorting for a different transformation such as reverse or dedupe and design a representation that generalizes.",
+        "Add revision: on a wrong prediction, add the corrected pair to training and re-measure.",
+      ],
+      relatedProblemIds: ["al-261", "ds-003", "ml-004", "ml-107"],
     },
   },
   {
@@ -958,6 +1232,77 @@ print(plurality_vote(samples))  # A wins two of three judgments`,
       problems: ["rl-225", "rl-178", "rl-206", "rl-207", "dl-149"],
       articles: ["art-post-training"],
     },
+    project: {
+      title: "Plurality Voting and DUCB Budget Allocation",
+      pitch:
+        "Give five candidates hidden scores, judge pairs with Gaussian noise, and aggregate wins into a vote. Compare spending a fixed comparison budget uniformly against a discounted-UCB rule that keeps matching the leaders.",
+      difficulty: "intermediate",
+      timeEstimate: "3-4 hours",
+      milestones: [
+        "Give each candidate a hidden score and write the noisy pairwise judge.",
+        "Implement vote as the candidate with the most match wins, with ties broken deterministically.",
+        "Run uniform allocation at budgets 2 through 64 and average accuracy over 60 seeds.",
+        "Implement the adaptive branch: leader by win rate, challenger by win rate plus an exploration bonus.",
+        "Print both compute and accuracy curves side by side.",
+        "Raise the noise and find the point where adaptive allocation stops helping.",
+      ],
+      starterCode: `import math
+import random
+
+CANDIDATES, SIGMA, SEEDS = 5, 0.22, 60
+BUDGETS = [2, 4, 8, 16, 32, 64]
+
+def true_scores(seed):
+    rng = random.Random(seed)
+    return [rng.uniform(0.0, 1.0) for _ in range(CANDIDATES)]
+
+def judge(i, j, scores, rng):
+    return 1 if scores[i] + rng.gauss(0, SIGMA) > scores[j] + rng.gauss(0, SIGMA) else 0
+
+def vote(wins):
+    # TODO: return the candidate with the most wins from the pairwise matches.
+    return -1
+
+def uniform_accuracy(budget, seed):
+    rng = random.Random(seed)
+    scores = true_scores(seed)
+    wins = [0] * CANDIDATES
+    for _ in range(budget):
+        i, j = rng.sample(range(CANDIDATES), 2)
+        if judge(i, j, scores, rng):
+            wins[i] += 1
+        else:
+            wins[j] += 1
+    best = max(range(CANDIDATES), key=lambda c: scores[c])
+    return 1 if vote(wins) == best else 0
+
+def ducb_accuracy(budget, seed):
+    # TODO: same budget, but pick every next pair adaptively: the leader is
+    # the best win rate, the challenger is the best win rate plus an
+    # exploration bonus (discounted UCB), then score the pair with judge().
+    return 0
+
+def main():
+    print("budget  uniform  ducb")
+    for budget in BUDGETS:
+        u = sum(uniform_accuracy(budget, s) for s in range(SEEDS)) / SEEDS
+        d = sum(ducb_accuracy(budget, s) for s in range(SEEDS)) / SEEDS
+        print(budget, " ", round(u, 3), " ", round(d, 3))
+    # EXPECTED: after the TODOs, both curves rise and ducb leads (about
+    # 0.83 vs 0.58 at 64 comparisons); the unfilled starter prints 0.0.
+main()`,
+      successCriteria: [
+        "Both accuracy curves increase with budget across the six budgets.",
+        "DUCB accuracy at budget 64 is at least 0.1 above uniform and never lower at any budget.",
+        "Reducing the judge noise to 0.05 pushes both methods above 0.9, showing the gap is about judgement noise, not the voting rule.",
+      ],
+      stretch: [
+        "Resample every pair twice and drop judgments that disagree before the vote, a small stand-in for the meta reward model.",
+        "Add a sixth candidate nearly tied for first and see which method identifies it.",
+        "Replace plurality with a Bradley-Terry fit and compare at a fixed budget.",
+      ],
+      relatedProblemIds: ["dl-149", "rl-225", "ml-138", "ml-180"],
+    },
   },
   {
     id: "deepseek-prover-v2",
@@ -1135,6 +1480,67 @@ print(plurality_vote(samples))  # A wins two of three judgments`,
     practice: {
       problems: ["rl-272"],
     },
+    project: {
+      title: "Subgoal Decomposition with a Proof Cache",
+      pitch:
+        "Prove a conjunction of independent lemmas by searching each one separately and caching results. Flat search pays for the product of the subgoal spaces; decomposition pays the sum, and repeated lemmas are free.",
+      difficulty: "intermediate",
+      timeEstimate: "3-4 hours",
+      milestones: [
+        "Model a lemma as a start and goal position on a line of nine states with plus-or-minus-one moves.",
+        "Implement flat_search as BFS over the joint tuple of positions and count expansions.",
+        "Implement solve_lemma with a cache keyed by the (start, goal) pair.",
+        "Build six theorems of three lemmas drawn from a pool of five.",
+        "Compare total expansions and count how many pool lemmas end up cached.",
+        "Widen the line and add theorems, then confirm the flat search scales worse.",
+      ],
+      starterCode: `import random
+from collections import deque
+
+WIDTH, LEMMAS, THEOREMS = 9, 3, 6
+
+def moves(state):
+    return [s for s in (state - 1, state + 1) if 0 <= s < WIDTH]
+
+def flat_search(lemmas):
+    # TODO: BFS over the joint state (one position per subgoal) until every
+    # coordinate sits on its goal; return the number of expansions used.
+    return 0
+
+def solve_lemma(start, goal, cache):
+    # TODO: BFS one lemma on the line; on a cache hit return 0, otherwise
+    # expand the search, store the cost at (start, goal), and return it.
+    return 0
+
+def main():
+    rng = random.Random(0)
+    pool = [(rng.randrange(WIDTH), rng.randrange(WIDTH)) for _ in range(5)]
+    cache = {}
+    total_flat, total_decomposed = 0, 0
+    for _ in range(THEOREMS):
+        lemmas = [pool[rng.randrange(len(pool))] for _ in range(LEMMAS)]
+        total_flat += flat_search(lemmas)
+        total_decomposed += sum(solve_lemma(s, g, cache) for s, g in lemmas)
+    print("theorems:", THEOREMS, "lemmas each:", LEMMAS)
+    print("flat joint search expansions:", total_flat)
+    print("decomposed expansions:", total_decomposed)
+    print("distinct lemmas cached:", len(cache))
+    # EXPECTED: after the TODOs, flat about 734 expansions against about
+    # 16 for the decomposed search with 5 cached lemmas; starter prints zeros.
+
+main()`,
+      successCriteria: [
+        "Flat search uses hundreds of expansions while the decomposed search stays under 50.",
+        "Every cache hit costs zero expansions and all five pool lemmas end cached.",
+        "Raising the width from 9 to 15 multiplies flat expansions while decomposed expansion grows roughly linearly.",
+      ],
+      stretch: [
+        "Let lemmas depend on earlier lemmas so solving order matters and the cache needs care.",
+        "Add a budget cutoff to flat_search and record how often it fails to finish.",
+        "Replace per-lemma BFS with A* using distance to the goal and compare expansions.",
+      ],
+      relatedProblemIds: ["op-200", "al-096", "al-098"],
+    },
   },
   {
     id: "deepseek-r1-0528",
@@ -1283,6 +1689,60 @@ print(plurality_vote(samples))  # A wins two of three judgments`,
           "Single-number summaries hide tradeoffs. The card presents a table with regressions as well as gains, and the honest reading is that the update shifted the capability mix. Deployment decisions should be per-axis, which is exactly why the report publishes the full table.",
       },
     ],
+    project: {
+      title: "Thinking Budget vs Accuracy",
+      pitch:
+        "Simulate a reasoner whose thinking steps try techniques with replacement: a longer trace raises the chance of hitting a correct approach with sharply diminishing returns. Find where the accuracy curve flattens, the toy version of comparing 12k and 23k thinking tokens.",
+      difficulty: "starter",
+      timeEstimate: "1-2 hours",
+      milestones: [
+        "Define the task: 40 techniques, 3 correct, each thinking step tries one technique at random.",
+        "Implement success for a fixed budget.",
+        "Average over 400 runs per budget so the estimate is stable.",
+        "Implement flatten_budget with a 0.05 tolerance.",
+        "Print the curve for budgets 1 through 80 and find the knee.",
+        "Re-run with 1 and with 6 correct techniques and compare the curves.",
+      ],
+      starterCode: `import random
+
+TECHNIQUES, CORRECT, SEEDS = 40, 3, 400
+BUDGETS = [1, 5, 10, 20, 40, 80]
+
+def success(budget, rng):
+    # TODO: each thinking step tries one technique (sampling with
+    # replacement); success if any of the first CORRECT techniques comes up.
+    return 0
+
+def accuracy(budget):
+    # TODO: average success(budget, rng) over SEEDS runs of a fixed-seed rng.
+    return 0.0
+
+def flatten_budget(curve, tol=0.05):
+    # TODO: first budget whose accuracy gain over the previous budget is
+    # below tol; return -1 when the curve never flattens.
+    return -1
+
+def main():
+    curve = [(b, accuracy(b)) for b in BUDGETS]
+    for budget, acc in curve:
+        print("budget", budget, "accuracy", round(acc, 3))
+    print("returns flatten at budget", flatten_budget(curve))
+    # EXPECTED: after the TODOs, 0.095, 0.330, 0.505, 0.800, 0.960, 0.995
+    # and flatten at 80; the unfilled starter prints zeros and -1.
+
+main()`,
+      successCriteria: [
+        "Accuracy rises from under 0.1 at budget 1 to above 0.99 at budget 80.",
+        "The first gain below the 0.05 tolerance appears at budget 80.",
+        "With one correct technique the same budgets score lower everywhere, so the curve depends on both budget and hit rate.",
+      ],
+      stretch: [
+        "Add overthinking: after each failure a step has a small chance to derail the trace, then find the accuracy peak.",
+        "Allow steps to revisit earlier techniques with fixed probability and measure the effect.",
+        "Give the reasoner a biased technique order and show how a better prior shifts the curve left.",
+      ],
+      relatedProblemIds: ["nlp-268", "rl-298", "info-268", "nlp-386"],
+    },
   },
   {
     id: "deepseek-math-v2",
@@ -1481,6 +1941,77 @@ print(plurality_vote(samples))  # A wins two of three judgments`,
       concepts: ["stats-spread", "prob-distributions"],
       articles: ["art-post-training"],
       problems: ["rl-272", "rl-273", "rl-306"],
+    },
+    project: {
+      title: "Self-Verified Proof Generation for Toy Identities",
+      pitch:
+        "Generate candidate rewrite proofs for associativity-style identities, verify every step mechanically, and measure pass@k and the false-accept rate. Verification is sound, so the work is in generation and in measuring what self-checking actually buys.",
+      difficulty: "advanced",
+      timeEstimate: "4-6 hours",
+      milestones: [
+        "Define terms over plus with integer leaves and three rules: commutativity, left association, right association.",
+        "Implement rewrite for a rule applied at a path, returning None when it does not apply.",
+        "Implement verify, which replays a proof and rejects at the first illegal step.",
+        "Implement generate as a random walk of up to eight legal steps that never looks at the target.",
+        "Measure pass@k for k = 1, 4, and 16 over 200 trials on one true identity.",
+        "Run the verifier on candidates for a false identity and confirm zero accepts.",
+      ],
+      starterCode: `import random
+RULES = ("comm", "assoc", "assoc2")
+
+def plus_nodes(term, path=()):
+    nodes = []
+    if isinstance(term, tuple):
+        nodes.append(path)
+        for i in (1, 2):
+            nodes.extend(plus_nodes(term[i], path + (i,)))
+    return nodes
+
+def rewrite(term, rule, path):
+    # TODO: apply comm, assoc, or assoc2 at a path; return the rewritten
+    # term, or None when the rule does not apply at that position.
+    return None
+
+def verify(start, target, proof):
+    # TODO: replay the (rule, path) steps from start; every step must apply
+    # and the final term must equal target.
+    return False
+
+def generate(start, steps, rng):
+    # TODO: random walk of up to a fixed number of legal steps from start,
+    # without looking at the target; return the list of steps.
+    return []
+
+def pass_at_k(start, target, k, rng, steps=8):
+    return 1 if any(verify(start, target, generate(start, steps, rng))
+                    for _ in range(k)) else 0
+
+def main():
+    rng = random.Random(0)
+    start = ("+", 1, ("+", 2, 3))
+    target = ("+", ("+", 3, 2), 1)
+    for k in (1, 4, 16):
+        hits = sum(pass_at_k(start, target, k, rng) for _ in range(200))
+        print("pass@%d:" % k, round(hits / 200, 3))
+    falsestart = ("+", 1, ("+", 2, 3))
+    falsetarget = ("+", ("+", 1, 2), 4)
+    accepted = sum(verify(falsestart, falsetarget, generate(falsestart, 8, rng))
+                   for _ in range(200))
+    print("false-claim proofs accepted:", accepted)
+    # EXPECTED: after the TODOs, pass@1 about 0.17, pass@4 about 0.48,
+    # pass@16 about 0.94, zero false claims; the unfilled starter prints 0.0.
+main()`,
+      successCriteria: [
+        "pass@k rises monotonically and reaches at least 0.9 at k = 16.",
+        "The verifier accepts zero candidates for the false identity across 200 trials.",
+        "Every accepted proof replays to the target under an independent replay, and no accepted proof skips a legal rule.",
+      ],
+      stretch: [
+        "Add a self-analysis to each candidate and reward correct predictions of its own score, mirroring the paper's alpha/beta split.",
+        "Add a meta-verifier that audits the verifier's rejection reasons on a noisy rule set.",
+        "Spend extra verification samples on candidates the verifier rejects and report the extra passes found.",
+      ],
+      relatedProblemIds: ["dl-149", "info-231", "ml-178"],
     },
   },
 ];

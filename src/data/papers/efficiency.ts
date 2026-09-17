@@ -212,6 +212,72 @@ print(dense // sparse)  # 56x fewer bytes at the same context`,
       articles: ["art-attention", "art-kv-cache"],
       problems: ["dl-370", "dl-384", "dl-401", "dl-310", "dl-291"],
     },
+    project: {
+      title: "Compress the KV cache into an MLA latent",
+      pitch: "Rebuild the core of Multi-head Latent Attention in miniature: project each token's keys and values down to a shared latent, reconstruct them for attention, and sweep the latent width to find the smallest cache that meets a fixed reconstruction-error budget. The toy uses random projections and a low-rank token state, so the compression arithmetic matches the real one.",
+      difficulty: "intermediate",
+      timeEstimate: "3-5 hours",
+      milestones: [
+        "Build the toy model: a random 64-number key and value projection from a 32-dim token state, with the state itself low-rank (8 signal dimensions) so real activations are only approximated.",
+        "Implement the MLA round trip: down-project the state to a d_c-number latent, up-project it back to a reconstructed state, then to keys and values.",
+        "Count the cache: 2 * 4 * 8 = 64 numbers per token for full MHA against d_c + 8 for MLA, where the 8 is the decoupled RoPE key.",
+        "Sweep latent widths 2, 4, 6, 8 and record key and value relative reconstruction error at each width.",
+        "Pick the smallest latent whose error is at most 0.05 and report the cache compression ratio.",
+        "Repeat over 200 random tokens and report the mean error so one sample cannot set the result.",
+        "Write a short note comparing the measured trade curve with the paper's 93.3% cache reduction.",
+      ],
+      starterCode: `import math, random
+random.seed(0)
+# EXPECTED before TODOs: MHA cache 64 numbers, then "unimplemented: TODO: mla_roundtrip".
+# EXPECTED after TODOs: latent 2/4/6 errors fall from 0.67 to about 0.3;
+# latent 8 reaches ~0.02 with cache 16 against 64 for MHA.
+D, H, DH, RANK = 32, 4, 8, 8
+
+def mat(r, c): return [[random.gauss(0, 1) for _ in range(c)] for _ in range(r)]
+def mv(m, v): return [sum(m[i][j] * v[j] for j in range(len(v))) for i in range(len(m))]
+W_K, W_V = mat(H * DH, D), mat(H * DH, D)
+
+def sample_h():
+    """Low-rank token state: RANK signal dimensions plus a little noise."""
+    h = [random.gauss(0, 1) for _ in range(RANK)] + [0.0] * (D - RANK)
+    return [x + 0.01 * random.gauss(0, 1) for x in h]
+
+def mla_roundtrip(h, d_c):
+    """TODO: the latent is c = h[:d_c] (W_D keeps the top RANK directions);
+    return (W_K @ h_hat, W_V @ h_hat, d_c + 8) with h_hat = c padded with
+    zeros, and the 8 extra numbers standing for the decoupled RoPE key."""
+    raise NotImplementedError("TODO: mla_roundtrip")
+
+def rel_err(true, hat):
+    num = sum((a - b) ** 2 for a, b in zip(true, hat))
+    return math.sqrt(num / (sum(a * a for a in true) or 1.0))
+
+h = sample_h()
+k_true, v_true = mv(W_K, h), mv(W_V, h)
+print("MHA cache/token:", 2 * H * DH, "numbers; data rank:", RANK)
+print("MLA cache/token: d_c + 8; target rel err <= 0.05")
+for d_c in (2, 4, 6, 8):
+    try:
+        k_hat, v_hat, cache = mla_roundtrip(h, d_c)
+        print("latent", d_c, "cache", cache,
+              "k_err", round(rel_err(k_true, k_hat), 4),
+              "v_err", round(rel_err(v_true, v_hat), 4))
+    except NotImplementedError as exc:
+        print("unimplemented:", exc)
+        break`,
+      successCriteria: [
+        "The sweep covers at least 4 latent widths and prints cache size in numbers plus key and value relative error for each.",
+        "The chosen latent reaches mean relative key and value error at or below 0.05 over 200 random tokens.",
+        "The final report includes the compression ratio versus the 64-number MHA cache and counts the 8-number RoPE key in the MLA cache.",
+        "The script runs under 5 seconds with one python3 command using only the standard library.",
+      ],
+      stretch: [
+        "Replace the hand-aligned latent with learned projections: fit W_D by power iteration on the sample covariance (PCA) and re-run the sweep.",
+        "Quantize the latent to 8 bits and measure how much extra error a production cache would pay.",
+        "Run the round trip inside attention: score 64 keys, take the top-1 key per query with full and reconstructed keys, and report the argmax agreement rate.",
+      ],
+      relatedProblemIds: ["dl-370", "dl-401"],
+    },
   },
   {
     id: "deepseek-coder-v2",
@@ -403,6 +469,76 @@ print(mix["code"])  # 3.6T code tokens`,
       concepts: ["la-matrix-ops"],
       articles: ["art-kv-cache"],
       problems: ["dl-401", "dl-402", "dl-291", "dl-313"],
+    },
+    project: {
+      title: "Fill in the middle with a tiny n-gram model",
+      pitch: "Build the fill-in-the-middle pipeline DeepSeek-Coder-V2 trains on: reorder documents into prefix, hole, and suffix, train a small counting model on the reordered stream, and measure how often it completes the hole correctly against a plain left-to-right model trained on the same corpus. The corpus is a synthetic motif language where the middle token is predictable only when both neighbors are visible.",
+      difficulty: "starter",
+      timeEstimate: "2-3 hours",
+      milestones: [
+        "Generate a synthetic corpus by concatenating random motifs, so tokens have local structure and some positions are ambiguous from one side only.",
+        "Hold out a test split and compute majority-token accuracy as a floor.",
+        "Implement the FIM transform: cut a one-token hole at a random interior position and emit (previous token, next token) -> middle.",
+        "Train a left-to-right baseline that counts (previous) -> middle pairs from the original documents.",
+        "Train the FIM model that counts (previous, next) -> middle pairs from the transformed data.",
+        "Evaluate both on held-out holes and report exact-match accuracy.",
+        "Widen the hole to 2 or 3 tokens and check how accuracy changes.",
+      ],
+      starterCode: `import random
+from collections import Counter
+random.seed(7)
+# EXPECTED before TODOs: 400 train docs, 1600 holes, majority accuracy 0.259.
+# EXPECTED after TODOs: left-to-right 0.418, fim 0.644.
+
+MOTIFS = ["abc", "adb", "cda", "cbd"]
+
+def make_corpus(n_docs, rng):
+    return ["".join(rng.choice(MOTIFS) for _ in range(6)) for _ in range(n_docs)]
+
+def fim_sample(doc, rng):
+    """TODO: pick 1 <= i < len(doc) - 1 and return ((doc[i-1], doc[i+1]), doc[i])."""
+    raise NotImplementedError("TODO: fim_sample")
+
+def train(rows):
+    """TODO: rows are (context_tuple, middle) pairs; return a dict of Counters."""
+    raise NotImplementedError("TODO: train")
+
+def predict(counts, context):
+    """TODO: return the most common middle for a context, or None."""
+    raise NotImplementedError("TODO: predict")
+
+def accuracy(counts, holes, use_suffix):
+    hits = 0
+    for prev, mid, nxt in holes:
+        context = (prev, nxt) if use_suffix else (prev,)
+        if predict(counts, context) == mid:
+            hits += 1
+    return hits / len(holes)
+
+train_docs = make_corpus(400, random)
+test_docs = make_corpus(100, random)
+holes = [(d[i - 1], d[i], d[i + 1]) for d in test_docs for i in range(1, len(d) - 1)]
+print("train docs:", len(train_docs), "test holes:", len(holes))
+print("majority-token accuracy:",
+      round(Counter(h[1] for h in holes).most_common(1)[0][1] / len(holes), 3))
+try:
+    left_to_right = train([((d[i - 1],), d[i]) for d in train_docs for i in range(1, len(d))])
+    fim = train([fim_sample(d, random) for d in train_docs])
+    print("left-to-right accuracy:", round(accuracy(left_to_right, holes, False), 3))
+    print("fim accuracy:", round(accuracy(fim, holes, True), 3))
+except NotImplementedError as exc:
+    print("unimplemented:", exc)`,
+      successCriteria: [
+        "The held-out holes number at least 1000 and come from documents the models never trained on.",
+        "The FIM model beats the left-to-right baseline by at least 10 accuracy points.",
+        "Both accuracies and the majority-token floor are printed from one run with a fixed seed.",
+        "The hole is chosen uniformly from interior positions, not hand-picked.",
+      ],
+      stretch: [
+        "Score completions by mean negative log-likelihood instead of exact match and compare the two models on that scale.",
+        "Add the paper's token mix: dilute the code corpus with 30% prose-like sequences and show which model degrades less.",
+        "Extend the counting model to order 3 and find where more context stops helping on held-out documents.",
+      ],
     },
   },
   {
@@ -601,6 +737,75 @@ print(update_bias(bias, [40, 10, 10, 10]))  # expert 0 is nudged down`,
     practice: {
       problems: ["dl-310", "dl-311", "dl-312", "dl-313", "dl-314", "dl-291"],
     },
+    project: {
+      title: "Balance MoE experts with bias, not gradient",
+      pitch: "Reproduce Loss-Free Balancing on a toy router: eight experts with skewed popularity and noisy scores, two chosen per token. Compare an integral load penalty that stands in for the auxiliary-loss gradient against the paper's sign update on a selection-only bias, and measure both load imbalance (MaxVio) and how far each method moves the gate scores away from their honest values.",
+      difficulty: "intermediate",
+      timeEstimate: "3-4 hours",
+      milestones: [
+        "Build the toy router: eight experts with fixed popularity gaps, noisy per-token scores, top-2 selection.",
+        "Measure the uncontrolled MaxVio as the imbalance baseline.",
+        "Implement the paper's update: after each batch, move each selection bias one step in the sign of the previous batch's load error.",
+        "Implement the auxiliary-loss stand-in: an integral penalty added to scores, driven by the same load error.",
+        "Sweep the penalty gain and the bias step and record MaxVio and gate distortion (mean absolute score adjustment) for both.",
+        "Print the frontier: the balance each method reaches at a given amount of score distortion.",
+        "Verify the bias never enters the gate that weights expert outputs, so its distortion is exactly zero.",
+      ],
+      starterCode: `import random
+random.seed(1)
+# EXPECTED before TODOs: no-control MaxVio 0.2424, then "unimplemented".
+# EXPECTED after TODOs: aux alpha 0.005/0.02/0.08 -> MaxVio 0.108/0.026/0.023 at
+# distortion 0.22/0.41/0.43; loss-free u 0.005 -> MaxVio 0.024, distortion 0.0.
+N_EXPERTS, TOP_K, STEPS, BATCH = 8, 2, 600, 256
+POPULARITY = [0.9, 0.7, 0.4, 0.2, 0.0, -0.2, -0.4, -0.6]
+def token_scores(rng):
+    return [POPULARITY[i] + rng.gauss(0, 0.5) for i in range(N_EXPERTS)]
+def route(scores, adjust, k=TOP_K):
+    order = sorted(range(N_EXPERTS), key=lambda i: scores[i] + adjust[i], reverse=True)
+    return order[:k]
+def maxvio(counts, total):
+    return max(abs(c / total - 1.0 / N_EXPERTS) for c in counts)
+def sign_update(bias, counts, u=0.005):
+    mean = sum(counts) / len(counts)
+    return [b + u * ((mean > c) - (mean < c)) for b, c in zip(bias, counts)]
+def penalty_update(penalty, counts, alpha):
+    """TODO: integral controller standing in for the auxiliary-loss gradient:
+    add alpha * (load fraction - 1 / N_EXPERTS) to each penalty. Unlike a
+    selection bias it also distorts the gate used for weighting."""
+    raise NotImplementedError("TODO: penalty_update")
+def run(kind, knob, steps=STEPS):
+    rng, adjust, last = random.Random(7), [0.0] * N_EXPERTS, []
+    for step in range(steps):
+        counts = [0] * N_EXPERTS
+        for _ in range(BATCH):
+            for i in route(token_scores(rng), adjust):
+                counts[i] += 1
+        if step >= steps - 100:
+            distortion = 0.0 if kind == "sign" else sum(abs(a) for a in adjust) / N_EXPERTS
+            last.append((maxvio(counts, BATCH * TOP_K), distortion))
+        adjust = sign_update(adjust, counts, knob) if kind == "sign" else penalty_update(adjust, counts, knob)
+    return (round(sum(m for m, _ in last) / len(last), 4),
+            round(sum(d for _, d in last) / len(last), 4))
+print("no control MaxVio:", run("sign", 0.0, steps=200)[0])
+try:
+    for alpha in (0.005, 0.02, 0.08):
+        print("aux alpha", alpha, "MaxVio/distortion", run("penalty", alpha))
+    print("loss-free u 0.005 MaxVio/distortion", run("sign", 0.005))
+except NotImplementedError as exc:
+    print("unimplemented:", exc)`,
+      successCriteria: [
+        "The uncontrolled router shows MaxVio >= 0.2, so there is real imbalance to fix.",
+        "The loss-free bias reaches MaxVio <= 0.03 with gate distortion 0.0.",
+        "The penalty controller reaches comparable MaxVio only at a gain whose distortion is many times the load error it corrects.",
+        "Results average the last 100 of at least 400 training steps and the script runs in under 10 seconds.",
+      ],
+      stretch: [
+        "Make the popularity distribution drift over time and compare how quickly each method tracks the moving optimum.",
+        "Try the paper's proportional update b_i += u * e_i and the multiplicative variant, and reproduce their ordering of MaxVio versus quality.",
+        "Add a second routing layer and show that imbalance compounds layer over layer when uncorrected.",
+      ],
+      relatedProblemIds: ["dl-310", "dl-313", "dl-291"],
+    },
   },
   {
     id: "fire-flyer",
@@ -790,6 +995,79 @@ for gpus in (16, 128, 1440):
     ],
     practice: {
       problems: ["dl-101", "dl-102", "dl-228", "dl-306", "dl-412"],
+    },
+    project: {
+      title: "Tune a prefetch policy across SSD, DRAM, and HBM",
+      pitch: "Build a three-tier cache simulator with a small cost model: shards live on SSD, promote through DRAM into HBM, and every demand reads from wherever it currently sits. Add a speculative prefetch policy, then tune prefetch distance against a cost budget: more lookahead buys hits, but each speculative load costs bandwidth and can evict a shard you needed.",
+      difficulty: "intermediate",
+      timeEstimate: "3-5 hours",
+      milestones: [
+        "Generate an access trace with locality: mostly local walks over the shard space plus a fraction of random jumps.",
+        "Implement the three-tier simulator with LRU at each tier and a demand-only baseline.",
+        "Define the cost model: SSD fetch 40 units, DRAM fetch 4, and 2 extra per speculative prefetch.",
+        "Collect the demand-only hit count and cost.",
+        "Implement a locality prefetch policy that guesses the next shards from the current one.",
+        "Sweep prefetch distances 1 through 4 and record hits and total cost.",
+        "Choose the largest distance that stays inside the budget and report the hit gain per extra 1000 cost units.",
+        "Compare against an oracle that prefetches exactly the next demands and note the gap.",
+      ],
+      starterCode: `import random
+random.seed(5)
+# EXPECTED before TODOs: trace 4000, demand-only 325 hits at cost 91884.
+# EXPECTED after TODOs: local-ahead prefetch 1/2/3/4 gives 1281/2264/3300/3304
+# hits at cost 171964/226052/250126/274152; 2 is best under the 240000 budget.
+SHARDS, TRACE_LEN, BUDGET = 128, 4000, 240000
+HBM_SLOTS, DRAM_SLOTS, SPEC_OVERHEAD = 16, 64, 2
+COST = {"dram": 4, "ssd": 40}
+trace, cur = [], 0
+for _ in range(TRACE_LEN):
+    cur = (cur + random.randint(1, 3)) % SHARDS if random.random() < 0.8 else random.randrange(SHARDS)
+    trace.append(cur)
+def simulate(trace, policy=None):
+    """3-tier LRU: HBM -> DRAM -> SSD. A miss promotes one tier at a time:
+    SSD 40 units, DRAM 4, and each speculative prefetch adds 2. Returns
+    (hits, cost)."""
+    hbm, dram, hits, cost = [], [], 0, 0
+    for i, shard in enumerate(trace):
+        for s in [shard] + [x for x in (policy(i) if policy else []) if x != shard]:
+            if s in hbm:
+                hbm.remove(s); hbm.append(s)
+                hits += s == shard
+                continue
+            if s in dram:
+                cost += COST["dram"]; dram.remove(s)
+            else: cost += COST["ssd"]
+            if s != shard:
+                cost += SPEC_OVERHEAD
+            dram.append(s)
+            if len(dram) > DRAM_SLOTS: dram.pop(0)
+            hbm.append(s)
+            if len(hbm) > HBM_SLOTS: hbm.pop(0)
+    return hits, cost
+def prefetch_policy(i, trace, ahead):
+    """TODO: return up to ahead shards to preload at step i, e.g. the
+    locality guess [(trace[i] + d) % SHARDS for d in range(1, ahead + 1)]."""
+    raise NotImplementedError("TODO: prefetch_policy")
+hits, cost = simulate(trace)
+print("demand-only LRU:", len(trace), "accesses, hits", hits, "cost", cost, "budget", BUDGET)
+try:
+    for ahead in (1, 2, 3, 4):
+        h, c = simulate(trace, lambda i: prefetch_policy(i, trace, ahead))
+        print("prefetch", ahead, "hits", h, "cost", c)
+except NotImplementedError as exc:
+    print("unimplemented:", exc)`,
+      successCriteria: [
+        "The demand-only run and at least three prefetch distances are reported with hits and cost.",
+        "The chosen distance is the best hit count under the stated budget, not the largest distance.",
+        "Prefetching beyond the chosen distance costs more per extra hit than the chosen one (the curve turns).",
+        "The full script runs in under 5 seconds with a fixed seed.",
+      ],
+      stretch: [
+        "Add a prefetch queue with a confidence threshold so speculative loads that miss the next few accesses are charged a penalty.",
+        "Replace LRU with a scan-resistant admission filter and compare hits at the same cost.",
+        "Give SSD, DRAM, and HBM different latencies and optimize p99 latency instead of mean cost.",
+      ],
+      relatedProblemIds: ["dl-101", "dl-102", "dl-306"],
     },
   },
   {
@@ -1014,6 +1292,73 @@ print(quantize_tile([0.004, -0.011, 2.5, 0.008]))`,
       research: ["mini-language-model"],
       problems: ["dl-321", "dl-323", "dl-361", "dl-385", "dl-291", "dl-402"],
     },
+    project: {
+      title: "Tile-scale FP8 plus a two-token MTP head",
+      pitch: "Two halves of the V3 report, built small. First, an FP8 quantizer with per-tile scaling: show that one activation outlier forces a per-tensor scale that crushes small values, and that 128-number tiles rescue them. Second, a multi-token prediction head in n-gram form: train a 1-step head and a 2-step head whose context includes the intermediate token, then compare held-out accuracy as a stand-in for draft acceptance.",
+      difficulty: "advanced",
+      timeEstimate: "5-8 hours",
+      milestones: [
+        "Emulate E4M3 rounding with three mantissa bits and a 448 maximum, as in the paper.",
+        "Build an activation vector with one large outlier and small values near 1e-5, and quantize it per tensor and per 128-number tile.",
+        "Measure relative error on the non-outlier tile for both scaling schemes and explain the gap.",
+        "Sweep tile sizes 32, 64, 128, 256 and report error against the number of scale recomputations.",
+        "Build a synthetic token stream with local motif structure and hold out the tail.",
+        "Train a 1-step next-token counter and a 2-step counter that conditions on the intermediate token.",
+        "Report held-out accuracy for both heads and the acceptance rate a draft would see.",
+        "Estimate a full-tensor FP8 GEMM against the tiled scheme: error versus metadata bytes.",
+      ],
+      starterCode: `import random
+from math import floor, log2
+from collections import Counter
+random.seed(2)
+# EXPECTED before TODOs: outlier 5.0 with small values near 1e-05, then "unimplemented".
+# EXPECTED after TODOs: per-tensor tail err 0.735, per-128-tile 0.019,
+# main head 1-step 0.836, mtp head 2-step 0.837.
+def to_e4m3(x):
+    if x == 0.0: return 0.0
+    sign = -1.0 if x < 0 else 1.0
+    a = abs(x)
+    e = max(-6, min(8, floor(log2(a))))
+    step = 2.0 ** (e - 3)
+    return sign * round(a / step) * step
+def quantize_tile(xs, tile, max_fp8=448.0):
+    """TODO: split xs into tiles of size tile, scale each by
+    max_fp8 / amax, round to E4M3, dequantize, and return the flat list."""
+    raise NotImplementedError("TODO: quantize_tile")
+def rel_err(true, hat):
+    return sum(abs(a - b) for a, b in zip(true, hat)) / (sum(abs(a) for a in true) or 1.0)
+activations = [random.gauss(0.0, 1e-5) for _ in range(256)]
+activations[0] = 5.0
+tail = activations[128:]
+print("one outlier at", activations[0], "small values near", round(abs(tail[0]), 8))
+MOTIFS = [(0, 1, 2), (0, 1, 3)]
+stream = [t for _ in range(1500) for t in random.choice(MOTIFS)]
+def ngram_accuracy(stream, order, target, train_len=3000):
+    """TODO: count (context -> next) on stream[:train_len], then predict
+    stream[i + order + target - 1] from stream[i:i + order] on the held-out
+    tail and return accuracy. Main head: order 2, target 1. MTP head: order
+    3, target 1, so its context includes the intermediate token."""
+    raise NotImplementedError("TODO: ngram_accuracy")
+try:
+    print("fp8 per-tensor tail err:", round(rel_err(tail, quantize_tile(activations, 256)[128:]), 4))
+    print("fp8 per-128-tile tail err:", round(rel_err(tail, quantize_tile(activations, 128)[128:]), 4))
+    print("main head 1-step acc:", round(ngram_accuracy(stream, 2, 1), 3))
+    print("mtp head 2-step acc:", round(ngram_accuracy(stream, 3, 1), 3))
+except NotImplementedError as exc:
+    print("unimplemented:", exc)`,
+      successCriteria: [
+        "Per-tensor scaling shows relative error above 0.5 on the non-outlier tile; per-128-tile scaling brings it below 0.05.",
+        "The 2-step MTP head lands within 5 accuracy points of the 1-step head on the same held-out stream.",
+        "The write-up states the E4M3 mantissa limit (roughly 6-12% per-element relative error) and why tiling helps only when the dynamic range is wide.",
+        "Both experiments run in one fixed-seed script with no third-party imports.",
+      ],
+      stretch: [
+        "Add FP32 promotion every 128 products to the GEMM estimate and show how much accumulation error it removes.",
+        "Quantize the residual stream as well as the activations and measure how error compounds across simulated layers.",
+        "Replace the n-gram heads with a tiny learned linear softmax trained by SGD and compare 1-step and 2-step accuracies.",
+      ],
+      relatedProblemIds: ["dl-321", "dl-323", "dl-361"],
+    },
   },
   {
     id: "deepseek-vl2",
@@ -1218,6 +1563,77 @@ print(210 + 1 + 3 * 14 * (2 * 14 + 1))  # 1429 visual tokens for that grid`,
       concepts: ["la-vectors", "stats-correlation"],
       articles: ["art-attention", "art-embeddings"],
       problems: ["cv-175", "cv-249", "cv-296"],
+    },
+    project: {
+      title: "Dynamic tiling with content-routed experts",
+      pitch: "Build the vision half of DeepSeek-VL2 on synthetic images: choose the tile grid that wastes the least padding, cut the image into tiles, route each tile to a small content expert, and stitch the tile features before classifying. The baseline squeezes the whole image into one tile; the tiled pipeline should find a small high-contrast patch that the global average dilutes.",
+      difficulty: "intermediate",
+      timeEstimate: "3-5 hours",
+      milestones: [
+        "Generate synthetic 48x32 images, half containing a 16x16 bright patch aligned to a tile boundary, and keep the labels.",
+        "Implement the VL2 grid rule: try every (m, n) with m * n <= 9, resize to m*TILE by n*TILE preserving aspect ratio, and keep the least-padding grid.",
+        "Implement tile features: one (mean, std) pair per tile in row-major order.",
+        "Implement content routing: flat tiles go to the amplify expert, textured tiles to the identity expert.",
+        "Classify the stitched features and report accuracy for the single-tile baseline and the tiled pipeline.",
+        "Sweep the classification threshold and report the best accuracy for both pipelines.",
+        "Shift the bright patch off the tile grid and report how much accuracy drops.",
+      ],
+      starterCode: `import random
+random.seed(11)
+# EXPECTED before TODOs: single-tile baseline 0.445, then "unimplemented".
+# EXPECTED after TODOs: dynamic tiling grid (3, 2), accuracy 1.0.
+H, W, TILE = 48, 32, 16
+
+def make_image(rng):
+    img = [[rng.gauss(0, 0.3) for _ in range(W)] for _ in range(H)]
+    hot = rng.random() < 0.5
+    if hot:
+        r, c = rng.randrange(H // TILE) * TILE, rng.randrange(W // TILE) * TILE
+        for i in range(r, r + TILE):
+            img[i][c:c + TILE] = [x + 3.0 + rng.gauss(0, 0.1) for x in img[i][c:c + TILE]]
+    return img, hot
+
+def choose_grid(h, w, max_tiles=9):
+    """TODO: score every (m, n) with m * n <= max_tiles by padding area after
+    aspect-preserving resize as in VL2; return the best grid."""
+    raise NotImplementedError("TODO: choose_grid")
+
+def tile_features(img, m, n):
+    """TODO: cut img into m x n tiles of TILE x TILE; return (mean, std) per tile."""
+    raise NotImplementedError("TODO: tile_features")
+
+def route_and_stitch(features):
+    return [mean * 2.0 if std < 0.5 else mean for mean, std in features]
+
+def single_tile_features(img):
+    vals = [x for row in img for x in row]
+    mean = sum(vals) / len(vals)
+    return [(mean, (sum((x - mean) ** 2 for x in vals) / len(vals)) ** 0.5)]
+
+def classify(stitched):
+    return 1 if max(stitched) > 1.5 else 0
+
+images = [make_image(random) for _ in range(200)]
+base = sum(classify(route_and_stitch(single_tile_features(img))) == hot for img, hot in images)
+print("single-tile baseline accuracy:", round(base / len(images), 3))
+try:
+    m, n = choose_grid(H, W)
+    acc = sum(classify(route_and_stitch(tile_features(img, m, n))) == hot for img, hot in images)
+    print("dynamic tiling grid", (m, n), "accuracy:", round(acc / len(images), 3))
+except NotImplementedError as exc:
+    print("unimplemented:", exc)`,
+      successCriteria: [
+        "The single-tile baseline lands near chance (about 0.5), showing the global average hides the patch.",
+        "The tiled pipeline reaches at least 0.95 accuracy on the same 200 images with a fixed seed.",
+        "The grid selected for a 48x32 image is (3, 2) and the script prints it.",
+        "Both pipelines and the threshold sweep run in one standard-library script under 5 seconds.",
+      ],
+      stretch: [
+        "Add a third expert for high-variance noise tiles and test whether routing by std still separates the content types.",
+        "Disable tiling when more than two images share a context and check the token-count arithmetic from the paper's formula.",
+        "Quantize each tile feature and measure how much accuracy survives before the stitched vector is classified.",
+      ],
+      relatedProblemIds: ["cv-175"],
     },
   },
   {
@@ -1430,6 +1846,74 @@ def select_experts(avg_gate, ratio, per_layer=8):
       articles: ["art-lora", "art-post-training"],
       problems: ["dl-310", "dl-311", "dl-312", "dl-313"],
     },
+    project: {
+      title: "Fine-tune only the experts the task routes to",
+      pitch: "Simulate expert-specialized fine-tuning on a four-expert router and two linear tasks. The ESFT run updates only the experts a task's samples route to; the baseline updates every expert on every sample. Measure target-task error and how much the other task's experts drift, which is the retention half of the paper's claim.",
+      difficulty: "intermediate",
+      timeEstimate: "3-4 hours",
+      milestones: [
+        "Build four linear experts and a nearest-centroid router over a one-dimensional input space.",
+        "Define task A on two clusters with a different target in each, and task B on the two clusters the router sends to other experts.",
+        "Measure untrained mean absolute error on both test splits.",
+        "Implement ESFT training: route each sample, update only that expert, repeat for a fixed number of epochs.",
+        "Implement the all-experts baseline: update every expert on every sample.",
+        "Compare target-task error (ESFT lower, because each expert sees one consistent target) and retention on task B (ESFT near the untrained level).",
+        "Sweep the number of ESFT epochs and show target error converging while retention stays flat.",
+      ],
+      starterCode: `import random
+random.seed(3)
+# EXPECTED before TODOs: untrained MAE A 0.989, B 0.640, then "unimplemented".
+# EXPECTED after TODOs: ESFT A 0.0084 B 0.6404; train-all A 0.0992 B 1.188.
+CENTROIDS = [-0.75, -0.25, 0.25, 0.75]
+TASK_A = [(-0.8, -0.6, lambda x: -2.0 * x), (0.2, 0.4, lambda x: 2.0 * x)]
+TASK_B = [(-0.4, -0.2, lambda x: 3.0 * x + 1.0), (0.6, 0.8, lambda x: -3.0 * x + 1.0)]
+
+def nearest(x):
+    return min(range(len(CENTROIDS)), key=lambda i: abs(x - CENTROIDS[i]))
+
+def make_task(rng, spec, n=160):
+    return [(x, f(x)) for _ in range(n)
+            for lo, hi, f in [rng.choice(spec)] for x in [rng.uniform(lo, hi)]]
+
+def finetune(data, mode, lr=0.05, epochs=100):
+    """TODO: experts are [w, b] pairs starting at [0.0, 0.0]. Run SGD on
+    squared error. mode="esft" updates only the routed expert per sample;
+    mode="all" updates every expert on every sample. Return the experts."""
+    raise NotImplementedError("TODO: finetune")
+
+def mae(experts, data):
+    total = 0.0
+    for x, y in data:
+        w, b = experts[nearest(x)]
+        total += abs(w * x + b - y)
+    return total / len(data)
+
+rng = random.Random(9)
+train_a = make_task(rng, TASK_A)
+test_a = make_task(random, TASK_A)
+test_b = make_task(random, TASK_B)
+print("untrained MAE: A", round(mae([[0.0, 0.0]] * len(CENTROIDS), test_a), 3),
+      "B", round(mae([[0.0, 0.0]] * len(CENTROIDS), test_b), 3))
+try:
+    esft = finetune(train_a, "esft")
+    full = finetune(train_a, "all")
+    print("ESFT       MAE: A", round(mae(esft, test_a), 4), "B", round(mae(esft, test_b), 4))
+    print("train-all  MAE: A", round(mae(full, test_a), 4), "B", round(mae(full, test_b), 4))
+except NotImplementedError as exc:
+    print("unimplemented:", exc)`,
+      successCriteria: [
+        "ESFT target-task MAE is at least 3x lower than the all-experts baseline on held-out task A data.",
+        "ESFT task B MAE stays within 2% of the untrained level; the baseline degrades it by at least 50%.",
+        "The run prints routed expert counts per task, so the specialization claim is checkable.",
+        "Everything runs in one standard-library script with a fixed seed in under 5 seconds.",
+      ],
+      stretch: [
+        "Replace the nearest-centroid router with a learned linear gate and re-measure retention when the gate is frozen or tuned.",
+        "Merge the four experts into two coarser experts and reproduce the paper's granularity ablation.",
+        "Add a third task and test whether selecting experts on task A data damages task C when their clusters overlap.",
+      ],
+      relatedProblemIds: ["dl-310", "dl-311"],
+    },
   },
   {
     id: "v3-hardware",
@@ -1614,6 +2098,64 @@ def select_experts(avg_gate, ratio, per_layer=8):
     practice: {
       articles: ["art-kv-cache", "art-quantization"],
       problems: ["dl-101", "dl-102", "dl-228", "dl-306"],
+    },
+    project: {
+      title: "Roofline a toy GEMM to find the crossover",
+      pitch: "Build the roofline model the hardware paper reasons with: for a GEMM shape (m, n, k), compute FLOPs and bytes moved, then check whether the shape is compute- or memory-bound against a machine's peak and bandwidth. Sweep k to find the exact crossover where arithmetic intensity passes the ridge point, the same arithmetic behind node-limited routing and batch-size choices.",
+      difficulty: "starter",
+      timeEstimate: "2-3 hours",
+      milestones: [
+        "Fix the machine constants: 60 TFLOP/s peak and 3 TB/s bandwidth, giving a ridge point of 20 FLOP/byte.",
+        "Write the intensity function: 2*m*n*k FLOPs over twice the bytes of A, B, and C.",
+        "Implement the GEMM cost model: seconds = max(flops / peak, bytes / bandwidth) plus a bound label.",
+        "Print intensity and bound for small, square, and large-k shapes.",
+        "Implement a bisection search for the smallest k that is compute-bound at a fixed (m, n).",
+        "Verify the crossing analytically: solve flops/bytes = ridge for k and compare with the search.",
+        "Re-run with a second machine profile (for example 100 TFLOP/s at 2 TB/s) and show the crossover moves.",
+      ],
+      starterCode: `import random
+random.seed(0)
+# EXPECTED before TODOs: machine ridge 20.0 FLOP/byte and four intensities.
+# EXPECTED after TODOs: 64x64x16 memory, 64x64x64 compute (crossover k = 54).
+PEAK, BW = 60e12, 3.0e12            # 60 TFLOP/s, 3 TB/s
+RIDGE = PEAK / BW                     # 20 FLOP/byte
+
+def intensity(m, n, k):
+    return (2.0 * m * n * k) / (2 * (m * k + k * n + m * n))
+
+def gemm_cost(m, n, k, bytes_per=2):
+    """TODO: return (flops, bytes, seconds, bound) for a GEMM of shape
+    (m, n, k). Move A (m*k), B (k*n), and C (m*n) once each in bytes_per
+    bytes per number. seconds = max(flops / PEAK, bytes / BW); bound is
+    "compute" if flops / bytes >= RIDGE else "memory"."""
+    raise NotImplementedError("TODO: gemm_cost")
+
+def find_crossover(m, n, lo=1, hi=4096):
+    """TODO: return the smallest k where gemm_cost is compute-bound."""
+    raise NotImplementedError("TODO: find_crossover")
+
+print("machine: peak", PEAK, "FLOP/s, bandwidth", BW, "B/s, ridge", RIDGE, "FLOP/byte")
+for shape in [(64, 64, 16), (64, 64, 64), (256, 256, 64), (512, 512, 4096)]:
+    print("shape", shape, "intensity", round(intensity(*shape), 2))
+try:
+    for shape in [(64, 64, 16), (64, 64, 64), (64, 64, 4096)]:
+        flops, bytes_moved, sec, bound = gemm_cost(*shape)
+        print("shape", shape, bound, "time_us", round(sec * 1e6, 3))
+    print("crossover k for 64x64:", find_crossover(64, 64))
+except NotImplementedError as exc:
+    print("unimplemented:", exc)`,
+      successCriteria: [
+        "The model labels 64x64x16 memory-bound and 64x64x64 compute-bound, matching the intensity print.",
+        "The bisection returns k = 54 for (64, 64), and the analytic solve returns the same value.",
+        "Switching to a higher ridge point changes the crossover in the direction the formula predicts.",
+        "The whole script is standard library, uses fixed constants, and runs in under a second.",
+      ],
+      stretch: [
+        "Add a batch dimension and show how batching raises intensity until the shape hits the compute roof.",
+        "Model FlashAttention-style tiling: keep a block of keys on chip and recompute bytes to see when attention becomes compute-bound.",
+        "Add a latency term for the memory-bound case and find the batch size where latency is hidden by arithmetic.",
+      ],
+      relatedProblemIds: ["dl-228", "dl-412", "dl-306"],
     },
   },
   {
@@ -1810,6 +2352,78 @@ def select_experts(avg_gate, ratio, per_layer=8):
     practice: {
       articles: ["art-kv-cache"],
       problems: ["dl-075", "dl-210", "dl-386", "ca-225"],
+    },
+    project: {
+      title: "Pool KV cache reads with an LRU/LFU simulator",
+      pitch: "Simulate the storage side of agentic serving: multi-turn sessions re-read a growing KV context that no longer fits in cache, and every miss is either a cheap storage reload or an expensive recompute. Implement LRU and LFU eviction, compare hit rates and recompute bytes saved, and see why the paper's reuse pattern favors recency over frequency.",
+      difficulty: "intermediate",
+      timeEstimate: "3-4 hours",
+      milestones: [
+        "Generate a multi-turn trace: sessions whose context grows every turn, with occasional tool truncation, across more unique blocks than the cache can hold.",
+        "Implement the cache simulator: hits update recency; misses pay storage cost if the block was seen before and recompute cost otherwise.",
+        "Implement least-recently-used eviction and report hit rate, total cost, and recompute bytes saved.",
+        "Implement least-frequently-used eviction on the same trace and cost model.",
+        "Add an unbounded-cache replay to get the reuse upper bound and compare LRU's headroom against it.",
+        "Sweep cache capacity and report the capacity where LRU captures 80% of the upper-bound hits.",
+        "Explain the LFU collapse: which blocks it holds and why they are never reused.",
+      ],
+      starterCode: `import random
+random.seed(13)
+# EXPECTED before TODOs: 480 turns, 43008 accesses, 7680 unique blocks, upper
+# bound 0.821, then "unimplemented". EXPECTED after: lru hit 0.445, lfu 0.011.
+BLOCK_KB, CAPACITY, RECOMPUTE_COST, STORAGE_COST = 1024, 96, 10, 1
+def make_trace(rng, sessions=40, turns=12, per_turn=16):
+    trace = []
+    for s in range(sessions):
+        context = []
+        for t in range(turns):
+            context = context[-64:] if rng.random() < 0.15 else context
+            context.extend((s, k) for k in range(t * per_turn, (t + 1) * per_turn))
+            trace.append((s, list(context)))
+    return trace
+def choose_victim(entries, policy):
+    """TODO: entries are (block, freq, last_step). lru -> smallest last_step;
+    lfu -> smallest freq, ties broken by smallest last_step."""
+    raise NotImplementedError("TODO: choose_victim")
+def simulate(trace, policy):
+    cache, seen, cost, hits = {}, set(), 0, 0
+    for step, (_s, blocks) in enumerate(trace):
+        for block in blocks:
+            if block in cache:
+                hits += 1
+                freq, _ = cache[block]
+                cache[block] = (freq + 1, step)
+            else:
+                cost += STORAGE_COST if block in seen else RECOMPUTE_COST; seen.add(block)
+                cache[block] = (1, step)
+            if len(cache) > CAPACITY:
+                entries = [(b, f, last) for b, (f, last) in cache.items()]
+                del cache[choose_victim(entries, policy)]
+    return hits, cost
+trace = make_trace(random)
+accesses = sum(len(blocks) for _, blocks in trace)
+unique = len({b for _, blocks in trace for b in blocks})
+print("turns", len(trace), "accesses", accesses, "unique", unique, "capacity", CAPACITY,
+      "unbounded-reuse upper bound", round(1 - unique / accesses, 3))
+try:
+    for policy in ("lru", "lfu"):
+        hits, cost = simulate(trace, policy)
+        print(policy, "hit rate", round(hits / accesses, 3), "cost units", cost,
+              "recompute MB saved", round(hits * BLOCK_KB / 1024, 1))
+except NotImplementedError as exc:
+    print("unimplemented:", exc)`,
+      successCriteria: [
+        "LRU hit rate lands between 0.40 and 0.50 and LFU below 0.05 on the fixed trace, with both printed.",
+        "The script reports recompute MB saved and storage cost units, so the policies are compared on bytes, not only hits.",
+        "The capacity sweep shows a monotone hit-rate curve for LRU and identifies the 80% point.",
+        "One standard-library run with a fixed seed finishes in under 10 seconds.",
+      ],
+      stretch: [
+        "Age LFU counts (halve them every N steps) and see whether it recovers from cache pollution.",
+        "Add a size-2 admission filter and test whether scan resistance helps on the same trace.",
+        "Simulate dual-path loading: charge an extra compute-network cost for decode-side loads and pick the cheaper path per miss.",
+      ],
+      relatedProblemIds: ["dl-075", "dl-386"],
     },
   },
 ];

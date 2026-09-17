@@ -13,6 +13,7 @@ import {
 import { EFFICIENCY_PAPERS } from "@/data/papers/efficiency";
 import { FOUNDING_PAPERS } from "@/data/papers/founding";
 import { FRONTIER_PAPERS } from "@/data/papers/frontier";
+import { FRONTIER2_PAPERS } from "@/data/papers/frontier2";
 import { REASONING_PAPERS } from "@/data/papers/reasoning";
 import type {
   Paper,
@@ -38,7 +39,7 @@ const ERA_SOURCES: Record<PaperEra, Paper[]> = {
   founding: FOUNDING_PAPERS,
   efficiency: EFFICIENCY_PAPERS,
   reasoning: REASONING_PAPERS,
-  frontier: FRONTIER_PAPERS,
+  frontier: [...FRONTIER_PAPERS, ...FRONTIER2_PAPERS],
 };
 
 /** Same comparator as the index: date ascending, then id ascending. */

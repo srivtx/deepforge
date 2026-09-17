@@ -96,6 +96,28 @@ export interface PaperPractice {
   articles?: string[];
 }
 
+/**
+ * A hands-on build suggested by the paper: a small, real, runnable project
+ * that mimics the mechanism the paper introduced.
+ */
+export interface PaperProject {
+  title: string;
+  pitch: string;
+  difficulty: "starter" | "intermediate" | "advanced";
+  /** Honest build estimate, e.g. "3-5 hours". */
+  timeEstimate: string;
+  /** 4-8 concrete implementation milestones, in build order. */
+  milestones: string[];
+  /** Runnable Python scaffolding (stdlib only) with TODOs to complete. */
+  starterCode: string;
+  /** Measurable "done" checks. */
+  successCriteria: string[];
+  /** Optional extensions once the core works. */
+  stretch: string[];
+  relatedLabIds?: string[];
+  relatedProblemIds?: string[];
+}
+
 export interface Paper {
   id: string;
   slug: string;
@@ -122,4 +144,6 @@ export interface Paper {
   /** Implementation-flavored checks, self-graded. */
   questions: PaperQuestion[];
   practice?: PaperPractice;
+  /** Build-it-yourself project suggested by the paper. */
+  project?: PaperProject;
 }
