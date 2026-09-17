@@ -13,6 +13,7 @@ import {
   ASSISTANT_CHANGE_EVENT,
   ASSISTANT_HIDDEN_EVENT,
   appendMessage,
+  contextPrompts,
   createMessage,
   getMessages,
   isAssistantHidden,
@@ -20,7 +21,6 @@ import {
   respond,
   resetConversation,
   setAssistantHidden,
-  suggestedPrompts,
   warmAssistant,
   type Ctx,
   type Msg,
@@ -56,7 +56,7 @@ function subscribeContext(listener: () => void): () => void {
   };
 }
 
-function getContextSnapshot(): Ctx {
+export function getAssistantContext(): Ctx {
   return assistantContext;
 }
 
@@ -173,8 +173,8 @@ function TypingShimmer() {
 export function ZeroAssistant() {
   const ctx = useSyncExternalStore(
     subscribeContext,
-    getContextSnapshot,
-    getContextSnapshot,
+    getAssistantContext,
+    getAssistantContext,
   );
   const hidden = useSyncExternalStore(
     subscribeHidden,
@@ -197,7 +197,7 @@ export function ZeroAssistant() {
   const exchangeRef = useRef(0);
   const timerRef = useRef<number | null>(null);
 
-  const chips = useMemo(() => suggestedPrompts(ctx), [ctx]);
+  const chips = useMemo(() => contextPrompts(ctx), [ctx]);
 
   // A hidden launcher never shows the panel, even if it was open when the
   // preference flipped in another tab.
@@ -240,10 +240,18 @@ export function ZeroAssistant() {
   useEffect(() => {
     const onContext = (event: Event) => {
       const detail = (event as CustomEvent).detail as
-        | { problem?: Ctx["problem"]; code?: string }
+        | {
+            problem?: Ctx["problem"];
+            code?: string;
+            lastRunFailed?: boolean;
+          }
         | undefined;
       if (!detail || typeof detail !== "object") return;
-      setAssistantContext({ problem: detail.problem, code: detail.code });
+      setAssistantContext({
+        problem: detail.problem,
+        code: detail.code,
+        lastRunFailed: detail.lastRunFailed,
+      });
     };
     window.addEventListener(PROBLEM_CONTEXT_EVENT, onContext);
     return () => window.removeEventListener(PROBLEM_CONTEXT_EVENT, onContext);

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   ASSISTANT_HIDDEN_EVENT,
   classify,
+  contextPrompts,
   isAssistantHidden,
   respond,
   retrieve,
@@ -10,6 +11,10 @@ import {
   type Ctx,
   type Intent,
 } from "@/lib/assistant";
+import {
+  getAssistantContext,
+  setAssistantContext,
+} from "@/components/ZeroAssistant";
 import { CONCEPTS } from "@/data/concepts";
 import { getDailyDateKey } from "@/lib/daily";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
@@ -322,22 +327,182 @@ describe("ready intent", () => {
   });
 });
 
-describe("suggested prompts", () => {
-  test("surface the two state-aware intents in both contexts", () => {
-    const bare = suggestedPrompts();
-    expect(bare).toContain("What's due?");
-    expect(bare).toContain("Am I ready?");
+describe("context prompts", () => {
+  const attached = PROBLEM_META[0];
+  const problemCtx: Ctx = {
+    problem: {
+      id: attached.id,
+      title: attached.title,
+      category: attached.category,
+      difficulty: attached.difficulty,
+    },
+  };
+  const codeCtx: Ctx = {
+    ...problemCtx,
+    code: "def solve(xs):\n    total = 0\n    for x in xs:\n        total += x\n    return total",
+  };
+  const title = attached.title;
 
-    const withProblem = suggestedPrompts({
-      problem: {
-        id: "la-001",
-        title: titleOf("la-001"),
-        category: "Linear Algebra",
-        difficulty: "Easy",
-      },
+  const DEFAULT_PROMPTS = [
+    "What should I solve next?",
+    "Build me a playlist",
+    "Quiz me",
+    "Plan my week",
+    "What's due?",
+    "Am I ready?",
+  ];
+
+  test("no context keeps the previous defaults", () => {
+    expect(contextPrompts()).toEqual(DEFAULT_PROMPTS);
+    expect(contextPrompts({})).toEqual(DEFAULT_PROMPTS);
+    expect(suggestedPrompts()).toEqual(DEFAULT_PROMPTS);
+  });
+
+  test("problem without code offers four title-aware prompts in a stable order", () => {
+    const prompts = contextPrompts(problemCtx);
+    expect(prompts).toEqual([
+      `Explain ${title} step by step`,
+      `Give me a hint for ${title}`,
+      `What's the key insight in ${title}?`,
+      "Find me a similar problem",
+    ]);
+    expect(prompts).toHaveLength(4);
+    expect(prompts.some((prompt) => prompt.includes(title))).toBe(true);
+    expect(contextPrompts(problemCtx)).toEqual(prompts);
+    expect(suggestedPrompts(problemCtx)).toEqual(prompts);
+  });
+
+  test("code context switches to code-focused prompts and keeps the title", () => {
+    const prompts = contextPrompts(codeCtx);
+    expect(prompts).toEqual([
+      "Review my code",
+      "Walk through my approach",
+      "What edge cases am I missing?",
+      `Explain ${title} step by step`,
+    ]);
+    expect(prompts.length).toBeLessThanOrEqual(4);
+    expect(prompts.some((prompt) => prompt.includes(title))).toBe(true);
+    expect(contextPrompts(codeCtx)).toEqual(prompts);
+  });
+
+  test("a known failed run swaps the walkthrough chip for the failing one", () => {
+    const prompts = contextPrompts({ ...codeCtx, lastRunFailed: true });
+    expect(prompts).toContain("Why is my code failing?");
+    expect(prompts).not.toContain("Walk through my approach");
+    expect(prompts).toHaveLength(4);
+    expect(contextPrompts({ ...codeCtx, lastRunFailed: false })).toContain(
+      "Walk through my approach",
+    );
+  });
+
+  test("blank code counts as no code", () => {
+    expect(contextPrompts({ ...problemCtx, code: "   \n\t " })).toEqual(
+      contextPrompts(problemCtx),
+    );
+  });
+
+  test("context updates change the chips through the shared store", () => {
+    try {
+      setAssistantContext({});
+      const bare = contextPrompts(getAssistantContext());
+      setAssistantContext(problemCtx);
+      const attachedChips = contextPrompts(getAssistantContext());
+      setAssistantContext(codeCtx);
+      const coding = contextPrompts(getAssistantContext());
+
+      expect(bare).toEqual(DEFAULT_PROMPTS);
+      expect(attachedChips).not.toEqual(bare);
+      expect(coding).not.toEqual(attachedChips);
+
+      setAssistantContext({});
+      expect(contextPrompts(getAssistantContext())).toEqual(bare);
+    } finally {
+      setAssistantContext({});
+    }
+  });
+});
+
+describe("context prompt round-trips", () => {
+  const attached = PROBLEM_META[0];
+  const known = new Set(PROBLEM_META.map((problem) => problem.id));
+  const problemCtx: Ctx = {
+    problem: {
+      id: attached.id,
+      title: attached.title,
+      category: attached.category,
+      difficulty: attached.difficulty,
+      description: "Adds a list of numbers.",
+    },
+  };
+  const codeCtx: Ctx = {
+    ...problemCtx,
+    code: "def solve(xs):\n    return sum(xs)",
+  };
+  const contexts: Array<[string, Ctx]> = [
+    ["no context", {}],
+    ["problem", problemCtx],
+    ["code", codeCtx],
+    ["failing code", { ...codeCtx, lastRunFailed: true }],
+  ];
+
+  test("every generated prompt answers deterministically with real citations", () => {
+    for (const [label, ctx] of contexts) {
+      const prompts = contextPrompts(ctx);
+      expect(prompts.length, label).toBeGreaterThan(0);
+      for (const prompt of prompts) {
+        const first = respond(prompt, ctx);
+        const second = respond(prompt, ctx);
+        const where = `${label}: ${prompt}`;
+        expect(first.role, where).toBe("assistant");
+        expect(first.text.length, where).toBeGreaterThan(0);
+        expect(first.text, where).toBe(second.text);
+        expect(first.intent, where).toBe(second.intent);
+        expect(first.citations ?? [], where).toEqual(second.citations ?? []);
+        for (const id of first.citations ?? []) {
+          expect(known.has(id), `${where}: ${id}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  test("title-aware prompts cite the attached problem and hint at it", () => {
+    const msg = respond(`Give me a hint for ${attached.title}`, problemCtx);
+    expect(msg.intent).toBe("explain");
+    expect(msg.citations ?? []).toContain(attached.id);
+    expect(msg.text).toContain("Nudge:");
+  });
+
+  test("similar-problem prompts cite unsolved neighbours in the same category", () => {
+    const msg = respond("Find me a similar problem", problemCtx);
+    expect(msg.intent).toBe("next");
+    expect((msg.citations ?? []).length).toBeGreaterThan(0);
+    for (const id of msg.citations ?? []) {
+      const meta = PROBLEM_META.find((problem) => problem.id === id) ?? null;
+      expect(meta ? meta.category : null, id).toBe(attached.category);
+      expect(id).not.toBe(attached.id);
+    }
+  });
+
+  test("code prompts answer from the code without a bank lookup", () => {
+    const walk = respond("Walk through my approach", codeCtx);
+    expect(walk.intent).toBe("debug");
+    expect(walk.text).toContain("solve");
+    expect(walk.citations ?? []).toEqual([attached.id]);
+
+    const review = respond("Review my code", codeCtx);
+    expect(review.intent).toBe("debug");
+    expect(review.text.length).toBeGreaterThan(0);
+
+    const edge = respond("What edge cases am I missing?", codeCtx);
+    expect(edge.intent).toBe("explain");
+    expect(edge.text).toContain("Empty input");
+
+    const failing = respond("Why is my code failing?", {
+      ...codeCtx,
+      lastRunFailed: true,
     });
-    expect(withProblem).toContain("What's due?");
-    expect(withProblem).toContain("Am I ready?");
+    expect(failing.intent).toBe("debug");
+    expect(failing.text).toContain("did not pass all tests");
   });
 });
 
