@@ -197,7 +197,9 @@ export function LabWorkspace({ lab }: { lab: Lab }) {
       ) : (
         <div className="flex flex-col">
           <div className="flex items-center justify-between border-b border-hairline px-4 py-2 sm:px-6">
-            <span className="text-xs font-medium text-body-mid">Solution</span>
+            <span className="text-xs font-medium text-body-mid">
+              Your code
+            </span>
             <span className="font-mono text-[10px] text-mute">
               ⌘+Enter to run
             </span>

@@ -15,6 +15,8 @@ export interface Lab {
   starterCode: string;
   hint: string;
   points: number;
+  solutionCode: string;
+  solutionNotes: string[];
 }
 
 const LAB_01_TRAIN = {
@@ -536,6 +538,46 @@ export const LABS: Lab[] = [
     hint:
       "Standardize both features, then run batch gradient descent on the logistic loss for a few thousand iterations.",
     points: 10,
+    solutionCode: `import math
+
+
+def predict(train_X, train_y, test_X):
+    rows = len(train_X)
+    cols = len(train_X[0])
+    means = [sum(row[j] for row in train_X) / rows for j in range(cols)]
+    stds = []
+    for j in range(cols):
+        var = sum((row[j] - means[j]) ** 2 for row in train_X) / rows
+        stds.append(math.sqrt(var) if var > 0 else 1.0)
+
+    def scale(row):
+        return [(row[j] - means[j]) / stds[j] for j in range(cols)] + [1.0]
+
+    X = [scale(row) for row in train_X]
+    w = [0.0] * (cols + 1)
+    rate = 0.5
+    for _ in range(2000):
+        grad = [0.0] * (cols + 1)
+        for xi, y in zip(X, train_y):
+            z = sum(w[j] * xi[j] for j in range(cols + 1))
+            p = 1.0 / (1.0 + math.exp(-z))
+            for j in range(cols + 1):
+                grad[j] += (p - y) * xi[j]
+        for j in range(cols + 1):
+            w[j] -= rate * grad[j] / rows
+
+    out = []
+    for row in test_X:
+        xi = scale(row)
+        z = sum(w[j] * xi[j] for j in range(cols + 1))
+        out.append(1.0 / (1.0 + math.exp(-z)))
+    return out`,
+    solutionNotes: [
+      "Standardize both features first so gradient descent takes even steps on each weight.",
+      "Fit p = sigmoid(w*x + b) with 2000 batch gradient-descent steps on the log loss.",
+      "Return probabilities; the harness reads anything at or above 0.5 as class 1.",
+      "The starter's constant majority guess is pinned at 0.60 accuracy, below the 0.85 target.",
+    ],
   },
   {
     id: "lab-02",
@@ -566,6 +608,46 @@ export const LABS: Lab[] = [
     hint:
       "Logistic regression on standardized counts works. Recall matters as much as precision, so do not default every message to ham.",
     points: 25,
+    solutionCode: `import math
+
+
+def predict(train_X, train_y, test_X):
+    rows = len(train_X)
+    cols = len(train_X[0])
+    means = [sum(row[j] for row in train_X) / rows for j in range(cols)]
+    stds = []
+    for j in range(cols):
+        var = sum((row[j] - means[j]) ** 2 for row in train_X) / rows
+        stds.append(math.sqrt(var) if var > 0 else 1.0)
+
+    def scale(row):
+        return [(row[j] - means[j]) / stds[j] for j in range(cols)] + [1.0]
+
+    X = [scale(row) for row in train_X]
+    w = [0.0] * (cols + 1)
+    rate = 0.5
+    for _ in range(2000):
+        grad = [0.0] * (cols + 1)
+        for xi, y in zip(X, train_y):
+            z = sum(w[j] * xi[j] for j in range(cols + 1))
+            p = 1.0 / (1.0 + math.exp(-z))
+            for j in range(cols + 1):
+                grad[j] += (p - y) * xi[j]
+        for j in range(cols + 1):
+            w[j] -= rate * grad[j] / rows
+
+    out = []
+    for row in test_X:
+        xi = scale(row)
+        z = sum(w[j] * xi[j] for j in range(cols + 1))
+        out.append(1.0 / (1.0 + math.exp(-z)))
+    return out`,
+    solutionNotes: [
+      "Standardize the six keyword counts so no single column dominates the gradient.",
+      "Fit logistic regression on the standardized counts and return spam probabilities.",
+      "Precision and recall both matter for F1: answering ham for every row scores 0.00.",
+      "The fitted weights lean positive on the early keywords and negative on the later ones.",
+    ],
   },
   {
     id: "lab-03",
@@ -594,6 +676,38 @@ export const LABS: Lab[] = [
     hint:
       "Least squares has a closed form: solve the normal equations (X-transpose X) theta = X-transpose y.",
     points: 10,
+    solutionCode: `def predict(train_X, train_y, test_X):
+    rows = len(train_X)
+    X = [[1.0] + list(row) for row in train_X]
+    p = len(X[0])
+    A = [[0.0] * (p + 1) for _ in range(p)]
+    for i in range(rows):
+        for j in range(p):
+            for k in range(p):
+                A[j][k] += X[i][j] * X[i][k]
+            A[j][p] += X[i][j] * train_y[i]
+
+    for col in range(p):
+        pivot = col
+        for r in range(col + 1, p):
+            if abs(A[r][col]) > abs(A[pivot][col]):
+                pivot = r
+        A[col], A[pivot] = A[pivot], A[col]
+        for r in range(p):
+            if r == col:
+                continue
+            factor = A[r][col] / A[col][col]
+            for c in range(col, p + 1):
+                A[r][c] -= factor * A[col][c]
+
+    theta = [A[i][p] / A[i][i] for i in range(p)]
+    return [sum(theta[j] * ([1.0] + list(row))[j] for j in range(p)) for row in test_X]`,
+    solutionNotes: [
+      "Prepend a constant 1 column so the fit gets an intercept as the first weight.",
+      "Build the 4x4 normal equations in one pass over the training rows.",
+      "Solve them with Gaussian elimination and partial pivoting.",
+      "The closed form needs no learning rate and lands well under the MSE target.",
+    ],
   },
   {
     id: "lab-04",
@@ -622,6 +736,38 @@ export const LABS: Lab[] = [
     hint:
       "Engineer x-squared as a second feature, then fit least squares on [1, x, x-squared].",
     points: 25,
+    solutionCode: `def predict(train_X, train_y, test_X):
+    rows = len(train_X)
+    X = [[1.0, row[0], row[0] * row[0]] for row in train_X]
+    p = 3
+    A = [[0.0] * (p + 1) for _ in range(p)]
+    for i in range(rows):
+        for j in range(p):
+            for k in range(p):
+                A[j][k] += X[i][j] * X[i][k]
+            A[j][p] += X[i][j] * train_y[i]
+
+    for col in range(p):
+        pivot = col
+        for r in range(col + 1, p):
+            if abs(A[r][col]) > abs(A[pivot][col]):
+                pivot = r
+        A[col], A[pivot] = A[pivot], A[col]
+        for r in range(p):
+            if r == col:
+                continue
+            factor = A[r][col] / A[col][col]
+            for c in range(col, p + 1):
+                A[r][c] -= factor * A[col][c]
+
+    theta = [A[i][p] / A[i][i] for i in range(p)]
+    return [theta[0] + theta[1] * row[0] + theta[2] * row[0] * row[0] for row in test_X]`,
+    solutionNotes: [
+      "Engineer x-squared as a second feature so one least-squares solver fits a curve.",
+      "Build [1, x, x**2] per row and solve the same 3x3 normal equations used for a line.",
+      "Predict with the fitted intercept and both coefficients on every test row.",
+      "The labels are noisy, so R-squared settles near 0.94 rather than 1.0.",
+    ],
   },
   {
     id: "lab-05",
@@ -651,6 +797,56 @@ export const LABS: Lab[] = [
     hint:
       "Run k-means on train_X with k=4, then return each test point's nearest-cluster mean training label.",
     points: 50,
+    solutionCode: `def predict(train_X, train_y, test_X):
+    k = 4
+    rows = len(train_X)
+    cols = len(train_X[0])
+    centroids = [list(train_X[i]) for i in range(k)]
+    assign = [-1] * rows
+
+    for _ in range(100):
+        changed = False
+        for i in range(rows):
+            best = 0
+            best_dist = None
+            for c in range(k):
+                dist = sum((train_X[i][j] - centroids[c][j]) ** 2 for j in range(cols))
+                if best_dist is None or dist < best_dist:
+                    best_dist = dist
+                    best = c
+            if assign[i] != best:
+                assign[i] = best
+                changed = True
+        for c in range(k):
+            members = [i for i in range(rows) if assign[i] == c]
+            if members:
+                centroids[c] = [sum(train_X[i][j] for i in members) / len(members) for j in range(cols)]
+        if not changed:
+            break
+
+    overall = sum(train_y) / rows
+    means = []
+    for c in range(k):
+        members = [i for i in range(rows) if assign[i] == c]
+        means.append(sum(train_y[i] for i in members) / len(members) if members else overall)
+
+    out = []
+    for row in test_X:
+        best = 0
+        best_dist = None
+        for c in range(k):
+            dist = sum((row[j] - centroids[c][j]) ** 2 for j in range(cols))
+            if best_dist is None or dist < best_dist:
+                best_dist = dist
+                best = c
+        out.append(means[best])
+    return out`,
+    solutionNotes: [
+      "Seed four centroids from the first four training rows, then run Lloyd's algorithm until assignments stop moving.",
+      "Recompute each centroid as the mean of its members; empty clusters keep their old position.",
+      "Predict with the mean training label of each test row's nearest centroid, never its test label.",
+      "The four clouds are far apart, so a few iterations converge to R-squared near 0.98.",
+    ],
   },
   {
     id: "lab-06",
@@ -681,6 +877,46 @@ export const LABS: Lab[] = [
     hint:
       "Standardize the four features and fit logistic regression. Raising the decision threshold trades precision for recall.",
     points: 25,
+    solutionCode: `import math
+
+
+def predict(train_X, train_y, test_X):
+    rows = len(train_X)
+    cols = len(train_X[0])
+    means = [sum(row[j] for row in train_X) / rows for j in range(cols)]
+    stds = []
+    for j in range(cols):
+        var = sum((row[j] - means[j]) ** 2 for row in train_X) / rows
+        stds.append(math.sqrt(var) if var > 0 else 1.0)
+
+    def scale(row):
+        return [(row[j] - means[j]) / stds[j] for j in range(cols)] + [1.0]
+
+    X = [scale(row) for row in train_X]
+    w = [0.0] * (cols + 1)
+    rate = 0.5
+    for _ in range(2000):
+        grad = [0.0] * (cols + 1)
+        for xi, y in zip(X, train_y):
+            z = sum(w[j] * xi[j] for j in range(cols + 1))
+            p = 1.0 / (1.0 + math.exp(-z))
+            for j in range(cols + 1):
+                grad[j] += (p - y) * xi[j]
+        for j in range(cols + 1):
+            w[j] -= rate * grad[j] / rows
+
+    out = []
+    for row in test_X:
+        xi = scale(row)
+        z = sum(w[j] * xi[j] for j in range(cols + 1))
+        out.append(1.0 / (1.0 + math.exp(-z)))
+    return out`,
+    solutionNotes: [
+      "Standardize the four features, then fit logistic regression with batch gradient descent.",
+      "Return default probabilities; the harness thresholds any score at 0.5.",
+      "With seven hidden defaults, six catches and no false alarms is enough; two mistakes miss.",
+      "Predicting everyone as safe scores F1 0.00 no matter how accurate it looks.",
+    ],
   },
   {
     id: "lab-07",
@@ -709,6 +945,46 @@ export const LABS: Lab[] = [
     hint:
       "Start with ordinary least squares on both sensors. If the outliers pull the fit, drop the largest-residual rows and refit.",
     points: 25,
+    solutionCode: `def predict(train_X, train_y, test_X):
+    def fit(X, y):
+        p = len(X[0])
+        A = [[0.0] * (p + 1) for _ in range(p)]
+        for i in range(len(X)):
+            for j in range(p):
+                for k in range(p):
+                    A[j][k] += X[i][j] * X[i][k]
+                A[j][p] += X[i][j] * y[i]
+        for col in range(p):
+            pivot = col
+            for r in range(col + 1, p):
+                if abs(A[r][col]) > abs(A[pivot][col]):
+                    pivot = r
+            A[col], A[pivot] = A[pivot], A[col]
+            for r in range(p):
+                if r == col:
+                    continue
+                factor = A[r][col] / A[col][col]
+                for c in range(col, p + 1):
+                    A[r][c] -= factor * A[col][c]
+        return [A[i][p] / A[i][i] for i in range(p)]
+
+    def predict_row(theta, row):
+        return sum(theta[j] * ([1.0] + list(row))[j] for j in range(len(theta)))
+
+    X = [[1.0] + list(row) for row in train_X]
+    theta = fit(X, train_y)
+    residuals = [abs(predict_row(theta, row) - y) for row, y in zip(train_X, train_y)]
+    cutoff = 3.0 * (sum(residuals) / len(residuals))
+    keep = [i for i in range(len(train_X)) if residuals[i] <= cutoff]
+    if len(keep) >= len(theta):
+        theta = fit([X[i] for i in keep], [train_y[i] for i in keep])
+    return [predict_row(theta, row) for row in test_X]`,
+    solutionNotes: [
+      "Fit ordinary least squares on all 28 rows, then look at the residual of each training row.",
+      "Drop rows whose absolute residual is more than three times the mean residual.",
+      "Refit on the clean rows only; three corrupted labels were bending the surface.",
+      "The screened fit drops hidden MSE to well under one, far below the target of 8.",
+    ],
   },
   {
     id: "lab-08",
@@ -739,5 +1015,50 @@ export const LABS: Lab[] = [
     hint:
       "Add x1 times x2 as a third feature (x1-squared and x2-squared can help too), standardize, and fit logistic regression.",
     points: 50,
+    solutionCode: `import math
+
+
+def predict(train_X, train_y, test_X):
+    rows = len(train_X)
+
+    def features(row):
+        return [row[0], row[1], row[0] * row[1]]
+
+    raw = [features(row) for row in train_X]
+    means = [sum(r[j] for r in raw) / rows for j in range(3)]
+    stds = []
+    for j in range(3):
+        var = sum((r[j] - means[j]) ** 2 for r in raw) / rows
+        stds.append(math.sqrt(var) if var > 0 else 1.0)
+
+    def scale(row):
+        r = features(row)
+        return [(r[j] - means[j]) / stds[j] for j in range(3)] + [1.0]
+
+    X = [scale(row) for row in train_X]
+    w = [0.0] * 4
+    rate = 0.5
+    for _ in range(3000):
+        grad = [0.0] * 4
+        for xi, y in zip(X, train_y):
+            z = sum(w[j] * xi[j] for j in range(4))
+            p = 1.0 / (1.0 + math.exp(-z))
+            for j in range(4):
+                grad[j] += (p - y) * xi[j]
+        for j in range(4):
+            w[j] -= rate * grad[j] / rows
+
+    out = []
+    for row in test_X:
+        xi = scale(row)
+        z = sum(w[j] * xi[j] for j in range(4))
+        out.append(1.0 / (1.0 + math.exp(-z)))
+    return out`,
+    solutionNotes: [
+      "Add the interaction x1*x2 as a third feature, then standardize all three columns.",
+      "Fit logistic regression on [x1, x2, x1*x2] with batch gradient descent.",
+      "The interaction is positive exactly in the two label-1 quadrants, so the boundary turns diagonal.",
+      "The raw features alone cap out near 0.75 accuracy, which is the baseline and the linear ceiling.",
+    ],
   },
 ];

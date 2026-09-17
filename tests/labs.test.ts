@@ -132,6 +132,45 @@ describe("lab datasets", () => {
   });
 });
 
+describe("lab reference solutions", () => {
+  test("every lab ships a non-empty solution with at least two notes", () => {
+    for (const lab of LABS) {
+      expect(lab.solutionCode.trim().length, lab.id).toBeGreaterThan(0);
+      expect(lab.solutionNotes.length, lab.id).toBeGreaterThanOrEqual(2);
+      expect(lab.solutionNotes.length, lab.id).toBeLessThanOrEqual(4);
+      for (const note of lab.solutionNotes) {
+        expect(note.trim().length, lab.id).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  test("every solution defines the runner's predict signature", () => {
+    const signature = /^def\s+(\w+)\s*\(([^)]*)\):/m;
+    for (const lab of LABS) {
+      const starter = lab.starterCode.match(signature);
+      const solution = lab.solutionCode.match(signature);
+      expect(starter, lab.id).not.toBeNull();
+      expect(solution, lab.id).not.toBeNull();
+      expect(solution![1], lab.id).toBe("predict");
+      expect(solution![1], lab.id).toBe(starter![1]);
+      expect(solution![2].replace(/\s+/g, ""), lab.id).toBe(
+        starter![2].replace(/\s+/g, ""),
+      );
+      expect(lab.solutionCode, lab.id).toContain(
+        "def predict(train_X, train_y, test_X):",
+      );
+    }
+  });
+
+  test("solutions are not copies of the starter baselines", () => {
+    for (const lab of LABS) {
+      expect(lab.solutionCode.trim(), lab.id).not.toBe(
+        lab.starterCode.trim(),
+      );
+    }
+  });
+});
+
 describe("meetsTarget", () => {
   test("accepts the target and rejects a step in the wrong direction", () => {
     for (const lab of LABS) {

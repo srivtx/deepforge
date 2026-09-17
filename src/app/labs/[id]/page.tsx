@@ -9,6 +9,7 @@ import { getLabTheory } from "@/data/labTheory";
 import { LabDataPreview } from "@/components/viz/LabDataPreview";
 import { LabStatusBadge } from "@/components/labs/LabStatusBadge";
 import { getLabRelated } from "@/components/labs/related";
+import { SolutionReveal } from "@/components/labs/SolutionReveal";
 import { directionArrow, formatScore } from "@/components/labs/helpers";
 import { metricLabel } from "@/lib/labs";
 import { categorySlug } from "@/lib/sections";
@@ -98,7 +99,6 @@ export default async function LabPage({
     .map((problemId) => getProblemById(problemId))
     .filter((problem) => problem !== undefined);
   const minutes = Math.round(lab.timeLimitSeconds / 60);
-  const dims = lab.trainData.features[0]?.length ?? 0;
   const url = `${siteUrl}/labs/${lab.id}`;
   const description = labMetaDescription(lab);
 
@@ -229,127 +229,158 @@ export default async function LabPage({
         </header>
 
         <section
-          aria-label="Lab facts"
-          className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+          aria-label="Your goal"
+          className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-lg border border-hairline bg-canvas-card px-4 py-3 sm:px-5"
         >
-          <div className="rounded-lg border border-hairline bg-canvas-card p-3 sm:p-4">
-            <div className="text-[10px] text-body-mid">Train split</div>
-            <div className="mt-1 font-mono text-sm text-ink">
-              {lab.trainData.features.length} × {dims}
-            </div>
-            <div className="mt-1 text-[11px] text-mute">rows × features</div>
-          </div>
-          <div className="rounded-lg border border-hairline bg-canvas-card p-3 sm:p-4">
-            <div className="text-[10px] text-body-mid">Hidden test</div>
-            <div className="mt-1 font-mono text-sm text-ink">
-              {lab.testData.features.length}
-            </div>
-            <div className="mt-1 text-[11px] text-mute">
-              held-out rows scored per run
+          <div>
+            <div className="text-[10px] text-body-mid">Target</div>
+            <div className="font-mono text-sm text-accent">
+              {metricLabel(lab.metric)} {directionArrow(lab)}{" "}
+              {formatScore(lab, lab.target)}
             </div>
           </div>
-          <div className="rounded-lg border border-hairline bg-canvas-card p-3 sm:p-4">
-            <div className="text-[10px] text-body-mid">Metric</div>
-            <div className="mt-1 font-mono text-sm text-ink">
-              {metricLabel(lab.metric)} {directionArrow(lab)}
-            </div>
-            <div className="mt-1 text-[11px] text-mute">
-              {lab.higherIsBetter ? "higher is better" : "lower is better"}
+          <div>
+            <div className="text-[10px] text-body-mid">Baseline</div>
+            <div className="font-mono text-sm text-body">
+              {formatScore(lab, lab.baseline)}
             </div>
           </div>
-          <div className="rounded-lg border border-hairline bg-canvas-card p-3 sm:p-4">
-            <div className="text-[10px] text-body-mid">Baseline → Target</div>
-            <div className="mt-1 font-mono text-sm text-ink">
-              {formatScore(lab, lab.baseline)} → {formatScore(lab, lab.target)}
-            </div>
-            <div className="mt-1 text-[11px] text-mute">
-              beat the baseline to pass
-            </div>
+          <div>
+            <div className="text-[10px] text-body-mid">Time</div>
+            <div className="font-mono text-sm text-body">{minutes} min</div>
           </div>
+          <div>
+            <div className="text-[10px] text-body-mid">Points</div>
+            <div className="font-mono text-sm text-body">{lab.points}</div>
+          </div>
+          <p className="w-full text-xs leading-relaxed text-mute sm:ml-auto sm:w-auto">
+            {lab.higherIsBetter ? "Higher is better." : "Lower is better."}{" "}
+            Scored on {lab.testData.features.length} held-out rows.
+          </p>
         </section>
 
+        <nav
+          aria-label="On this page"
+          className="flex flex-wrap items-center gap-2 text-xs"
+        >
+          <span className="text-mute">On this page</span>
+          {[
+            { id: "dataset", label: "Dataset" },
+            { id: "theory", label: "Theory" },
+            { id: "rules", label: "Rules" },
+            { id: "run", label: "Run" },
+            { id: "solution", label: "Solution" },
+          ].map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className="rounded-full border border-hairline bg-canvas-card px-2.5 py-1 text-body-mid transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-          <section className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
-            <h2 className="mb-3 text-sm font-medium text-body-mid">Dataset</h2>
-            <LabDataPreview lab={lab} />
-          </section>
+          <div className="flex min-w-0 flex-col gap-6">
+            <section
+              id="dataset"
+              className="scroll-mt-20 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
+            >
+              <h2 className="mb-3 text-sm font-medium text-body-mid">
+                Dataset
+              </h2>
+              <LabDataPreview lab={lab} />
+            </section>
 
-          <section className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
-            <h2 className="mb-3 text-sm font-medium text-body-mid">
-              Rules of the run
-            </h2>
-            <ul className="space-y-1.5">
-              {lab.constraints.map((constraint) => (
-                <li
-                  key={constraint}
-                  className="flex gap-2 text-sm leading-relaxed text-body"
-                >
-                  <span className="text-mute" aria-hidden>
-                    ·
-                  </span>
-                  <span>{constraint}</span>
-                </li>
-              ))}
-            </ul>
-
-            <details className="mt-5 rounded-lg border border-hairline bg-canvas-soft">
-              <summary className="cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40">
-                Hint
-              </summary>
-              <p className="border-t border-hairline px-3 py-2 text-sm leading-relaxed text-body">
-                {lab.hint}
-              </p>
-            </details>
-          </section>
-        </div>
-
-        {theory && (
-          <section
-            aria-label="What this lab teaches"
-            className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
-          >
-            <h2 className="text-lg font-semibold tracking-tight text-ink">
-              What this lab teaches
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-body">
-              {theory.teaches}
-            </p>
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              {theory.sections.map((section) => (
-                <div key={section.heading}>
-                  <h3 className="text-sm font-medium text-ink">
-                    {section.heading}
-                  </h3>
-                  <p className="mt-1 text-sm leading-relaxed text-body">
-                    {section.body}
-                  </p>
-                </div>
-              ))}
-            </div>
-            {theory.pitfalls.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-sm font-medium text-body-mid">
-                  Common pitfalls
-                </h3>
-                <ul className="mt-2 space-y-1.5">
-                  {theory.pitfalls.map((pitfall) => (
-                    <li
-                      key={pitfall}
-                      className="flex gap-2 text-sm leading-relaxed text-body"
-                    >
-                      <span className="text-warning" aria-hidden>
-                        ·
-                      </span>
-                      <span>{pitfall}</span>
-                    </li>
+            {theory && (
+              <section
+                id="theory"
+                aria-label="What this lab teaches"
+                className="scroll-mt-20 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
+              >
+                <h2 className="text-lg font-semibold tracking-tight text-ink">
+                  What this lab teaches
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-body">
+                  {theory.teaches}
+                </p>
+                <div className="mt-4 grid grid-cols-1 gap-4">
+                  {theory.sections.map((section) => (
+                    <div key={section.heading}>
+                      <h3 className="text-sm font-medium text-ink">
+                        {section.heading}
+                      </h3>
+                      <p className="mt-1 text-sm leading-relaxed text-body">
+                        {section.body}
+                      </p>
+                    </div>
                   ))}
-                </ul>
-              </div>
+                </div>
+                {theory.pitfalls.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="text-sm font-medium text-body-mid">
+                      Common pitfalls
+                    </h3>
+                    <ul className="mt-2 space-y-1.5">
+                      {theory.pitfalls.map((pitfall) => (
+                        <li
+                          key={pitfall}
+                          className="flex gap-2 text-sm leading-relaxed text-body"
+                        >
+                          <span className="text-warning" aria-hidden>
+                            ·
+                          </span>
+                          <span>{pitfall}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </section>
             )}
-          </section>
-        )}
 
-        <LabWorkspace lab={lab} />
+            <section
+              id="rules"
+              className="scroll-mt-20 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
+            >
+              <h2 className="mb-3 text-sm font-medium text-body-mid">
+                Rules of the run
+              </h2>
+              <ul className="space-y-1.5">
+                {lab.constraints.map((constraint) => (
+                  <li
+                    key={constraint}
+                    className="flex gap-2 text-sm leading-relaxed text-body"
+                  >
+                    <span className="text-mute" aria-hidden>
+                      ·
+                    </span>
+                    <span>{constraint}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <details className="mt-5 rounded-lg border border-hairline bg-canvas-soft">
+                <summary className="cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40">
+                  Hint
+                </summary>
+                <p className="border-t border-hairline px-3 py-2 text-sm leading-relaxed text-body">
+                  {lab.hint}
+                </p>
+              </details>
+            </section>
+
+            <SolutionReveal lab={lab} />
+          </div>
+
+          <div
+            id="run"
+            className="df-scroll min-w-0 scroll-mt-20 lg:sticky lg:top-16 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto"
+          >
+            <LabWorkspace lab={lab} />
+          </div>
+        </div>
 
         <section
           aria-label="Related"
