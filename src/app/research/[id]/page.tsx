@@ -8,6 +8,7 @@ import { ResearchDataPreview } from "@/components/viz/ResearchDataPreview";
 import { BaselineBadges } from "@/components/research/BaselineBadges";
 import { TheoryNotes } from "@/components/research/TheoryNotes";
 import { RelatedProblems } from "@/components/research/RelatedProblems";
+import { SolutionReveal } from "@/components/research/SolutionReveal";
 import { formatScore, metricLabel } from "@/components/research/format";
 import { ResearchWorkspace } from "./ResearchWorkspace";
 
@@ -16,6 +17,14 @@ const siteUrl = (
 ).replace(/\/$/, "");
 
 export const dynamicParams = false;
+
+const JUMP_LINKS = [
+  { href: "#task", label: "Task" },
+  { href: "#data", label: "Data" },
+  { href: "#theory", label: "Theory" },
+  { href: "#run", label: "Run" },
+  { href: "#solution", label: "Solution" },
+] as const;
 
 function getChallengeById(id: string): ResearchChallenge | undefined {
   return RESEARCH_CHALLENGES.find((challenge) => challenge.id === id);
@@ -96,7 +105,7 @@ export default async function ResearchChallengePage({
   const columns = challenge.trainData.features[0]?.length ?? 0;
   const testRows = challenge.testData.features.length;
 
-  const stats = [
+  const goalFacts = [
     {
       label: "Train",
       value: `${trainRows} × ${columns}`,
@@ -167,50 +176,94 @@ export default async function ResearchChallengePage({
           <p className="max-w-3xl text-sm leading-relaxed text-body">
             {challenge.blurb}
           </p>
+          <nav
+            aria-label="On this page"
+            className="flex flex-wrap items-center gap-1.5"
+          >
+            {JUMP_LINKS.map((jump) => (
+              <a
+                key={jump.href}
+                href={jump.href}
+                className="rounded-full border border-hairline bg-canvas-card px-2.5 py-1 text-xs text-body-mid transition-colors hover:border-accent/30 hover:text-ink focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+              >
+                {jump.label}
+              </a>
+            ))}
+          </nav>
         </header>
 
         <section
-          aria-label="Challenge facts"
-          className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+          id="task"
+          aria-labelledby="task-heading"
+          className="scroll-mt-16 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
         >
-          {stats.map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-md border border-hairline bg-canvas-card p-3"
-            >
-              <div className="text-[11px] text-body-mid">{stat.label}</div>
-              <div className="mt-0.5 font-mono text-sm text-ink">
-                {stat.value}
-              </div>
-            </div>
-          ))}
-        </section>
-
-        <section
-          aria-labelledby="dataset-preview"
-          className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
-        >
-          <h2 id="dataset-preview" className="text-sm font-medium text-body-mid">
-            Data preview
+          <h2
+            id="task-heading"
+            className="text-base font-semibold tracking-tight text-ink"
+          >
+            Your goal
           </h2>
-          <p className="mt-2 mb-4 max-w-3xl text-sm leading-relaxed text-body">
-            {challenge.datasetDescription}
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-body">
+            Beat the {challenge.baselineName.toLowerCase()} baseline — score{" "}
+            {challenge.higherIsBetter ? "higher" : "lower"}{" "}
+            {metricLabel(challenge.metric)} than{" "}
+            <span className="font-mono text-ink">
+              {formatScore(challenge.baselineScore)}
+            </span>{" "}
+            on the hidden {testRows} test rows. The first winning run records{" "}
+            {challenge.points} points in this browser.
           </p>
-          <ResearchDataPreview challenge={challenge} />
+          <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-hairline pt-3 sm:grid-cols-4">
+            {goalFacts.map((fact) => (
+              <div key={fact.label}>
+                <dt className="text-[10px] text-mute">{fact.label}</dt>
+                <dd className="mt-0.5 font-mono text-xs text-ink">
+                  {fact.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </section>
 
-        {theory && <TheoryNotes theory={theory} />}
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <section
+              id="data"
+              aria-labelledby="dataset-preview"
+              className="scroll-mt-16 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
+            >
+              <h2
+                id="dataset-preview"
+                className="text-base font-semibold tracking-tight text-ink"
+              >
+                Data
+              </h2>
+              <p className="mt-2 mb-4 max-w-prose text-sm leading-relaxed text-body">
+                {challenge.datasetDescription}
+              </p>
+              <ResearchDataPreview challenge={challenge} />
+            </section>
 
-        <details className="rounded-lg border border-hairline bg-canvas-soft">
-          <summary className="cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40">
-            Hint
-          </summary>
-          <p className="border-t border-hairline px-3 py-2 text-sm leading-relaxed text-body">
-            {challenge.hint}
-          </p>
-        </details>
+            {theory && <TheoryNotes theory={theory} />}
 
-        <ResearchWorkspace challenge={challenge} />
+            <details
+              id="hint"
+              className="scroll-mt-16 rounded-lg border border-hairline bg-canvas-soft"
+            >
+              <summary className="cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40">
+                Hint
+              </summary>
+              <p className="border-t border-hairline px-3 py-2 text-sm leading-relaxed text-body">
+                {challenge.hint}
+              </p>
+            </details>
+          </div>
+
+          <div className="df-scroll flex min-w-0 flex-col gap-6 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
+            <ResearchWorkspace challenge={challenge} />
+            <SolutionReveal challenge={challenge} />
+          </div>
+        </div>
 
         <RelatedProblems challengeId={challenge.id} />
 

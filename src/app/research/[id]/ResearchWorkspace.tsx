@@ -135,9 +135,11 @@ export function ResearchWorkspace({
 
   return (
     <section
+      id="run"
       aria-label="Research workspace"
-      className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
+      className="flex scroll-mt-16 flex-col gap-5"
     >
+      <h2 className="sr-only">Run your solution</h2>
       <div className="flex flex-col rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label

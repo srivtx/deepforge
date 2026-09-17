@@ -26,7 +26,9 @@ const { title, blurb } = SECTIONS_BY_ID.research;
 export default function ResearchPage() {
   return (
     <PageShell title={title} description={blurb}>
-      <Research />
+      <div className="-mt-4 sm:-mt-6">
+        <Research />
+      </div>
     </PageShell>
   );
 }

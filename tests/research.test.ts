@@ -114,6 +114,30 @@ describe("research datasets", () => {
       }
     }
   });
+
+  test("every challenge ships a distinct reference solution with notes", () => {
+    for (const challenge of RESEARCH_CHALLENGES) {
+      expect(
+        challenge.solutionCode.trim().length > 0,
+        challenge.id,
+      ).toBe(true);
+      expect(
+        challenge.solutionCode.includes("def solve("),
+        challenge.id,
+      ).toBe(true);
+      expect(
+        challenge.solutionCode.trim() === challenge.starterCode.trim(),
+        challenge.id,
+      ).toBe(false);
+      expect(
+        challenge.solutionNotes.length,
+        challenge.id,
+      ).toBeGreaterThanOrEqual(2);
+      for (const note of challenge.solutionNotes) {
+        expect(note.trim().length > 0, challenge.id).toBe(true);
+      }
+    }
+  });
 });
 
 describe("beatsBaseline", () => {

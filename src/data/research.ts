@@ -12,6 +12,8 @@ export interface ResearchChallenge {
   trainData: { features: number[][]; labels: (number | number[])[] };
   testData: { features: number[][]; labels: (number | number[])[] };
   starterCode: string;
+  solutionCode: string;
+  solutionNotes: string[];
   hint: string;
   points: number;
 }
@@ -184,6 +186,51 @@ export const RESEARCH_CHALLENGES: ResearchChallenge[] = [
     best = max(counts, key=lambda k: (counts[k], -k))
     return [best for _ in test_X]
 `,
+    solutionCode: `import math
+
+
+def solve(train_X, train_y, test_X):
+    n = len(train_X)
+    d = len(train_X[0])
+
+    means = [sum(row[j] for row in train_X) / n for j in range(d)]
+    stds = []
+    for j in range(d):
+        var = sum((row[j] - means[j]) ** 2 for row in train_X) / n
+        stds.append(math.sqrt(var) if var > 0 else 1.0)
+
+    def scale(row):
+        return [(row[j] - means[j]) / stds[j] for j in range(d)]
+
+    X = [scale(row) for row in train_X]
+    y = [float(label) for label in train_y]
+    w = [0.0] * d
+    b = 0.0
+    rate = 0.5
+    for _ in range(600):
+        gw = [0.0] * d
+        gb = 0.0
+        for xi, yi in zip(X, y):
+            z = b + sum(wj * xj for wj, xj in zip(w, xi))
+            p = 1.0 / (1.0 + math.exp(-z))
+            err = p - yi
+            for j in range(d):
+                gw[j] += err * xi[j]
+            gb += err
+        w = [wj - rate * gj / n for wj, gj in zip(w, gw)]
+        b -= rate * gb / n
+
+    out = []
+    for row in test_X:
+        z = b + sum(wj * xj for wj, xj in zip(w, scale(row)))
+        out.append(1 if z > 0.0 else 0)
+    return out
+`,
+    solutionNotes: [
+      "Standardize both columns with the training mean and standard deviation so the two axes contribute equally to every gradient step.",
+      "Run 600 log-loss gradient steps at learning rate 0.5; the weights settle on a boundary close to 2x + y = 0 in raw coordinates.",
+      "Predict class 1 when the linear score is positive — the boundary sits between the blob centres and clears the 0.6667 majority baseline by a wide margin.",
+    ],
     hint:
       "Standardize both features and fit logistic regression with a few hundred steps of gradient descent. The blobs are nearly linearly separable, so even a plain linear boundary clears the majority baseline.",
     points: 20,
@@ -213,6 +260,38 @@ export const RESEARCH_CHALLENGES: ResearchChallenge[] = [
     intercept = (sy - slope * sx) / n
     return [intercept + slope * row[0] for row in test_X]
 `,
+    solutionCode: `def solve(train_X, train_y, test_X):
+    rows = [[1.0, row[0], row[0] * row[0]] for row in train_X]
+    size = 3
+    A = [[sum(r[i] * r[j] for r in rows) for j in range(size)] for i in range(size)]
+    b = [sum(r[i] * y for r, y in zip(rows, train_y)) for i in range(size)]
+
+    for col in range(size):
+        pivot = max(range(col, size), key=lambda r: abs(A[r][col]))
+        A[col], A[pivot] = A[pivot], A[col]
+        b[col], b[pivot] = b[pivot], b[col]
+        for r in range(col + 1, size):
+            factor = A[r][col] / A[col][col]
+            for c in range(col, size):
+                A[r][c] -= factor * A[col][c]
+            b[r] -= factor * b[col]
+
+    coef = [0.0] * size
+    for r in range(size - 1, -1, -1):
+        tail = sum(A[r][c] * coef[c] for c in range(r + 1, size))
+        coef[r] = (b[r] - tail) / A[r][r]
+
+    out = []
+    for row in test_X:
+        x = row[0]
+        out.append(coef[0] + coef[1] * x + coef[2] * x * x)
+    return out
+`,
+    solutionNotes: [
+      "Build the three columns [1, x, x²] and solve the 3×3 normal equations with Gaussian elimination — pure Python, no libraries.",
+      "The recovered coefficients land near the true generator (0.5, -1, 2), so the fitted curve tracks the parabola instead of averaging it.",
+      "Resist adding x³ or x⁴: 50 noisy rows only support three coefficients, and extra terms trade hidden MSE for training fit.",
+    ],
     hint:
       "Fit y = c0 + c1·x + c2·x² with the normal equations: build the 3×3 system and solve it with Gaussian elimination. Pure Python is enough — no libraries needed.",
     points: 25,
@@ -234,6 +313,51 @@ export const RESEARCH_CHALLENGES: ResearchChallenge[] = [
     # Baseline: always predict the negative class.
     return [0 for _ in test_X]
 `,
+    solutionCode: `import math
+
+
+def solve(train_X, train_y, test_X):
+    n = len(train_X)
+    d = len(train_X[0])
+
+    means = [sum(row[j] for row in train_X) / n for j in range(d)]
+    stds = []
+    for j in range(d):
+        var = sum((row[j] - means[j]) ** 2 for row in train_X) / n
+        stds.append(math.sqrt(var) if var > 0 else 1.0)
+
+    def scale(row):
+        return [(row[j] - means[j]) / stds[j] for j in range(d)]
+
+    X = [scale(row) for row in train_X]
+    y = [float(label) for label in train_y]
+    w = [0.0] * d
+    b = 0.0
+    rate = 0.5
+    for _ in range(800):
+        gw = [0.0] * d
+        gb = 0.0
+        for xi, yi in zip(X, y):
+            z = b + sum(wj * xj for wj, xj in zip(w, xi))
+            p = 1.0 / (1.0 + math.exp(-z))
+            err = p - yi
+            for j in range(d):
+                gw[j] += err * xi[j]
+            gb += err
+        w = [wj - rate * gj / n for wj, gj in zip(w, gw)]
+        b -= rate * gb / n
+
+    out = []
+    for row in test_X:
+        z = b + sum(wj * xj for wj, xj in zip(w, scale(row)))
+        out.append(1 if z > 0.0 else 0)
+    return out
+`,
+    solutionNotes: [
+      "Standardize all 20 columns with training statistics; on raw [0, 1] inputs the wide noise columns would dominate every gradient step.",
+      "Fit logistic regression with 800 log-loss steps — the weights on f3, f11, and f17 grow while the 17 noise weights stay near zero.",
+      "Predict the positive class when the score is positive; a handful of correct positives is already worth far more than the zero-F1 all-negative baseline.",
+    ],
     hint:
       "Most of the 20 columns are irrelevant. Standardize every feature and run logistic regression with gradient descent — the weights on f3, f11, and f17 will pull away from zero while the noise columns stay near it.",
     points: 30,
@@ -255,6 +379,41 @@ export const RESEARCH_CHALLENGES: ResearchChallenge[] = [
     # Baseline: trailing moving average over the five-sample window.
     return [sum(row) / len(row) for row in test_X]
 `,
+    solutionCode: `def solve(train_X, train_y, test_X):
+    width = len(train_X[0])
+    size = width + 1
+    rows = [[1.0] + [float(v) for v in row] for row in train_X]
+    A = [[sum(r[i] * r[j] for r in rows) for j in range(size)] for i in range(size)]
+    b = [sum(r[i] * float(y) for r, y in zip(rows, train_y)) for i in range(size)]
+
+    for col in range(size):
+        pivot = max(range(col, size), key=lambda r: abs(A[r][col]))
+        A[col], A[pivot] = A[pivot], A[col]
+        b[col], b[pivot] = b[pivot], b[col]
+        for r in range(col + 1, size):
+            factor = A[r][col] / A[col][col]
+            for c in range(col, size):
+                A[r][c] -= factor * A[col][c]
+            b[r] -= factor * b[col]
+
+    coef = [0.0] * size
+    for r in range(size - 1, -1, -1):
+        tail = sum(A[r][c] * coef[c] for c in range(r + 1, size))
+        coef[r] = (b[r] - tail) / A[r][r]
+
+    out = []
+    for row in test_X:
+        total = coef[0]
+        for j, value in enumerate(row):
+            total += coef[j + 1] * float(value)
+        out.append(total)
+    return out
+`,
+    solutionNotes: [
+      "Learn six numbers — a bias plus one weight per window position — by least squares on the 60 training rows.",
+      "The fitted filter is strongly asymmetric: the most recent sample carries the largest weight, which removes the two-step lag of the moving average.",
+      "Window order matters — weight j multiplies sample t-4+j — so the same index order used in fitting must be used at prediction time.",
+    ],
     hint:
       "A trailing mean lags a ramp by two steps. Fit a least-squares line to each window and evaluate it at the last point — or learn the five filter weights (plus a bias) from the training rows.",
     points: 25,
@@ -280,6 +439,32 @@ export const RESEARCH_CHALLENGES: ResearchChallenge[] = [
     best = max(counts, key=lambda k: (counts[k], -k))
     return [best for _ in test_X]
 `,
+    solutionCode: `def solve(train_X, train_y, test_X):
+    unigram = {}
+    for label in train_y:
+        unigram[label] = unigram.get(label, 0) + 1
+    fallback = max(unigram, key=lambda token: (unigram[token], -token))
+
+    pairs = {}
+    for row, label in zip(train_X, train_y):
+        key = (row[-2], row[-1])
+        counts = pairs.setdefault(key, {})
+        counts[label] = counts.get(label, 0) + 1
+
+    out = []
+    for row in test_X:
+        counts = pairs.get((row[-2], row[-1]))
+        if counts:
+            out.append(max(counts, key=lambda token: (counts[token], -token)))
+        else:
+            out.append(fallback)
+    return out
+`,
+    solutionNotes: [
+      "Count every (last two tokens → next token) transition in the training rows and predict the most frequent continuation.",
+      "Fall back to the unigram-most-common token for pairs that never appear in training, so unseen contexts still get a sane guess.",
+      "Ties break toward the lowest token id, which keeps predictions deterministic for contexts with one vote per continuation.",
+    ],
     hint:
       "The next token depends on the last two tokens. Count (previous two tokens → next token) transitions and predict the most frequent continuation, falling back to the unigram pick for pairs you never saw.",
     points: 35,
