@@ -25,12 +25,27 @@ import {
   saveCells,
   type NotebookCell,
 } from "@/lib/notebook";
-import { StudyAssistant } from "@/components/StudyAssistant";
 import { SolvedBanner } from "@/components/SolvedBanner";
 import { Celebration } from "@/components/Celebration";
 import { Discuss } from "@/components/Discuss";
 import { ProblemComments } from "@/components/ProblemComments";
 import { getCurrentStreak } from "@/lib/leaderboard";
+import { getDailyDateKey } from "@/lib/daily";
+import {
+  allowedHintTier,
+  applyHintPenalty,
+  getHintTiers,
+  HINT_TIER_2_ELAPSED_MS,
+  HINT_TIER_3_ELAPSED_MS,
+  HINT_TIER_3_FAILED_RUNS,
+} from "@/lib/hints";
+import {
+  CLEAN_PASS,
+  getReviewMap,
+  gradeReview,
+  qualityFromRun,
+  type ReviewQuality,
+} from "@/lib/reviewQueue";
 import {
   getProblemProgress,
   getProgress,
@@ -79,6 +94,21 @@ type PyStatus = "idle" | "loading" | "ready" | "error";
 
 type EditorMode = "editor" | "notebook";
 
+/** Hint budget for one problem attempt ("attempt" = one visit to a problem). */
+interface HintAttempt {
+  problemId: string;
+  /** Completed runs whose tests did not all pass. */
+  failedRuns: number;
+  /** Tiers ever revealed this attempt — the grading signal. */
+  seen: number[];
+  /** Tiers currently expanded in the hint panel. */
+  open: number[];
+}
+
+function freshHintAttempt(problemId: string): HintAttempt {
+  return { problemId, failedRuns: 0, seen: [], open: [] };
+}
+
 export function ProblemView({
   problem,
   onClose,
@@ -97,8 +127,14 @@ export function ProblemView({
   const [running, setRunning] = useState(false);
   const [pyStatus, setPyStatus] = useState<PyStatus>("idle");
   const [pyError, setPyError] = useState<string | null>(null);
-  const [showSolution, setShowSolution] = useState(false);
-  const [showHint, setShowHint] = useState(false);
+  const [solutionState, setSolutionState] = useState<{
+    problemId: string;
+    open: boolean;
+  }>({ problemId: problem.id, open: false });
+  const [hintAttempt, setHintAttempt] = useState(() =>
+    freshHintAttempt(problem.id),
+  );
+  const [hintClock, setHintClock] = useState(() => Date.now());
   const [modeState, setModeState] = useState<{
     problemId: string;
     mode: EditorMode;
@@ -187,6 +223,30 @@ export function ProblemView({
   const bugStats = useMemo(() => getBugStats(), [problem.id, bugVersion]);
   const codeLineCount = code.split("\n").length;
 
+  // Hint budget derived state — tagged with the problem id like the rest.
+  const showSolution =
+    solutionState.problemId === problem.id && solutionState.open;
+  const currentHintAttempt =
+    hintAttempt.problemId === problem.id ? hintAttempt : null;
+  const hintSeen = currentHintAttempt?.seen ?? [];
+  const hintOpen = currentHintAttempt?.open ?? [];
+  // Start of the current attempt: the memo re-runs when the problem changes,
+  // so a new problem always starts fresh (tier 1, zero elapsed).
+  const hintStartedAt = useMemo(() => Date.now(), [problem.id]);
+  const hintElapsedMs = Math.max(0, hintClock - hintStartedAt);
+  const allowedTier = allowedHintTier({
+    failedRuns: currentHintAttempt?.failedRuns ?? 0,
+    elapsedMs: hintElapsedMs,
+  });
+  const hintTiers = useMemo(() => getHintTiers(problem), [problem]);
+  const solutionLockReason = `Unlocks after ${HINT_TIER_3_FAILED_RUNS} failed runs or ${HINT_TIER_3_ELAPSED_MS / 60_000} minutes on this problem.`;
+  const nextLockReason =
+    allowedTier >= 3
+      ? null
+      : allowedTier === 1
+        ? `Unlocks after a failed run or ${HINT_TIER_2_ELAPSED_MS / 60_000} minutes on this problem.`
+        : solutionLockReason;
+
   // Roving tabindex for the mobile tab switcher: one tab stop, arrow keys move
   // selection and focus (APG tabs pattern).
   const onMobileTabKeyDown = (
@@ -227,6 +287,13 @@ export function ProblemView({
   useEffect(() => {
     if (!isPage) dialogRef.current?.focus();
   }, [problem.id, isPage]);
+
+  // Re-render on a slow clock so time-based unlocks appear without any
+  // interaction (no other timer exists in this view).
+  useEffect(() => {
+    const timer = window.setInterval(() => setHintClock(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Close on Escape — overlay only; the page is a normal route.
   useEffect(() => {
@@ -331,10 +398,80 @@ export function ProblemView({
     setCelebrationNonce((n) => n + 1);
   };
 
+  const recordFailedRun = () => {
+    setHintAttempt((prev) =>
+      prev.problemId === problem.id
+        ? { ...prev, failedRuns: prev.failedRuns + 1 }
+        : { ...freshHintAttempt(problem.id), failedRuns: 1 },
+    );
+  };
+
+  const setSolutionOpen = (open: boolean) => {
+    setSolutionState({ problemId: problem.id, open });
+  };
+
+  // Reveal/hide one tier. A locked tier is a no-op; revealing records the tier
+  // as seen so grading can never be gamed by hiding it again.
+  const toggleHintTier = (level: number) => {
+    if (level > allowedTier) return;
+    if (level === 3) {
+      if (showSolution) {
+        setSolutionOpen(false);
+        return;
+      }
+      setSolutionOpen(true);
+      setHintAttempt((prev) => {
+        const base =
+          prev.problemId === problem.id ? prev : freshHintAttempt(problem.id);
+        return base.seen.includes(3)
+          ? base
+          : { ...base, seen: [...base.seen, 3] };
+      });
+      return;
+    }
+    setHintAttempt((prev) => {
+      const base =
+        prev.problemId === problem.id ? prev : freshHintAttempt(problem.id);
+      const open = base.open.includes(level)
+        ? base.open.filter((n) => n !== level)
+        : [...base.open, level];
+      const seen = base.seen.includes(level)
+        ? base.seen
+        : [...base.seen, level];
+      return { ...base, open, seen };
+    });
+  };
+
+  // Feed this solve's hint usage through the shared run-quality ladder and
+  // apply it to a due review before the solve is recorded. Clean, hint-free
+  // passes fall through to the existing derive path (CLEAN_PASS).
+  const gradeHintAwareSolve = () => {
+    const now = new Date();
+    const todayKey = getDailyDateKey(now);
+    const entry = getReviewMap(now)[problem.id];
+    if (!entry || entry.due > todayKey) return;
+    if (
+      entry.lastReviewedAt &&
+      getDailyDateKey(new Date(entry.lastReviewedAt)) === todayKey
+    ) {
+      return;
+    }
+    const quality = applyHintPenalty(
+      qualityFromRun({
+        passed: true,
+        failedRuns: currentHintAttempt?.failedRuns ?? 0,
+      }),
+      hintSeen,
+    );
+    if (quality >= CLEAN_PASS) return;
+    gradeReview(problem.id, quality as ReviewQuality, now);
+  };
+
   // Shared by the editor and notebook runs. The solve is always recorded;
   // when the explanation gate is on, only the celebration waits.
   const handleAllPass = () => {
     const wasSolved = getProblemProgress(problem.id).solved === true;
+    gradeHintAwareSolve();
     markSolved(problem.id);
     if (gate !== null) return;
     const kind: "first" | "again" = wasSolved ? "again" : "first";
@@ -504,6 +641,7 @@ export function ProblemView({
       const r = await runTests(py, code, problem.testCases);
       setResults(r);
       const allPass = r.length > 0 && r.every((x) => x.ok);
+      if (!bugActive && !allPass) recordFailedRun();
       if (allPass && !bugActive) handleAllPass();
       if (!bugActive) onProgressChange?.();
     } catch (e: any) {
@@ -576,7 +714,7 @@ export function ProblemView({
     setBugShowFix(false);
     setCode(problem.starterCode);
     setResults(null);
-    setShowSolution(false);
+    setSolutionOpen(false);
     saveCode(problem.id, problem.starterCode);
     onProgressChange?.();
   };
@@ -671,6 +809,7 @@ export function ProblemView({
           const r = await runTests(py, combined, problem.testCases);
           setResults(r);
           const allPass = r.length > 0 && r.every((x) => x.ok);
+          if (!bugActive && !allPass) recordFailedRun();
           if (allPass && !bugActive) handleAllPass();
           if (!bugActive) onProgressChange?.();
         }
@@ -937,28 +1076,76 @@ export function ProblemView({
                   {problem.description}
                 </pre>
 
-                {problem.hint && (
-                  <div className="mt-5">
-                    <button
-                      onClick={() => setShowHint((v) => !v)}
-                      aria-expanded={showHint}
-                      aria-controls="df-problem-hint"
-                      className="rounded-md text-xs text-accent transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
-                    >
-                      {showHint ? "Hide hint" : "Show hint"}
-                    </button>
-                    {showHint && (
-                      <p
-                        id="df-problem-hint"
-                        className="mt-2 rounded-md border border-hairline bg-canvas-card p-3 text-xs leading-relaxed text-body"
-                      >
-                        {problem.hint}
-                      </p>
+                <div className="mt-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {hintTiers.map((tier, index) => {
+                      const level = index + 1;
+                      const unlocked = level <= allowedTier;
+                      const expanded =
+                        level === 3 ? showSolution : hintOpen.includes(level);
+                      return (
+                        <button
+                          key={tier.label}
+                          type="button"
+                          onClick={() => toggleHintTier(level)}
+                          disabled={!unlocked}
+                          aria-expanded={expanded}
+                          aria-controls="df-problem-hint-tiers"
+                          className={cn(
+                            "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+                            expanded
+                              ? "border-accent/40 bg-accent/5 text-ink"
+                              : "border-hairline bg-canvas-soft text-body",
+                            unlocked
+                              ? "hover:border-accent/40 hover:text-ink"
+                              : "cursor-default opacity-50",
+                          )}
+                        >
+                          {expanded
+                            ? `Hide ${tier.label.toLowerCase()}`
+                            : unlocked
+                              ? `Show ${tier.label.toLowerCase()}`
+                              : `${tier.label} locked`}
+                        </button>
+                      );
+                    })}
+                    {hintSeen.length > 0 && (
+                      <span className="font-mono text-[10px] text-mute">
+                        {hintSeen.length}/{hintTiers.length}
+                      </span>
                     )}
                   </div>
-                )}
-
-                <StudyAssistant key={problem.id} problem={problem} />
+                  {nextLockReason && (
+                    <p className="mt-2 text-[11px] text-mute">
+                      {nextLockReason}
+                    </p>
+                  )}
+                  <div
+                    id="df-problem-hint-tiers"
+                    aria-live="polite"
+                    className="mt-2 space-y-2 empty:mt-0"
+                  >
+                    {hintTiers.map((tier, index) => {
+                      const level = index + 1;
+                      if (tier.isSolution || !hintOpen.includes(level)) {
+                        return null;
+                      }
+                      return (
+                        <div
+                          key={tier.label}
+                          className="rounded-lg border border-hairline bg-canvas-card p-3"
+                        >
+                          <div className="mb-1.5 text-[11px] font-medium text-body-mid">
+                            {tier.label}
+                          </div>
+                          <p className="text-xs leading-relaxed text-body">
+                            {tier.text}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <div className="mt-5">
                   <SectionHeading
@@ -1259,13 +1446,29 @@ export function ProblemView({
                   Reset
                 </button>
                 <button
-                  onClick={() => setShowSolution((v) => !v)}
+                  type="button"
+                  onClick={() => toggleHintTier(3)}
+                  disabled={allowedTier < 3 && !showSolution}
                   aria-expanded={showSolution}
                   aria-controls="df-problem-solution"
-                  className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                  aria-describedby={
+                    allowedTier < 3 && !showSolution
+                      ? "df-solution-lock-reason"
+                      : undefined
+                  }
+                  className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:cursor-default disabled:opacity-50"
                 >
-                  {showSolution ? "Hide solution" : "Show solution"}
+                  {showSolution
+                    ? "Hide solution"
+                    : allowedTier >= 3
+                      ? "Show solution"
+                      : "Solution locked"}
                 </button>
+                {allowedTier < 3 && !showSolution && (
+                  <span id="df-solution-lock-reason" className="sr-only">
+                    {solutionLockReason}
+                  </span>
+                )}
                 {!bugActive && (
                   <button
                     type="button"

@@ -18,8 +18,10 @@ import {
   sanitizeReviewState,
   weakCategories,
   type ReviewMap,
+  type ReviewQuality,
   type ReviewState,
 } from "@/lib/reviewQueue";
+import { applyHintPenalty } from "@/lib/hints";
 import { mergeReviews } from "@/lib/sync/remoteMerge";
 import type { ProgressMap } from "@/lib/progress";
 
@@ -194,6 +196,67 @@ describe("SM-2 intervals", () => {
     expect(qualityFromRun({ passed: true, failedRuns: 3 })).toBe(4);
     expect(qualityFromRun({ passed: true, failedRuns: 2, resetBeforePass: true })).toBe(3);
     expect(qualityFromRun({ passed: false, failedRuns: 5 })).toBe(0);
+  });
+});
+
+describe("hint-aware review grading", () => {
+  test("a clean, hint-free pass stays on the top-quality path", () => {
+    const quality = applyHintPenalty(qualityFromRun({ passed: true }), []);
+    expect(quality).toBe(5);
+    expect(quality).toBe(CLEAN_PASS);
+  });
+
+  test("a tier-1 pass grades slightly lower", () => {
+    expect(applyHintPenalty(qualityFromRun({ passed: true }), [1])).toBe(4);
+  });
+
+  test("a tier-2 or tier-3 pass grades at most 3", () => {
+    expect(
+      applyHintPenalty(qualityFromRun({ passed: true }), [2]),
+    ).toBeLessThanOrEqual(3);
+    expect(
+      applyHintPenalty(qualityFromRun({ passed: true }), [3]),
+    ).toBeLessThanOrEqual(3);
+    expect(applyHintPenalty(qualityFromRun({ passed: true }), [1, 2, 3])).toBe(3);
+  });
+
+  test("failed runs cost quality and hints compound with them", () => {
+    expect(
+      applyHintPenalty(qualityFromRun({ passed: true, failedRuns: 2 }), []),
+    ).toBe(4);
+    expect(
+      applyHintPenalty(qualityFromRun({ passed: true, failedRuns: 2 }), [1]),
+    ).toBe(3);
+    expect(
+      applyHintPenalty(qualityFromRun({ passed: true, failedRuns: 2 }), [2]),
+    ).toBe(3);
+  });
+
+  test("the hint-aware grade lands on the stored schedule", () => {
+    const quality = applyHintPenalty(
+      qualityFromRun({ passed: true }),
+      [3],
+    ) as ReviewQuality;
+    expect(quality).toBe(3);
+    const stored = gradeReview("la-1", quality, FIXED_NOW);
+    expect(stored.lastGrade).toBe(3);
+    expect(stored.interval).toBe(1);
+    expect(stored.ease).toBe(2.36);
+    expect(readReviews()["la-1"]?.lastGrade).toBe(3);
+  });
+
+  test("non-hint solves still derive CLEAN_PASS (regression)", () => {
+    const existing: ReviewMap = {
+      "la-1": state({ reps: 1, due: "2026-01-10" }),
+    };
+    const progress: ProgressMap = {
+      "la-1": { solved: true, solvedAt: ISO(2026, 0, 12) },
+    };
+    const derived = deriveReviews(progress, existing, FIXED_NOW);
+    expect(derived["la-1"].lastGrade).toBe(CLEAN_PASS);
+    expect(derived["la-1"].reps).toBe(2);
+    expect(derived["la-1"].interval).toBe(6);
+    expect(derived["la-1"].due).toBe("2026-01-18");
   });
 });
 
