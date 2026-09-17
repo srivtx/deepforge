@@ -8,7 +8,9 @@
     "start": "next start -p 3001",
     "lint": "eslint .",
     "test": "bun test",
-    "verify": "bun run scripts/verify-problems.ts"
+    "verify": "bun run scripts/verify-problems.ts",
+    "prune:vercel": "node scripts/vercel-prune.mjs --execute",
+    "prune:vercel:dry": "node scripts/vercel-prune.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

@@ -341,7 +341,7 @@ If you are an AI agent working on DeepForge:
 - **Avatars:** ✅ 12 character presets, two art styles (Illustrated + Pixel)
 - **Tests:** ✅ 1,253 unit tests (66 files) + 165 e2e smoke checks (CI)
 - **Solutions on rails:** ✅ every lab and research challenge carries a Python-verified reference solution (Show solution reveal); certificates gain a research kind (5/5 baselines); stats and Today surface labs/research progress
-- **Deploy size:** ✅ problem pages render on demand with 24 h ISR (only curated project-step entry pages are prerendered): build output ~136 MB, down from ~3.5 GB when the whole problem bank was prerendered
+- **Deploys:** ✅ the full problem bank is prerendered so every page is edge-static (~1 GB of build output per deploy); all 5,730 deployment history is bounded by `bun run prune:vercel` (`scripts/vercel-prune.mjs`, keeps newest prod + preview). One bad day of auto-deploys had accumulated 56 GB; 95 deployments were pruned to 2
 - **PWA:** ✅ Offline v6 per-route fallback (route-inventory test, nested static routes modeled) + update prompt
 - **Search & shortcuts:** ✅ Palette search over problems, paths, articles, blog, research challenges, papers, and labs + quick actions (labs, trails, research); g-sequences + `?` overlay
 - **Backup:** ✅ Full local export/import with an audited key inventory

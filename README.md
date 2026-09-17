@@ -106,7 +106,7 @@ See [`docs/SETUP-SUPABASE.md`](./docs/SETUP-SUPABASE.md) for schema, RLS, and au
 
 ## Performance
 
-Measured with `bun run scripts/measure-bundle.ts --check` (gzip first-load JS; all four routes within budget). The production build is ~136 MB: problem pages render on demand with 24 h ISR instead of prerendering the whole 5,730-problem bank at build time (which cost ~1 GB of HTML/RSC output per deployment):
+Measured with `bun run scripts/measure-bundle.ts --check` (gzip first-load JS; all four routes within budget). Every problem page is prerendered so it is served straight from the edge (~1 GB of build output per deployment); `bun run prune:vercel` keeps only the newest production and preview deployment so Vercel storage stays bounded:
 
 | Route | Before light index | Now |
 |---|---:|---:|

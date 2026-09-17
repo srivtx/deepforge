@@ -27,21 +27,17 @@ function problemMetaDescription(problem: Problem): string {
   return `${text.slice(0, 155).replace(/\s+\S*$/, "")}…`;
 }
 
-/**
- * Prerender only the curated entry points (project steps, which /projects
- * links to); the rest of the 5,730-problem bank renders on demand and is
- * cached per id. Prerendering every problem produced ~1 GB of build output
- * (438 MB html + 402 MB segment prefetch + 165 MB RSC payloads), which made
- * every deployment enormous; on-demand rendering keeps SEO and the product
- * behavior while shrinking the deploy by roughly 10x.
- */
-export const dynamicParams = true;
-export const revalidate = 86400;
+export const dynamicParams = false;
 
 export function generateStaticParams(): { id: string }[] {
-  return PROJECTS.flatMap((project) =>
-    project.steps.map((step) => ({ id: step.id })),
+  const projectStepIds = PROJECTS.flatMap((project) =>
+    project.steps.map((step) => step.id),
   );
+  const ids = new Set([
+    ...PROBLEMS.map((problem) => problem.id),
+    ...projectStepIds,
+  ]);
+  return [...ids].map((id) => ({ id }));
 }
 
 function findProjectStep(id: string): Problem | undefined {
