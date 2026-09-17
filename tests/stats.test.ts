@@ -1,17 +1,33 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
+  REVIEW_HEALTH_LAPSE_LIMIT,
+  REVIEW_HEALTH_TREND_DAYS,
+  emptyReviewHealth,
   getActivityTrend,
   getCategoryBreakdown,
   getDifficultyBreakdown,
   getEstimatedMastery,
   getOverview,
   getRecords,
+  getReviewHealth,
   getTimeOfDay,
 } from "@/lib/stats";
 import { CATEGORIES, PROBLEMS } from "@/data/problems";
-import { FIRST_SOLVE_BONUS, XP_BASE } from "@/lib/badges";
+import {
+  earnedBadges,
+  FIRST_SOLVE_BONUS,
+  getDailyQuests,
+  getTotals,
+  XP_BASE,
+  type BadgeSnapshot,
+} from "@/lib/badges";
 import { getDailyDateKey } from "@/lib/daily";
 import type { ProgressMap } from "@/lib/progress";
+import {
+  REVIEWS_STORAGE_KEY,
+  type ReviewMap,
+  type ReviewState,
+} from "@/lib/reviewQueue";
 
 function createStorageStub(): Storage {
   const store = new Map<string, string>();
@@ -65,6 +81,35 @@ const HARD = PROBLEMS.filter((problem) => problem.difficulty === "Hard");
 
 function seedProgress(progress: ProgressMap): void {
   stub.setItem(PROGRESS_KEY, JSON.stringify(progress));
+}
+
+function seedReviews(reviews: ReviewMap): void {
+  stub.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(reviews));
+}
+
+const FIXED_NOW = new Date(2026, 0, 14, 12, 0, 0, 0);
+
+function fixedIso(year: number, month: number, day: number): string {
+  return new Date(year, month, day, 12, 0, 0, 0).toISOString();
+}
+
+function reviewState(overrides: Partial<ReviewState> = {}): ReviewState {
+  return {
+    ease: 2.5,
+    interval: 1,
+    due: "2026-01-14",
+    reps: 0,
+    lapses: 0,
+    lastGrade: null,
+    lastReviewedAt: null,
+    ...overrides,
+  };
+}
+
+function idsFor(category: string, count: number): string[] {
+  return PROBLEMS.filter((problem) => problem.category === category)
+    .slice(0, count)
+    .map((problem) => problem.id);
 }
 
 function atDaysAgo(days: number, hour = 12): string {
@@ -408,5 +453,248 @@ describe("seeded fixture", () => {
       date: getDailyDateKey(new Date(now)),
       count: 1,
     });
+  });
+});
+
+describe("review health", () => {
+  test("empty state is zeroed with a 28-day trend ending today", () => {
+    const health = getReviewHealth(FIXED_NOW);
+    expect(health.buckets).toEqual({
+      due: 0,
+      learning: 0,
+      new: 0,
+      scheduled: 0,
+    });
+    expect(health.lapsesByCategory).toEqual([]);
+    expect(health.nextDue).toBeNull();
+    expect(health.completionTrend).toHaveLength(REVIEW_HEALTH_TREND_DAYS);
+    for (const day of health.completionTrend) expect(day.count).toBe(0);
+    expect(health.completionTrend[0].date).toBe("2025-12-18");
+    expect(health.completionTrend[REVIEW_HEALTH_TREND_DAYS - 1].date).toBe(
+      "2026-01-14",
+    );
+    expect(health).toEqual(emptyReviewHealth(FIXED_NOW));
+  });
+
+  test("maps stored states onto the queue's four buckets", () => {
+    const ids = EASY.slice(0, 6).map((problem) => problem.id);
+    seedReviews({
+      [ids[0]]: reviewState(), // reps 0, due today → learning
+      [ids[1]]: reviewState({ due: "2026-01-20" }), // reps 0, future → new
+      [ids[2]]: reviewState({ reps: 2 }), // reviewed, due today → due
+      [ids[3]]: reviewState({ reps: 2, due: "2026-01-20" }), // scheduled
+      [ids[4]]: reviewState({ due: "2026-01-13" }), // overdue first review
+      [ids[5]]: reviewState({ reps: 1, due: "2026-01-13" }), // overdue review
+    });
+
+    expect(getReviewHealth(FIXED_NOW).buckets).toEqual({
+      due: 2,
+      learning: 2,
+      new: 1,
+      scheduled: 1,
+    });
+  });
+
+  test("ranks lapses descending with a stable category tie-break", () => {
+    const la = idsFor("Linear Algebra", 1);
+    const ca = idsFor("Calculus", 2);
+    const st = idsFor("Statistics", 1);
+    const pr = idsFor("Probability", 1);
+    seedReviews({
+      [la[0]]: reviewState({ reps: 2, lapses: 5 }),
+      [ca[0]]: reviewState({ reps: 2, lapses: 2, due: "2026-01-20" }),
+      [ca[1]]: reviewState({ reps: 1, lapses: 1, due: "2026-01-13" }),
+      [st[0]]: reviewState({ reps: 0, lapses: 3 }),
+      [pr[0]]: reviewState({ reps: 2, lapses: 1, due: "2026-01-20" }),
+    });
+
+    const health = getReviewHealth(FIXED_NOW);
+    expect(health.lapsesByCategory).toEqual([
+      { category: "Linear Algebra", lapses: 5, due: 1 },
+      { category: "Calculus", lapses: 3, due: 1 },
+      { category: "Statistics", lapses: 3, due: 1 },
+      { category: "Probability", lapses: 1, due: 0 },
+    ]);
+  });
+
+  test("caps the lapse list at the top five categories", () => {
+    const lapsed = [
+      "Algorithms",
+      "Calculus",
+      "Deep Learning",
+      "Linear Algebra",
+      "NLP",
+      "Probability",
+    ];
+    const reviews: ReviewMap = {};
+    for (const category of lapsed) {
+      const [id] = idsFor(category, 1);
+      reviews[id] = reviewState({
+        reps: 2,
+        lapses: 1,
+        due: "2026-02-01",
+      });
+    }
+    seedReviews(reviews);
+
+    const rows = getReviewHealth(FIXED_NOW).lapsesByCategory;
+    expect(rows).toHaveLength(REVIEW_HEALTH_LAPSE_LIMIT);
+    expect(rows.map((row) => row.category)).toEqual([
+      "Algorithms",
+      "Calculus",
+      "Deep Learning",
+      "Linear Algebra",
+      "NLP",
+    ]);
+    for (const row of rows) expect(row.due).toBe(0);
+  });
+
+  test("builds the completion trend from lastReviewedAt, oldest first", () => {
+    const ids = EASY.slice(0, 6).map((problem) => problem.id);
+    seedReviews({
+      [ids[0]]: reviewState({ reps: 1, lastReviewedAt: fixedIso(2026, 0, 14) }),
+      [ids[1]]: reviewState({ reps: 1, lastReviewedAt: fixedIso(2026, 0, 14) }),
+      [ids[2]]: reviewState({ reps: 1, lastReviewedAt: fixedIso(2026, 0, 11) }),
+      [ids[3]]: reviewState({ reps: 1, lastReviewedAt: fixedIso(2025, 11, 18) }),
+      [ids[4]]: reviewState({ reps: 1, lastReviewedAt: fixedIso(2025, 11, 17) }),
+      [ids[5]]: reviewState({ reps: 1, lastReviewedAt: "not-a-date" }),
+    });
+
+    const trend = getReviewHealth(FIXED_NOW).completionTrend;
+    expect(trend).toHaveLength(REVIEW_HEALTH_TREND_DAYS);
+    expect(trend[0].date).toBe("2025-12-18");
+    expect(trend[REVIEW_HEALTH_TREND_DAYS - 1].date).toBe("2026-01-14");
+    const byDate = new Map(trend.map((day) => [day.date, day.count]));
+    expect(byDate.get("2026-01-14")).toBe(2);
+    expect(byDate.get("2026-01-11")).toBe(1);
+    expect(byDate.get("2025-12-18")).toBe(1);
+    expect(byDate.has("2025-12-17")).toBe(false);
+    expect(trend.reduce((sum, day) => sum + day.count, 0)).toBe(4);
+  });
+
+  test("nextDue points at the earliest future due date", () => {
+    const ids = EASY.slice(0, 3).map((problem) => problem.id);
+    seedReviews({
+      [ids[0]]: reviewState({ reps: 1, due: "2026-01-13" }),
+      [ids[1]]: reviewState({ reps: 1, due: "2026-01-20" }),
+      [ids[2]]: reviewState({ reps: 1, due: "2026-01-18" }),
+    });
+    expect(getReviewHealth(FIXED_NOW).nextDue).toBe("2026-01-18");
+
+    seedReviews({
+      [ids[0]]: reviewState({ reps: 1, due: "2026-01-13" }),
+      [ids[1]]: reviewState({ reps: 1, due: "2026-01-14" }),
+    });
+    expect(getReviewHealth(FIXED_NOW).nextDue).toBeNull();
+  });
+
+  test("degrades safely on malformed store payloads", () => {
+    stub.setItem(REVIEWS_STORAGE_KEY, "{not json");
+    stub.setItem(PROGRESS_KEY, "[1,2,3]");
+    expect(getReviewHealth(FIXED_NOW)).toEqual(emptyReviewHealth(FIXED_NOW));
+
+    seedReviews({
+      "not-a-problem": reviewState({ reps: 2, lapses: 9 }),
+      [EASY[0].id]: "nope",
+      [EASY[1].id]: null,
+      [EASY[2].id]: reviewState({
+        lapses: Number.NaN,
+        due: 5 as unknown as string,
+        lastReviewedAt: 42 as unknown as string,
+      }),
+    } as unknown as ReviewMap);
+
+    const health = getReviewHealth(FIXED_NOW);
+    // Bad entries are dropped and NaN lapses count as zero; the unknown id
+    // keeps a valid state (so it still counts in the queue buckets) but can
+    // never appear in the category lapse list.
+    expect(health.lapsesByCategory).toEqual([]);
+    expect(health.completionTrend.every((day) => day.count === 0)).toBe(true);
+    const { buckets } = health;
+    expect(
+      buckets.due + buckets.learning + buckets.new + buckets.scheduled,
+    ).toBe(2);
+  });
+
+  test("is deterministic for the same fixture regardless of key order", () => {
+    const ids = EASY.slice(0, 4).map((problem) => problem.id);
+    const forward: ReviewMap = {
+      [ids[0]]: reviewState({
+        reps: 2,
+        lapses: 2,
+        due: "2026-01-20",
+        lastReviewedAt: fixedIso(2026, 0, 9),
+      }),
+      [ids[1]]: reviewState({
+        reps: 1,
+        lapses: 2,
+        due: "2026-01-14",
+        lastReviewedAt: fixedIso(2026, 0, 12),
+      }),
+      [ids[2]]: reviewState({
+        reps: 3,
+        due: "2026-01-10",
+        lastReviewedAt: fixedIso(2026, 0, 10),
+      }),
+      [ids[3]]: reviewState({ due: "2026-01-19" }),
+    };
+    const reversed = Object.fromEntries(
+      Object.entries(forward).reverse(),
+    ) as ReviewMap;
+
+    seedReviews(forward);
+    const first = getReviewHealth(FIXED_NOW);
+    const second = getReviewHealth(FIXED_NOW);
+    seedReviews(reversed);
+    const third = getReviewHealth(FIXED_NOW);
+
+    expect(second).toEqual(first);
+    expect(third).toEqual(first);
+  });
+});
+
+describe("badge snapshot sanitization", () => {
+  function junkSnapshot(now: Date): BadgeSnapshot {
+    return {
+      progress: {},
+      daily: { lastSolvedDate: null, streak: 0, solvedDates: [] },
+      labs: {
+        broken: null,
+        wrongType: 42,
+        empty: {},
+        text: "nope",
+        junkDate: { passed: "yes", lastScoredAt: 42 },
+        junkPassed: { passed: 1, lastScoredAt: "2026-01-14T12:00:00.000Z" },
+      },
+      research: {
+        alpha: null,
+        beta: { attempts: null, beatenBaseline: "yes" },
+      },
+      contests: [],
+      now,
+    } as unknown as BadgeSnapshot;
+  }
+
+  test("corrupted lab and research entries never throw and earn nothing", () => {
+    expect(earnedBadges(junkSnapshot(FIXED_NOW))).toHaveLength(0);
+
+    const totals = getTotals(junkSnapshot(FIXED_NOW));
+    expect(totals.badges).toBe(0);
+    expect(totals.xp).toBe(0);
+    expect(Number.isNaN(totals.xp)).toBe(false);
+
+    let sawLabQuest = false;
+    for (let offset = 0; offset < 30; offset += 1) {
+      const day = new Date(2026, 0, 14 + offset, 12, 0, 0, 0);
+      const snapshot = junkSnapshot(day);
+      if (getDailyQuests(snapshot).some((quest) => quest.id === "lab")) {
+        sawLabQuest = true;
+      }
+      getDailyQuests(snapshot);
+      earnedBadges(snapshot);
+    }
+    expect(sawLabQuest, "expected a lab quest day in the sampled range").toBe(
+      true,
+    );
   });
 });

@@ -17,6 +17,12 @@ import { getConceptStats } from "@/lib/concepts";
 import { getDailyDateKey } from "@/lib/daily";
 import { getCurrentStreak, getLongestStreak } from "@/lib/leaderboard";
 import { getProgress } from "@/lib/progress";
+import {
+  bucketOf,
+  getReviewBucketCounts,
+  getReviewMap,
+  nextDueDate,
+} from "@/lib/reviewQueue";
 import type { Category, Difficulty } from "@/types/problem";
 
 /* ──────────────────────────────── types ─────────────────────────────────── */
@@ -416,4 +422,151 @@ export function getEstimatedMastery(): MasteryEstimate {
     depth: Math.round(depth * 100),
     recency: Math.round(recency * 100),
   };
+}
+
+/* ────────────────────────────── review health ───────────────────────────── */
+
+/** Trailing window for the review-completion trend. */
+export const REVIEW_HEALTH_TREND_DAYS = 28;
+
+/** Weak categories listed by the review-health card. */
+export const REVIEW_HEALTH_LAPSE_LIMIT = 5;
+
+export interface ReviewHealthBuckets {
+  due: number;
+  learning: number;
+  new: number;
+  scheduled: number;
+}
+
+export interface ReviewLapseRow {
+  category: Category;
+  lapses: number;
+  /**
+   * Items in this category due today or earlier — the actionable queue,
+   * counting both the `due` and first-review `learning` buckets.
+   */
+  due: number;
+}
+
+export interface ReviewHealth {
+  /** Same bucket semantics as the Today queue. */
+  buckets: ReviewHealthBuckets;
+  /**
+   * Up to `REVIEW_HEALTH_LAPSE_LIMIT` categories with lapses, descending,
+   * ties broken by category name so the ranking is stable.
+   */
+  lapsesByCategory: ReviewLapseRow[];
+  /** Review completions per local day, oldest → newest, always 28 entries. */
+  completionTrend: TrendDay[];
+  /** Earliest due date after today ("YYYY-MM-DD"), or null when none. */
+  nextDue: string | null;
+}
+
+function buildCompletionTrend(
+  now: Date,
+  counts: Map<string, number>,
+): TrendDay[] {
+  const end = new Date(now);
+  end.setHours(0, 0, 0, 0);
+  const trend: TrendDay[] = [];
+  for (let i = REVIEW_HEALTH_TREND_DAYS - 1; i >= 0; i -= 1) {
+    const date = new Date(end);
+    date.setDate(date.getDate() - i);
+    const key = getDailyDateKey(date);
+    trend.push({ date: key, count: counts.get(key) ?? 0 });
+  }
+  return trend;
+}
+
+/** Zeroed review-health shape for empty state and server snapshots. */
+export function emptyReviewHealth(now: Date = new Date()): ReviewHealth {
+  const safeNow = Number.isNaN(now.getTime()) ? new Date() : now;
+  return {
+    buckets: { due: 0, learning: 0, new: 0, scheduled: 0 },
+    lapsesByCategory: [],
+    completionTrend: buildCompletionTrend(safeNow, new Map()),
+    nextDue: null,
+  };
+}
+
+/**
+ * Review health for the stats dashboard: queue buckets from the review
+ * scheduler, the weakest categories by lapses, a 28-day completion trend
+ * built from `lastReviewedAt`, and the next future due date.
+ *
+ * Pure read: same store state + same `now` yields the same result. Malformed
+ * payloads and empty state degrade to zeroed shapes instead of throwing.
+ */
+export function getReviewHealth(now: Date = new Date()): ReviewHealth {
+  const safeNow = Number.isNaN(now.getTime()) ? new Date() : now;
+  try {
+    const reviews = getReviewMap(safeNow);
+    if (!reviews || typeof reviews !== "object" || Array.isArray(reviews)) {
+      return emptyReviewHealth(safeNow);
+    }
+
+    const counts = getReviewBucketCounts(reviews, safeNow);
+    const today = getDailyDateKey(safeNow);
+    const metaById = new Map(
+      PROBLEM_META.map((problem) => [problem.id, problem]),
+    );
+    const lapses = new Map<Category, number>();
+    const dueByCategory = new Map<Category, number>();
+    const completions = new Map<string, number>();
+
+    for (const [id, state] of Object.entries(reviews)) {
+      if (!state || typeof state !== "object") continue;
+      const meta = metaById.get(id);
+      if (meta) {
+        const lapseCount =
+          typeof state.lapses === "number" && Number.isFinite(state.lapses)
+            ? Math.max(0, Math.floor(state.lapses))
+            : 0;
+        if (lapseCount > 0) {
+          lapses.set(
+            meta.category,
+            (lapses.get(meta.category) ?? 0) + lapseCount,
+          );
+        }
+        const bucket = bucketOf(state, today);
+        if (bucket === "due" || bucket === "learning") {
+          dueByCategory.set(
+            meta.category,
+            (dueByCategory.get(meta.category) ?? 0) + 1,
+          );
+        }
+      }
+      if (typeof state.lastReviewedAt === "string") {
+        const reviewed = new Date(state.lastReviewedAt);
+        if (!Number.isNaN(reviewed.getTime())) {
+          const key = getDailyDateKey(reviewed);
+          completions.set(key, (completions.get(key) ?? 0) + 1);
+        }
+      }
+    }
+
+    const lapsesByCategory = [...lapses.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, REVIEW_HEALTH_LAPSE_LIMIT)
+      .map(([category, lapseCount]) => ({
+        category,
+        lapses: lapseCount,
+        due: dueByCategory.get(category) ?? 0,
+      }));
+
+    return {
+      buckets: {
+        due: counts.due,
+        learning: counts.learning,
+        new: counts.new,
+        scheduled: counts.scheduled,
+      },
+      lapsesByCategory,
+      completionTrend: buildCompletionTrend(safeNow, completions),
+      nextDue: nextDueDate(reviews, safeNow),
+    };
+  } catch {
+    return emptyReviewHealth(safeNow);
+  }
 }

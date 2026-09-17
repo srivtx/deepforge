@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { CONCEPTS } from "@/data/concepts";
 import { LABS } from "@/data/labs";
@@ -30,18 +31,21 @@ import {
 import { REVIEWS_CHANGE_EVENT } from "@/lib/reviewQueue";
 import {
   MASTERY_WEIGHTS,
+  emptyReviewHealth,
   getActivityTrend,
   getCategoryBreakdown,
   getDifficultyBreakdown,
   getEstimatedMastery,
   getOverview,
   getRecords,
+  getReviewHealth,
   getTimeOfDay,
   type CategoryStat,
   type DifficultyStat,
   type MasteryEstimate,
   type Overview,
   type Records,
+  type ReviewHealth,
   type TimeOfDayBucket,
   type TrendDay,
 } from "@/lib/stats";
@@ -59,6 +63,7 @@ interface StatsData {
   timeOfDay: TimeOfDayBucket[];
   records: Records;
   mastery: MasteryEstimate;
+  reviewHealth: ReviewHealth;
   readiness: ReadinessBreakdown;
   goal: ReadinessGoal;
   projection: ReadinessProjection;
@@ -95,6 +100,7 @@ const EMPTY_STATS: StatsData = {
     lastSolvedAt: null,
   },
   mastery: { value: 0, coverage: 0, depth: 0, recency: 0 },
+  reviewHealth: emptyReviewHealth(),
   readiness: { value: 0, coverage: 0, retention: 0, balance: 0, consistency: 0 },
   goal: EMPTY_READINESS_GOAL,
   projection: EMPTY_READINESS_PROJECTION,
@@ -127,6 +133,7 @@ function buildStats(): StatsData {
     timeOfDay: getTimeOfDay(),
     records: getRecords(),
     mastery: getEstimatedMastery(),
+    reviewHealth: getReviewHealth(),
     readiness: getReadinessScore(),
     goal: getReadinessGoal(),
     projection: getReadinessProjection(),
@@ -1067,6 +1074,145 @@ function ReadinessCard({
   );
 }
 
+function hasReviewState(health: ReviewHealth): boolean {
+  const { buckets } = health;
+  return (
+    buckets.due + buckets.learning + buckets.new + buckets.scheduled > 0
+  );
+}
+
+const REVIEW_BUCKETS: { key: keyof ReviewHealth["buckets"]; label: string }[] = [
+  { key: "due", label: "Due" },
+  { key: "learning", label: "Learning" },
+  { key: "new", label: "New" },
+  { key: "scheduled", label: "Scheduled" },
+];
+
+function ReviewHealthCard({ health }: { health: ReviewHealth }) {
+  if (!hasReviewState(health)) return null;
+
+  const { buckets, lapsesByCategory, completionTrend, nextDue } = health;
+  const trendTotal = completionTrend.reduce((sum, day) => sum + day.count, 0);
+  let peak = 0;
+  let peakDate: string | null = null;
+  for (const day of completionTrend) {
+    if (day.count > peak) {
+      peak = day.count;
+      peakDate = day.date;
+    }
+  }
+  const trendSummary =
+    completionTrend.length === 0
+      ? "No review completions recorded yet."
+      : `Reviews completed per day, last ${completionTrend.length} days: ${trendTotal} total${
+          peakDate ? `, peak ${peak} on ${peakDate}` : ""
+        }.`;
+
+  return (
+    <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+      <h3 className="text-sm font-medium text-ink">Review health</h3>
+      <p className="mt-1 text-xs text-body-mid">
+        Spaced-review queue, lapses, and completions from your local history.
+      </p>
+
+      <div className="mt-4 grid grid-cols-4 gap-2">
+        {REVIEW_BUCKETS.map((bucket) => (
+          <div
+            key={bucket.key}
+            className="rounded-lg border border-hairline bg-canvas-soft px-2 py-1.5 text-center"
+          >
+            <div className="font-mono text-base text-ink">
+              {buckets[bucket.key]}
+            </div>
+            <div className="text-[10px] text-body-mid">{bucket.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4">
+        <div className="text-xs text-body-mid">Lapses by category</div>
+        {lapsesByCategory.length === 0 ? (
+          <p className="mt-2 rounded-lg border border-hairline bg-canvas px-3 py-3 text-xs text-body-mid">
+            No lapses recorded yet.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {lapsesByCategory.map((row) => (
+              <li key={row.category}>
+                <Link
+                  href="/today"
+                  aria-label={`${row.category}: ${row.lapses} ${
+                    row.lapses === 1 ? "lapse" : "lapses"
+                  }, ${row.due} due — open Today`}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-canvas px-3 py-2 transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                >
+                  <span className="min-w-0 flex-1 truncate text-xs text-ink">
+                    {row.category}
+                  </span>
+                  <span className="shrink-0 font-mono text-[10px] text-body-mid">
+                    {row.lapses} {row.lapses === 1 ? "lapse" : "lapses"} ·{" "}
+                    {row.due} due
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs text-body-mid">
+          <span>Review completions</span>
+          <span className="font-mono">
+            {trendTotal} in {completionTrend.length} days
+          </span>
+        </div>
+        <div
+          role="img"
+          aria-label={trendSummary}
+          className="mt-2 flex h-10 items-end gap-0.5"
+        >
+          {completionTrend.map((day) => (
+            <span
+              key={day.date}
+              aria-hidden
+              title={`${day.date}: ${day.count} ${
+                day.count === 1 ? "review" : "reviews"
+              }`}
+              className={cn(
+                "min-w-0 flex-1 rounded-sm",
+                day.count > 0 ? "bg-accent" : "bg-canvas-soft",
+              )}
+              style={{
+                height:
+                  peak > 0 && day.count > 0
+                    ? `${Math.max(10, (day.count / peak) * 100)}%`
+                    : "2px",
+              }}
+            />
+          ))}
+        </div>
+        <div className="mt-1 flex items-center justify-between text-[10px] text-body-mid">
+          <span>{completionTrend[0]?.date}</span>
+          <span>Today</span>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs text-body-mid">
+        {nextDue ? (
+          <>
+            Next review due{" "}
+            <span className="font-mono text-ink">{formatDateKey(nextDue)}</span>
+            .
+          </>
+        ) : (
+          "Nothing scheduled ahead yet."
+        )}
+      </p>
+    </div>
+  );
+}
+
 function PracticeMix({ overview }: { overview: Overview }) {
   const items = [
     {
@@ -1126,6 +1272,7 @@ export function StatsDashboard() {
     timeOfDay,
     records,
     mastery,
+    reviewHealth,
     readiness,
     goal,
     projection,
@@ -1184,6 +1331,12 @@ export function StatsDashboard() {
           projection={projection}
         />
       </div>
+
+      {hasReviewState(reviewHealth) && (
+        <div className="mt-3">
+          <ReviewHealthCard health={reviewHealth} />
+        </div>
+      )}
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
         <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5 lg:col-span-2">
