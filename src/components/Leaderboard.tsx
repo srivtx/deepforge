@@ -9,7 +9,12 @@ import {
   setUserName,
   type LeaderboardEntry,
 } from "@/lib/leaderboard";
-import { getLeaderboard } from "@/lib/leaderboardScores";
+import {
+  getLeaderboard,
+  getWeekKey,
+  getWeeklyLeaderboard,
+  type WeeklyLeaderboardEntry,
+} from "@/lib/leaderboardScores";
 import {
   fetchGlobalLeaderboard,
   isGlobalLeaderboardAvailable,
@@ -19,27 +24,39 @@ import {
 
 const GLOBAL_ERROR_MESSAGE = "Couldn't reach the leaderboard — try again";
 
+interface BoardRow extends LeaderboardEntry {
+  weeklyScore: number;
+  weeklySolved: number;
+}
+
 interface BoardSnapshot {
   entries: LeaderboardEntry[];
+  weeklyEntries: WeeklyLeaderboardEntry[];
   name: string;
   longestStreak: number;
+  weekKey: number;
 }
 
 const EMPTY_SNAPSHOT: BoardSnapshot = {
   entries: [],
+  weeklyEntries: [],
   name: "you",
   longestStreak: 0,
+  weekKey: 0,
 };
 
 let cached: BoardSnapshot | null = null;
 
 function getSnapshot(): BoardSnapshot {
-  if (!cached) {
+  const weekKey = getWeekKey();
+  if (!cached || cached.weekKey !== weekKey) {
     const progress = getProgress();
     cached = {
       entries: getLeaderboard(),
+      weeklyEntries: getWeeklyLeaderboard(),
       name: getUserName(),
       longestStreak: getLongestStreak(progress),
+      weekKey,
     };
   }
   return cached;
@@ -69,6 +86,7 @@ export function Leaderboard() {
   const skipCommit = useRef(false);
   const globalAvailable = isGlobalLeaderboardAvailable();
   const [tab, setTab] = useState<"local" | "global">("local");
+  const [timeScope, setTimeScope] = useState<"all" | "week">("all");
   const [globalRows, setGlobalRows] = useState<GlobalLeaderboardRow[]>([]);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -102,6 +120,8 @@ export function Leaderboard() {
 
   const openTab = (next: "local" | "global") => {
     if (next === "global") {
+      // The global (signed-in) view only reports all-time scores.
+      setTimeScope("all");
       setGlobalLoading(true);
       setGlobalError(null);
       setRefreshToken((token) => token + 1);
@@ -127,6 +147,16 @@ export function Leaderboard() {
   const solved = you?.solved ?? 0;
   const streak = you?.streak ?? 0;
 
+  const isWeek = tab === "local" && timeScope === "week";
+  const weeklyRows = board.weeklyEntries;
+  const weeklyYou = weeklyRows.find((entry) => entry.isYou);
+  const weeklyScore = weeklyYou?.weeklyScore ?? 0;
+  const weeklySolved = weeklyYou?.weeklySolved ?? 0;
+  const weeklyRank = weeklyRows.findIndex((entry) => entry.isYou) + 1;
+  const rows: BoardRow[] = isWeek
+    ? weeklyRows
+    : board.entries.map((entry) => ({ ...entry, weeklyScore: 0, weeklySolved: 0 }));
+
   const startEditing = () => {
     setDraft(board.name);
     skipCommit.current = false;
@@ -147,21 +177,73 @@ export function Leaderboard() {
       id="leaderboard"
       className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-8 sm:px-6 sm:py-12"
     >
-      <p className="mb-6 text-sm text-body-mid">
-        Flame score weights Easy 1, Medium 3, Hard 5.
+      <p className="mb-4 text-sm text-body-mid">
+        {isWeek
+          ? "Weekly score weights Easy 1, Medium 3, Hard 5 — only solves from this week count."
+          : "Flame score weights Easy 1, Medium 3, Hard 5."}
       </p>
+
+      {tab === "local" && (
+        <div
+          role="group"
+          aria-label="Leaderboard period"
+          className="mb-4 inline-flex rounded-lg border border-hairline bg-canvas-card p-1"
+        >
+          <button
+            type="button"
+            aria-pressed={!isWeek}
+            onClick={() => setTimeScope("all")}
+            className={cn(
+              "inline-flex min-h-11 items-center rounded-md px-4 text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+              !isWeek
+                ? "bg-canvas-soft font-medium text-ink"
+                : "text-body-mid hover:text-ink",
+            )}
+          >
+            All time
+          </button>
+          <button
+            type="button"
+            aria-pressed={isWeek}
+            onClick={() => setTimeScope("week")}
+            className={cn(
+              "inline-flex min-h-11 items-center rounded-md px-4 text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+              isWeek
+                ? "bg-canvas-soft font-medium text-ink"
+                : "text-body-mid hover:text-ink",
+            )}
+          >
+            This week
+          </button>
+        </div>
+      )}
+
+      {isWeek && weeklySolved === 0 && (
+        <p className="mb-4 rounded-lg border border-hairline bg-canvas-soft px-3 py-2.5 text-xs text-body-mid">
+          New this week — solve anything to join the weekly board.
+        </p>
+      )}
 
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
-          <div className="text-xs text-body-mid">Flame score</div>
-          <div className="mt-1.5 font-mono text-lg font-medium text-accent sm:text-xl">
-            {score}
+          <div className="text-xs text-body-mid">
+            {isWeek ? "Week points" : "Flame score"}
           </div>
+          <div className="mt-1.5 font-mono text-lg font-medium text-accent sm:text-xl">
+            {isWeek ? weeklyScore : score}
+          </div>
+          {isWeek && weeklySolved > 0 && (
+            <div className="mt-0.5 text-xs text-body-mid">
+              rank #{weeklyRank}
+            </div>
+          )}
         </div>
         <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
-          <div className="text-xs text-body-mid">Solved</div>
+          <div className="text-xs text-body-mid">
+            {isWeek ? "Week solved" : "Solved"}
+          </div>
           <div className="mt-1.5 font-mono text-lg font-medium text-ink sm:text-xl">
-            {solved}
+            {isWeek ? weeklySolved : solved}
           </div>
         </div>
         <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
@@ -267,7 +349,7 @@ export function Leaderboard() {
 
       <div className="overflow-x-auto rounded-lg border border-hairline bg-canvas-card">
         <table
-          aria-label="Leaderboard"
+          aria-label={isWeek ? "Weekly leaderboard" : "Leaderboard"}
           className="w-full table-fixed border-collapse text-left text-sm sm:table-auto"
         >
           <thead>
@@ -289,14 +371,18 @@ export function Leaderboard() {
                 scope="col"
                 className="w-16 px-2 py-2.5 text-right text-xs font-medium text-body-mid sm:w-28 sm:px-4"
               >
-                <span className="sm:hidden">Flame</span>
-                <span className="hidden sm:inline">Flame score</span>
+                <span className="sm:hidden">
+                  {isWeek ? "Week" : "Flame"}
+                </span>
+                <span className="hidden sm:inline">
+                  {isWeek ? "Weekly points" : "Flame score"}
+                </span>
               </th>
               <th
                 scope="col"
                 className="hidden w-16 px-4 py-2.5 text-right text-xs font-medium text-body-mid sm:table-cell"
               >
-                Solved
+                {isWeek ? "Solved this week" : "Solved"}
               </th>
               <th
                 scope="col"
@@ -384,7 +470,7 @@ export function Leaderboard() {
                 })
               )
             ) : (
-              board.entries.map((entry, index) => (
+              rows.map((entry, index) => (
                 <tr
                   key={entry.id}
                   className={cn(
@@ -409,10 +495,10 @@ export function Leaderboard() {
                     {entry.name}
                   </td>
                   <td className="px-2 py-2.5 text-right font-mono text-ink sm:px-4">
-                    {entry.score}
+                    {isWeek ? entry.weeklyScore : entry.score}
                   </td>
                   <td className="hidden px-4 py-2.5 text-right font-mono text-body-mid sm:table-cell">
-                    {entry.solved}
+                    {isWeek ? entry.weeklySolved : entry.solved}
                   </td>
                   <td className="px-2 py-2.5 text-right font-mono text-body-mid sm:px-4">
                     {entry.streak}d
@@ -426,8 +512,10 @@ export function Leaderboard() {
 
       <p className="mt-4 text-xs text-body-mid">
         {tab === "global"
-          ? "Global leaderboard — top scores synced to Supabase."
-          : "Local leaderboard — your score lives in your browser."}
+          ? "Global leaderboard — all-time scores synced to Supabase."
+          : isWeek
+            ? "Local leaderboard — only solves from this week count, stored in your browser."
+            : "Local leaderboard — your score lives in your browser."}
       </p>
     </section>
   );
