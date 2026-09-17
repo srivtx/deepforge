@@ -3,17 +3,22 @@ import type { ProblemMeta } from "@/data/problems/problem-meta";
 import type { Category, Difficulty } from "@/types/problem";
 import {
   AGENTIC_FAMILIES,
+  AGENTIC_HISTORY_LIMIT,
+  AGENTIC_ROUND_CHANGE_EVENT,
   AGENTIC_ROUND_STORAGE_KEY,
+  AGENTIC_SPEC,
   buildAgenticScenarios,
   clearAgenticAttempts,
   generateAgenticScenario,
   getAgenticAttempts,
   getAgenticAttemptsFor,
   getBestAgenticAttempt,
+  mergeAgenticAttempts,
   parseAgenticAttempts,
   recordAgenticAttempt,
   scoreAgenticRound,
   type AgenticAnswers,
+  type AgenticAttempt,
   type AgenticFamily,
   type AgenticScenario,
 } from "@/lib/agenticRound";
@@ -382,5 +387,108 @@ describe("attempt records", () => {
     expect(getAgenticAttempts().length).toBe(1);
     clearAgenticAttempts();
     expect(getAgenticAttempts()).toEqual([]);
+  });
+});
+
+describe("store spec and merge", () => {
+  function attempt(
+    overrides: Pick<AgenticAttempt, "id" | "at"> & Partial<AgenticAttempt>,
+  ): AgenticAttempt {
+    return {
+      scenarioId: "anthropic:la-001",
+      trackId: "anthropic",
+      problemId: "la-001",
+      family: "edge-case",
+      total: 50,
+      verdict: "developing",
+      dimensions: { completion: 0.5, instruction: 0.5, review: 0.5, recovery: 0.5 },
+      ...overrides,
+    };
+  }
+
+  test("the spec mirrors the storage key, event, and parser", () => {
+    expect(AGENTIC_SPEC.id).toBe("agentic");
+    expect(AGENTIC_SPEC.storageKey).toBe(AGENTIC_ROUND_STORAGE_KEY);
+    expect(AGENTIC_SPEC.event).toBe(AGENTIC_ROUND_CHANGE_EVENT);
+    expect(AGENTIC_SPEC.empty()).toEqual([]);
+    expect(AGENTIC_SPEC.parse(null)).toEqual([]);
+    expect(AGENTIC_SPEC.parse("{junk")).toEqual([]);
+    const value = [attempt({ id: "a-1", at: "2026-09-14T10:00:00.000Z" })];
+    expect(AGENTIC_SPEC.parse(AGENTIC_SPEC.serialize(value))).toEqual(value);
+  });
+
+  test("the parser drops malformed entries and clamps junk totals", () => {
+    const parsed = parseAgenticAttempts(
+      JSON.stringify([
+        null,
+        { scenarioId: "anthropic:la-001" },
+        { scenarioId: "", at: "2026-09-14T10:00:00.000Z" },
+        {
+          scenarioId: "anthropic:la-001",
+          at: "2026-09-14T10:00:00.000Z",
+          total: 500,
+          verdict: "made-up",
+          dimensions: { review: "1" },
+        },
+      ]),
+    );
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].total).toBe(100);
+    expect(parsed[0].verdict).toBe("keep-practicing");
+    expect(parsed[0].dimensions.review).toBe(0);
+  });
+
+  test("merge keeps the later timestamp per id, ties keep local, junk dropped", () => {
+    const local = [
+      attempt({ id: "shared", at: "2026-09-14T10:00:00.000Z", total: 40 }),
+      attempt({ id: "local-only", at: "2026-09-13T10:00:00.000Z" }),
+    ];
+    const remote = [
+      attempt({
+        id: "shared",
+        at: "2026-09-15T10:00:00.000Z",
+        total: 91,
+        verdict: "ready",
+      }),
+      attempt({ id: "remote-only", at: "2026-09-16T10:00:00.000Z" }),
+      null,
+      42,
+      { scenarioId: "no-time" },
+    ];
+    const merged = mergeAgenticAttempts(local, remote);
+    expect(merged.map((entry) => entry.id)).toEqual([
+      "local-only",
+      "shared",
+      "remote-only",
+    ]);
+    expect(merged[1].total).toBe(91);
+    expect(merged[1].verdict).toBe("ready");
+
+    const tied = mergeAgenticAttempts(
+      [attempt({ id: "tie", at: "2026-09-14T10:00:00.000Z", total: 10 })],
+      [attempt({ id: "tie", at: "2026-09-14T10:00:00.000Z", total: 99 })],
+    );
+    expect(tied).toHaveLength(1);
+    expect(tied[0].total).toBe(10);
+  });
+
+  test("merge caps the union at the history limit, keeping the newest", () => {
+    const remote = Array.from({ length: 80 }, (_, index) =>
+      attempt({
+        id: `r-${index}`,
+        at: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+      }),
+    );
+    const merged = mergeAgenticAttempts([], remote);
+    expect(merged).toHaveLength(AGENTIC_HISTORY_LIMIT);
+    expect(merged[0].id).toBe("r-20");
+    expect(merged[merged.length - 1].id).toBe("r-79");
+  });
+
+  test("merge tolerates non-array payloads on either side", () => {
+    expect(mergeAgenticAttempts(null, "junk")).toEqual([]);
+    expect(mergeAgenticAttempts(undefined, 7)).toEqual([]);
+    const value = attempt({ id: "a-1", at: "2026-09-14T10:00:00.000Z" });
+    expect(mergeAgenticAttempts([value], {})).toEqual([value]);
   });
 });

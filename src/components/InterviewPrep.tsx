@@ -11,9 +11,15 @@ import { PROJECTS, type Project } from "@/data/projects";
 import { INTERVIEW_TRACKS, type InterviewTrack } from "@/data/interview";
 import { cn, difficultyClasses } from "@/lib/utils";
 import { getProgress, type ProgressMap } from "@/lib/progress";
-import { summarizeCoverage } from "@/lib/readiness";
+import {
+  bestMockRatio,
+  summarizeCoverage,
+  summarizeRehearsal,
+  type RehearsalSummary,
+} from "@/lib/readiness";
 import { problemHref } from "@/lib/problemLinks";
 import { AgenticRound } from "@/components/interview/AgenticRound";
+import { AGENTIC_ROUND_CHANGE_EVENT } from "@/lib/agenticRound";
 import {
   INTERVIEW_CHANGE_EVENT,
   getBestInterviewResult,
@@ -156,6 +162,7 @@ function InterviewPrepContent({
   const router = useRouter();
   const [progress, setProgress] = useState<ProgressMap>({});
   const [best, setBest] = useState<Record<string, InterviewResult | null>>({});
+  const [rehearsal, setRehearsal] = useState<RehearsalSummary | null>(null);
   const [setupTrack, setSetupTrack] = useState<InterviewTrack | null>(null);
   const [setupMode, setSetupMode] = useState<SetupMode>("practice");
   const [setupPhase, setSetupPhase] = useState(0);
@@ -193,13 +200,16 @@ function InterviewPrepContent({
         next[track.id] = getBestInterviewResult(track.id);
       }
       setBest(next);
+      setRehearsal(summarizeRehearsal());
     };
     load();
     window.addEventListener(PROGRESS_CHANGE_EVENT, load);
     window.addEventListener(INTERVIEW_CHANGE_EVENT, load);
+    window.addEventListener(AGENTIC_ROUND_CHANGE_EVENT, load);
     return () => {
       window.removeEventListener(PROGRESS_CHANGE_EVENT, load);
       window.removeEventListener(INTERVIEW_CHANGE_EVENT, load);
+      window.removeEventListener(AGENTIC_ROUND_CHANGE_EVENT, load);
     };
   }, []);
 
@@ -402,6 +412,27 @@ function InterviewPrepContent({
             {INTERVIEW_TRACKS.length} company tracks · paced practice or timed
             mock
           </h2>
+          <p className="mt-2 text-xs text-body-mid">
+            {rehearsal?.weakestDimension ? (
+              <>
+                Agentic rehearsal (28 days): weakest dimension is{" "}
+                <span className="text-ink">
+                  {rehearsal.weakestDimension.label}
+                </span>{" "}
+                at{" "}
+                <span className="font-mono text-ink">
+                  {Math.round(rehearsal.weakestDimension.average * 100)}%
+                </span>{" "}
+                across{" "}
+                <span className="font-mono text-ink">
+                  {rehearsal.attemptsInWindow}
+                </span>{" "}
+                {rehearsal.attemptsInWindow === 1 ? "round" : "rounds"}.
+              </>
+            ) : (
+              "No agentic rounds in the last 28 days — run one to practice instruction, review, and recovery."
+            )}
+          </p>
         </div>
 
         <AgenticRound
@@ -415,6 +446,15 @@ function InterviewPrepContent({
             const spread = difficultySpread(allIds);
             const readiness = summarizeCoverage(allIds, progress);
             const bestResult = best[track.id];
+            const mockTarget = track.mockProblemIds.length;
+            const bestPercent = bestResult
+              ? Math.round(
+                  bestMockRatio(bestResult.solved, bestResult.total, mockTarget) *
+                    100,
+                )
+              : 0;
+            const mockDenominator =
+              mockTarget > 0 ? mockTarget : bestResult?.total ?? 0;
             const projectLinks = (track.resumeProjectIds ?? [])
               .map((id) => PROJECTS.find((project) => project.id === id))
               .filter((project): project is Project => Boolean(project));
@@ -509,6 +549,30 @@ function InterviewPrepContent({
                     {readiness.solved}/{readiness.total}
                   </span>
                 </div>
+                {bestResult && (
+                  <div className="flex items-center gap-2">
+                    <span className="shrink-0 text-[11px] text-body-mid">
+                      Best mock{" "}
+                      <span className="font-mono text-ink">{bestPercent}%</span>
+                    </span>
+                    <div
+                      role="progressbar"
+                      aria-label={`${track.company} ${track.role} best mock ratio`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={bestPercent}
+                      className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-canvas-soft"
+                    >
+                      <div
+                        className="h-full rounded-full bg-accent"
+                        style={{ width: `${bestPercent}%` }}
+                      />
+                    </div>
+                    <span className="shrink-0 font-mono text-[10px] text-mute">
+                      {bestResult.solved}/{mockDenominator}
+                    </span>
+                  </div>
+                )}
                 {projectLinks.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-[10px] text-mute">Projects</span>

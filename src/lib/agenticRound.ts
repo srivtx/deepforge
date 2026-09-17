@@ -1,6 +1,17 @@
+/**
+ * Agentic round — scenario generation, rubric scoring, and the attempt store.
+ *
+ * The store follows the repo's local-first seam (`createStore`), so rounds
+ * stay fully local until the optional sync engine picks them up through
+ * `AGENTIC_SPEC`. `mergeAgenticAttempts` resolves a pull per attempt id by the
+ * later `at` with ties keeping local, drops malformed entries, and re-applies
+ * `AGENTIC_HISTORY_LIMIT` so a merge can never grow the history cap.
+ */
+
 import type { ProblemMeta } from "@/data/problems/problem-meta";
 import { hashString } from "@/lib/spotBug";
-import { readRaw, removeRaw, writeRaw } from "@/lib/sync/localAdapter";
+import { createStore } from "@/lib/sync/store";
+import type { StoreSpec } from "@/lib/sync/types";
 import type { Category, Difficulty } from "@/types/problem";
 
 export type AgenticFamily = "edge-case" | "numerical" | "shape";
@@ -143,6 +154,13 @@ export const AGENTIC_WEIGHTS: Record<AgenticDimensionKey, number> = {
   instruction: 20,
   review: 30,
   recovery: 20,
+};
+
+export const AGENTIC_DIMENSION_LABELS: Record<AgenticDimensionKey, string> = {
+  completion: "Task completion",
+  instruction: "Instruction precision",
+  review: "Critical review",
+  recovery: "Recovery",
 };
 
 export const AGENTIC_ROUND_STORAGE_KEY = "deepforge:agentic-round:v1";
@@ -974,28 +992,28 @@ export function scoreAgenticRound(
   const dimensions: AgenticDimension[] = [
     {
       key: "completion",
-      label: "Task completion",
+      label: AGENTIC_DIMENSION_LABELS.completion,
       weight: AGENTIC_WEIGHTS.completion,
       score: round3(completionScore),
       points: Math.round(AGENTIC_WEIGHTS.completion * completionScore),
     },
     {
       key: "instruction",
-      label: "Instruction precision",
+      label: AGENTIC_DIMENSION_LABELS.instruction,
       weight: AGENTIC_WEIGHTS.instruction,
       score: round3(instructionScore),
       points: Math.round(AGENTIC_WEIGHTS.instruction * instructionScore),
     },
     {
       key: "review",
-      label: "Critical review",
+      label: AGENTIC_DIMENSION_LABELS.review,
       weight: AGENTIC_WEIGHTS.review,
       score: round3(reviewScore),
       points: Math.round(AGENTIC_WEIGHTS.review * reviewScore),
     },
     {
       key: "recovery",
-      label: "Recovery",
+      label: AGENTIC_DIMENSION_LABELS.recovery,
       weight: AGENTIC_WEIGHTS.recovery,
       score: round3(recoveryScore),
       points: Math.round(AGENTIC_WEIGHTS.recovery * recoveryScore),
@@ -1099,19 +1117,17 @@ export function parseAgenticAttempts(raw: string | null): AgenticAttempt[] {
   }
 }
 
-function persistAttempts(attempts: AgenticAttempt[]): void {
-  writeRaw(AGENTIC_ROUND_STORAGE_KEY, JSON.stringify(attempts));
-  try {
-    if (typeof window !== "undefined" && typeof CustomEvent === "function") {
-      window.dispatchEvent(new CustomEvent(AGENTIC_ROUND_CHANGE_EVENT));
-    }
-  } catch {
-    /* events unavailable — persistence already happened */
-  }
-}
+const agenticStore = createStore<AgenticAttempt[]>({
+  id: "agentic",
+  storageKey: AGENTIC_ROUND_STORAGE_KEY,
+  event: AGENTIC_ROUND_CHANGE_EVENT,
+  empty: () => [],
+  parse: parseAgenticAttempts,
+  serialize: (v) => JSON.stringify(v),
+});
 
 export function getAgenticAttempts(): AgenticAttempt[] {
-  return parseAgenticAttempts(readRaw(AGENTIC_ROUND_STORAGE_KEY));
+  return agenticStore.get();
 }
 
 export function getAgenticAttemptsFor(scenarioId: string): AgenticAttempt[] {
@@ -1150,19 +1166,65 @@ export function recordAgenticAttempt(
     },
     at,
   };
-  const attempts = getAgenticAttempts();
+  const attempts = agenticStore.get();
   attempts.push(stored);
-  persistAttempts(attempts.slice(-AGENTIC_HISTORY_LIMIT));
+  agenticStore.set(attempts.slice(-AGENTIC_HISTORY_LIMIT));
   return stored;
 }
 
 export function clearAgenticAttempts(): void {
-  removeRaw(AGENTIC_ROUND_STORAGE_KEY);
-  try {
-    if (typeof window !== "undefined" && typeof CustomEvent === "function") {
-      window.dispatchEvent(new CustomEvent(AGENTIC_ROUND_CHANGE_EVENT));
-    }
-  } catch {
-    /* ignore */
-  }
+  agenticStore.clear();
 }
+
+/* ───────────────────────────────── merge ─────────────────────────────────── */
+
+function attemptTimestamp(at: string): number {
+  const parsed = Date.parse(at);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Union both histories per attempt `id`: a repeated id keeps the side with
+ * the later `at` (ties keep local), malformed attempts are dropped, and the
+ * result is chronological and capped at `AGENTIC_HISTORY_LIMIT`.
+ */
+export function mergeAgenticAttempts(
+  local: unknown,
+  remote: unknown,
+): AgenticAttempt[] {
+  const byId = new Map<string, AgenticAttempt>();
+  const order: string[] = [];
+
+  function add(value: unknown, remoteSide: boolean): void {
+    const attempt = normalizeAttempt(value);
+    if (!attempt) return;
+    const existing = byId.get(attempt.id);
+    if (!existing) {
+      byId.set(attempt.id, attempt);
+      order.push(attempt.id);
+      return;
+    }
+    if (remoteSide && attemptTimestamp(attempt.at) > attemptTimestamp(existing.at)) {
+      byId.set(attempt.id, attempt);
+    }
+  }
+
+  for (const value of Array.isArray(local) ? local : []) add(value, false);
+  for (const value of Array.isArray(remote) ? remote : []) add(value, true);
+
+  const merged = order.map((id) => byId.get(id) as AgenticAttempt);
+  merged.sort((a, b) => {
+    const delta = attemptTimestamp(a.at) - attemptTimestamp(b.at);
+    return delta !== 0 ? delta : a.id.localeCompare(b.id);
+  });
+  return merged.slice(-AGENTIC_HISTORY_LIMIT);
+}
+
+export const AGENTIC_SPEC: StoreSpec<AgenticAttempt[]> = {
+  id: "agentic",
+  storageKey: AGENTIC_ROUND_STORAGE_KEY,
+  event: AGENTIC_ROUND_CHANGE_EVENT,
+  empty: () => [],
+  parse: parseAgenticAttempts,
+  serialize: (v) => JSON.stringify(v),
+};

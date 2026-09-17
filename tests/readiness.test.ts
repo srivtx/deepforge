@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { INTERVIEW_TRACKS } from "@/data/interview";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getDailyDateKey } from "@/lib/daily";
@@ -8,6 +9,8 @@ import {
   EMPTY_READINESS_GOAL,
   MAX_MINUTES_PER_PROBLEM,
   MIN_MINUTES_PER_PROBLEM,
+  READINESS_WEIGHTS,
+  bestMockRatio,
   estimateMinutesPerProblem,
   getReadinessGoal,
   getReadinessProjection,
@@ -15,6 +18,7 @@ import {
   projectReadiness,
   saveReadinessGoal,
   summarizeCoverage,
+  summarizeRehearsal,
   type ProjectionInput,
 } from "@/lib/readiness";
 
@@ -66,6 +70,8 @@ afterEach(() => {
 
 const PROGRESS_KEY = "deepforge:progress:v1";
 const GOAL_KEY = "deepforge:readiness-goal:v1";
+const INTERVIEW_KEY = "deepforge:interview:v1";
+const AGENTIC_KEY = "deepforge:agentic-round:v1";
 
 /** Fixed clock so every derivation is deterministic. */
 const NOW = new Date(2026, 5, 15, 12, 0, 0);
@@ -86,6 +92,56 @@ function keyDaysAhead(days: number): string {
 function seedProgress(progress: ProgressMap): void {
   stub.setItem(PROGRESS_KEY, JSON.stringify(progress));
 }
+
+interface InterviewSeed {
+  trackId: string;
+  solved: number;
+  total: number;
+  seconds?: number;
+  completedAt?: string;
+}
+
+function seedInterview(results: InterviewSeed[]): void {
+  stub.setItem(
+    INTERVIEW_KEY,
+    JSON.stringify(
+      results.map((result) => ({
+        seconds: 300,
+        completedAt: atDaysAgo(1),
+        ...result,
+      })),
+    ),
+  );
+}
+
+type DimensionKey = "completion" | "instruction" | "review" | "recovery";
+
+interface AgenticSeed {
+  id?: string;
+  scenarioId: string;
+  at: string;
+  dimensions: Partial<Record<DimensionKey, number>>;
+  total?: number;
+}
+
+function seedAgentic(attempts: AgenticSeed[]): void {
+  stub.setItem(
+    AGENTIC_KEY,
+    JSON.stringify(
+      attempts.map((attempt) => ({
+        trackId: "anthropic",
+        problemId: "la-001",
+        family: "edge-case",
+        total: 50,
+        verdict: "developing",
+        ...attempt,
+      })),
+    ),
+  );
+}
+
+const TRACK_A = INTERVIEW_TRACKS[0];
+const TRACK_B = INTERVIEW_TRACKS[1];
 
 function byCategory(name: string) {
   return PROBLEM_META.filter((problem) => problem.category === name);
@@ -119,6 +175,7 @@ describe("empty store", () => {
       retention: 0,
       balance: 0,
       consistency: 0,
+      rehearsal: 0,
     });
   });
 
@@ -254,12 +311,13 @@ describe("balance", () => {
     expect(readiness.retention).toBe(100);
     expect(readiness.balance).toBe(100);
     expect(readiness.consistency).toBe(Math.round(100 / 14));
+    expect(readiness.rehearsal).toBe(0);
 
     const expectedValue = Math.round(
-      100 * (0.35 + 0.3 + 0.2 + 0.15 * (Math.round(100 / 14) / 100)),
+      100 * (0.3 + 0.25 + 0.15 + 0.1 * (Math.round(100 / 14) / 100)),
     );
     expect(readiness.value).toBe(expectedValue);
-    expect(readiness.value).toBe(86);
+    expect(readiness.value).toBe(71);
   });
 
   test("an all-Easy history cannot read as ready", () => {
@@ -309,6 +367,157 @@ describe("consistency", () => {
     };
     seedProgress(progress);
     expect(getReadinessScore(NOW).consistency).toBe(Math.round((5 / 14) * 100));
+  });
+});
+
+describe("rehearsal", () => {
+  test("weights rebalance to one total that still spans 0–100", () => {
+    const total = Object.values(READINESS_WEIGHTS).reduce(
+      (sum, weight) => sum + weight,
+      0,
+    );
+    expect(Math.round(total * 1e10) / 1e10).toBe(1);
+    expect(READINESS_WEIGHTS.rehearsal).toBeGreaterThan(0);
+  });
+
+  test("an all-round agentic result feeds the weighted total", () => {
+    seedAgentic([
+      {
+        scenarioId: "anthropic:la-001",
+        at: atDaysAgo(0),
+        dimensions: { completion: 1, instruction: 1, review: 1, recovery: 1 },
+      },
+    ]);
+    const readiness = getReadinessScore(NOW);
+    expect(readiness.rehearsal).toBe(40);
+    expect(readiness.value).toBe(8);
+  });
+
+  test("uses the track's best mock, normalized to the mock target", () => {
+    seedInterview([
+      { trackId: TRACK_A.id, solved: 1, total: 5 },
+      { trackId: TRACK_A.id, solved: 3, total: 5, seconds: 600 },
+    ]);
+    const summary = summarizeRehearsal(NOW);
+    expect(summary.tracks).toHaveLength(1);
+    expect(summary.tracks[0].trackId).toBe(TRACK_A.id);
+    expect(summary.tracks[0].solved).toBe(3);
+    expect(summary.tracks[0].target).toBe(TRACK_A.mockProblemIds.length);
+    expect(summary.tracks[0].ratio).toBe(0.6);
+    expect(summary.interviewAverage).toBe(0.6);
+    expect(summary.agenticAverage).toBe(0);
+    expect(summary.average).toBe(0.36);
+    expect(getReadinessScore(NOW).rehearsal).toBe(36);
+  });
+
+  test("averages best ratios across tracks that have a mock result", () => {
+    seedInterview([
+      {
+        trackId: TRACK_A.id,
+        solved: TRACK_A.mockProblemIds.length,
+        total: TRACK_A.mockProblemIds.length,
+      },
+      { trackId: TRACK_B.id, solved: 2, total: TRACK_B.mockProblemIds.length },
+    ]);
+    const ratioB = 2 / TRACK_B.mockProblemIds.length;
+    const summary = summarizeRehearsal(NOW);
+    expect(summary.tracks).toHaveLength(2);
+    expect(summary.interviewAverage).toBe(
+      Math.round(((1 + ratioB) / 2) * 10000) / 10000,
+    );
+    expect(getReadinessScore(NOW).rehearsal).toBe(
+      Math.round(60 * ((1 + ratioB) / 2)),
+    );
+  });
+
+  test("recency-decays agentic dimensions inside the 28-day window", () => {
+    seedAgentic([
+      {
+        scenarioId: "anthropic:la-001",
+        at: atDaysAgo(0),
+        dimensions: { completion: 0, instruction: 0, review: 0, recovery: 0 },
+      },
+      {
+        scenarioId: "anthropic:la-002",
+        at: atDaysAgo(20),
+        dimensions: { completion: 1, instruction: 1, review: 1, recovery: 1 },
+      },
+      {
+        scenarioId: "anthropic:la-003",
+        at: atDaysAgo(28),
+        dimensions: { completion: 1, instruction: 1, review: 1, recovery: 1 },
+      },
+    ]);
+    const summary = summarizeRehearsal(NOW);
+    expect(summary.attemptsInWindow).toBe(2);
+    for (const dimension of summary.dimensions) {
+      expect(dimension.average).toBe(0.2222);
+    }
+    expect(summary.agenticAverage).toBe(0.2222);
+    expect(getReadinessScore(NOW).rehearsal).toBe(9);
+  });
+
+  test("applies the round weights and flags the weakest dimension", () => {
+    seedAgentic([
+      {
+        scenarioId: "anthropic:la-001",
+        at: atDaysAgo(1),
+        dimensions: { completion: 1, instruction: 0, review: 0, recovery: 0 },
+      },
+    ]);
+    const summary = summarizeRehearsal(NOW);
+    expect(summary.agenticAverage).toBe(0.3);
+    expect(summary.weakestDimension?.key).toBe("instruction");
+    expect(summary.weakestDimension?.label).toBe("Instruction precision");
+    expect(getReadinessScore(NOW).rehearsal).toBe(12);
+  });
+
+  test("junk interview and agentic payloads stay at zero without throwing", () => {
+    stub.setItem(INTERVIEW_KEY, "{not json");
+    stub.setItem(
+      AGENTIC_KEY,
+      JSON.stringify([
+        null,
+        42,
+        "nope",
+        { scenarioId: "anthropic:la-001" },
+        { scenarioId: "anthropic:la-001", at: "" },
+        {
+          scenarioId: "anthropic:la-001",
+          at: atDaysAgo(1),
+          dimensions: "junk",
+          total: "high",
+        },
+      ]),
+    );
+    const readiness = getReadinessScore(NOW);
+    expect(readiness.rehearsal).toBe(0);
+    expect(readiness.value).toBe(0);
+    const summary = summarizeRehearsal(NOW);
+    expect(summary.tracks).toEqual([]);
+    expect(summary.agenticAverage).toBe(0);
+    expect(summary.attemptsInWindow).toBe(1);
+  });
+
+  test("bestMockRatio falls back, caps, and survives junk numbers", () => {
+    expect(bestMockRatio(3, 5, 5)).toBe(0.6);
+    expect(bestMockRatio(7, 5, 5)).toBe(1);
+    expect(bestMockRatio(3, 0, 0)).toBe(1);
+    expect(bestMockRatio(3, 5, 0)).toBe(0.6);
+    expect(bestMockRatio(Number.NaN, 5, 5)).toBe(0);
+  });
+
+  test("same stores plus the same clock yields identical rehearsal output", () => {
+    seedInterview([{ trackId: TRACK_A.id, solved: 4, total: 5 }]);
+    seedAgentic([
+      {
+        scenarioId: "anthropic:la-001",
+        at: atDaysAgo(3),
+        dimensions: { completion: 0.8, instruction: 0.4, review: 1, recovery: 0.6 },
+      },
+    ]);
+    expect(summarizeRehearsal(NOW)).toEqual(summarizeRehearsal(NOW));
+    expect(getReadinessScore(NOW)).toEqual(getReadinessScore(NOW));
   });
 });
 

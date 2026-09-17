@@ -2,26 +2,31 @@
  * Interview readiness model and target-date projection (feature F5).
  *
  * Pure and local-first: everything here derives from the progress store, a
- * small goal store, and the clock. No network, no accounts, no hidden state.
+ * small goal store, the interview mock history, the agentic-round history,
+ * and the clock. No network, no accounts, no hidden state.
  *
- * Four components, each 0–100, weighted into one 0–100 score:
+ * Five components, each 0–100, weighted into one 0–100 score:
  *
- *   coverage    35%  mean solved share across every catalogue category, so a
+ *   coverage    30%  mean solved share across every catalogue category, so a
  *                    single deep category cannot carry the score
- *   retention   30%  share of attempted problems whose retrievability is still
+ *   retention   25%  share of attempted problems whose retrievability is still
  *                    ≥0.7 on a 28-day linear forgetting curve. When the
  *                    review queue has a schedule for a problem, retrievability
  *                    comes from its due date (items due or overdue decay);
  *                    otherwise it falls back to the last activity timestamp
  *                    (`solvedAt` / `lastOpened`).
- *   balance     20%  half weakest-category coverage, half closeness to the
+ *   balance     15%  half weakest-category coverage, half closeness to the
  *                    catalogue's own Easy/Medium/Hard mix — an "all Easy"
  *                    history drifts from that mix and cannot read as ready
- *   consistency 15%  distinct active days in the trailing 28; 14 active days
+ *   consistency 10%  distinct active days in the trailing 28; 14 active days
  *                    saturates, so rest days are not punished
+ *   rehearsal   20%  60% best mock result per track (solved / the track's mock
+ *                    target) averaged over tracks with a completed mock, plus
+ *                    40% agentic dimension averages over attempts in the
+ *                    trailing 28 days, recency-weighted to the newest rounds
  *
  * The weighted total is computed from the rounded component values, so the
- * four numbers shown in the UI reproduce the score exactly (no black box).
+ * five numbers shown in the UI reproduce the score exactly (no black box).
  *
  * The projection compares problems-per-week required by a target date against
  * observed pace (trailing 14 days), optionally raised to the capacity implied
@@ -32,9 +37,17 @@
  * division-by-zero paths yield 0 rather than NaN, mirroring `stats.ts`.
  */
 
+import { INTERVIEW_TRACKS } from "@/data/interview";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META, type ProblemMeta } from "@/data/problems/problem-meta";
+import {
+  AGENTIC_DIMENSION_LABELS,
+  AGENTIC_WEIGHTS,
+  getAgenticAttempts,
+  type AgenticDimensionKey,
+} from "@/lib/agenticRound";
 import { getDailyDateKey } from "@/lib/daily";
+import { getBestInterviewResult } from "@/lib/interview";
 import {
   getProgress,
   type ProblemProgress,
@@ -46,10 +59,11 @@ import type { Category, Difficulty } from "@/types/problem";
 /* ─────────────────────────────── constants ─────────────────────────────── */
 
 export const READINESS_WEIGHTS = {
-  coverage: 0.35,
-  retention: 0.3,
-  balance: 0.2,
-  consistency: 0.15,
+  coverage: 0.3,
+  retention: 0.25,
+  balance: 0.15,
+  consistency: 0.1,
+  rehearsal: 0.2,
 } as const;
 
 /** Linear forgetting curve used for the retention proxy. */
@@ -61,6 +75,19 @@ export const RETENTION_THRESHOLD = 0.7;
 export const CONSISTENCY_WINDOW_DAYS = 28;
 /** ...and saturates once this many days inside it were active. */
 export const CONSISTENCY_TARGET_DAYS = 14;
+
+/** Agentic attempts older than this fall out of the rehearsal component. */
+export const REHEARSAL_AGENTIC_WINDOW_DAYS = 28;
+/** Interview mocks and agentic rounds split the rehearsal component 60/40. */
+export const REHEARSAL_INTERVIEW_WEIGHT = 0.6;
+export const REHEARSAL_AGENTIC_WEIGHT = 0.4;
+/** Dimension order for the rehearsal breakdown (matches the round score). */
+export const REHEARSAL_DIMENSION_KEYS: readonly AgenticDimensionKey[] = [
+  "completion",
+  "instruction",
+  "review",
+  "recovery",
+];
 
 /** Observed pace is measured over this trailing window. */
 export const PACE_WINDOW_DAYS = 14;
@@ -117,6 +144,144 @@ export interface ReadinessBreakdown {
   retention: number;
   balance: number;
   consistency: number;
+  rehearsal: number;
+}
+
+export interface RehearsalTrackRatio {
+  trackId: string;
+  company: string;
+  role: string;
+  /** Solved count on the track's best recorded mock (or practice) session. */
+  solved: number;
+  /** Problems in that best session. */
+  total: number;
+  /** The track's mock size — the denominator a best ratio is measured on. */
+  target: number;
+  /** solved / target as a 0–1 ratio, capped at 1. */
+  ratio: number;
+}
+
+export interface RehearsalDimensionAverage {
+  key: AgenticDimensionKey;
+  label: string;
+  /** Recency-weighted mean of that dimension over the window, 0–1. */
+  average: number;
+}
+
+export interface RehearsalSummary {
+  /** Blended 0–1 rehearsal value (interview 60% / agentic 40%); 0 with no evidence. */
+  average: number;
+  /** Mean best-mock ratio over tracks with a result; 0 when there are none. */
+  interviewAverage: number;
+  /** Recency-weighted agentic dimension mean; 0 outside the window. */
+  agenticAverage: number;
+  /** Per-track best-ratio breakdown, in catalogue track order. */
+  tracks: RehearsalTrackRatio[];
+  /** The four dimension averages, in round-score order. */
+  dimensions: RehearsalDimensionAverage[];
+  /** Lowest average dimension, or null without agentic evidence. */
+  weakestDimension: RehearsalDimensionAverage | null;
+  /** Attempts inside the trailing window that contributed. */
+  attemptsInWindow: number;
+}
+
+/**
+ * Best mock ratio for one track: solved over the track's mock target, so a
+ * shorter practice session cannot inflate the score. Falls back to the
+ * session's own total when the track declares no target, and to 1 when
+ * neither side has a positive denominator.
+ */
+export function bestMockRatio(
+  solved: number,
+  total: number,
+  target: number,
+): number {
+  const denominator = target > 0 ? target : total > 0 ? total : 1;
+  const value = Number.isFinite(solved) ? solved : 0;
+  return Math.min(1, Math.max(0, value / denominator));
+}
+
+/**
+ * Rehearsal summary from the interview mock history and the agentic attempt
+ * store. Deterministic from both stores plus `now`; empty stores yield zeros.
+ */
+export function summarizeRehearsal(now: Date = new Date()): RehearsalSummary {
+  const tracks: RehearsalTrackRatio[] = [];
+  let interviewSum = 0;
+  for (const track of INTERVIEW_TRACKS) {
+    const best = getBestInterviewResult(track.id);
+    if (!best) continue;
+    const target = track.mockProblemIds.length;
+    const ratio = bestMockRatio(best.solved, best.total, target);
+    interviewSum += ratio;
+    tracks.push({
+      trackId: track.id,
+      company: track.company,
+      role: track.role,
+      solved: best.solved,
+      total: best.total,
+      target,
+      ratio: round4(ratio),
+    });
+  }
+  const interviewAverage = tracks.length > 0 ? interviewSum / tracks.length : 0;
+
+  const totals: Record<AgenticDimensionKey, number> = {
+    completion: 0,
+    instruction: 0,
+    review: 0,
+    recovery: 0,
+  };
+  let weightSum = 0;
+  let attemptsInWindow = 0;
+  const nowTime = now.getTime();
+  for (const attempt of getAgenticAttempts()) {
+    const at = Date.parse(attempt.at);
+    if (!Number.isFinite(at) || !Number.isFinite(nowTime)) continue;
+    const ageDays = Math.max(0, (nowTime - at) / DAY_MS);
+    const weight = Math.max(0, 1 - ageDays / REHEARSAL_AGENTIC_WINDOW_DAYS);
+    if (weight <= 0) continue;
+    weightSum += weight;
+    attemptsInWindow += 1;
+    for (const key of REHEARSAL_DIMENSION_KEYS) {
+      totals[key] += weight * clampUnit(attempt.dimensions[key]);
+    }
+  }
+
+  const dimensions: RehearsalDimensionAverage[] = REHEARSAL_DIMENSION_KEYS.map(
+    (key) => ({
+      key,
+      label: AGENTIC_DIMENSION_LABELS[key],
+      average: weightSum > 0 ? round4(totals[key] / weightSum) : 0,
+    }),
+  );
+  let agenticAverage = 0;
+  if (weightSum > 0) {
+    let weighted = 0;
+    for (const dimension of dimensions) {
+      weighted += (AGENTIC_WEIGHTS[dimension.key] / 100) * dimension.average;
+    }
+    agenticAverage = round4(weighted);
+  }
+  const weakestDimension =
+    weightSum > 0
+      ? dimensions.reduce((min, dimension) =>
+          dimension.average < min.average ? dimension : min,
+        )
+      : null;
+  const average =
+    REHEARSAL_INTERVIEW_WEIGHT * interviewAverage +
+    REHEARSAL_AGENTIC_WEIGHT * agenticAverage;
+
+  return {
+    average: round4(average),
+    interviewAverage: round4(interviewAverage),
+    agenticAverage,
+    tracks,
+    dimensions,
+    weakestDimension,
+    attemptsInWindow,
+  };
 }
 
 export interface CoverageBucket {
@@ -207,8 +372,17 @@ function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+function clampUnit(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function round4(value: number): number {
+  return Math.round(value * 10000) / 10000;
 }
 
 function percentOf(bucket: { solved: number; total: number }): number {
@@ -274,8 +448,9 @@ function daysUntil(now: Date, target: Date): number {
 /* ────────────────────────────── readiness ──────────────────────────────── */
 
 /**
- * Four-component readiness score for the whole catalogue, 0–100.
- * Deterministic from the progress store and `now`.
+ * Five-component readiness score for the whole catalogue, 0–100.
+ * Deterministic from the progress, review, interview, and agentic stores
+ * plus `now`.
  */
 export function getReadinessScore(now: Date = new Date()): ReadinessBreakdown {
   const progress = getProgress();
@@ -376,11 +551,13 @@ export function getReadinessScore(now: Date = new Date()): ReadinessBreakdown {
   const retentionScore = clampScore(retention * 100);
   const balanceScore = clampScore(balance * 100);
   const consistencyScore = clampScore(consistency * 100);
+  const rehearsalScore = clampScore(summarizeRehearsal(now).average * 100);
   const value = clampScore(
     READINESS_WEIGHTS.coverage * coverageScore +
       READINESS_WEIGHTS.retention * retentionScore +
       READINESS_WEIGHTS.balance * balanceScore +
-      READINESS_WEIGHTS.consistency * consistencyScore,
+      READINESS_WEIGHTS.consistency * consistencyScore +
+      READINESS_WEIGHTS.rehearsal * rehearsalScore,
   );
 
   return {
@@ -389,6 +566,7 @@ export function getReadinessScore(now: Date = new Date()): ReadinessBreakdown {
     retention: retentionScore,
     balance: balanceScore,
     consistency: consistencyScore,
+    rehearsal: rehearsalScore,
   };
 }
 

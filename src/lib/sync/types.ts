@@ -19,6 +19,7 @@ export type StoreId =
   | "reviews"
   | "explanations"
   | "bugHunt"
+  | "agentic"
   | "username";
 
 export interface StoreSpec<T> {

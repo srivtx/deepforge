@@ -101,7 +101,7 @@ const EMPTY_STATS: StatsData = {
   },
   mastery: { value: 0, coverage: 0, depth: 0, recency: 0 },
   reviewHealth: emptyReviewHealth(),
-  readiness: { value: 0, coverage: 0, retention: 0, balance: 0, consistency: 0 },
+  readiness: { value: 0, coverage: 0, retention: 0, balance: 0, consistency: 0, rehearsal: 0 },
   goal: EMPTY_READINESS_GOAL,
   projection: EMPTY_READINESS_PROJECTION,
 };
@@ -1028,6 +1028,12 @@ function ReadinessCard({
               valueText={`${readiness.consistency}%`}
               hint="Distinct active days in the last 28; 14 active days scores 100."
             />
+            <Meter
+              label="Rehearsal"
+              percent={readiness.rehearsal}
+              valueText={`${readiness.rehearsal}%`}
+              hint="Best mock result per interview track plus your recent agentic-round dimensions, weighted by how recent each attempt is."
+            />
           </div>
         </div>
 
@@ -1052,21 +1058,28 @@ function ReadinessCard({
         </summary>
         <ul className="mt-2 space-y-1">
           <li>
-            Coverage — 35%: mean share solved across categories; each category
-            counts equally.
+            Coverage — {Math.round(READINESS_WEIGHTS.coverage * 100)}%: mean
+            share solved across categories; each category counts equally.
           </li>
           <li>
-            Retention — 30%: share of attempted problems at 70% retrievability
-            or better — scheduled reviews decay from their due date, unscheduled
-            items from their last activity, both on a 28-day curve.
+            Retention — {Math.round(READINESS_WEIGHTS.retention * 100)}%: share
+            of attempted problems at 70% retrievability or better — scheduled
+            reviews decay from their due date, unscheduled items from their
+            last activity, both on a 28-day curve.
           </li>
           <li>
-            Balance — 20%: half your weakest category, half how close your
-            Easy/Medium/Hard solved mix is to the catalogue's own mix.
+            Balance — {Math.round(READINESS_WEIGHTS.balance * 100)}%: half your
+            weakest category, half how close your Easy/Medium/Hard solved mix
+            is to the catalogue's own mix.
           </li>
           <li>
-            Consistency — 15%: active days in the last 28; 14 active days
-            scores full marks.
+            Consistency — {Math.round(READINESS_WEIGHTS.consistency * 100)}%:
+            active days in the last 28; 14 active days scores full marks.
+          </li>
+          <li>
+            Rehearsal — {Math.round(READINESS_WEIGHTS.rehearsal * 100)}%: best
+            mock ratio per interview track plus agentic-round dimension
+            averages from the last 28 days, weighted by recency.
           </li>
         </ul>
       </details>

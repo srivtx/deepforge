@@ -1293,3 +1293,73 @@ describe("concepts store sync", () => {
     expect(stub.getItem("deepforge:concepts:v1")).toBe("{}");
   });
 });
+
+/* ───────────────────────── agentic round sync ───────────────────────────── */
+
+describe("agentic store sync", () => {
+  test("merges agentic attempts by the later timestamp and dispatches the event", async () => {
+    const { client, db } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+    enableSession();
+
+    const base = {
+      scenarioId: "anthropic:la-001",
+      trackId: "anthropic",
+      problemId: "la-001",
+      family: "edge-case" as const,
+      verdict: "developing" as const,
+      dimensions: { completion: 0.5, instruction: 0.5, review: 0.5, recovery: 0.5 },
+    };
+    const localOlder = {
+      ...base,
+      id: "attempt-1",
+      total: 40,
+      at: "2026-09-14T10:00:00.000Z",
+    };
+    const localOnly = {
+      ...base,
+      id: "attempt-2",
+      total: 55,
+      at: "2026-09-13T10:00:00.000Z",
+    };
+    const remoteNewer = {
+      ...base,
+      id: "attempt-1",
+      total: 91,
+      verdict: "ready" as const,
+      at: "2026-09-15T10:00:00.000Z",
+    };
+    const remoteOnly = {
+      ...base,
+      scenarioId: "openai:dl-001",
+      id: "attempt-3",
+      total: 70,
+      at: "2026-09-16T10:00:00.000Z",
+    };
+
+    stub.setItem(
+      "deepforge:agentic-round:v1",
+      JSON.stringify([localOlder, localOnly]),
+    );
+    db.userStores.set("u-1:agentic", {
+      user_id: "u-1",
+      store_id: "agentic",
+      data: [remoteNewer, remoteOnly, { nonsense: true }],
+      updated_at: "2026-09-16T00:00:00.000Z",
+    });
+
+    await remotePull("agentic");
+
+    const stored = JSON.parse(
+      stub.getItem("deepforge:agentic-round:v1") as string,
+    );
+    expect(stored.map((entry: { id: string }) => entry.id)).toEqual([
+      "attempt-2",
+      "attempt-1",
+      "attempt-3",
+    ]);
+    expect(stored[1].total).toBe(91);
+    expect(stored[1].verdict).toBe("ready");
+    expect(dispatched).toContain("deepforge:agentic-change");
+  });
+});
