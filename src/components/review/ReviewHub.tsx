@@ -75,6 +75,10 @@ function barWidth(count: number, max: number): string {
   return `${Math.max(8, Math.round((count / Math.max(1, max)) * 100))}%`;
 }
 
+function formatRecall(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
 function StatCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-hairline bg-canvas p-3">
@@ -189,10 +193,22 @@ export function ReviewHub() {
           <StatCell label="Due now" value={String(stats.due)} />
           <StatCell label="Overdue" value={String(stats.overdue)} />
           <StatCell label="Next 7 days" value={String(stats.dueNext7)} />
+          {stats.meanRetrievability !== null && (
+            <StatCell
+              label="Predicted recall"
+              value={formatRecall(stats.meanRetrievability)}
+            />
+          )}
           {stats.retention !== null && (
             <StatCell label="Retention" value={`${stats.retention}%`} />
           )}
         </dl>
+        {stats.meanRetrievability !== null && (
+          <p className="mt-2 text-xs leading-relaxed text-mute">
+            Predicted recall is the mean chance each tracked problem is
+            remembered today. It falls as items age, before the next grade.
+          </p>
+        )}
         {stats.retention !== null && (
           <p className="mt-2 text-xs leading-relaxed text-mute">
             Retention is the share of graded problems whose most recent review
@@ -310,21 +326,30 @@ export function ReviewHub() {
           {drill.length > 0 ? (
             <>
               <p className="mt-1 text-xs leading-relaxed text-body-mid">
-                An interleaved pass — most overdue first, then your weakest
-                categories. No timer, no score.
+                An interleaved pass ordered by predicted recall — the
+                shakiest items first, not just the oldest. No timer, no score.
               </p>
               <ol className="mt-3 divide-y divide-hairline">
                 {drill.slice(0, DRILL_PREVIEW).map((item) => (
                   <li key={item.id}>
                     <Link href={item.href} className={ROW_LINK_CLASSES}>
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium text-ink">
-                          {item.title}
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-sm font-medium text-ink">
+                            {item.title}
+                          </span>
+                          {item.struggle && (
+                            <span className="shrink-0 rounded-full border border-warning/40 bg-warning/5 px-2 py-0.5 text-[10px] font-medium text-warning">
+                              Struggle
+                            </span>
+                          )}
                         </span>
                         <span className="block text-xs text-body-mid">
                           {item.why}
                           <span className="mx-1.5 text-mute">·</span>
                           {item.category}
+                          <span className="mx-1.5 text-mute">·</span>
+                          {formatRecall(item.retrievability)} recall
                         </span>
                       </span>
                       <span aria-hidden className="shrink-0 text-mute">

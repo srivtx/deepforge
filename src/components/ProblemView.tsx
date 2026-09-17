@@ -34,19 +34,12 @@ import { getCurrentStreak } from "@/lib/leaderboard";
 import { getDailyDateKey } from "@/lib/daily";
 import {
   allowedHintTier,
-  applyHintPenalty,
   getHintTiers,
   HINT_TIER_2_ELAPSED_MS,
   HINT_TIER_3_ELAPSED_MS,
   HINT_TIER_3_FAILED_RUNS,
 } from "@/lib/hints";
-import {
-  CLEAN_PASS,
-  getReviewMap,
-  gradeReview,
-  qualityFromRun,
-  type ReviewQuality,
-} from "@/lib/reviewQueue";
+import { getReviewMap, gradeReviewSignal } from "@/lib/reviewQueue";
 import {
   getProblemProgress,
   getProgress,
@@ -443,9 +436,9 @@ export function ProblemView({
     });
   };
 
-  // Feed this solve's hint usage through the shared run-quality ladder and
-  // apply it to a due review before the solve is recorded. Clean, hint-free
-  // passes fall through to the existing derive path (CLEAN_PASS).
+  // Feed this solve's struggle/hint usage into the LGS signal and apply it to
+  // a due review before the solve is recorded. Clean, hint-free passes fall
+  // through to the existing derive path (CLEAN_PASS via the quality adapter).
   const gradeHintAwareSolve = () => {
     const now = new Date();
     const todayKey = getDailyDateKey(now);
@@ -457,15 +450,14 @@ export function ProblemView({
     ) {
       return;
     }
-    const quality = applyHintPenalty(
-      qualityFromRun({
-        passed: true,
-        failedRuns: currentHintAttempt?.failedRuns ?? 0,
-      }),
-      hintSeen,
+    const failedRuns = currentHintAttempt?.failedRuns ?? 0;
+    const hintTier = hintSeen.reduce((max, tier) => Math.max(max, tier), 0);
+    if (failedRuns === 0 && hintTier === 0) return;
+    gradeReviewSignal(
+      problem.id,
+      { passed: true, failedRuns, hintTier, resetBeforePass: false },
+      now,
     );
-    if (quality >= CLEAN_PASS) return;
-    gradeReview(problem.id, quality as ReviewQuality, now);
   };
 
   // Shared by the editor and notebook runs. The solve is always recorded;

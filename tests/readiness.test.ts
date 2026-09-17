@@ -3,6 +3,11 @@ import { INTERVIEW_TRACKS } from "@/data/interview";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getDailyDateKey } from "@/lib/daily";
+import {
+  lgsRetrievability,
+  lgsRetrievabilityAt,
+  migrateReviewState,
+} from "@/lib/lgs";
 import type { ProgressMap } from "@/lib/progress";
 import {
   DEFAULT_MINUTES_PER_PROBLEM,
@@ -10,6 +15,7 @@ import {
   MAX_MINUTES_PER_PROBLEM,
   MIN_MINUTES_PER_PROBLEM,
   READINESS_WEIGHTS,
+  RETENTION_THRESHOLD,
   bestMockRatio,
   estimateMinutesPerProblem,
   getReadinessGoal,
@@ -223,18 +229,52 @@ describe("coverage", () => {
 
 describe("retention", () => {
   test("last activity inside the 0.7 curve counts as retained", () => {
+    // Blueprint §6: the power-law fallback (S = 2.3065) crosses 0.7 at
+    // ~21.42 days, so 21 days is retained — the old linear 28-day horizon
+    // retained only the first 8 days.
     seedProgress({
-      "ghost-8d": { attempted: true, lastOpened: atDaysAgo(8) },
+      "ghost-21d": { attempted: true, lastOpened: atDaysAgo(21) },
     });
     expect(getReadinessScore(NOW).retention).toBe(100);
   });
 
   test("activity just past the curve does not count", () => {
     seedProgress({
-      "ghost-8d": { attempted: true, lastOpened: atDaysAgo(8) },
-      "ghost-9d": { attempted: true, lastOpened: atDaysAgo(9) },
+      "ghost-21d": { attempted: true, lastOpened: atDaysAgo(21) },
+      "ghost-22d": { attempted: true, lastOpened: atDaysAgo(22) },
     });
     expect(getReadinessScore(NOW).retention).toBe(50);
+  });
+
+  test("the fallback curve matches lgsRetrievabilityAt at the same inputs", () => {
+    const at21 = lgsRetrievabilityAt(21, 2.3065);
+    const at22 = lgsRetrievabilityAt(22, 2.3065);
+    expect(Math.abs(at21 - 0.7019383890684204)).toBeLessThan(1e-12);
+    expect(Math.abs(at22 - 0.6974145672550986)).toBeLessThan(1e-12);
+    expect(at21).toBeGreaterThanOrEqual(RETENTION_THRESHOLD);
+    expect(at22).toBeLessThan(RETENTION_THRESHOLD);
+
+    seedProgress({
+      "ghost-21d": { attempted: true, lastOpened: atDaysAgo(21) },
+      "ghost-22d": { attempted: true, lastOpened: atDaysAgo(22) },
+    });
+    expect(getReadinessScore(NOW).retention).toBe(50);
+  });
+
+  test("more overdue never raises retention", () => {
+    const ages = [0, 7, 14, 21, 22, 30, 60, 120];
+    let previous = 100;
+    for (const age of ages) {
+      seedProgress({
+        "ghost-stable": { attempted: true, lastOpened: atDaysAgo(0) },
+        "ghost-aging": { attempted: true, lastOpened: atDaysAgo(age) },
+      });
+      const retention = getReadinessScore(NOW).retention;
+      expect(Number.isFinite(retention)).toBe(true);
+      expect(retention).toBeLessThanOrEqual(previous);
+      previous = retention;
+    }
+    expect(previous).toBe(50);
   });
 
   test("undated attempts cannot demonstrate retention", () => {
@@ -242,54 +282,209 @@ describe("retention", () => {
     expect(getReadinessScore(NOW).retention).toBe(0);
   });
 
-  test("a scheduled queue item keeps an old solve retained", () => {
+  test("undated solves cannot demonstrate retention either", () => {
     seedProgress({
-      [EASY[0].id]: {
+      "ghost-solved": { attempted: true, solved: true, savedCode: "print(1)" },
+    });
+    expect(getReadinessScore(NOW).retention).toBe(0);
+  });
+
+  test("a scheduled queue item keeps an old solve retained", () => {
+    const id = EASY[0].id;
+    seedProgress({
+      [id]: {
         attempted: true,
         solved: true,
         solvedAt: atDaysAgo(40),
       },
     });
-    stub.setItem(
-      "deepforge:reviews:v1",
-      JSON.stringify({
-        [EASY[0].id]: {
-          ease: 2.5,
-          interval: 60,
-          due: keyDaysAhead(30),
-          reps: 4,
-          lapses: 0,
-          lastGrade: 5,
-          lastReviewedAt: atDaysAgo(30),
-        },
-      }),
+    const state = {
+      ease: 2.5,
+      interval: 60,
+      due: keyDaysAhead(30),
+      reps: 4,
+      lapses: 0,
+      lastGrade: 5,
+      lastReviewedAt: atDaysAgo(30),
+      v: 2,
+      S: 60,
+      D: 5,
+      effort: 0.1,
+    };
+    stub.setItem("deepforge:reviews:v1", JSON.stringify({ [id]: state }));
+
+    const migrated = migrateReviewState(state, getDailyDateKey(NOW));
+    if (!migrated) throw new Error("expected the queue record to migrate");
+    expect(lgsRetrievability(migrated, NOW)).toBeGreaterThanOrEqual(
+      RETENTION_THRESHOLD,
     );
     expect(getReadinessScore(NOW).retention).toBe(100);
   });
 
   test("an overdue queue item ignores a fresh open", () => {
+    const id = EASY[1].id;
     seedProgress({
-      [EASY[1].id]: {
+      [id]: {
         attempted: true,
         solved: true,
         solvedAt: atDaysAgo(40),
         lastOpened: atDaysAgo(0),
       },
     });
+    const state = {
+      ease: 2.5,
+      interval: 2,
+      due: keyDaysAhead(-20),
+      reps: 2,
+      lapses: 0,
+      lastGrade: 5,
+      lastReviewedAt: atDaysAgo(20),
+      v: 2,
+      S: 2,
+      D: 5,
+      effort: 0.1,
+    };
+    stub.setItem("deepforge:reviews:v1", JSON.stringify({ [id]: state }));
+
+    const migrated = migrateReviewState(state, getDailyDateKey(NOW));
+    if (!migrated) throw new Error("expected the queue record to migrate");
+    // R(20, S=2) = 0.69283 < 0.7 (blueprint §6).
+    expect(lgsRetrievability(migrated, NOW)).toBeLessThan(RETENTION_THRESHOLD);
+    expect(getReadinessScore(NOW).retention).toBe(0);
+  });
+
+  test("v1 queue records migrate before scoring and match lgsRetrievability", () => {
+    const retainedId = EASY[2].id;
+    const decayedId = EASY[3].id;
+    seedProgress({
+      [retainedId]: { attempted: true, solved: true, solvedAt: atDaysAgo(60) },
+      [decayedId]: { attempted: true, solved: true, solvedAt: atDaysAgo(60) },
+    });
+    const retainedLegacy = {
+      ease: 2.5,
+      interval: 10,
+      due: keyDaysAhead(10),
+      reps: 1,
+      lapses: 0,
+      lastGrade: 5,
+      lastReviewedAt: atDaysAgo(25),
+    };
+    const decayedLegacy = {
+      ease: 2.5,
+      interval: 2,
+      due: keyDaysAhead(10),
+      reps: 1,
+      lapses: 0,
+      lastGrade: 5,
+      lastReviewedAt: atDaysAgo(30),
+    };
     stub.setItem(
       "deepforge:reviews:v1",
       JSON.stringify({
-        [EASY[1].id]: {
+        [retainedId]: retainedLegacy,
+        [decayedId]: decayedLegacy,
+      }),
+    );
+
+    const migratedRetained = migrateReviewState(
+      retainedLegacy,
+      getDailyDateKey(NOW),
+    );
+    const migratedDecayed = migrateReviewState(
+      decayedLegacy,
+      getDailyDateKey(NOW),
+    );
+    if (!migratedRetained || !migratedDecayed) {
+      throw new Error("expected v1 records to migrate");
+    }
+    expect(migratedRetained.S).toBe(10);
+    expect(migratedDecayed.S).toBe(2);
+    expect(lgsRetrievability(migratedRetained, NOW)).toBeGreaterThanOrEqual(
+      RETENTION_THRESHOLD,
+    );
+    expect(lgsRetrievability(migratedDecayed, NOW)).toBeLessThan(
+      RETENTION_THRESHOLD,
+    );
+    expect(getReadinessScore(NOW).retention).toBe(50);
+  });
+
+  test("a v1 due date cannot fabricate retention the stability denies", () => {
+    const id = EASY[4].id;
+    seedProgress({
+      [id]: { attempted: true, solved: true, solvedAt: atDaysAgo(400) },
+    });
+    stub.setItem(
+      "deepforge:reviews:v1",
+      JSON.stringify({
+        [id]: {
           ease: 2.5,
-          interval: 6,
-          due: keyDaysAhead(-20),
-          reps: 2,
+          interval: 2,
+          due: keyDaysAhead(100),
+          reps: 1,
           lapses: 0,
           lastGrade: 5,
-          lastReviewedAt: atDaysAgo(46),
+          lastReviewedAt: atDaysAgo(30),
         },
       }),
     );
+    // Due 100 days out, but R(30, S=2) = 0.65399 < 0.7.
+    expect(getReadinessScore(NOW).retention).toBe(0);
+  });
+
+  test("corrupt stores stay finite and bounded", () => {
+    seedProgress({
+      "ghost-corrupt-1": { attempted: true },
+      "ghost-corrupt-2": {
+        attempted: true,
+        solved: true,
+        solvedAt: "not-a-date",
+        lastOpened: "not-a-date",
+      },
+      "ghost-corrupt-3": { attempted: true, solved: true },
+    });
+    stub.setItem(
+      "deepforge:reviews:v1",
+      JSON.stringify({
+        "ghost-corrupt-1": null,
+        "ghost-corrupt-2": 42,
+        "ghost-corrupt-3": {
+          ease: null,
+          interval: null,
+          due: "NaN-NaN-NaN",
+          reps: null,
+          lapses: null,
+          lastGrade: null,
+          lastReviewedAt: null,
+        },
+        "ghost-corrupt-4": {
+          ease: 999,
+          interval: -5,
+          due: "2026-99-99",
+          reps: "many",
+          lapses: Number.POSITIVE_INFINITY,
+          lastGrade: 7,
+          lastReviewedAt: "nope",
+        },
+      }),
+    );
+    const readiness = getReadinessScore(NOW);
+    for (const value of Object.values(readiness)) {
+      expect(Number.isFinite(value)).toBe(true);
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(100);
+    }
+    expect(Number.isNaN(readiness.retention)).toBe(false);
+  });
+
+  test("the retention curve never leaves 0–100 at either extreme", () => {
+    seedProgress({
+      "ghost-now": { attempted: true, lastOpened: atDaysAgo(0) },
+    });
+    expect(getReadinessScore(NOW).retention).toBe(100);
+
+    seedProgress({
+      "ghost-ancient": { attempted: true, lastOpened: atDaysAgo(36500) },
+    });
     expect(getReadinessScore(NOW).retention).toBe(0);
   });
 });

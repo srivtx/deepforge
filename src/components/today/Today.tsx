@@ -52,12 +52,12 @@ import {
   type ProgressMap,
 } from "@/lib/progress";
 import { problemHref } from "@/lib/problemLinks";
+import { dueReviewQueue } from "@/lib/reviewPlan";
 import {
   RESEARCH_CHANGE_EVENT,
   getResearchState,
 } from "@/lib/research";
 import {
-  dueReviews,
   forgetReview,
   getReviewBucketCounts,
   nextDueDate,
@@ -317,7 +317,7 @@ export function TodayScreen() {
   }
 
   const dailyProblem = getDailyProblem(view.now);
-  const items = dueReviews(view.reviews, META_BY_ID, view.now);
+  const items = dueReviewQueue(view.reviews, META_BY_ID, view.now);
   const counts = getReviewBucketCounts(view.reviews, view.now);
   const totalDue = counts.due + counts.learning;
   const weak = pickWeakArea(view.progress, view.reviews, PROBLEM_META);

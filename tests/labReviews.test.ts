@@ -6,12 +6,14 @@ import {
   LAB_REVIEWS_STORAGE_KEY,
   deriveLabReviews,
   getLabReviews,
+  gradeLabReviewState,
   gradeLabRun,
   labReviewDue,
   parseLabReviewMap,
   readLabReviews,
   seedLabReviewState,
 } from "@/lib/labReviews";
+import { gradeReviewState } from "@/lib/reviewQueue";
 
 function createStorageStub(): Storage {
   const store = new Map<string, string>();
@@ -59,6 +61,17 @@ function storage(): Storage {
   return (globalScope.window as { localStorage: Storage }).localStorage;
 }
 
+function close(
+  actual: number | undefined,
+  expected: number,
+  precision: number,
+): void {
+  expect(typeof actual).toBe("number");
+  expect(Math.abs((actual as number) - expected)).toBeLessThan(
+    0.5 * 10 ** -precision,
+  );
+}
+
 function writeLabRecord(
   labId: string,
   overrides: Record<string, unknown> = {},
@@ -78,8 +91,8 @@ const LAB_A = LABS[0];
 const LAB_B = LABS[1];
 
 const D1 = new Date(2026, 0, 5, 10, 0, 0, 0);
+const D1_NEXT = new Date(2026, 0, 6, 10, 0, 0, 0);
 const D2 = new Date(2026, 0, 15, 10, 0, 0, 0);
-const D3 = new Date(2026, 0, 25, 10, 0, 0, 0);
 const D4 = new Date(2026, 1, 1, 10, 0, 0, 0);
 const NOW = new Date(2026, 0, 20, 12, 0, 0, 0);
 
@@ -100,6 +113,10 @@ describe("seeding from a first pass", () => {
     expect(state.due).toBe("2026-01-06");
     expect(state.lastScore).toBe(LAB_A.target);
     expect(state.lastReviewedAt).toBe(D1.toISOString());
+    expect(state.v).toBe(2);
+    expect(state.S).toBe(1);
+    expect(state.D).toBe(5);
+    expect(state.effort).toBe(0);
   });
 
   test("a lab that never passed gets no schedule", () => {
@@ -114,9 +131,12 @@ describe("seeding from a first pass", () => {
     expect(state.interval).toBe(1);
     expect(state.reps).toBe(1);
     expect(state.due).toBe("2026-01-16");
+    expect(state.v).toBe(2);
+    expect(state.S).toBe(1);
+    expect(state.D).toBe(5);
   });
 
-  test("pass history backfills the schedule forward", () => {
+  test("pass history backfills the schedule forward through LGS", () => {
     writeLabRecord(LAB_A.id, {
       lastScoredAt: D2.toISOString(),
       lastScore: LAB_A.target,
@@ -124,54 +144,86 @@ describe("seeding from a first pass", () => {
     });
     const state = getLabReviews(NOW)[LAB_A.id];
     expect(state.reps).toBe(2);
-    expect(state.interval).toBe(6);
-    expect(state.due).toBe("2026-01-21");
+    expect(state.interval).toBe(12);
+    expect(state.due).toBe("2026-01-27");
+    close(state.S, 11.807120263704661, 9);
+    close(state.D, 4.7, 9);
+    expect(state.effort).toBe(0);
+    expect(state.ease).toBe(2.5);
   });
 
-  test("seedLabReviewState is pure and deterministic", () => {
+  test("seedLabReviewState is pure, deterministic, and emits v2 fields", () => {
     expect(seedLabReviewState(D1.toISOString())).toEqual(
       seedLabReviewState(D1.toISOString()),
     );
-    expect(seedLabReviewState(D1.toISOString()).due).toBe("2026-01-06");
+    const seeded = seedLabReviewState(D1.toISOString());
+    expect(seeded.due).toBe("2026-01-06");
+    expect(seeded.v).toBe(2);
+    expect(seeded.S).toBe(1);
+    expect(seeded.D).toBe(5);
+    expect(seeded.effort).toBe(0);
   });
 });
 
 describe("advancing and lapsing", () => {
-  test("a later pass follows the reviewQueue ladder 1, 6, interval × ease", () => {
+  test("a first pass anchors at one day", () => {
     const first = gradeLabRun(LAB_A.id, true, 0.9, D1);
     expect(first.interval).toBe(1);
     expect(first.reps).toBe(1);
     expect(first.due).toBe("2026-01-06");
-    expect(first.ease).toBe(2.6);
-
-    const second = gradeLabRun(LAB_A.id, true, 0.9, D2);
-    expect(second.interval).toBe(6);
-    expect(second.reps).toBe(2);
-    expect(second.due).toBe("2026-01-21");
-    expect(second.ease).toBe(2.7);
-
-    const third = gradeLabRun(LAB_A.id, true, 0.9, D3);
-    expect(third.interval).toBe(16);
-    expect(third.reps).toBe(3);
-    expect(third.due).toBe("2026-02-10");
-    expect(third.ease).toBe(2.8);
+    expect(first.ease).toBe(2.5);
+    expect(first.S).toBe(1);
+    close(first.D, 4.7, 9);
+    expect(first.effort).toBe(0);
   });
 
-  test("a re-run below target lapses: interval 1, reps 0, ease drops", () => {
-    gradeLabRun(LAB_A.id, true, 0.9, D1);
-    gradeLabRun(LAB_A.id, true, 0.9, D2);
-    const lapsed = gradeLabRun(LAB_A.id, false, 0.1, D3);
+  test("a later pass from a recorded seed advances to 12 (S'=11.8071)", () => {
+    writeLabRecord(LAB_A.id, {
+      lastScoredAt: D1.toISOString(),
+      recentPasses: [D1.toISOString()],
+    });
+    const second = gradeLabRun(LAB_A.id, true, 0.9, D2);
+    expect(second.interval).toBe(12);
+    expect(second.reps).toBe(2);
+    expect(second.due).toBe("2026-01-27");
+    expect(second.ease).toBe(2.5);
+    close(second.S, 11.807120263704661, 9);
+    close(second.D, 4.7, 9);
+    expect(second.effort).toBe(0);
+  });
+
+  test("a lapse at rPred 0.9 resets stability and interval", () => {
+    writeLabRecord(LAB_A.id, {
+      lastScoredAt: D1.toISOString(),
+      recentPasses: [D1.toISOString()],
+    });
+    const lapsed = gradeLabRun(LAB_A.id, false, 0.1, D1_NEXT);
     expect(lapsed.interval).toBe(1);
     expect(lapsed.reps).toBe(0);
     expect(lapsed.lapses).toBe(1);
     expect(lapsed.ease).toBe(2.5);
-    expect(lapsed.due).toBe("2026-01-26");
+    expect(lapsed.due).toBe("2026-01-07");
     expect(lapsed.lastScore).toBe(0.1);
+    close(lapsed.S, 0.31676904101309167, 9);
+    close(lapsed.D, 5.75, 9);
+    expect(lapsed.effort).toBe(0.25);
 
     const recovered = gradeLabRun(LAB_A.id, true, 0.9, D4);
-    expect(recovered.interval).toBe(1);
     expect(recovered.reps).toBe(1);
     expect(recovered.lapses).toBe(1);
+    expect(recovered.interval).toBeGreaterThanOrEqual(1);
+    expect(recovered.S as number).toBeGreaterThan(lapsed.S as number);
+  });
+
+  test("lab grading is parity with the reviewQueue quality adapter", () => {
+    const seed = seedLabReviewState(D1.toISOString(), 0.9);
+    const viaLab = gradeLabReviewState(seed, true, 0.9, D2);
+    const viaQueue = gradeReviewState(seed, 5, D2);
+    expect(viaLab.interval).toBe(viaQueue.interval);
+    expect(viaLab.S).toBe(viaQueue.S);
+    expect(viaLab.D).toBe(viaQueue.D);
+    expect(viaLab.effort).toBe(viaQueue.effort);
+    expect(viaLab.lastGrade).toBe(5);
   });
 
   test("same-day passes never advance twice", () => {
@@ -190,6 +242,7 @@ describe("advancing and lapsing", () => {
     expect(after.interval).toBe(1);
     expect(after.reps).toBe(1);
     expect(after.due).toBe("2026-01-06");
+    expect(after.S).toBe(1);
   });
 
   test("the store dispatches the change event on an explicit grade", () => {
@@ -308,7 +361,7 @@ describe("parsing and sanitization", () => {
     expect(parseLabReviewMap("7")).toEqual({});
   });
 
-  test("malformed entries drop instead of throwing", () => {
+  test("malformed entries drop and v1 entries migrate on parse", () => {
     const parsed = parseLabReviewMap(
       JSON.stringify({
         good: {
@@ -335,6 +388,10 @@ describe("parsing and sanitization", () => {
       lapses: 1,
       lastGrade: 5,
       lastReviewedAt: "2026-01-01T00:00:00.000Z",
+      v: 2,
+      S: 6,
+      D: 5.6,
+      effort: 0.1,
       lastScore: 0.9,
     });
     expect(parsed.junk).toBeUndefined();
@@ -343,7 +400,7 @@ describe("parsing and sanitization", () => {
     expect(parsed.num).toBeUndefined();
   });
 
-  test("out-of-band values sanitize to defaults", () => {
+  test("out-of-band values sanitize to defaults with LGS fields", () => {
     const parsed = parseLabReviewMap(
       JSON.stringify({
         bad: {
@@ -366,5 +423,34 @@ describe("parsing and sanitization", () => {
     expect(parsed.bad.lastGrade).toBeNull();
     expect(parsed.bad.lastReviewedAt).toBeNull();
     expect(parsed.bad.lastScore).toBeNull();
+    expect(parsed.bad.v).toBe(2);
+    expect(parsed.bad.S).toBe(0.1);
+    expect(parsed.bad.D).toBe(5);
+    expect(parsed.bad.effort).toBe(0);
+  });
+
+  test("stored v1 lab maps are migrated on read, never rewritten as v1", () => {
+    storage().setItem(
+      LAB_REVIEWS_STORAGE_KEY,
+      JSON.stringify({
+        [LAB_A.id]: {
+          ease: 1.7,
+          interval: 14,
+          due: "2026-10-02",
+          reps: 3,
+          lapses: 2,
+          lastGrade: 3,
+          lastScore: 0.8,
+        },
+      }),
+    );
+    const read = readLabReviews();
+    expect(read[LAB_A.id].v).toBe(2);
+    expect(read[LAB_A.id].S).toBe(14);
+    expect(read[LAB_A.id].D).toBe(6.6);
+    expect(read[LAB_A.id].effort).toBe(0.6);
+    expect(read[LAB_A.id].due).toBe("2026-10-02");
+    expect(read[LAB_A.id].lastScore).toBe(0.8);
+    expect(readLabReviews()).toEqual(read);
   });
 });

@@ -1,11 +1,19 @@
 /**
- * Review Queue — spaced repetition for the code problem bank.
+ * Review Queue — Ladder-Graded Spacing (LGS) for the code problem bank.
  *
  * Every solved problem already carries a first-solve timestamp
  * (`ProblemProgress.solvedAt`); this module turns those timestamps into an
- * SM-2-style schedule (`ease 2.5` clamp 1.3–2.8, intervals 1 → 6 → ease ×
- * interval, lapse reset) and exposes the due / learning / new buckets the
- * Today screen composes.
+ * LGS schedule. Grading delegates to the frozen pure core in `src/lib/lgs.ts`
+ * (`gradeLadderReview`); the SM-2 ladder (1 → 6 → ease × interval) is gone.
+ * The legacy fields (`ease`, `interval`, `due`, `reps`, `lapses`, `lastGrade`,
+ * `lastReviewedAt`) are preserved: `ease` is frozen as a rollback field, and
+ * `due`/`interval` still drive the queue. The v2 fields (`v`, `S`, `D`,
+ * `effort`) are the live model.
+ *
+ * Migration is a single choke point: every value parsed from storage, sync,
+ * or backup flows through `sanitizeReviewState` → `migrateReviewState`, which
+ * copies valid v2 fields verbatim and derives them from the legacy fields
+ * only when missing/invalid. `migrateReviewState` is byte-idempotent.
  *
  * Determinism: every exported scheduler function takes its clock as an
  * argument and returns a brand-new map, so identical state always yields the
@@ -15,13 +23,26 @@
  *
  * Re-solving a due problem is the pass signal: `ProblemView` calls
  * `markSolved`, which refreshes `solvedAt`, and `deriveReviews` advances the
- * schedule with a clean-pass grade. The "Forgot" action grades a lapse
- * explicitly. `qualityFromRun` maps a richer run summary (used by the run
- * harness) onto the 0/3/4/5 ladder.
+ * schedule through the quality-5 adapter. The "Forgot" action grades a lapse
+ * explicitly. `qualityFromRun` remains the run-summary → quality mapping, and
+ * `gradeReviewSignal` grades with the richer LGS signal (failed runs, hint
+ * tier, reset-before-pass) for callers that have it.
+ *
+ * Day one: migration only derives `S`/`D`/`effort`; `due`, `interval`, and
+ * `reps` are carried over byte-identically, so due dates and buckets do not
+ * move until the next grade.
  */
 
 import type { ProblemMeta } from "@/data/problems/problem-meta";
 import { getDailyDateKey } from "@/lib/daily";
+import {
+  LGS_VERSION,
+  gradeLadderReview,
+  lgsRetrievability,
+  migrateReviewState,
+  type LgsSignal,
+  type LgsState,
+} from "@/lib/lgs";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { createStore } from "@/lib/sync/store";
 import type { StoreSpec } from "@/lib/sync/types";
@@ -33,6 +54,10 @@ export const REVIEWS_CHANGE_EVENT = "deepforge:reviews-change";
 /** Hard cap on a single day's queue (review fatigue guard). */
 export const REVIEW_DAILY_LIMIT = 10;
 
+/**
+ * Legacy ease anchors, kept for rollback (LGS never moves `ease`). Rollback
+ * resumes SM-2 from the frozen `ease` and the LGS-written `interval`.
+ */
 export const INITIAL_EASE = 2.5;
 export const MIN_EASE = 1.3;
 export const MAX_EASE = 2.8;
@@ -42,9 +67,16 @@ export const CLEAN_PASS: ReviewQuality = 5;
 
 export type ReviewQuality = 0 | 3 | 4 | 5;
 
+/**
+ * Public review state: the seven legacy fields plus the LGS fields. The LGS
+ * fields are optional in the type so legacy-shaped literals in downstream
+ * code keep compiling; every value that crosses `sanitizeReviewState`
+ * (storage read, sync merge, backup import) or comes out of a grader is a
+ * full `LgsState` with `v`, `S`, `D`, and `effort` present.
+ */
 export interface ReviewState {
   ease: number;
-  /** Days until the next review. */
+  /** Days until the next review (mirrors the LGS interval). */
   interval: number;
   /** Local calendar date the item is next due: "YYYY-MM-DD". */
   due: string;
@@ -53,6 +85,14 @@ export interface ReviewState {
   lapses: number;
   lastGrade: ReviewQuality | null;
   lastReviewedAt: string | null;
+  /** LGS state version; 2 once migrated. */
+  v?: typeof LGS_VERSION;
+  /** LGS memory stability. */
+  S?: number;
+  /** LGS difficulty in [1, 10]. */
+  D?: number;
+  /** LGS effort EWMA in [0, 1]; >= 0.6 enters the interval cap. */
+  effort?: number;
 }
 
 export type ReviewMap = Record<string, ReviewState>;
@@ -86,6 +126,14 @@ const DIFFICULTY_RANK: Record<Difficulty, number> = {
   Hard: 2,
 };
 
+/** The ladder signal each quality maps onto (the inverse of the adapter). */
+const QUALITY_SIGNAL: Record<ReviewQuality, LgsSignal> = {
+  5: { passed: true, failedRuns: 0, hintTier: 0, resetBeforePass: false },
+  4: { passed: true, failedRuns: 1, hintTier: 0, resetBeforePass: false },
+  3: { passed: true, failedRuns: 1, hintTier: 2, resetBeforePass: false },
+  0: { passed: false, failedRuns: 0, hintTier: 0, resetBeforePass: false },
+};
+
 /* ─────────────────────────────── date math ─────────────────────────────── */
 
 function addDays(dateKey: string, days: number): string {
@@ -99,64 +147,37 @@ function isIsoTimestamp(value: unknown): value is string {
   return typeof value === "string" && !Number.isNaN(Date.parse(value));
 }
 
-function clampEase(ease: number): number {
-  return Math.round(Math.min(MAX_EASE, Math.max(MIN_EASE, ease)) * 1000) / 1000;
-}
-
 /* ──────────────────────────────── state ────────────────────────────────── */
 
-export function defaultReviewState(now: Date = new Date()): ReviewState {
+/** A first-review seed: interval 1, due tomorrow, LGS `S=1, D=5, effort=0`. */
+export function defaultReviewState(now: Date = new Date()): LgsState {
   return {
     ease: INITIAL_EASE,
-    interval: 0,
-    due: getDailyDateKey(now),
+    interval: 1,
+    due: addDays(getDailyDateKey(now), 1),
     reps: 0,
     lapses: 0,
     lastGrade: null,
     lastReviewedAt: null,
+    v: LGS_VERSION,
+    S: 1,
+    D: 5,
+    effort: 0,
   };
 }
 
 /**
- * Validate a persisted/remote review entry. Returns null for anything that
- * is not a usable state, so a bad payload can never poison a schedule.
+ * Validate a persisted/remote review entry and migrate it to LGS v2. This is
+ * the single choke point for data entering the app: `parseReviewMap`, the
+ * sync merge (`mergeReviews`), and backup import all route here. Returns null
+ * for anything that is not a usable state, so a bad payload can never poison
+ * a schedule. Valid v2 fields are copied verbatim; `due` never moves.
  */
-export function sanitizeReviewState(value: unknown): ReviewState | null {
+export function sanitizeReviewState(value: unknown): LgsState | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
-  const record = value as Record<string, unknown>;
-  const ease =
-    typeof record.ease === "number" && Number.isFinite(record.ease)
-      ? clampEase(record.ease)
-      : INITIAL_EASE;
-  const interval =
-    typeof record.interval === "number" && Number.isFinite(record.interval)
-      ? Math.max(0, Math.round(record.interval))
-      : 0;
-  const due =
-    typeof record.due === "string" && DATE_KEY.test(record.due)
-      ? record.due
-      : getDailyDateKey();
-  const reps =
-    typeof record.reps === "number" && Number.isFinite(record.reps)
-      ? Math.max(0, Math.round(record.reps))
-      : 0;
-  const lapses =
-    typeof record.lapses === "number" && Number.isFinite(record.lapses)
-      ? Math.max(0, Math.round(record.lapses))
-      : 0;
-  const lastGrade =
-    record.lastGrade === 0 ||
-    record.lastGrade === 3 ||
-    record.lastGrade === 4 ||
-    record.lastGrade === 5
-      ? (record.lastGrade as ReviewQuality)
-      : null;
-  const lastReviewedAt = isIsoTimestamp(record.lastReviewedAt)
-    ? record.lastReviewedAt
-    : null;
-  return { ease, interval, due, reps, lapses, lastGrade, lastReviewedAt };
+  return migrateReviewState(value, getDailyDateKey());
 }
 
 export function parseReviewMap(raw: string | null): ReviewMap {
@@ -180,9 +201,31 @@ export function parseReviewMap(raw: string | null): ReviewMap {
 /* ────────────────────────────── scheduling ─────────────────────────────── */
 
 /**
- * Map a run summary onto the SM-2 quality ladder. Kept pure so the run
- * harness can record richer grades later without touching the scheduler:
- * clean first-pass 5, pass after failed runs 4, pass after a reset 3, fail 0.
+ * Normalize a partial signal so a junk payload can never produce NaN fields
+ * (the core clamps too; this keeps the adapter's contract explicit).
+ */
+function normalizeSignal(signal: Partial<LgsSignal>): LgsSignal {
+  return {
+    passed: signal.passed === true,
+    failedRuns:
+      typeof signal.failedRuns === "number" && Number.isFinite(signal.failedRuns)
+        ? Math.max(0, signal.failedRuns)
+        : 0,
+    hintTier:
+      typeof signal.hintTier === "number" && Number.isFinite(signal.hintTier)
+        ? Math.max(0, signal.hintTier)
+        : 0,
+    resetBeforePass: signal.resetBeforePass === true,
+  };
+}
+
+/**
+ * Map a run summary onto the quality ladder. Compatibility shim retained for
+ * callers that still grade by quality: it reproduces the original mapping
+ * (clean 5, pass after failed runs 4, pass after a reset 3, fail 0) and is the
+ * inverse of the adapter below (`gradeReviewState` maps the quality back onto
+ * `QUALITY_SIGNAL`). New code that owns hint/struggle data should call
+ * `gradeReviewSignal` directly instead.
  */
 export function qualityFromRun(run: {
   passed: boolean;
@@ -195,44 +238,38 @@ export function qualityFromRun(run: {
   return 5;
 }
 
-/** One SM-2 step. Pure: same (prev, quality, now) → same next state. */
+/**
+ * One LGS step through the quality adapter: 5 → `{f:0,h:0}`, 4 → `{f:1,h:0}`,
+ * 3 → `{f:1,h:2}`, 0 → `{passed:false}`. `lastGrade` is overridden with the
+ * caller's exact quality (the core's own ladder label may differ for q3).
+ * Pure: same `(prev, quality, now)` → same next state.
+ */
 export function gradeReviewState(
   prev: ReviewState | undefined,
   quality: ReviewQuality,
   now: Date = new Date(),
-): ReviewState {
-  const base = prev ?? defaultReviewState(now);
-  const today = getDailyDateKey(now);
-  if (quality < 3) {
-    return {
-      ease: clampEase(base.ease - 0.2),
-      interval: 1,
-      due: addDays(today, 1),
-      reps: 0,
-      lapses: base.lapses + 1,
-      lastGrade: quality,
-      lastReviewedAt: now.toISOString(),
-    };
-  }
-  const interval =
-    base.reps === 0
-      ? 1
-      : base.reps === 1
-        ? 6
-        : Math.max(1, Math.round(base.interval * base.ease));
-  const delta = 0.1 - (5 - quality) * (0.08 + 0.02 * (5 - quality));
-  return {
-    ease: clampEase(base.ease + delta),
-    interval,
-    due: addDays(today, interval),
-    reps: base.reps + 1,
-    lapses: base.lapses,
-    lastGrade: quality,
-    lastReviewedAt: now.toISOString(),
-  };
+): LgsState {
+  const next = gradeLadderReview(prev, QUALITY_SIGNAL[quality], now);
+  return { ...next, lastGrade: quality };
 }
 
-function seedEntry(solvedAt: string | null, now: Date): ReviewState {
+/**
+ * Grade one problem with a full LGS signal (failed runs, hint tier, reset
+ * flag), deriving the current map first and persisting the result — the
+ * signal-aware mirror of `gradeReview`.
+ */
+export function gradeReviewSignal(
+  id: string,
+  signal: Partial<LgsSignal>,
+  now: Date = new Date(),
+): LgsState {
+  const derived = deriveReviews(getProgress(), reviewStore.get(), now);
+  const next = gradeLadderReview(derived[id], normalizeSignal(signal), now);
+  reviewStore.set({ ...derived, [id]: next });
+  return next;
+}
+
+function seedEntry(solvedAt: string | null, now: Date): LgsState {
   const anchor = solvedAt ? new Date(solvedAt) : now;
   const solvedDay = getDailyDateKey(anchor);
   return {
@@ -243,6 +280,10 @@ function seedEntry(solvedAt: string | null, now: Date): ReviewState {
     lapses: 0,
     lastGrade: null,
     lastReviewedAt: null,
+    v: LGS_VERSION,
+    S: 1,
+    D: 5,
+    effort: 0,
   };
 }
 
@@ -251,10 +292,7 @@ function seedEntry(solvedAt: string | null, now: Date): ReviewState {
  * (and only once per calendar day), so re-solving an early item never skips
  * the forgetting curve.
  */
-function reconcileEntry(
-  state: ReviewState,
-  solvedAt: string,
-): ReviewState {
+function reconcileEntry(state: ReviewState, solvedAt: string): ReviewState {
   const solvedDay = getDailyDateKey(new Date(solvedAt));
   if (solvedDay < state.due) return state;
   if (state.lastReviewedAt) {
@@ -360,9 +398,10 @@ export function interleaveByCategory(items: ReviewItem[]): ReviewItem[] {
 }
 
 /**
- * The day's queue: everything due today or earlier, weak categories first,
- * then ease ascending, due date, difficulty, and id; interleaved so no two
- * neighbours share a category, capped at `limit`.
+ * The day's queue: everything due today or earlier, ordered by predicted
+ * retrievability ascending (most forgotten first) per the LGS blueprint,
+ * then weak-category weight desc, due date, difficulty, and id; interleaved
+ * so no two neighbours share a category, capped at `limit`.
  */
 export function dueReviews(
   reviews: ReviewMap,
@@ -372,11 +411,13 @@ export function dueReviews(
 ): ReviewItem[] {
   const today = getDailyDateKey(now);
   const weights = weakCategories(reviews, metaById);
+  const retrievability = new Map<string, number>();
   const items: ReviewItem[] = [];
   for (const [id, state] of Object.entries(reviews)) {
     if (state.due > today) continue;
     const meta = metaById.get(id);
     if (!meta) continue;
+    retrievability.set(id, lgsRetrievability(state, now));
     items.push({
       id,
       state,
@@ -387,9 +428,9 @@ export function dueReviews(
   }
   items.sort(
     (a, b) =>
+      (retrievability.get(a.id) ?? 0) - (retrievability.get(b.id) ?? 0) ||
       (weights.get(b.meta.category) ?? 0) -
         (weights.get(a.meta.category) ?? 0) ||
-      a.state.ease - b.state.ease ||
       a.state.due.localeCompare(b.state.due) ||
       DIFFICULTY_RANK[a.meta.difficulty] -
         DIFFICULTY_RANK[b.meta.difficulty] ||
@@ -489,7 +530,10 @@ function sameMap(a: ReviewMap, b: ReviewMap): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** Stored schedule (validated), without touching the solve history. */
+/**
+ * Stored schedule (validated and migrated to LGS v2), without touching the
+ * solve history.
+ */
 export function readReviews(): ReviewMap {
   return reviewStore.get();
 }
@@ -515,15 +559,15 @@ export function gradeReview(
   id: string,
   quality: ReviewQuality,
   now: Date = new Date(),
-): ReviewState {
+): LgsState {
   const derived = deriveReviews(getProgress(), reviewStore.get(), now);
   const next = gradeReviewState(derived[id], quality, now);
   reviewStore.set({ ...derived, [id]: next });
   return next;
 }
 
-/** Grade a failed review (lapse): interval resets, ease drops. */
-export function forgetReview(id: string, now: Date = new Date()): ReviewState {
+/** Grade a failed review (lapse): the LGS lapse policy applies. */
+export function forgetReview(id: string, now: Date = new Date()): LgsState {
   return gradeReview(id, 0, now);
 }
 

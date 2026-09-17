@@ -1,12 +1,18 @@
 /**
- * Lab re-runs — spaced repetition for passed scored labs.
+ * Lab re-runs — LGS spaced repetition for passed scored labs.
  *
  * Passing a lab is a milestone, not a conclusion: the schedule seeds on the
- * lab's first pass with a one-day interval, advances on a later pass using the
- * exact `reviewQueue` SM-2 rules (interval 6, then `interval × ease`), and
- * lapses when a re-run scores below the lab's target. The Today screen uses
- * `labReviewDue` to surface what is due and deep-links to `/labs`, where
- * scoring and grading happen.
+ * lab's first pass with a one-day interval (`S=1, D=5, effort=0`), advances on
+ * a later pass through the exact `reviewQueue` → `lgs.gradeLadderReview` path,
+ * and lapses when a re-run scores below the lab's target. The legacy `ease`
+ * field is frozen as a rollback anchor, exactly like the problem queue. The
+ * Today screen uses `labReviewDue` to surface what is due and deep-links to
+ * `/labs`, where scoring and grading happen.
+ *
+ * Migration is shared with the problem queue: `sanitizeLabReviewState` spreads
+ * `sanitizeReviewState`, so every record parsed from storage is migrated to
+ * LGS v2 by `migrateReviewState` before use and this module can never write a
+ * v1 record.
  *
  * Pure core: every scheduler function takes its clock as an argument and
  * returns a brand-new map, so identical state always yields the identical
@@ -25,6 +31,7 @@
 
 import { LABS, type Lab } from "@/data/labs";
 import { getDailyDateKey } from "@/lib/daily";
+import { LGS_VERSION } from "@/lib/lgs";
 import {
   getLabRecords,
   type LabRecord,
@@ -97,13 +104,18 @@ export function defaultLabReviewState(now: Date = new Date()): LabReviewState {
     lapses: 0,
     lastGrade: null,
     lastReviewedAt: null,
+    v: LGS_VERSION,
+    S: 1,
+    D: 5,
+    effort: 0,
     lastScore: null,
   };
 }
 
 /**
- * Seed a schedule from a lab's first pass: a one-day first interval, counted
- * as the first rep so the next pass advances straight to six days.
+ * Seed a schedule from a lab's first pass: a one-day first interval with the
+ * LGS anchor (`S=1, D=5, effort=0`), counted as the first rep so the next pass
+ * advances through the ladder.
  */
 export function seedLabReviewState(
   passedAt: string | Date,
@@ -120,6 +132,10 @@ export function seedLabReviewState(
     lapses: 0,
     lastGrade: CLEAN_PASS,
     lastReviewedAt: valid ? at.toISOString() : null,
+    v: LGS_VERSION,
+    S: 1,
+    D: 5,
+    effort: 0,
     lastScore: score,
   };
 }
@@ -164,7 +180,8 @@ export function parseLabReviewMap(raw: string | null): LabReviewMap {
 /**
  * One schedule step. A pass grades as a clean pass (quality 5); a re-run below
  * target grades as a lapse (quality 0). Both delegate to the review queue's
- * SM-2 step, so intervals and ease stay consistent across features. Pure.
+ * LGS adapter, so stability, difficulty, effort, and intervals stay consistent
+ * across features. Legacy `ease` is frozen. Pure.
  */
 export function gradeLabReviewState(
   prev: LabReviewState | undefined,
@@ -328,7 +345,6 @@ export function labReviewDue(now: Date = new Date()): LabReviewItem[] {
   items.sort(
     (a, b) =>
       b.overdueDays - a.overdueDays ||
-      a.state.ease - b.state.ease ||
       a.due.localeCompare(b.due) ||
       a.lab.id.localeCompare(b.lab.id),
   );

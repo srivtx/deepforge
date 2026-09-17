@@ -10,11 +10,12 @@
  *   coverage    30%  mean solved share across every catalogue category, so a
  *                    single deep category cannot carry the score
  *   retention   25%  share of attempted problems whose retrievability is still
- *                    ≥0.7 on a 28-day linear forgetting curve. When the
- *                    review queue has a schedule for a problem, retrievability
- *                    comes from its due date (items due or overdue decay);
- *                    otherwise it falls back to the last activity timestamp
- *                    (`solvedAt` / `lastOpened`).
+ *                    ≥0.7. Scheduled items run the LGS power-law curve
+ *                    `R(t,S) = (1 + F·t/S)^(−d)` on the migrated v2 stability
+ *                    `S`; unscheduled problems use the same curve at the
+ *                    documented fallback `S = 2.3065` over the time since their
+ *                    last activity (`solvedAt` / `lastOpened`). The 0.7
+ *                    crossing is ≈21.4 days, not the old linear 8.4.
  *   balance     15%  half weakest-category coverage, half closeness to the
  *                    catalogue's own Easy/Medium/Hard mix — an "all Easy"
  *                    history drifts from that mix and cannot read as ready
@@ -49,6 +50,11 @@ import {
 import { getDailyDateKey } from "@/lib/daily";
 import { getBestInterviewResult } from "@/lib/interview";
 import {
+  lgsRetrievability,
+  lgsRetrievabilityAt,
+  migrateReviewState,
+} from "@/lib/lgs";
+import {
   getProgress,
   type ProblemProgress,
   type ProgressMap,
@@ -66,10 +72,18 @@ export const READINESS_WEIGHTS = {
   rehearsal: 0.2,
 } as const;
 
-/** Linear forgetting curve used for the retention proxy. */
-export const RETENTION_HORIZON_DAYS = 28;
-/** A problem counts as retained at or above this retrievability. */
+/**
+ * A problem counts as retained at or above this retrievability.
+ *
+ * Blueprint curve (wave-40 §2): `R(t,S) = (1 + F·t/S)^(−d)` with FSRS-6
+ * `d = 0.1542` and `F = 0.9^(−1/d) − 1 = 0.9803464944134797`. At the fallback
+ * `S = 2.3065` the 0.7 crossing is ≈21.42 days (`R(21) = 0.70194`,
+ * `R(22) = 0.69741`); the superseded 28-day linear curve crossed at 8.4 days.
+ */
 export const RETENTION_THRESHOLD = 0.7;
+
+/** Stability for problems with no review schedule (blueprint §5). */
+const RETENTION_FALLBACK_STABILITY = 2.3065;
 
 /** Consistency looks at this trailing window... */
 export const CONSISTENCY_WINDOW_DAYS = 28;
@@ -401,29 +415,31 @@ function latestActivity(record: ProblemProgress): number | null {
   return latest;
 }
 
-/** Fallback proxy for problems the review queue has no schedule for. */
-function timestampRetrievability(
-  record: ProblemProgress,
-  now: Date,
-): number {
+/**
+ * Fallback proxy for problems the review queue has no schedule for: the
+ * blueprint pins the curve to `S = 2.3065` and feeds it whole days since the
+ * latest activity. Undated attempts score 0 rather than a fabricated value.
+ */
+function timestampRetrievability(record: ProblemProgress, now: Date): number {
   const latest = latestActivity(record);
   if (latest === null) return 0;
   const ageDays = Math.max(0, (now.getTime() - latest) / DAY_MS);
-  return Math.max(0, 1 - ageDays / RETENTION_HORIZON_DAYS);
+  return lgsRetrievabilityAt(ageDays, RETENTION_FALLBACK_STABILITY);
 }
 
 /**
- * Queue-based proxy: a scheduled item is fully retained until its due date,
- * then decays linearly over the same 28-day horizon.
+ * Queue-based proxy. Stored entries are migrated to a valid v2 LGS state
+ * first, so `S` comes from the record (never a guess from its due date);
+ * `lgsRetrievability` then applies the same blueprint curve to elapsed days.
  */
-function reviewRetrievability(state: ReviewState, now: Date): number {
-  const due = parseDateKey(state.due);
-  if (!due) return 0;
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const overdueDays = (today.getTime() - due.getTime()) / DAY_MS;
-  if (overdueDays <= 0) return 1;
-  return Math.max(0, 1 - overdueDays / RETENTION_HORIZON_DAYS);
+function reviewRetrievability(
+  state: ReviewState,
+  now: Date,
+  todayKey: string,
+): number {
+  const migrated = migrateReviewState(state, todayKey);
+  if (!migrated) return 0;
+  return lgsRetrievability(migrated, now);
 }
 
 function parseDateKey(key: string | null): Date | null {
@@ -497,6 +513,7 @@ export function getReadinessScore(now: Date = new Date()): ReadinessBreakdown {
   }
   const coverage = categoryCount > 0 ? categorySum / categoryCount : 0;
 
+  const todayKey = getDailyDateKey(now);
   let touched = 0;
   let retained = 0;
   const reviews = getReviewMap(now);
@@ -504,9 +521,13 @@ export function getReadinessScore(now: Date = new Date()): ReadinessBreakdown {
     if (!record) continue;
     touched += 1;
     const review = reviews[id];
-    const retrievability = review
-      ? reviewRetrievability(review, now)
-      : timestampRetrievability(record, now);
+    const retrievability =
+      review &&
+      (latestActivity(record) !== null ||
+        review.reps > 0 ||
+        review.lastReviewedAt !== null)
+        ? reviewRetrievability(review, now, todayKey)
+        : timestampRetrievability(record, now);
     if (retrievability >= RETENTION_THRESHOLD) retained += 1;
   }
   const retention = touched > 0 ? retained / touched : 0;
@@ -526,7 +547,6 @@ export function getReadinessScore(now: Date = new Date()): ReadinessBreakdown {
     solvedTotal > 0 && categoryCount > 0 ? weakestCategory : 0;
   const balance = solvedTotal > 0 ? (categoryPart + difficultyPart) / 2 : 0;
 
-  const todayKey = getDailyDateKey(now);
   const windowStart = new Date(now);
   windowStart.setHours(0, 0, 0, 0);
   windowStart.setDate(windowStart.getDate() - (CONSISTENCY_WINDOW_DAYS - 1));

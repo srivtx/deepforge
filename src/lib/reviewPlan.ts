@@ -2,24 +2,36 @@
  * Review Plan — pure read-only projections over the spaced-repetition store.
  *
  * `reviewQueue` owns scheduling; this module composes its primitives (local
- * day keys, weak-category weights, category interleaving) into the four views
- * the Review hub renders: a 14-day due forecast, a leech list, a deterministic
- * cram queue, and a small health summary.
+ * day keys, weak-category weights, category interleaving) into the views the
+ * Review hub renders: a 14-day due forecast, a leech list, a deterministic
+ * drill queue, and a small health summary.
+ *
+ * Every stored record is routed through LGS `migrateReviewState` before it is
+ * used, so v1 (SM-2) payloads resolve their stability/difficulty/effort once
+ * and corrupt entries are dropped at this single normalization choke point.
+ * Priority follows predicted retrievability — lowest expected recall first,
+ * for a fixed injected clock — replacing ease and overdue-ratio ordering.
  *
  * Every function here is pure and receives its clock as an argument; nothing
- * reads localStorage, `new Date()`, or the network. Corrupt or unknown review
- * entries are skipped rather than allowed to throw.
+ * reads localStorage, `new Date()`, or the network.
  */
 
 import type { ProblemMeta } from "@/data/problems/problem-meta";
 import { getDailyDateKey } from "@/lib/daily";
+import {
+  LGS_DEFAULTS,
+  lgsResolveFields,
+  lgsRetrievability,
+  migrateReviewState,
+} from "@/lib/lgs";
 import { problemHref } from "@/lib/problemLinks";
 import {
+  dueReviews,
   interleaveByCategory,
   weakCategories,
+  REVIEW_DAILY_LIMIT,
   type ReviewItem,
   type ReviewMap,
-  type ReviewState,
 } from "@/lib/reviewQueue";
 
 /** Forecast window (today plus the following 13 local days). */
@@ -76,31 +88,55 @@ function weekdayLabel(key: string): string {
   });
 }
 
-/** A usable entry is an object carrying a real "YYYY-MM-DD" due key. */
-function usableState(value: unknown): value is ReviewState {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    isDateKey((value as { due?: unknown }).due)
-  );
-}
-
-function lapsesOf(state: ReviewState): number {
-  return Number.isFinite(state.lapses) ? Math.max(0, state.lapses) : 0;
-}
-
 /**
- * Drop unusable entries and normalize lapses before handing the map to
- * `weakCategories`, which assumes every value is a real `ReviewState`.
+ * The single normalization choke point: every persisted record becomes an
+ * LGS state — v1 fields derive `S/D/effort`, valid v2 fields are copied
+ * verbatim — or is dropped. Impossible calendar keys are dropped too, even
+ * though they match the shape regex.
  */
-function cleanReviews(reviews: ReviewMap): ReviewMap {
+function normalizeState(
+  value: unknown,
+  fallbackKey: string,
+): ReviewMap[string] | null {
+  const state = migrateReviewState(value, fallbackKey);
+  if (!state || !isDateKey(state.due)) return null;
+  return state;
+}
+
+function normalizeReviews(reviews: ReviewMap, todayKey: string): ReviewMap {
   const clean: ReviewMap = {};
-  for (const [id, state] of Object.entries(reviews)) {
-    if (!usableState(state)) continue;
-    clean[id] = { ...state, lapses: lapsesOf(state) };
+  for (const [id, value] of Object.entries(reviews)) {
+    const state = normalizeState(value, todayKey);
+    if (state) clean[id] = state;
   }
   return clean;
+}
+
+/** Predicted recall today; the primary key for every queue in this module. */
+function recallToday(item: ReviewItem, now: Date): number {
+  return lgsRetrievability(item.state, now);
+}
+
+function byRecall(a: ReviewItem, b: ReviewItem, now: Date): number {
+  return recallToday(a, now) - recallToday(b, now);
+}
+
+/** Drill order: recall asc, overdue desc, weak weight desc, due, id. */
+function byDrillPriority(
+  a: ReviewItem,
+  b: ReviewItem,
+  now: Date,
+  weights: ReadonlyMap<string, number>,
+  todayKey: string,
+): number {
+  return (
+    byRecall(a, b, now) ||
+    overdueDays(b.due, todayKey) - overdueDays(a.due, todayKey) ||
+    (weights.get(b.meta.category) ?? 0) -
+      (weights.get(a.meta.category) ?? 0) ||
+    a.due.localeCompare(b.due) ||
+    a.id.localeCompare(b.id)
+  );
 }
 
 /* ────────────────────────────── forecast ───────────────────────────────── */
@@ -133,12 +169,12 @@ export function forecastDue(
   const total = Number.isFinite(days) ? Math.max(0, Math.round(days)) : 0;
   if (total === 0) return [];
   const today = dayKey(now);
+  const clean = normalizeReviews(reviews, today);
   const buckets = new Map<string, { count: number; overdue: number }>();
   for (let i = 0; i < total; i += 1) {
     buckets.set(addDays(today, i), { count: 0, overdue: 0 });
   }
-  for (const state of Object.values(reviews)) {
-    if (!usableState(state)) continue;
+  for (const state of Object.values(clean)) {
     const past = state.due < today;
     const bucket = buckets.get(past ? today : state.due);
     if (!bucket) continue;
@@ -167,7 +203,8 @@ export interface LeechItem {
 /**
  * Problems that have lapsed at least `minLapses` times, hardest first:
  * lapses descending, then most overdue (earliest due), then id for a stable
- * order. Ids missing from `meta` are skipped instead of guessed at.
+ * order. Lapses remain the leech signal; ids missing from `meta` are skipped
+ * instead of guessed at.
  */
 export function leeches(
   reviews: ReviewMap,
@@ -176,11 +213,14 @@ export function leeches(
 ): LeechItem[] {
   const threshold = Number.isFinite(minLapses) ? minLapses : LEECH_MIN_LAPSES;
   const items: LeechItem[] = [];
-  for (const [id, state] of Object.entries(reviews)) {
-    if (!usableState(state)) continue;
+  for (const [id, value] of Object.entries(reviews)) {
+    const rawDue = (value as { due?: unknown } | null)?.due;
+    if (!isDateKey(rawDue)) continue;
+    const state = normalizeState(value, rawDue);
+    if (!state) continue;
     const problem = meta.get(id);
     if (!problem) continue;
-    const lapses = lapsesOf(state);
+    const lapses = state.lapses;
     if (lapses < threshold) continue;
     items.push({
       id,
@@ -211,17 +251,21 @@ export interface CramItem {
   overdueDays: number;
   /** Short, honest explanation for why the item is in the drill. */
   why: string;
+  /** Predicted chance the item is recalled today (lowest sorts first). */
+  retrievability: number;
+  /** True when the effort EWMA sits at or above the LGS struggle cap. */
+  struggle: boolean;
 }
 
 /**
- * A deterministic mixed drill: everything due (most overdue first), then
- * tracked problems from the weakest categories (`weakCategories`), returned
- * interleaved by category where possible (`interleaveByCategory`) and capped
- * at `size`.
+ * A deterministic mixed drill: everything due plus tracked problems from the
+ * weakest categories (`weakCategories`), shakiest predicted recall first,
+ * then most overdue, then weak weight, due and id. The result is returned
+ * interleaved by category (`interleaveByCategory`) and capped at `size`.
  *
  * Ordering is total and input-order independent, so the same map always
- * yields the same queue. Items whose ids are unknown or whose due key is
- * malformed are skipped.
+ * yields the same queue. Items whose ids are unknown or whose record cannot
+ * be migrated are skipped.
  */
 export function cramQueue(
   reviews: ReviewMap,
@@ -232,7 +276,7 @@ export function cramQueue(
   const limit = Number.isFinite(size) ? Math.max(0, Math.round(size)) : 0;
   if (limit === 0) return [];
   const today = dayKey(now);
-  const clean = cleanReviews(reviews);
+  const clean = normalizeReviews(reviews, today);
   const weights = weakCategories(clean, meta);
   const candidates: ReviewItem[] = [];
   for (const [id, state] of Object.entries(clean)) {
@@ -249,17 +293,7 @@ export function cramQueue(
       bucket: state.reps === 0 ? "learning" : "due",
     });
   }
-  candidates.sort((a, b) => {
-    const overdueA = overdueDays(a.due, today);
-    const overdueB = overdueDays(b.due, today);
-    if (overdueA !== overdueB) return overdueB - overdueA;
-    const weightA = weights.get(a.meta.category) ?? 0;
-    const weightB = weights.get(b.meta.category) ?? 0;
-    if (weightA !== weightB) return weightB - weightA;
-    const byDue = a.due.localeCompare(b.due);
-    if (byDue !== 0) return byDue;
-    return a.id.localeCompare(b.id);
-  });
+  candidates.sort((a, b) => byDrillPriority(a, b, now, weights, today));
   return interleaveByCategory(candidates)
     .slice(0, limit)
     .map((item) => {
@@ -279,8 +313,33 @@ export function cramQueue(
         category: item.meta.category,
         overdueDays: overdue,
         why,
+        retrievability: recallToday(item, now),
+        struggle:
+          lgsResolveFields(item.state).effort >= LGS_DEFAULTS.effortCap,
       };
     });
+}
+
+/* ────────────────────────────── due reviews ────────────────────────────── */
+
+/**
+ * The due-today rows behind `/today`: the stored map is normalized through
+ * this module's migration choke point, then handed to `reviewQueue`'s
+ * canonical due queue — predicted recall ascending, then weak-category
+ * weight, due key, difficulty rank and id — interleaved and capped at
+ * `limit` (the daily review cap by default). Unlike the drill, nothing that
+ * is not actually due joins the list.
+ */
+export function dueReviewQueue(
+  reviews: ReviewMap,
+  meta: ReadonlyMap<string, ProblemMeta>,
+  now: Date,
+  limit: number = REVIEW_DAILY_LIMIT,
+): ReviewItem[] {
+  const cap = Number.isFinite(limit) ? Math.max(0, Math.round(limit)) : 0;
+  if (cap === 0) return [];
+  const today = dayKey(now);
+  return dueReviews(normalizeReviews(reviews, today), meta, now, cap);
 }
 
 /* ──────────────────────────────── health ───────────────────────────────── */
@@ -301,23 +360,30 @@ export interface ReviewHealth {
    * been graded yet — never fabricated.
    */
   retention: number | null;
+  /**
+   * Mean predicted recall (0–1) over every tracked item at `now`, or null
+   * when nothing is tracked. Computed from the same LGS curve the queues use.
+   */
+  meanRetrievability: number | null;
 }
 
 /**
  * Honest one-line health summary for the Review hub. Everything is counted
- * from entries the store actually contains; corrupt entries are ignored.
+ * from entries the store actually contains; records that fail migration are
+ * ignored.
  */
 export function health(reviews: ReviewMap, now: Date): ReviewHealth {
   const today = dayKey(now);
   const weekAhead = addDays(today, 7);
+  const clean = normalizeReviews(reviews, today);
   let due = 0;
   let overdue = 0;
   let dueNext7 = 0;
   let totalTracked = 0;
   let graded = 0;
   let passed = 0;
-  for (const state of Object.values(reviews)) {
-    if (!usableState(state)) continue;
+  let recallSum = 0;
+  for (const state of Object.values(clean)) {
     totalTracked += 1;
     if (state.due <= today) {
       due += 1;
@@ -325,6 +391,7 @@ export function health(reviews: ReviewMap, now: Date): ReviewHealth {
     } else if (state.due <= weekAhead) {
       dueNext7 += 1;
     }
+    recallSum += lgsRetrievability(state, now);
     const grade = state.lastGrade;
     if (grade === 0 || grade === 3 || grade === 4 || grade === 5) {
       graded += 1;
@@ -337,5 +404,6 @@ export function health(reviews: ReviewMap, now: Date): ReviewHealth {
     dueNext7,
     totalTracked,
     retention: graded > 0 ? Math.round((passed / graded) * 100) : null,
+    meanRetrievability: totalTracked > 0 ? recallSum / totalTracked : null,
   };
 }
