@@ -20,6 +20,7 @@ import {
   problemTitle,
   respond,
   resetConversation,
+  routeContext,
   setAssistantHidden,
   warmAssistant,
   type Ctx,
@@ -189,15 +190,28 @@ export function ZeroAssistant() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const pathname = usePathname();
+  const routeCtx = useMemo(() => routeContext(pathname), [pathname]);
+  // A research/lab detail route owns the assistant context; a problem context
+  // left over from a previous page must not leak its chips onto those screens.
+  const activeCtx = useMemo<Ctx>(() => {
+    if (routeCtx.researchId !== undefined || routeCtx.labId !== undefined) {
+      return routeCtx;
+    }
+    return ctx;
+  }, [ctx, routeCtx]);
+  const attachedId =
+    activeCtx.problem?.id ?? activeCtx.researchId ?? activeCtx.labId;
+
   const fabRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const ctxRef = useRef<Ctx>(ctx);
+  const ctxRef = useRef<Ctx>(activeCtx);
   const exchangeRef = useRef(0);
   const timerRef = useRef<number | null>(null);
 
-  const chips = useMemo(() => contextPrompts(ctx), [ctx]);
+  const chips = useMemo(() => contextPrompts(activeCtx), [activeCtx]);
 
   // A hidden launcher never shows the panel, even if it was open when the
   // preference flipped in another tab.
@@ -225,8 +239,8 @@ export function ZeroAssistant() {
 
   // Keep the latest context in a ref so a pending reply always sees it.
   useEffect(() => {
-    ctxRef.current = ctx;
-  }, [ctx]);
+    ctxRef.current = activeCtx;
+  }, [activeCtx]);
 
   // Load the persisted thread and stay in sync with every writer.
   useEffect(() => {
@@ -384,9 +398,9 @@ export function ZeroAssistant() {
                 offline · answers only from the catalogue
               </div>
             </div>
-            {ctx.problem && (
+            {attachedId && (
               <span className="shrink-0 rounded-full border border-hairline px-2 py-0.5 font-mono text-[10px] text-body-mid">
-                {ctx.problem.id}
+                {attachedId}
               </span>
             )}
             <button

@@ -6,6 +6,7 @@ import {
   isAssistantHidden,
   respond,
   retrieve,
+  routeContext,
   setAssistantHidden,
   suggestedPrompts,
   type Ctx,
@@ -19,6 +20,10 @@ import { CONCEPTS } from "@/data/concepts";
 import { getDailyDateKey } from "@/lib/daily";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getReadinessScore } from "@/lib/readiness";
+import { RESEARCH_CHALLENGES } from "@/data/research";
+import { getResearchTheory } from "@/data/researchTheory";
+import { LABS } from "@/data/labs";
+import { getLabTheory } from "@/data/labTheory";
 
 const CLASSIFY_CASES: Array<[string, Intent]> = [
   ["what should I solve next?", "next"],
@@ -539,6 +544,198 @@ describe("context prompt round-trips", () => {
     });
     expect(failing.intent).toBe("debug");
     expect(failing.text).toContain("did not pass all tests");
+  });
+});
+
+describe("research route context", () => {
+  const challenge = RESEARCH_CHALLENGES[0];
+  const researchCtx: Ctx = { researchId: challenge.id };
+
+  test("routeContext attaches ids on detail routes and ignores everything else", () => {
+    expect(routeContext(`/research/${challenge.id}`)).toEqual({
+      researchId: challenge.id,
+    });
+    expect(routeContext(`/research/${challenge.id}/`)).toEqual({
+      researchId: challenge.id,
+    });
+    expect(routeContext("/labs/lab-01")).toEqual({ labId: "lab-01" });
+    expect(routeContext("/research")).toEqual({});
+    expect(routeContext("/labs")).toEqual({});
+    expect(routeContext("/")).toEqual({});
+    expect(routeContext("/problems/la-001")).toEqual({});
+    expect(routeContext("/research/one/two")).toEqual({});
+    expect(routeContext(null)).toEqual({});
+    expect(routeContext(undefined)).toEqual({});
+  });
+
+  test("unknown research and lab ids fall back to the generic chips", () => {
+    expect(contextPrompts({ researchId: "nope" })).toEqual(contextPrompts());
+    expect(contextPrompts({ labId: "nope" })).toEqual(contextPrompts());
+    expect(contextPrompts({ labId: "trails" })).toEqual(contextPrompts());
+    expect(contextPrompts({ researchId: "nope" })).toHaveLength(6);
+    const fallback = respond("What's the baseline?", { researchId: "nope" });
+    expect(fallback.text.length).toBeGreaterThan(0);
+    expect(fallback.citations ?? []).toEqual([]);
+  });
+
+  test("research chips are metric-aware, ordered, and stable", () => {
+    const chips = contextPrompts(researchCtx);
+    expect(chips).toEqual([
+      "What's the baseline?",
+      "How is accuracy scored?",
+      "Give me a hint",
+      "What does the data look like?",
+    ]);
+    expect(contextPrompts(researchCtx)).toEqual(chips);
+    expect(suggestedPrompts(researchCtx)).toEqual(chips);
+  });
+
+  test("research context outranks a stale problem context", () => {
+    const attached = PROBLEM_META[0];
+    const both: Ctx = {
+      researchId: challenge.id,
+      problem: {
+        id: attached.id,
+        title: attached.title,
+        category: attached.category,
+        difficulty: attached.difficulty,
+      },
+    };
+    expect(contextPrompts(both)[0]).toBe("What's the baseline?");
+  });
+
+  test("baseline answer carries the stored baseline and the theory note", () => {
+    const msg = respond("What's the baseline?", researchCtx);
+    expect(msg.intent).toBe("research");
+    expect(msg.text).toContain(challenge.baselineName);
+    expect(msg.text).toContain("0.6667");
+    expect(msg.text).toContain("Predicting the majority label");
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("every challenge baseline answer carries its stored numbers", () => {
+    for (const entry of RESEARCH_CHALLENGES) {
+      const msg = respond("What's the baseline?", { researchId: entry.id });
+      const expected = String(Number(entry.baselineScore.toFixed(4)));
+      expect(msg.intent, entry.id).toBe("research");
+      expect(msg.text, entry.id).toContain(expected);
+      expect(msg.text, entry.id).toContain(entry.baselineName);
+    }
+  });
+
+  test("metric answer explains the scorer used for the challenge", () => {
+    const msg = respond("How is accuracy scored?", researchCtx);
+    expect(msg.intent).toBe("research");
+    expect(msg.text).toContain("accuracy");
+    expect(msg.text).toContain("fraction of hidden rows");
+    expect(msg.text).toContain(
+      `${challenge.testData.features.length} hidden test rows`,
+    );
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("hint answer returns exactly the stored hint", () => {
+    const msg = respond("Give me a hint", researchCtx);
+    expect(msg.intent).toBe("research");
+    expect(msg.text).toBe(`Hint for ${challenge.title}: ${challenge.hint}`);
+    expect(msg.text.endsWith(challenge.hint)).toBe(true);
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("data answer reports the stored split shape", () => {
+    const msg = respond("What does the data look like?", researchCtx);
+    expect(msg.intent).toBe("research");
+    expect(msg.text).toContain(
+      `${challenge.trainData.features.length} training rows`,
+    );
+    expect(msg.text).toContain(
+      `${challenge.testData.features.length} hidden test rows`,
+    );
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("every research chip round-trips deterministically", () => {
+    for (const entry of RESEARCH_CHALLENGES) {
+      const ctx: Ctx = { researchId: entry.id };
+      const chips = contextPrompts(ctx);
+      expect(chips.length, entry.id).toBe(4);
+      for (const chip of chips) {
+        const first = respond(chip, ctx);
+        const second = respond(chip, ctx);
+        expect(first.intent, `${entry.id}: ${chip}`).toBe("research");
+        expect(first.text, `${entry.id}: ${chip}`).toBe(second.text);
+        expect(first.text.length, `${entry.id}: ${chip}`).toBeGreaterThan(0);
+        expect(first.citations ?? [], `${entry.id}: ${chip}`).toEqual([]);
+      }
+    }
+    const theory = getResearchTheory(challenge.id);
+    expect(theory).not.toBeUndefined();
+  });
+});
+
+describe("lab route context", () => {
+  const lab = LABS[0];
+  const labCtx: Ctx = { labId: lab.id };
+
+  test("lab chips are ordered and stable", () => {
+    const chips = contextPrompts(labCtx);
+    expect(chips).toEqual([
+      "What's the target?",
+      "What does this lab teach?",
+      "Give me a hint",
+      "How long is the run?",
+    ]);
+    expect(contextPrompts(labCtx)).toEqual(chips);
+  });
+
+  test("target answer carries the stored target and baseline", () => {
+    const msg = respond("What's the target?", labCtx);
+    expect(msg.intent).toBe("labs");
+    expect(msg.text).toContain("0.85");
+    expect(msg.text).toContain("0.6");
+    expect(msg.text).toContain(
+      `${lab.testData.features.length} held-out rows`,
+    );
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("teach answer comes from the lab theory", () => {
+    const msg = respond("What does this lab teach?", labCtx);
+    expect(msg.intent).toBe("labs");
+    expect(msg.text).toContain(getLabTheory(lab.id)!.teaches);
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("hint answer returns exactly the stored hint", () => {
+    const msg = respond("Give me a hint", labCtx);
+    expect(msg.intent).toBe("labs");
+    expect(msg.text).toBe(`Hint for ${lab.title}: ${lab.hint}`);
+    expect(msg.text.endsWith(lab.hint)).toBe(true);
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("run-length answer reports the stored time limit", () => {
+    const msg = respond("How long is the run?", labCtx);
+    expect(msg.intent).toBe("labs");
+    expect(msg.text).toContain("5 minutes");
+    expect(msg.text).toContain(`${lab.timeLimitSeconds} seconds`);
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("every lab chip round-trips deterministically", () => {
+    for (const entry of LABS) {
+      const ctx: Ctx = { labId: entry.id };
+      const chips = contextPrompts(ctx);
+      expect(chips.length, entry.id).toBe(4);
+      for (const chip of chips) {
+        const first = respond(chip, ctx);
+        const second = respond(chip, ctx);
+        expect(first.intent, `${entry.id}: ${chip}`).toBe("labs");
+        expect(first.text, `${entry.id}: ${chip}`).toBe(second.text);
+        expect(first.text.length, `${entry.id}: ${chip}`).toBeGreaterThan(0);
+        expect(first.citations ?? [], `${entry.id}: ${chip}`).toEqual([]);
+      }
+    }
   });
 });
 

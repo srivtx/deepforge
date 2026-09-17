@@ -25,6 +25,14 @@ import {
 import { CATEGORIES } from "@/data/problems/meta";
 import { LEARNING_PATHS } from "@/data/problems/paths";
 import { PROBLEM_META, type ProblemMeta } from "@/data/problems/problem-meta";
+import { LABS, type Lab } from "@/data/labs";
+import { getLabTheory } from "@/data/labTheory";
+import {
+  RESEARCH_CHALLENGES,
+  type ResearchChallenge,
+  type ResearchMetric,
+} from "@/data/research";
+import { getResearchTheory } from "@/data/researchTheory";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lazy problem bank
@@ -160,6 +168,10 @@ export interface Ctx {
   code?: string;
   /** True when the caller knows the latest run of the attached code failed. */
   lastRunFailed?: boolean;
+  /** Attached research challenge id, set from /research/<id>. */
+  researchId?: string;
+  /** Attached lab id, set from /labs/<id>. */
+  labId?: string;
 }
 
 interface Answer {
@@ -1229,6 +1241,170 @@ function answerLabs(): Answer {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Research + lab context answers
+//
+// `routeContext` attaches /research/<id> and /labs/<id>; these builders answer
+// the chips generated for those surfaces from the stored challenge/lab record,
+// the theory notes, and the same metric semantics the scorers apply. Research
+// and lab ids are not catalogue ids, so these answers never cite.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RESEARCH_BY_ID: ReadonlyMap<string, ResearchChallenge> = new Map(
+  RESEARCH_CHALLENGES.map((challenge) => [challenge.id, challenge]),
+);
+
+const LAB_BY_ID: ReadonlyMap<string, Lab> = new Map(
+  LABS.map((lab) => [lab.id, lab]),
+);
+
+function findResearchChallenge(id?: string): ResearchChallenge | null {
+  return id ? RESEARCH_BY_ID.get(id) ?? null : null;
+}
+
+function findLab(id?: string): Lab | null {
+  return id ? LAB_BY_ID.get(id) ?? null : null;
+}
+
+/** Short label for a scoring metric, shared by research and lab answers. */
+function metricName(metric: ResearchMetric): string {
+  switch (metric) {
+    case "accuracy":
+      return "accuracy";
+    case "f1":
+      return "F1";
+    case "mse":
+      return "MSE";
+    case "r2":
+      return "R²";
+  }
+}
+
+/** Four decimals, trailing zeros trimmed — "0.6667", "0.3", "400". */
+function formatMetric(value: number): string {
+  return String(Number(value.toFixed(4)));
+}
+
+/** The rule the scorer applies, mirroring the harness metric branches. */
+function metricSemantics(metric: ResearchMetric): string {
+  switch (metric) {
+    case "accuracy":
+      return "predictions are rounded to the nearest integer and compared with the labels, and the score is the fraction of hidden rows that match";
+    case "f1":
+      return "predictions are rounded to the nearest integer, then F1 is computed for the positive class as 2*TP / (2*TP + FP + FN)";
+    case "mse":
+      return "each prediction is compared with its label and the squared errors are averaged over the hidden rows";
+    case "r2":
+      return "the score is 1 - SS_res/SS_tot over the hidden rows, and 0 when the labels have no variance";
+  }
+}
+
+function metricPrompt(metric: ResearchMetric): string {
+  return `How is ${metricName(metric)} scored?`;
+}
+
+function answerResearchBaseline(challenge: ResearchChallenge): Answer {
+  const theory = getResearchTheory(challenge.id);
+  const section =
+    theory?.sections.find((entry) => /baseline/i.test(entry.heading)) ??
+    theory?.sections.find((entry) => /baseline/i.test(entry.body));
+  const note = section
+    ? clipLine(section.body, 220)
+    : theory
+      ? clipLine(theory.premise, 220)
+      : null;
+  const lines = [
+    `${challenge.title} — baseline: ${challenge.baselineName} at ` +
+      `${formatMetric(challenge.baselineScore)} ${metricName(challenge.metric)}. ` +
+      `${challenge.higherIsBetter ? "Higher" : "Lower"} is better, and the ` +
+      "comparison is strict: a tie scores as a loss.",
+  ];
+  if (note) lines.push(note);
+  return { text: lines.join(" "), citations: [] };
+}
+
+function answerResearchMetric(challenge: ResearchChallenge): Answer {
+  return {
+    text:
+      `${challenge.title} is scored on ${metricName(challenge.metric)} ` +
+      `(${challenge.higherIsBetter ? "higher" : "lower"} is better) over ` +
+      `${challenge.testData.features.length} hidden test rows: ` +
+      `${metricSemantics(challenge.metric)}. ` +
+      "Your solve(train_X, train_y, test_X) returns one prediction per test " +
+      "row, and the harness scores them locally in the browser.",
+    citations: [],
+  };
+}
+
+function answerResearchHint(challenge: ResearchChallenge): Answer {
+  return {
+    text: `Hint for ${challenge.title}: ${challenge.hint}`,
+    citations: [],
+  };
+}
+
+function answerResearchData(challenge: ResearchChallenge): Answer {
+  const features = challenge.trainData.features[0]?.length ?? 0;
+  return {
+    text:
+      `${challenge.title} — ${challenge.trainData.features.length} training ` +
+      `rows, ${challenge.testData.features.length} hidden test rows, ` +
+      `${features} feature${features === 1 ? "" : "s"} per row. ` +
+      clipLine(challenge.datasetDescription, 260),
+    citations: [],
+  };
+}
+
+function answerLabTarget(lab: Lab): Answer {
+  const bound = lab.higherIsBetter ? "at least" : "at most";
+  return {
+    text:
+      `${lab.title} scores your predict() on ` +
+      `${lab.testData.features.length} held-out rows, and a run passes when ` +
+      `${metricName(lab.metric)} is ${bound} ${formatMetric(lab.target)} ` +
+      `(baseline ${formatMetric(lab.baseline)}, ` +
+      `${lab.higherIsBetter ? "higher" : "lower"} is better). ` +
+      "The best score is kept in this browser.",
+    citations: [],
+  };
+}
+
+function answerLabTeach(lab: Lab): Answer {
+  const theory = getLabTheory(lab.id);
+  return {
+    text:
+      `${lab.title} (${lab.category}, ${lab.difficulty}): ` +
+      `${theory?.teaches ?? lab.blurb} ` +
+      "You implement predict(train_X, train_y, test_X) and are scored on " +
+      `${metricName(lab.metric)} against a target of ${formatMetric(lab.target)}.`,
+    citations: [],
+  };
+}
+
+function answerLabHint(lab: Lab): Answer {
+  return {
+    text: `Hint for ${lab.title}: ${lab.hint}`,
+    citations: [],
+  };
+}
+
+function answerLabTime(lab: Lab): Answer {
+  const minutes = Math.floor(lab.timeLimitSeconds / 60);
+  const seconds = lab.timeLimitSeconds % 60;
+  const limit =
+    seconds === 0
+      ? `${minutes} minute${minutes === 1 ? "" : "s"}`
+      : `${minutes} min ${seconds} s`;
+  return {
+    text:
+      `A ${lab.title} run gets ${limit} (${lab.timeLimitSeconds} seconds) to ` +
+      `score ${lab.testData.features.length} held-out rows. The clock starts ` +
+      "when you press start, counts down live, and the run locks when it " +
+      "expires — reset it to try again.",
+    citations: [],
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Contextual prompt answers
 //
 // Chips generated by `contextPrompts` must answer from the attached context
@@ -1251,6 +1427,12 @@ const PROMPT_WHY_FAILING = normalizePromptText("Why is my code failing?");
 const PROMPT_WALKTHROUGH = normalizePromptText("Walk through my approach");
 const PROMPT_EDGE_CASES = normalizePromptText("What edge cases am I missing?");
 const PROMPT_SIMILAR = normalizePromptText("Find me a similar problem");
+const PROMPT_RESEARCH_BASELINE = normalizePromptText("What's the baseline?");
+const PROMPT_RESEARCH_DATA = normalizePromptText("What does the data look like?");
+const PROMPT_LAB_TARGET = normalizePromptText("What's the target?");
+const PROMPT_LAB_TEACH = normalizePromptText("What does this lab teach?");
+const PROMPT_LAB_TIME = normalizePromptText("How long is the run?");
+const PROMPT_HINT = normalizePromptText("Give me a hint");
 
 /** Cite the attached problem only when the id is a real catalogue entry. */
 function contextCitations(ctx: Ctx): string[] {
@@ -1416,6 +1598,42 @@ function contextualAnswer(q: string, ctx: Ctx): ContextualAnswer | null {
   }
   if (text === PROMPT_SIMILAR) {
     return { intent: "next", answer: answerSimilar(ctx) };
+  }
+
+  const research = findResearchChallenge(ctx.researchId);
+  const lab = findLab(ctx.labId);
+
+  if (research) {
+    if (text === PROMPT_RESEARCH_BASELINE) {
+      return { intent: "research", answer: answerResearchBaseline(research) };
+    }
+    if (text === normalizePromptText(metricPrompt(research.metric))) {
+      return { intent: "research", answer: answerResearchMetric(research) };
+    }
+    if (text === PROMPT_RESEARCH_DATA) {
+      return { intent: "research", answer: answerResearchData(research) };
+    }
+  }
+
+  if (lab) {
+    if (text === PROMPT_LAB_TARGET) {
+      return { intent: "labs", answer: answerLabTarget(lab) };
+    }
+    if (text === PROMPT_LAB_TEACH) {
+      return { intent: "labs", answer: answerLabTeach(lab) };
+    }
+    if (text === PROMPT_LAB_TIME) {
+      return { intent: "labs", answer: answerLabTime(lab) };
+    }
+  }
+
+  if (text === PROMPT_HINT) {
+    if (research) {
+      return { intent: "research", answer: answerResearchHint(research) };
+    }
+    if (lab) {
+      return { intent: "labs", answer: answerLabHint(lab) };
+    }
   }
 
   const problem = ctx.problem;
@@ -1621,9 +1839,28 @@ const DEFAULT_CONTEXT_PROMPTS: readonly string[] = [
 ];
 
 /**
+ * Route-attached context for the /research/<id> and /labs/<id> surfaces.
+ * Pure — parses the pathname only, reads no store. The id is attached even
+ * when it is not a known challenge/lab; `contextPrompts` and the answer
+ * router validate it and fall back to the generic state.
+ */
+export function routeContext(pathname?: string | null): Ctx {
+  const [section, id, ...rest] = (pathname ?? "")
+    .split(/[?#]/)[0]
+    .split("/")
+    .filter(Boolean);
+  if (rest.length > 0 || !id) return {};
+  if (section === "research") return { researchId: id };
+  if (section === "labs") return { labId: id };
+  return {};
+}
+
+/**
  * Deterministic prompt chips for the current context. Pure — no store reads,
  * no retrieval: the same ctx always yields the same ordered list.
  *
+ * - research challenge → four challenge-focused prompts (metric-aware)
+ * - lab → four lab-focused prompts
  * - no problem → the six existing default prompts (unchanged)
  * - problem, no code → four problem-focused prompts, title-aware
  * - problem + code → four code-focused prompts (still title-aware); the debug
@@ -1631,6 +1868,26 @@ const DEFAULT_CONTEXT_PROMPTS: readonly string[] = [
  *   run failed (`ctx.lastRunFailed === true`).
  */
 export function contextPrompts(ctx: Ctx = {}): string[] {
+  const research = findResearchChallenge(ctx.researchId);
+  if (research) {
+    return [
+      "What's the baseline?",
+      metricPrompt(research.metric),
+      "Give me a hint",
+      "What does the data look like?",
+    ];
+  }
+
+  const lab = findLab(ctx.labId);
+  if (lab) {
+    return [
+      "What's the target?",
+      "What does this lab teach?",
+      "Give me a hint",
+      "How long is the run?",
+    ];
+  }
+
   const problem = ctx.problem;
   if (!problem) return [...DEFAULT_CONTEXT_PROMPTS];
 
