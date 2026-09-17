@@ -97,6 +97,7 @@ const NAVIGATION_FALLBACKS = [
   { prefix: "/interview/", fallback: "/interview" },
   { prefix: "/paths/", fallback: "/paths" },
   { prefix: "/problems/", fallback: "/problems" },
+  { prefix: "/projects/", fallback: "/projects" },
   { prefix: "/verify/", fallback: "/verify" },
   { prefix: "/", fallback: "/" },
 ];

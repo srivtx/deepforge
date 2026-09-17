@@ -107,6 +107,12 @@ const DYNAMIC_ROUTES: DynamicRoute[] = [
     reason: "problem index lists all problems",
   },
   {
+    dir: "projects/[id]",
+    prefix: "/projects/",
+    fallback: "/projects",
+    reason: "project index lists all builds",
+  },
+  {
     dir: "verify/[code]",
     prefix: "/verify/",
     fallback: "/verify",
