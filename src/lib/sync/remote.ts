@@ -14,6 +14,7 @@ import { AGENTIC_SPEC, mergeAgenticAttempts } from "@/lib/agenticRound";
 import { BUG_HUNT_SPEC, mergeBugHunt } from "@/lib/bugHunt";
 import { COLLECTIONS_SPEC } from "@/lib/collections";
 import { CONCEPTS_SPEC, mergeConcepts } from "@/lib/concepts";
+import { PAPERS_SPEC, mergePapers } from "@/lib/papers";
 import { CONTEST_SPEC } from "@/lib/contestStore";
 import { DAILY_SPEC, getDailyState } from "@/lib/daily";
 import {
@@ -152,6 +153,7 @@ const ALL_STORE_IDS: StoreId[] = [
   "interview",
   "penpaper",
   "concepts",
+  "papers",
   "labs",
   "research",
   "reviews",
@@ -205,6 +207,7 @@ const STORE_SPECS: Record<StoreId, StoreSpec<any>> = {
   interview: INTERVIEW_SPEC,
   penpaper: PENPAPER_SPEC,
   concepts: CONCEPTS_SPEC,
+  papers: PAPERS_SPEC,
   labs: LAB_SPEC,
   research: RESEARCH_SPEC,
   reviews: REVIEWS_SPEC,
@@ -415,6 +418,8 @@ function mergeStoreValue(id: StoreId, local: any, remote: any): any {
       return mergePenPaper(local ?? {}, remote ?? {});
     case "concepts":
       return mergeConcepts(local ?? {}, remote ?? {});
+    case "papers":
+      return mergePapers(local, remote);
     case "labs":
       return mergeLabs(local ?? {}, remote ?? {});
     case "research":

@@ -19,6 +19,7 @@ export type NavItemId =
   | "paths"
   | "projects"
   | "articles"
+  | "papers"
   | "penpaper"
   | "interview"
   | "daily"
@@ -46,6 +47,7 @@ const NAV_ITEM_LABELS: Record<NavItemId, string> = {
   paths: "Paths",
   projects: "Projects",
   articles: "Articles",
+  papers: "Papers",
   penpaper: "Pen & Paper",
   interview: "Interview Prep",
   daily: "Daily Challenge",
@@ -86,7 +88,7 @@ export const NAV_MENUS: NavMenu[] = [
     label: "Learn",
     groups: [
       {
-        items: ["problems", "paths", "projects", "articles", "penpaper", "interview"],
+        items: ["problems", "paths", "projects", "articles", "papers", "penpaper", "interview"],
       },
     ],
   },
@@ -124,7 +126,7 @@ export const NAV_MENUS: NavMenu[] = [
 export const MOBILE_NAV_GROUPS: { label: string; items: NavItemId[] }[] = [
   {
     label: "Learn",
-    items: ["problems", "paths", "projects", "articles", "penpaper", "interview"],
+    items: ["problems", "paths", "projects", "articles", "papers", "penpaper", "interview"],
   },
   {
     label: "Practice",

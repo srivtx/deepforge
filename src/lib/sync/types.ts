@@ -14,6 +14,7 @@ export type StoreId =
   | "interview"
   | "penpaper"
   | "concepts"
+  | "papers"
   | "labs"
   | "research"
   | "reviews"

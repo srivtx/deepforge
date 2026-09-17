@@ -133,6 +133,7 @@ describe("matching", () => {
     // All "Open …" labels prefix-match; shorter labels first, then the two
     // 20-char labels in registry order.
     expect(matchQuickActions("open").map((action) => action.id)).toEqual([
+      "papers",
       "lab-trails",
       "labs",
       "today-session",

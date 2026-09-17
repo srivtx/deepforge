@@ -97,13 +97,14 @@ describe("searchGlobal", () => {
   });
 
   test("ranks across groups in canonical group order", () => {
-    // "attention" matches one collection and two articles: Collections must
-    // precede Articles, and inside Articles a title-prefix match must beat a
-    // mid-word one.
+    // "attention" matches one collection, two articles, and one paper:
+    // Collections must precede Articles, Articles must precede Papers, and
+    // inside Articles a title-prefix match must beat a mid-word one.
     const results = searchGlobal("attention", 10);
     expect(results.map((result) => result.group)).toEqual([
       "Collections",
       "Articles",
+      "Papers",
     ]);
     expect(groupOf(results, "Collections").map((item) => item.title)).toEqual([
       "Attention Is All You Need",
@@ -111,6 +112,10 @@ describe("searchGlobal", () => {
     expect(groupOf(results, "Articles").map((item) => item.title)).toEqual([
       "Attention Is a Heatmap",
       "KV Cache & FlashAttention",
+    ]);
+    expect(groupOf(results, "Papers").map((item) => item.title)).toEqual([
+      "Native Sparse Attention: Hardware-Aligned and Natively Trainable Sparse Attention",
+      "DeepSeek-V3.2-Exp: Boosting Long-Context Efficiency with DeepSeek Sparse Attention",
     ]);
   });
 

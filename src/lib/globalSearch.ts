@@ -16,6 +16,7 @@ import { ARTICLE_INDEX } from "@/data/articleIndex";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
 import { LABS } from "@/data/labs";
+import { PAPERS, ERA_LABELS } from "@/data/papers";
 import { POSTS } from "@/data/blog";
 import { RESEARCH_CHALLENGES } from "@/data/research";
 import { getAllPaths } from "@/lib/paths";
@@ -29,6 +30,7 @@ export type GlobalSearchGroup =
   | "Blog"
   | "Categories"
   | "Research"
+  | "Papers"
   | "Labs";
 
 export interface GlobalSearchItem {
@@ -57,6 +59,7 @@ export const GLOBAL_SEARCH_GROUPS: readonly GlobalSearchGroup[] = [
   "Blog",
   "Categories",
   "Research",
+  "Papers",
   "Labs",
 ];
 
@@ -152,6 +155,22 @@ const RESEARCH_ITEMS: GlobalSearchItem[] = RESEARCH_CHALLENGES.map(
   }),
 );
 
+/** Every paper in the curriculum, searchable by title, era, and tagline. */
+const PAPER_ITEMS: GlobalSearchItem[] = PAPERS.map((paper) => ({
+  id: paper.id,
+  title: paper.title,
+  subtitle: `${paper.year} · ${ERA_LABELS[paper.era]}`,
+  href: `/papers/${paper.slug}`,
+  keywords: [
+    paper.short,
+    paper.tagline,
+    ERA_LABELS[paper.era],
+    paper.kind,
+    String(paper.year),
+    ...(paper.arxivId ? [paper.arxivId] : []),
+  ],
+}));
+
 /** Palette-only terms per lab: topic and blurb words. */
 const LAB_KEYWORDS: Record<string, readonly string[]> = {
   "lab-01": [
@@ -185,6 +204,7 @@ const INDEX: Record<GlobalSearchGroup, readonly GlobalSearchItem[]> = {
   Blog: BLOG_ITEMS,
   Categories: CATEGORY_ITEMS,
   Research: RESEARCH_ITEMS,
+  Papers: PAPER_ITEMS,
   Labs: LAB_ITEMS,
 };
 

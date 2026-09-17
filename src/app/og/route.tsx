@@ -15,6 +15,7 @@ const KIND_LABELS: Record<string, string> = {
   home: "Home",
   research: "Research",
   lab: "Lab",
+  paper: "Paper",
 };
 
 const DIFFICULTY_STYLES: Record<
