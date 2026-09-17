@@ -29,6 +29,7 @@ const STATIC_ROUTES: Record<string, string> = {
   blog: "/blog",
   certificates: "/certificates",
   collections: "/collections",
+  concepts: "/concepts",
   contests: "/contests",
   daily: "/daily",
   discuss: "/discuss",
@@ -61,6 +62,11 @@ interface DynamicRoute {
   /** Why this fallback is the correct one. */
   reason: string;
 }
+
+/** Static pages nested under another route directory (not dynamic). */
+const NESTED_STATIC_ROUTES: Record<string, string> = {
+  "labs/trails": "/labs/trails",
+};
 
 const DYNAMIC_ROUTES: DynamicRoute[] = [
   {
@@ -95,6 +101,12 @@ const DYNAMIC_ROUTES: DynamicRoute[] = [
     reason: "track index lists all company tracks",
   },
   {
+    dir: "labs/[id]",
+    prefix: "/labs/",
+    fallback: "/labs",
+    reason: "lab index lists every hands-on challenge",
+  },
+  {
     dir: "paths/[slug]",
     prefix: "/paths/",
     fallback: "/paths",
@@ -111,6 +123,12 @@ const DYNAMIC_ROUTES: DynamicRoute[] = [
     prefix: "/projects/",
     fallback: "/projects",
     reason: "project index lists all builds",
+  },
+  {
+    dir: "research/[id]",
+    prefix: "/research/",
+    fallback: "/research",
+    reason: "research index lists all challenges",
   },
   {
     dir: "verify/[code]",
@@ -161,6 +179,7 @@ function unclassifiedRouteDirs(dirs: string[]): string[] {
 function unclassifiedNestedDirs(dirs: string[]): string[] {
   const classified = new Set<string>([
     ...DYNAMIC_ROUTES.map((route) => route.dir),
+    ...Object.keys(NESTED_STATIC_ROUTES),
     ...Object.keys(EXCLUDED_NESTED_DIRS),
   ]);
   return dirs.filter((dir) => !classified.has(dir)).sort();
@@ -231,6 +250,9 @@ describe("route classification", () => {
       expect(dirs.has(route.dir.split("/")[0])).toBe(true);
       expect(statSync(join(APP_DIR, route.dir)).isDirectory()).toBe(true);
     }
+    for (const dir of Object.keys(NESTED_STATIC_ROUTES)) {
+      expect(statSync(join(APP_DIR, dir, "page.tsx")).isFile()).toBe(true);
+    }
     for (const dir of Object.keys(EXCLUDED_ROUTE_DIRS)) {
       expect(dirs.has(dir)).toBe(true);
     }
@@ -289,7 +311,13 @@ describe("service worker fallback tables", () => {
 
   test("precache list is exactly the static route inventory", () => {
     const precache = swStringArray("PRECACHE_ROUTES");
-    const expected = [...new Set(["/", ...Object.values(STATIC_ROUTES)])].sort();
+    const expected = [
+      ...new Set([
+        "/",
+        ...Object.values(STATIC_ROUTES),
+        ...Object.values(NESTED_STATIC_ROUTES),
+      ]),
+    ].sort();
     expect(precache).toHaveLength(expected.length);
     expect([...precache].sort()).toEqual(expected);
   });

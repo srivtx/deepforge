@@ -3,7 +3,9 @@ import { ARTICLES } from "@/data/articles";
 import { POSTS } from "@/data/blog";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
+import { LABS } from "@/data/labs";
 import { PROJECTS } from "@/data/projects";
+import { RESEARCH_CHALLENGES } from "@/data/research";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getAllPaths, pathSlug } from "@/lib/paths";
@@ -25,6 +27,7 @@ const ROUTES = [
   { path: "/today", changeFrequency: "daily", priority: 0.7 },
   { path: "/projects", changeFrequency: "weekly", priority: 0.8 },
   { path: "/labs", changeFrequency: "weekly", priority: 0.8 },
+  { path: "/labs/trails", changeFrequency: "weekly", priority: 0.8 },
   { path: "/contests", changeFrequency: "weekly", priority: 0.8 },
   { path: "/speedrun", changeFrequency: "weekly", priority: 0.7 },
   { path: "/research", changeFrequency: "weekly", priority: 0.8 },
@@ -38,6 +41,7 @@ const ROUTES = [
   { path: "/playlists", changeFrequency: "weekly", priority: 0.7 },
   { path: "/interview", changeFrequency: "weekly", priority: 0.8 },
   { path: "/math", changeFrequency: "weekly", priority: 0.8 },
+  { path: "/concepts", changeFrequency: "weekly", priority: 0.8 },
   { path: "/articles", changeFrequency: "weekly", priority: 0.8 },
   { path: "/blog", changeFrequency: "weekly", priority: 0.7 },
   { path: "/sims", changeFrequency: "weekly", priority: 0.7 },
@@ -115,6 +119,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
     ...INTERVIEW_TRACKS.map((track) => ({
       url: `${siteUrl}/interview/${track.id}`,
+      lastModified: LAST_MODIFIED,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
+    ...LABS.map((lab) => ({
+      url: `${siteUrl}/labs/${lab.id}`,
+      lastModified: LAST_MODIFIED,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
+    ...RESEARCH_CHALLENGES.map((challenge) => ({
+      url: `${siteUrl}/research/${challenge.id}`,
       lastModified: LAST_MODIFIED,
       changeFrequency: "weekly" as const,
       priority: 0.7,

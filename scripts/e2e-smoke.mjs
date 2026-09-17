@@ -15,7 +15,7 @@ const ROUTES = [
   "/", "/problems", "/paths", "/daily", "/projects", "/labs", "/contests",
   "/speedrun", "/research", "/leaderboard", "/badges", "/stats", "/certificates",
   "/backup", "/collections", "/playlists", "/interview", "/math", "/articles",
-  "/sims", "/discuss", "/submit", "/playground", "/about",
+  "/sims", "/discuss", "/submit", "/playground", "/about", "/concepts",
 ];
 
 const ERROR_TITLE_RE = /^(404|500|403)\b|internal server error|application error/i;
@@ -372,8 +372,64 @@ record("article: kernel question", kernelQuestion, softmaxArticle.url,
   '"Predict the readout" block missing');
 line(kernelQuestion, `GET /articles/why-softmax-needs-temperature  kernel=${kernelQuestion ? "yes" : "NO"}`);
 
-// --- 13. Summary -------------------------------------------------------------
-console.log("\n[13/13] Summary");
+// --- 13. Wave-33 surfaces (research + labs detail, trails, concepts) --------
+console.log("\n[13/14] Wave-33 surfaces");
+const researchIndex = await get("/research");
+const researchLinks = count(researchIndex.body, /href="\/research\/[a-z0-9-]+"/g);
+record("research: index links to detail pages", researchLinks >= 5, researchIndex.url,
+  `expected >= 5 detail links, found ${researchLinks}`);
+line(researchLinks >= 5, `GET /research  detail-links=${researchLinks}`);
+const researchDetail = await get("/research/tabular-classification-showdown");
+const researchOk = researchDetail.status === 200 && !isErrorPage(researchDetail.body);
+const researchTheory = has(researchDetail.body, "Research notes");
+record("research: detail 200 + theory", researchOk && researchTheory, researchDetail.url,
+  `status=${researchDetail.status} theory=${researchTheory}`);
+line(researchOk && researchTheory, `GET /research/tabular-classification-showdown  status=${researchDetail.status} theory=${researchTheory ? "yes" : "NO"}`);
+const labsIndex = await get("/labs");
+const labLinks = count(labsIndex.body, /href="\/labs\/lab-\d+"/g);
+record("labs: index links to detail pages", labLinks >= 8, labsIndex.url,
+  `expected >= 8 lab links, found ${labLinks}`);
+line(labLinks >= 8, `GET /labs  lab-links=${labLinks}`);
+const labDetail = await get("/labs/lab-01");
+const labDetailOk = labDetail.status === 200 && !isErrorPage(labDetail.body);
+const labRules = has(labDetail.body, "Rules of the run");
+record("labs: detail 200 + rules", labDetailOk && labRules, labDetail.url,
+  `status=${labDetail.status} rules=${labRules}`);
+line(labDetailOk && labRules, `GET /labs/lab-01  status=${labDetail.status} rules=${labRules ? "yes" : "NO"}`);
+const trails = await get("/labs/trails");
+const trailsOk = trails.status === 200 && has(trails.body, "labs passed");
+record("labs: trails page", trailsOk, trails.url,
+  `status=${trails.status}`);
+line(trailsOk, `GET /labs/trails  status=${trails.status}`);
+const concepts = await get("/concepts");
+const conceptsOk =
+  concepts.status === 200 &&
+  has(concepts.body, "Linear Algebra") &&
+  has(concepts.body, 'id="concepts"');
+record("concepts: browse page", conceptsOk, concepts.url,
+  `status=${concepts.status} catalogue=${has(concepts.body, "Linear Algebra")}`);
+line(conceptsOk, `GET /concepts  status=${concepts.status}`);
+const sitemapWave33 =
+  has(sitemap.body, "/research/tabular-classification-showdown") &&
+  has(sitemap.body, "/labs/lab-01") &&
+  has(sitemap.body, "/labs/trails") &&
+  has(sitemap.body, "/concepts");
+record("sitemap: wave-33 routes", sitemapWave33, sitemap.url,
+  "missing one of /research/<id>, /labs/<id>, /labs/trails, /concepts");
+line(sitemapWave33, `GET /sitemap.xml  wave-33=${sitemapWave33 ? "yes" : "NO"}`);
+const labOg = await fetch(`${BASE_URL}/og?title=Lab&kind=lab&difficulty=Easy`, {
+  signal: AbortSignal.timeout(20000),
+}).catch(() => null);
+const labOgOk =
+  Boolean(labOg) &&
+  labOg.status === 200 &&
+  (labOg.headers.get("content-type") ?? "").includes("image/png");
+record("og: lab kind renders", labOgOk, `${BASE_URL}/og?kind=lab`,
+  `status=${labOg?.status ?? 0} type=${labOg?.headers.get("content-type") ?? "none"}`);
+line(labOgOk, `GET /og?kind=lab  status=${labOg?.status ?? 0}`);
+
+// --- 14. Summary -------------------------------------------------------------
+console.log("\n[14/14] Summary");
 const groupNames = [...new Set(checks.map((c) => c.group))];
 console.table(
   groupNames.map((group) => {
