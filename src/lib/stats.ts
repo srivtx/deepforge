@@ -10,13 +10,17 @@
  * cases yield 0 rather than NaN.
  */
 
+import { LABS } from "@/data/labs";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META, getCategoryCounts } from "@/data/problems/problem-meta";
+import { RESEARCH_CHALLENGES } from "@/data/research";
 import { getBadgeSnapshot, computeXp } from "@/lib/badges";
 import { getConceptStats } from "@/lib/concepts";
 import { getDailyDateKey } from "@/lib/daily";
+import { getLabRecords, meetsTarget, type LabRecords } from "@/lib/labs";
 import { getCurrentStreak, getLongestStreak } from "@/lib/leaderboard";
 import { getProgress } from "@/lib/progress";
+import { getResearchState, type ResearchState } from "@/lib/research";
 import {
   bucketOf,
   getReviewBucketCounts,
@@ -569,4 +573,177 @@ export function getReviewHealth(now: Date = new Date()): ReviewHealth {
   } catch {
     return emptyReviewHealth(safeNow);
   }
+}
+
+/* ─────────────────────────── labs & research ────────────────────────────── */
+
+/** Recent lab runs listed on the stats dashboard. */
+export const LAB_RECENT_LIMIT = 3;
+
+export interface LabStatEntry {
+  id: string;
+  title: string;
+  /** Best recorded score, or null when the lab has never produced one. */
+  best: number | null;
+  /** Catalogue target for the lab's metric. */
+  target: number;
+  /** Best score meets the target — direction-aware via `meetsTarget`. */
+  metTarget: boolean;
+  /** Sticky pass flag persisted by the lab store. */
+  passed: boolean;
+  attempts: number;
+  /** Metric value of the most recent scored run, when one is stored. */
+  lastScore: number | null;
+  /** ISO timestamp of the most recent scored run, when one is stored. */
+  lastScoredAt: string | null;
+}
+
+export interface LabStats {
+  /** Labs whose stored record carries `passed === true`. */
+  passed: number;
+  total: number;
+  /** Labs whose best score meets the target, per `meetsTarget`. */
+  metTarget: number;
+  /** Labs with at least one recorded run or best score. */
+  attempted: number;
+  /** One entry per catalogue lab, catalogue order. */
+  entries: LabStatEntry[];
+  /** Scored labs by most recent run, newest first, capped. */
+  recent: LabStatEntry[];
+}
+
+export interface ResearchStatEntry {
+  id: string;
+  title: string;
+  /** Hidden-test metric of the reference baseline. */
+  baselineScore: number;
+  bestScore: number | null;
+  beatenBaseline: boolean;
+  attempts: number;
+}
+
+export interface ResearchStats {
+  /** Challenges whose stored record carries `beatenBaseline === true`. */
+  beaten: number;
+  total: number;
+  /** Challenges with at least one recorded score or attempt. */
+  attempted: number;
+  /** One entry per catalogue challenge, catalogue order. */
+  entries: ResearchStatEntry[];
+}
+
+function finiteOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function isoOrNull(value: unknown): string | null {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value))
+    ? value
+    : null;
+}
+
+/** Zeroed lab shape for empty stores and server snapshots. */
+export function emptyLabStats(): LabStats {
+  return {
+    passed: 0,
+    total: LABS.length,
+    metTarget: 0,
+    attempted: 0,
+    entries: [],
+    recent: [],
+  };
+}
+
+/** Zeroed research shape for empty stores and server snapshots. */
+export function emptyResearchStats(): ResearchStats {
+  return {
+    beaten: 0,
+    total: RESEARCH_CHALLENGES.length,
+    attempted: 0,
+    entries: [],
+  };
+}
+
+/**
+ * Pure derivation over stored lab records: pass counts against the catalogue,
+ * direction-aware target comparison through the store's own `meetsTarget`,
+ * and the most recent scored runs. Missing or malformed entries degrade to
+ * zeros / nulls instead of throwing.
+ */
+export function deriveLabStats(records: LabRecords): LabStats {
+  const entries: LabStatEntry[] = LABS.map((lab) => {
+    const record = records[lab.id];
+    const best = finiteOrNull(record?.best);
+    const attempts = finiteOrNull(record?.attempts);
+    const lastScoredAt = isoOrNull(record?.lastScoredAt);
+    return {
+      id: lab.id,
+      title: lab.title,
+      best,
+      target: lab.target,
+      metTarget: best !== null && meetsTarget(lab, best),
+      passed: record?.passed === true,
+      attempts: attempts === null ? 0 : Math.max(0, Math.round(attempts)),
+      lastScore: lastScoredAt === null ? null : finiteOrNull(record?.lastScore),
+      lastScoredAt,
+    };
+  });
+
+  const recent = entries
+    .filter(
+      (entry): entry is LabStatEntry & { lastScoredAt: string } =>
+        entry.lastScoredAt !== null,
+    )
+    .sort((a, b) => Date.parse(b.lastScoredAt) - Date.parse(a.lastScoredAt))
+    .slice(0, LAB_RECENT_LIMIT);
+
+  return {
+    passed: entries.filter((entry) => entry.passed).length,
+    total: entries.length,
+    metTarget: entries.filter((entry) => entry.metTarget).length,
+    attempted: entries.filter(
+      (entry) => entry.best !== null || entry.attempts > 0,
+    ).length,
+    entries,
+    recent,
+  };
+}
+
+/**
+ * Pure derivation over the stored research state: per-challenge best scores
+ * and baseline flags against the catalogue, with a beaten count. Missing or
+ * malformed entries degrade to zeros / nulls instead of throwing.
+ */
+export function deriveResearchStats(state: ResearchState): ResearchStats {
+  const entries: ResearchStatEntry[] = RESEARCH_CHALLENGES.map((challenge) => {
+    const record = state?.[challenge.id];
+    return {
+      id: challenge.id,
+      title: challenge.title,
+      baselineScore: challenge.baselineScore,
+      bestScore: finiteOrNull(record?.bestScore),
+      beatenBaseline: record?.beatenBaseline === true,
+      attempts:
+        record && Array.isArray(record.attempts) ? record.attempts.length : 0,
+    };
+  });
+
+  return {
+    beaten: entries.filter((entry) => entry.beatenBaseline).length,
+    total: entries.length,
+    attempted: entries.filter(
+      (entry) => entry.bestScore !== null || entry.attempts > 0,
+    ).length,
+    entries,
+  };
+}
+
+/** Live lab progress from the local lab store. */
+export function getLabStats(): LabStats {
+  return deriveLabStats(getLabRecords());
+}
+
+/** Live research progress from the local research store. */
+export function getResearchStats(): ResearchStats {
+  return deriveResearchStats(getResearchState());
 }

@@ -33,20 +33,27 @@ import {
 import { REVIEWS_CHANGE_EVENT } from "@/lib/reviewQueue";
 import {
   MASTERY_WEIGHTS,
+  emptyLabStats,
+  emptyResearchStats,
   emptyReviewHealth,
   getActivityTrend,
   getCategoryBreakdown,
   getDifficultyBreakdown,
   getEstimatedMastery,
+  getLabStats,
   getOverview,
   getRecords,
+  getResearchStats,
   getReviewHealth,
   getTimeOfDay,
   type CategoryStat,
   type DifficultyStat,
+  type LabStatEntry,
+  type LabStats,
   type MasteryEstimate,
   type Overview,
   type Records,
+  type ResearchStats,
   type ReviewHealth,
   type TimeOfDayBucket,
   type TrendDay,
@@ -72,6 +79,8 @@ interface StatsData {
   records: Records;
   mastery: MasteryEstimate;
   reviewHealth: ReviewHealth;
+  labStats: LabStats;
+  researchStats: ResearchStats;
   readiness: ReadinessBreakdown;
   goal: ReadinessGoal;
   projection: ReadinessProjection;
@@ -110,6 +119,8 @@ const EMPTY_STATS: StatsData = {
   },
   mastery: { value: 0, coverage: 0, depth: 0, recency: 0 },
   reviewHealth: emptyReviewHealth(),
+  labStats: emptyLabStats(),
+  researchStats: emptyResearchStats(),
   readiness: { value: 0, coverage: 0, retention: 0, balance: 0, consistency: 0, rehearsal: 0 },
   goal: EMPTY_READINESS_GOAL,
   projection: EMPTY_READINESS_PROJECTION,
@@ -146,6 +157,8 @@ function buildStats(): StatsData {
     records: getRecords(),
     mastery: getEstimatedMastery(),
     reviewHealth: getReviewHealth(),
+    labStats: getLabStats(),
+    researchStats: getResearchStats(),
     readiness: getReadinessScore(),
     goal: getReadinessGoal(),
     projection: getReadinessProjection(),
@@ -218,6 +231,14 @@ function formatDateKey(key: string | null): string | null {
 function formatRate(value: number): string {
   const rounded = Math.round(value * 10) / 10;
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function formatScore(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  const magnitude = Math.abs(value);
+  if (magnitude >= 100) return value.toFixed(1);
+  if (magnitude >= 1) return value.toFixed(2);
+  return value.toFixed(3);
 }
 
 /* ────────────────────────────── micro views ─────────────────────────────── */
@@ -1371,6 +1392,152 @@ function PracticeMix({ overview }: { overview: Overview }) {
   );
 }
 
+function LabActivityRow({ entry }: { entry: LabStatEntry }) {
+  const scored = formatDate(entry.lastScoredAt);
+  const best = formatScore(entry.best);
+  return (
+    <li>
+      <Link
+        href={`/labs/${entry.id}`}
+        aria-label={`${entry.title}: best ${best}, target ${entry.target}${
+          scored ? `, last scored ${scored}` : ""
+        } — open lab`}
+        className="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-canvas px-3 py-2 transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+      >
+        <span className="min-w-0 flex-1 truncate text-xs text-ink">
+          {entry.title}
+        </span>
+        <span className="shrink-0 text-right">
+          <span
+            className={cn(
+              "block font-mono text-xs",
+              entry.metTarget ? "text-accent" : "text-ink",
+            )}
+          >
+            {best}
+          </span>
+          <span className="block text-[10px] text-body-mid">
+            {scored ?? "no recent run"}
+          </span>
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+function LabProgressCard({ labs }: { labs: LabStats }) {
+  return (
+    <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-medium text-ink">Labs</h3>
+        <span className="font-mono text-[10px] text-body-mid">
+          {labs.passed}/{labs.total} passed · {labs.metTarget} at target
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-body-mid">
+        Best held-out score per run, scored in your browser.
+      </p>
+
+      {labs.recent.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-hairline bg-canvas px-4 py-6 text-center text-xs text-body-mid">
+          {labs.attempted > 0
+            ? "Scored lab runs appear here with their latest timestamp."
+            : "No lab runs recorded yet."}
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {labs.recent.map((entry) => (
+            <LabActivityRow key={entry.id} entry={entry} />
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
+        <Link
+          href="/labs"
+          className="text-accent hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+        >
+          All labs
+        </Link>
+        <Link
+          href="/labs/trails"
+          className="text-accent hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+        >
+          Lab trails
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function ResearchProgressCard({ research }: { research: ResearchStats }) {
+  return (
+    <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-medium text-ink">Research challenges</h3>
+        <span className="font-mono text-[10px] text-body-mid">
+          {research.beaten}/{research.total} baselines beaten
+          {research.attempted > 0 ? ` · ${research.attempted} attempted` : ""}
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-body-mid">
+        Best hidden-test score per challenge from your local runs.
+      </p>
+
+      {research.attempted === 0 ? (
+        <p className="mt-4 rounded-lg border border-hairline bg-canvas px-4 py-6 text-center text-xs text-body-mid">
+          No submissions recorded yet — run any challenge to start a best
+          score.
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {research.entries.map((entry) => {
+            const best =
+              entry.bestScore !== null ? formatScore(entry.bestScore) : "—";
+            return (
+              <li key={entry.id}>
+                <Link
+                  href={`/research/${entry.id}`}
+                  aria-label={`${entry.title}: best ${best}, baseline ${formatScore(
+                    entry.baselineScore,
+                  )}${entry.beatenBaseline ? ", beaten" : ""} — open challenge`}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-canvas px-3 py-2 transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                >
+                  <span className="min-w-0 flex-1 truncate text-xs text-ink">
+                    {entry.title}
+                  </span>
+                  <span className="shrink-0 font-mono text-[10px]">
+                    <span
+                      className={cn(
+                        entry.beatenBaseline ? "text-accent" : "text-ink",
+                      )}
+                    >
+                      {best}
+                    </span>
+                    <span className="text-body-mid">
+                      {" "}
+                      base {formatScore(entry.baselineScore)}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div className="mt-3 text-[10px]">
+        <Link
+          href="/research"
+          className="text-accent hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+        >
+          All research challenges
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────────── component ──────────────────────────────── */
 
 export function StatsDashboard() {
@@ -1388,6 +1555,8 @@ export function StatsDashboard() {
     records,
     mastery,
     reviewHealth,
+    labStats,
+    researchStats,
     readiness,
     goal,
     projection,
@@ -1495,6 +1664,11 @@ export function StatsDashboard() {
           <TimeOfDayChart buckets={timeOfDay} />
         </div>
         <PracticeMix overview={overview} />
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <LabProgressCard labs={labStats} />
+        <ResearchProgressCard research={researchStats} />
       </div>
     </section>
   );
