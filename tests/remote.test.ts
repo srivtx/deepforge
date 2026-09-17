@@ -1199,3 +1199,97 @@ describe("auth", () => {
     expect(result.error).toBe("Sync is not configured.");
   });
 });
+
+/* ───────────────────────── concept review sync ──────────────────────────── */
+
+describe("concepts store sync", () => {
+  test("merges the newer concept schedule on pull and dispatches the event", async () => {
+    const { client, db } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+    enableSession();
+
+    const older = {
+      ease: 2.5,
+      interval: 1,
+      due: "2026-01-10",
+      reps: 0,
+      lapses: 0,
+    };
+    const newer = {
+      ease: 2.3,
+      interval: 6,
+      due: "2026-02-01",
+      reps: 2,
+      lapses: 0,
+    };
+    stub.setItem(
+      "deepforge:concepts:v1",
+      JSON.stringify({ "la-vectors": older }),
+    );
+    db.userStores.set("u-1:concepts", {
+      user_id: "u-1",
+      store_id: "concepts",
+      data: { "la-vectors": newer, "la-matrix-ops": newer },
+      updated_at: "2026-02-01T00:00:00.000Z",
+    });
+
+    await remotePull("concepts");
+
+    const stored = JSON.parse(stub.getItem("deepforge:concepts:v1") as string);
+    expect(stored["la-vectors"].due).toBe("2026-02-01");
+    expect(stored["la-matrix-ops"].due).toBe("2026-02-01");
+    expect(dispatched).toContain("deepforge:concepts-change");
+  });
+
+  test("syncNow pushes the concepts row like every other synced store", async () => {
+    const { client, db } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+    enableSession();
+
+    stub.setItem(
+      "deepforge:concepts:v1",
+      JSON.stringify({
+        "la-vectors": {
+          ease: 2.5,
+          interval: 1,
+          due: "2026-01-15",
+          reps: 1,
+          lapses: 0,
+        },
+      }),
+    );
+
+    await syncNow();
+
+    const row = db.userStores.get("u-1:concepts");
+    expect(row).toBeTruthy();
+    expect(row.store_id).toBe("concepts");
+    expect(row.data["la-vectors"].due).toBe("2026-01-15");
+  });
+
+  test("first sign-in migrates the concepts store", async () => {
+    const { client, db } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+
+    await initRemoteSync();
+
+    expect(db.userStores.has("u-1:concepts")).toBe(true);
+  });
+
+  test("never throws on a malformed concepts payload", async () => {
+    const { client, db } = makeFakeClient(SESSION);
+    setRemoteClient(client);
+    enableSession();
+
+    db.userStores.set("u-1:concepts", {
+      user_id: "u-1",
+      store_id: "concepts",
+      data: ["not", "a", "map"],
+      updated_at: "2026-01-01T00:00:00.000Z",
+    });
+
+    await remotePull("concepts");
+
+    expect(stub.getItem("deepforge:concepts:v1")).toBe("{}");
+  });
+});

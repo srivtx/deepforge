@@ -3,9 +3,20 @@ import { CONCEPTS } from "@/data/concepts";
 import { PENPAPER_PROBLEMS } from "@/data/penpaper";
 import { PROBLEMS } from "@/data/problems";
 import {
-  gradeConcept,
+  CONCEPTS_CHANGE_EVENT,
+  CONCEPTS_SPEC,
+  CONCEPTS_STORAGE_KEY,
   getConceptState,
+  getConceptStates,
+  getConceptStats,
+  getDueConcepts,
+  gradeConcept,
+  isConceptUnlocked,
+  masteryOf,
+  mergeConcepts,
   type ConceptQuality,
+  type ConceptState,
+  type ConceptStateMap,
 } from "@/lib/concepts";
 
 function createStorageStub(): Storage {
@@ -195,5 +206,215 @@ describe("SM-2 scheduling", () => {
       high = gradeConcept("prob-basics", 5, FIXED_NOW);
     }
     expect(high.ease).toBe(2.8);
+  });
+});
+
+describe("store, parsing, and sanitization", () => {
+  function storage(): Storage {
+    return (globalScope.window as { localStorage: Storage }).localStorage;
+  }
+
+  test("invalid storage payloads read as an empty map", () => {
+    storage().setItem(CONCEPTS_STORAGE_KEY, "{not json");
+    expect(getConceptStates(FIXED_NOW)).toEqual({});
+    expect(CONCEPTS_SPEC.parse(null)).toEqual({});
+    expect(CONCEPTS_SPEC.parse("[]")).toEqual({});
+    expect(CONCEPTS_SPEC.parse("null")).toEqual({});
+    expect(CONCEPTS_SPEC.parse('"nope"')).toEqual({});
+  });
+
+  test("sanitizes out-of-band values instead of throwing", () => {
+    const parsed = CONCEPTS_SPEC.parse(
+      JSON.stringify({
+        good: { ease: 2.2, interval: 6, due: "2026-02-01", reps: 3, lapses: 1 },
+        bad: {
+          ease: "x",
+          interval: -5,
+          due: "not-a-date",
+          reps: 1.7,
+          lapses: Number.NaN,
+        },
+        junk: "not-a-state",
+        nil: null,
+      }),
+    );
+    expect(parsed.good).toEqual({
+      ease: 2.2,
+      interval: 6,
+      due: "2026-02-01",
+      reps: 3,
+      lapses: 1,
+    });
+    expect(parsed.bad.ease).toBe(2.5);
+    expect(parsed.bad.interval).toBe(0);
+    expect(parsed.bad.due).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(parsed.bad.reps).toBe(2);
+    expect(parsed.bad.lapses).toBe(0);
+    expect(parsed.junk).toBeUndefined();
+    expect(parsed.nil).toBeUndefined();
+  });
+
+  test("round-trips through the spec serializer", () => {
+    const states: ConceptStateMap = {
+      "la-vectors": {
+        ease: 2.6,
+        interval: 1,
+        due: "2026-01-15",
+        reps: 1,
+        lapses: 0,
+      },
+    };
+    expect(CONCEPTS_SPEC.parse(CONCEPTS_SPEC.serialize(states))).toEqual(states);
+  });
+
+  test("CONCEPTS_SPEC is the sync seam contract for the concepts store", () => {
+    expect(CONCEPTS_SPEC.id).toBe("concepts");
+    expect(CONCEPTS_SPEC.storageKey).toBe("deepforge:concepts:v1");
+    expect(CONCEPTS_SPEC.event).toBe(CONCEPTS_CHANGE_EVENT);
+    expect(CONCEPTS_SPEC.empty()).toEqual({});
+    expect(CONCEPTS_SPEC.parse(null)).toEqual({});
+  });
+
+  test("gradeConcept persists through the store and dispatches the change event", () => {
+    const events: string[] = [];
+    (
+      globalScope.window as { dispatchEvent: (event: Event) => boolean }
+    ).dispatchEvent = (event) => {
+      events.push((event as CustomEvent).type);
+      return true;
+    };
+    gradeConcept("la-vectors", 5, FIXED_NOW);
+    expect(events).toContain(CONCEPTS_CHANGE_EVENT);
+
+    const stored = JSON.parse(
+      storage().getItem(CONCEPTS_STORAGE_KEY) as string,
+    ) as ConceptStateMap;
+    expect(stored["la-vectors"].reps).toBe(1);
+    expect(stored["la-vectors"].due).toBe(addDaysToKey(TODAY_KEY, 1));
+  });
+
+  test("seeds state from pen paper solves through the store", () => {
+    storage().setItem(
+      "deepforge:penpaper:v1",
+      JSON.stringify({
+        "pp-002": {
+          attempted: true,
+          correct: true,
+          lastAt: "2026-01-10T00:00:00.000Z",
+        },
+      }),
+    );
+    const states = getConceptStates(FIXED_NOW);
+    expect(states["la-vectors"]).toEqual({
+      ease: 2.5,
+      interval: 1,
+      due: TODAY_KEY,
+      reps: 1,
+      lapses: 0,
+    });
+    const stored = JSON.parse(
+      storage().getItem(CONCEPTS_STORAGE_KEY) as string,
+    ) as ConceptStateMap;
+    expect(stored["la-vectors"].reps).toBe(1);
+  });
+});
+
+describe("due and unlock semantics", () => {
+  test("prerequisite-free concepts are unlocked and due; dependents start locked", () => {
+    const due = getDueConcepts(FIXED_NOW).map((concept) => concept.id);
+    expect(due).toContain("la-vectors");
+    expect(due).toContain("la-matrix-ops");
+    expect(due).not.toContain("la-determinants");
+
+    const dependent = CONCEPTS.find(
+      (concept) => concept.id === "la-determinants",
+    )!;
+    expect(isConceptUnlocked(dependent, {})).toBe(false);
+  });
+
+  test("two reps or 40% mastery unlocks a dependent concept", () => {
+    const dependent = CONCEPTS.find(
+      (concept) => concept.id === "la-determinants",
+    )!;
+    const base: ConceptState = {
+      ease: 2.5,
+      interval: 0,
+      due: TODAY_KEY,
+      reps: 0,
+      lapses: 0,
+    };
+    expect(
+      isConceptUnlocked(dependent, { "la-matrix-ops": { ...base, reps: 2 } }),
+    ).toBe(true);
+    expect(
+      isConceptUnlocked(dependent, { "la-matrix-ops": { ...base, interval: 9 } }),
+    ).toBe(true);
+    expect(
+      isConceptUnlocked(dependent, { "la-matrix-ops": { ...base, interval: 8 } }),
+    ).toBe(false);
+  });
+
+  test("getConceptStats counts due, unlocked, mastered, and total", () => {
+    const unlockedCount = CONCEPTS.filter(
+      (concept) => concept.prerequisites.length === 0,
+    ).length;
+
+    expect(getConceptStats(FIXED_NOW)).toEqual({
+      due: unlockedCount,
+      mastered: 0,
+      unlocked: unlockedCount,
+      total: CONCEPTS.length,
+    });
+
+    for (let i = 0; i < 4; i += 1) gradeConcept("la-vectors", 5, FIXED_NOW);
+    expect(getConceptStats(FIXED_NOW).mastered).toBe(1);
+    expect(masteryOf(getConceptState("la-vectors", FIXED_NOW))).toBe(100);
+  });
+});
+
+describe("remote merge (concepts)", () => {
+  const state = (overrides: Partial<ConceptState> = {}): ConceptState => ({
+    ease: 2.5,
+    interval: 1,
+    due: "2026-01-14",
+    reps: 0,
+    lapses: 0,
+    ...overrides,
+  });
+
+  test("keeps the entry with the later due date per concept and unions keys", () => {
+    const merged = mergeConcepts(
+      { a: state({ due: "2026-02-01", reps: 3 }), b: state({ reps: 2 }) },
+      { a: state({ due: "2026-03-01", reps: 1 }), c: state({ reps: 1 }) },
+    );
+    expect(merged.a.due).toBe("2026-03-01");
+    expect(merged.a.reps).toBe(1);
+    expect(merged.b.reps).toBe(2);
+    expect(merged.c.reps).toBe(1);
+  });
+
+  test("ties keep local and malformed payloads are dropped", () => {
+    const local: ConceptStateMap = { a: state({ reps: 4 }) };
+    const remote = {
+      a: state({ reps: 9 }),
+      bad: "not-a-state",
+      worse: 7,
+    } as unknown as ConceptStateMap;
+    const merged = mergeConcepts(local, remote);
+    expect(merged.a.reps).toBe(4);
+    expect(merged.bad).toBeUndefined();
+    expect(merged.worse).toBeUndefined();
+  });
+
+  test("tolerates partial, legacy, and malformed maps", () => {
+    for (const value of [null, undefined, 42, "junk", [], true]) {
+      expect(mergeConcepts(value as never, value as never)).toEqual({});
+    }
+    expect(
+      mergeConcepts(
+        { a: state(), bad: "x" as never },
+        { b: state({ due: "2026-02-02" }) },
+      ),
+    ).toEqual({ a: state(), b: state({ due: "2026-02-02" }) });
   });
 });

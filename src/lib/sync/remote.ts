@@ -11,6 +11,7 @@
  */
 
 import { COLLECTIONS_SPEC } from "@/lib/collections";
+import { CONCEPTS_SPEC, mergeConcepts } from "@/lib/concepts";
 import { CONTEST_SPEC } from "@/lib/contestStore";
 import { DAILY_SPEC, getDailyState } from "@/lib/daily";
 import {
@@ -119,8 +120,8 @@ const SYNC_CHANGE_EVENT = "deepforge:sync-change";
  * Store inventory, audited against every `deepforge:` key in `src/lib/`.
  *
  * Synced through `user_stores`: progress, daily, collections, contests,
- * interview, penpaper, labs (`deepforge:labs`, unversioned), research,
- * reviews, explanations, username.
+ * interview, penpaper, concepts, labs (`deepforge:labs`, unversioned),
+ * research, reviews, explanations, username.
  *
  * Local-only on purpose (keys that never travel through this engine):
  *   deepforge:avatar:v1          avatars.ts — device-local choice; photos use avatarStorage
@@ -129,7 +130,6 @@ const SYNC_CHANGE_EVENT = "deepforge:sync-change";
  *   deepforge:xp:v1              badges.ts — recomputed XP cache
  *   deepforge:quests:v1          badges.ts — local quest-completion markers
  *   deepforge:certificates:v1    certificates.ts — shareable via credential codes instead
- *   deepforge:concepts:v1        concepts.ts — local concept schedule (no spec/merge yet)
  *   deepforge:notebook:v1        notebook.ts — local code scratch cells
  *   deepforge:playlists:v1       playlists.ts — portable via share codes instead
  *   deepforge:readiness-goal:v1  readiness.ts — device-level target-date plan
@@ -149,6 +149,7 @@ const ALL_STORE_IDS: StoreId[] = [
   "contests",
   "interview",
   "penpaper",
+  "concepts",
   "labs",
   "research",
   "reviews",
@@ -199,6 +200,7 @@ const STORE_SPECS: Record<StoreId, StoreSpec<any>> = {
   contests: CONTEST_SPEC,
   interview: INTERVIEW_SPEC,
   penpaper: PENPAPER_SPEC,
+  concepts: CONCEPTS_SPEC,
   labs: LAB_SPEC,
   research: RESEARCH_SPEC,
   reviews: REVIEWS_SPEC,
@@ -405,6 +407,8 @@ function mergeStoreValue(id: StoreId, local: any, remote: any): any {
       return mergeInterview(local, remote);
     case "penpaper":
       return mergePenPaper(local ?? {}, remote ?? {});
+    case "concepts":
+      return mergeConcepts(local ?? {}, remote ?? {});
     case "labs":
       return mergeLabs(local ?? {}, remote ?? {});
     case "research":

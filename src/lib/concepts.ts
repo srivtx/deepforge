@@ -1,8 +1,10 @@
 import { CONCEPTS, type Concept } from "@/data/concepts";
 import { getDailyDateKey } from "@/lib/daily";
 import { getPenPaperProgress } from "@/lib/penpaper";
+import { createStore } from "@/lib/sync/store";
+import type { StoreSpec } from "@/lib/sync/types";
 
-const STORAGE_KEY = "deepforge:concepts:v1";
+export const CONCEPTS_STORAGE_KEY = "deepforge:concepts:v1";
 
 export const CONCEPTS_CHANGE_EVENT = "deepforge:concepts-change";
 
@@ -72,11 +74,9 @@ function sanitizeState(value: unknown): ConceptState | null {
   return { ease, interval, due, reps, lapses };
 }
 
-function readStored(): ConceptStateMap {
-  if (typeof window === "undefined") return {};
+function parseConceptStates(raw: string | null): ConceptStateMap {
+  if (!raw) return {};
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (
       typeof parsed !== "object" ||
@@ -95,6 +95,15 @@ function readStored(): ConceptStateMap {
     return {};
   }
 }
+
+const conceptStore = createStore<ConceptStateMap>({
+  id: "concepts",
+  storageKey: CONCEPTS_STORAGE_KEY,
+  event: CONCEPTS_CHANGE_EVENT,
+  empty: () => ({}),
+  parse: parseConceptStates,
+  serialize: (v) => JSON.stringify(v),
+});
 
 function seedFromPenPaper(
   states: ConceptStateMap,
@@ -124,28 +133,12 @@ function seedFromPenPaper(
     };
     changed = true;
   }
-  if (changed) {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      /* storage unavailable - silently ignore */
-    }
-  }
+  if (changed) conceptStore.set(next);
   return next;
 }
 
 function read(now?: Date): ConceptStateMap {
-  return seedFromPenPaper(readStored(), now);
-}
-
-function write(states: ConceptStateMap): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(states));
-    window.dispatchEvent(new CustomEvent(CONCEPTS_CHANGE_EVENT));
-  } catch {
-    /* storage unavailable - silently ignore */
-  }
+  return seedFromPenPaper(conceptStore.get(), now);
 }
 
 function clampEase(ease: number): number {
@@ -220,7 +213,7 @@ export function gradeConcept(
     };
   }
   states[conceptId] = next;
-  write(states);
+  conceptStore.set(states);
   return next;
 }
 
@@ -259,3 +252,53 @@ export function getConceptStats(now: Date = new Date()): ConceptStats {
   }
   return { due, mastered, unlocked, total: CONCEPTS.length };
 }
+
+/* ──────────────────────────────── merge ───────────────────────────────── */
+
+function asRecord<T extends object>(value: unknown): T | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as T;
+}
+
+function conceptRecencyAt(state: ConceptState): number {
+  const at = Date.parse(`${state.due}T00:00:00Z`);
+  return Number.isNaN(at) ? 0 : at;
+}
+
+/**
+ * Per-concept merge for the optional sync engine: the entry with the later
+ * `due` date (the schedule advanced most recently) wins; ties keep local.
+ * Malformed payloads are dropped, mirroring the local `parse`.
+ */
+export function mergeConcepts(
+  local: ConceptStateMap,
+  remote: ConceptStateMap,
+): ConceptStateMap {
+  const localMap = asRecord<ConceptStateMap>(local) ?? {};
+  const remoteMap = asRecord<ConceptStateMap>(remote) ?? {};
+  const merged: ConceptStateMap = {};
+  const ids = new Set([...Object.keys(localMap), ...Object.keys(remoteMap)]);
+  for (const id of ids) {
+    const left = sanitizeState(localMap[id]);
+    const right = sanitizeState(remoteMap[id]);
+    if (!left) {
+      if (right) merged[id] = right;
+      continue;
+    }
+    if (!right) {
+      merged[id] = left;
+      continue;
+    }
+    merged[id] = conceptRecencyAt(right) > conceptRecencyAt(left) ? right : left;
+  }
+  return merged;
+}
+
+export const CONCEPTS_SPEC: StoreSpec<ConceptStateMap> = {
+  id: "concepts",
+  storageKey: CONCEPTS_STORAGE_KEY,
+  event: CONCEPTS_CHANGE_EVENT,
+  empty: () => ({}),
+  parse: parseConceptStates,
+  serialize: (v) => JSON.stringify(v),
+};

@@ -13,6 +13,7 @@ export type StoreId =
   | "contests"
   | "interview"
   | "penpaper"
+  | "concepts"
   | "labs"
   | "research"
   | "reviews"
