@@ -11,7 +11,7 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 | # | Area | Status | Notes |
 |---|------|--------|-------|
 | 1 | Problem bank | Done | 5,730 across 15 categories · 2,058 Easy / 2,553 Medium / 1,119 Hard |
-| 2 | Quality gates | Done, in CI | `verify-problems.ts` (real Python) + `verify-paths.ts` (capstones 33/33) + `verify-paths-content.ts`; 1,210 `bun test` greens (65 files); GitHub Actions (`.github/workflows/ci.yml`) runs every gate, the build, and the 164-check e2e smoke |
+| 2 | Quality gates | Done, in CI | `verify-problems.ts` (real Python) + `verify-paths.ts` (capstones 33/33) + `verify-paths-content.ts`; 1,253 `bun test` greens (66 files); GitHub Actions (`.github/workflows/ci.yml`) runs every gate, the build, and the 165-check e2e smoke |
 | 3 | Routes | Done | 29 user-facing destinations incl. `/today`, `/verify`, `/concepts`, and `/papers`; lab/research detail pages + `/labs/trails`; projects have detail pages at `/projects/[id]`; section modals retired; home is a short landing |
 | 4 | Learning paths | Done | 33 curated paths with stages, checkpoints, resolved prerequisites, artifacts, hours, and a verified capstone each (33/33) |
 | 5 | Supabase schema | Live | Project `klogjcspyiygnggmugjy`; 3 migrations incl. hardening (indexes, posting rate limit, RLS tightening) |
@@ -76,7 +76,7 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 - Why: nothing is public yet; deploy is the gate for live SEO/auth verification.
 - Files: new `docs/DEPLOY-VERCEL.md`, `.env.example` comment, `README.md` (deploy section), optional `vercel.json`.
 - Accept: `bun run build` clean with and without Supabase env; preview serves `/`, `/problems/[id]`, `/paths/[slug]`, `/discuss`, `/verify`; smoke checklist signed off; built HTML contains no `deepforge.app` fallback origin.
-- Gate: build + 164-check smoke against the preview + `curl -sI` 200s.
+- Gate: build + 165-check smoke against the preview + `curl -sI` 200s.
 
 **NW-09R · Two-account RLS verification** · `S` · deps: U-2, U-3, NW-01
 - Why: the hardening migration is written, but no second account has ever exercised the policies.

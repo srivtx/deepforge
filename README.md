@@ -113,7 +113,7 @@ Measured with `bun run scripts/measure-bundle.ts --check` (gzip first-load JS; a
 | `/` | 1,553 KB | **276.6 KB** |
 | `/problems` | 1,499 KB | **319.2 KB** |
 | `/about` | 1,497 KB | **243.5 KB** |
-| `/stats` | 1,572 KB | **407.7 KB** |
+| `/stats` | 1,572 KB | **407.9 KB** |
 
 The 5 MB problem bank is a lazy chunk; pages use a generated light index
 (`src/data/problems/problem-meta.ts`) and load full problem payloads on demand.
@@ -148,10 +148,10 @@ bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 1,210 unit tests (65 files)
+bun test                                  # 1,253 unit tests (66 files)
 bun run build
 bunx next start -p 3099 &                 # production server the smoke suite expects
-bun run scripts/e2e-smoke.mjs             # 164-check end-to-end smoke against :3099
+bun run scripts/e2e-smoke.mjs             # 165-check end-to-end smoke against :3099
 ```
 
 ## Quick Start
