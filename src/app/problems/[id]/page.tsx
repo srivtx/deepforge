@@ -5,13 +5,13 @@ import { PageShell } from "@/components/PageShell";
 import {
   PROBLEMS,
   getProblemById,
-  getProblemsByCategory,
 } from "@/data/problems";
 import { PROJECTS } from "@/data/projects";
 import type { Problem } from "@/types/problem";
 import { cn, clipRepr, difficultyClasses } from "@/lib/utils";
 import { categorySlug } from "@/lib/sections";
 import { ProblemWorkspace } from "./ProblemWorkspace";
+import { SimilarProblems } from "@/components/SimilarProblems";
 
 const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app"
@@ -100,9 +100,6 @@ export default async function ProblemPage({
   if (!problem) notFound();
 
   const slug = categorySlug(problem.category);
-  const related = getProblemsByCategory(problem.category)
-    .filter((candidate) => candidate.id !== problem.id)
-    .slice(0, 6);
   const url = `${siteUrl}/problems/${problem.id}`;
   const description = problemMetaDescription(problem);
   const paragraphs = problem.description
@@ -353,39 +350,7 @@ export default async function ProblemPage({
           </article>
         </ProblemWorkspace>
 
-        {related.length > 0 && (
-          <section className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold tracking-tight text-ink">
-              Related problems
-            </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {related.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/problems/${item.id}`}
-                  className="group flex items-center justify-between gap-3 rounded-lg border border-hairline bg-canvas-card p-3 transition-colors hover:border-accent/40 hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-ink group-hover:text-accent">
-                      {item.title}
-                    </div>
-                    <div className="font-mono text-[11px] text-mute">
-                      {item.id}
-                    </div>
-                  </div>
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
-                      difficultyClasses(item.difficulty),
-                    )}
-                  >
-                    {item.difficulty}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+        <SimilarProblems problem={problem} />
 
         <footer className="border-t border-hairline pt-4 text-xs text-body-mid">
           <Link
