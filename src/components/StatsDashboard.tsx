@@ -66,6 +66,7 @@ import {
 } from "@/lib/weeklyDigest";
 import { cn } from "@/lib/utils";
 import { FlameGlyph } from "@/components/SolvedBanner";
+import { CertificatesCard } from "@/components/stats/CertificatesCardLazy";
 import type { Difficulty } from "@/types/problem";
 
 /* ─────────────────────────────── data store ─────────────────────────────── */
@@ -1666,9 +1667,10 @@ export function StatsDashboard() {
         <PracticeMix overview={overview} />
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
         <LabProgressCard labs={labStats} />
         <ResearchProgressCard research={researchStats} />
+        <CertificatesCard />
       </div>
     </section>
   );

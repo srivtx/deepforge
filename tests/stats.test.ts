@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
+  CERTIFICATE_NEAR_LIMIT,
+  deriveCertificateStats,
+  emptyCertificateStats,
+  getCertificateStats,
+} from "@/lib/certificateStats";
+import {
   LAB_RECENT_LIMIT,
   REVIEW_HEALTH_LAPSE_LIMIT,
   REVIEW_HEALTH_TREND_DAYS,
@@ -30,6 +36,12 @@ import {
   XP_BASE,
   type BadgeSnapshot,
 } from "@/lib/badges";
+import {
+  getEligible,
+  issueCertificate,
+  type Certificate,
+  type CertificateEntry,
+} from "@/lib/certificates";
 import { getDailyDateKey } from "@/lib/daily";
 import { meetsTarget, type LabRecords } from "@/lib/labs";
 import type { ProgressMap } from "@/lib/progress";
@@ -989,5 +1001,201 @@ describe("badge snapshot sanitization", () => {
     expect(sawLabQuest, "expected a lab quest day in the sampled range").toBe(
       true,
     );
+  });
+});
+
+describe("certificate stats", () => {
+  const CERTIFICATES_KEY = "deepforge:certificates:v1";
+
+  function certificate(overrides: Partial<Certificate> = {}): Certificate {
+    return {
+      id: "category:linear-algebra",
+      kind: "category",
+      refId: "linear-algebra",
+      title: "Linear Algebra Milestone",
+      recipient: "DeepForge Learner",
+      issuedAt: fixedIso(2026, 0, 10),
+      detail: "412 of 420 problems · Linear Algebra category",
+      solved: 412,
+      total: 420,
+      ...overrides,
+    };
+  }
+
+  function eligibleEntry(
+    overrides: Partial<CertificateEntry> = {},
+  ): CertificateEntry {
+    return {
+      kind: "category",
+      refId: "linear-algebra",
+      title: "Linear Algebra Milestone",
+      detail: "412 of 420 problems · Linear Algebra category",
+      solved: 412,
+      total: 420,
+      ...overrides,
+    };
+  }
+
+  test("empty stores derive zero issued and an empty near list", () => {
+    expect(emptyCertificateStats()).toEqual({ issued: 0, near: [] });
+
+    const stats = getCertificateStats();
+    expect(stats.issued).toBe(0);
+    expect(stats.near).toEqual([]);
+  });
+
+  test("counts issued certificates from the local store", () => {
+    stub.setItem(
+      CERTIFICATES_KEY,
+      JSON.stringify([
+        certificate(),
+        certificate({
+          id: "lab:lab-a",
+          kind: "lab",
+          refId: "lab-a",
+          title: "Application — lab-a",
+          detail: "MSE 0.01 vs target 0.02 · lab-a lab",
+          score: 0.01,
+          target: 0.02,
+        }),
+        { nope: true },
+      ]),
+    );
+
+    const stats = getCertificateStats();
+    expect(stats.issued).toBe(2);
+    // Nothing is eligible from the empty progress store, so nothing is near.
+    expect(stats.near).toEqual([]);
+  });
+
+  test("ranks unclaimed milestones by progress and caps the list", () => {
+    const eligible: CertificateEntry[] = [
+      eligibleEntry({ refId: "a", title: "A Milestone", solved: 340, total: 420 }),
+      eligibleEntry({ refId: "b", title: "B Milestone", solved: 412, total: 420 }),
+      eligibleEntry({ refId: "c", title: "C Milestone", solved: 350, total: 420 }),
+      eligibleEntry({ refId: "d", title: "D Milestone", solved: 400, total: 420 }),
+      eligibleEntry({ refId: "e", title: "E Milestone", solved: 336, total: 420 }),
+    ];
+
+    const stats = deriveCertificateStats(eligible, []);
+    expect(stats.issued).toBe(0);
+    expect(stats.near).toHaveLength(CERTIFICATE_NEAR_LIMIT);
+    expect(stats.near.map((entry) => entry.title)).toEqual([
+      "B Milestone",
+      "D Milestone",
+      "C Milestone",
+    ]);
+    expect(stats.near[0].id).toBe("category:b");
+    expect(stats.near[0].progressText).toBe("412/420");
+    expect(stats.near[0].progress).toBe(412 / 420);
+    for (let i = 1; i < stats.near.length; i += 1) {
+      expect(stats.near[i - 1].progress).toBeGreaterThanOrEqual(
+        stats.near[i].progress,
+      );
+    }
+
+    // Claimed milestones drop out, letting the next-closest move up.
+    const claimed = deriveCertificateStats(eligible, [
+      certificate({ id: "category:b", refId: "b", title: "B Milestone" }),
+    ]);
+    expect(claimed.issued).toBe(1);
+    expect(claimed.near.map((entry) => entry.title)).toEqual([
+      "D Milestone",
+      "C Milestone",
+      "A Milestone",
+    ]);
+  });
+
+  test("kinds without counts report full progress and no progress text", () => {
+    const stats = deriveCertificateStats(
+      [
+        eligibleEntry({
+          kind: "project",
+          refId: "project-a",
+          title: "Build — project-a",
+          detail: "5 of 5 steps · project-a project",
+          solved: undefined,
+          total: undefined,
+        }),
+        eligibleEntry({
+          refId: "a",
+          title: "A Milestone",
+          solved: 336,
+          total: 420,
+        }),
+      ],
+      [],
+    );
+
+    expect(stats.near.map((entry) => entry.title)).toEqual([
+      "Build — project-a",
+      "A Milestone",
+    ]);
+    expect(stats.near[0].progress).toBe(1);
+    expect(stats.near[0].progressText).toBeNull();
+    expect(stats.near[1].progressText).toBe("336/420");
+  });
+
+  test("malformed payloads fail soft", () => {
+    const stats = deriveCertificateStats(
+      [
+        null,
+        "nope",
+        { kind: "category", refId: "x" },
+        eligibleEntry({ refId: "ok", title: "OK Milestone", solved: Number.NaN }),
+        eligibleEntry({ refId: "bad-total", title: "Bad Total", total: 0 }),
+      ] as unknown as CertificateEntry[],
+      [null, { kind: "category" }, certificate()] as unknown as Certificate[],
+    );
+
+    expect(stats.issued).toBe(1);
+    expect(stats.near.map((entry) => entry.title)).toEqual([
+      "Bad Total",
+      "OK Milestone",
+    ]);
+    // Unusable counts fall back to full progress with no text.
+    for (const entry of stats.near) {
+      expect(entry.progress).toBe(1);
+      expect(entry.progressText).toBeNull();
+    }
+
+    expect(
+      deriveCertificateStats(
+        "not-an-array" as unknown as CertificateEntry[],
+        "not-an-array" as unknown as Certificate[],
+      ),
+    ).toEqual(emptyCertificateStats());
+
+    stub.setItem(CERTIFICATES_KEY, "{not json");
+    expect(getCertificateStats()).toEqual(emptyCertificateStats());
+  });
+
+  test("the live wrapper surfaces a seeded near-eligible milestone", () => {
+    const category = "Linear Algebra";
+    const total = PROBLEMS.filter(
+      (problem) => problem.category === category,
+    ).length;
+    const solved = Math.ceil(total * 0.8);
+    const progress: ProgressMap = {};
+    for (const id of idsFor(category, solved)) {
+      progress[id] = { attempted: true, solved: true, solvedAt: atDaysAgo(0) };
+    }
+    seedProgress(progress);
+
+    // Claim everything the catalogue marks eligible besides the category
+    // milestone so it is the one entry left in the near list.
+    const eligible = getEligible();
+    const categoryMilestone = eligible.find((entry) => entry.kind === "category");
+    expect(categoryMilestone).not.toBeUndefined();
+    for (const entry of eligible) {
+      if (entry.kind !== "category") issueCertificate(entry);
+    }
+
+    const stats = getCertificateStats();
+    expect(stats.issued).toBe(eligible.length - 1);
+    expect(stats.near).toHaveLength(1);
+    expect(stats.near[0].id).toBe("category:linear-algebra");
+    expect(stats.near[0].title).toBe(`${category} Milestone`);
+    expect(stats.near[0].progressText).toBe(`${solved}/${total}`);
   });
 });
