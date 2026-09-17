@@ -42,6 +42,7 @@ const KIND_LABELS: Record<CredentialKind, string> = {
   lab: "Scored lab",
   project: "Project build",
   interview: "Interview mock",
+  research: "Research challenge",
 };
 
 const LINK =
@@ -86,6 +87,9 @@ function targetFor(
   if (payload.kind === "interview") {
     const track = INTERVIEW_TRACKS.find((entry) => entry.id === payload.ref);
     if (track) return { href: `/interview/${track.id}`, label: track.title };
+  }
+  if (payload.kind === "research") {
+    return { href: "/research", label: "Research challenges" };
   }
   return null;
 }
@@ -167,13 +171,20 @@ function Summary({ payload }: { payload: CredentialPayload }) {
     });
   }
   if (payload.solved !== undefined && payload.total !== undefined) {
-    rows.push({
-      label: payload.kind === "interview" ? "Mock" : "Completed",
-      value:
-        payload.kind === "interview"
-          ? `${payload.solved} of ${payload.total} mock problems`
-          : `${payload.solved} of ${payload.total} problems`,
-    });
+    if (payload.kind === "research") {
+      rows.push({
+        label: "Baselines",
+        value: `${payload.solved} of ${payload.total} baselines beaten`,
+      });
+    } else {
+      rows.push({
+        label: payload.kind === "interview" ? "Mock" : "Completed",
+        value:
+          payload.kind === "interview"
+            ? `${payload.solved} of ${payload.total} mock problems`
+            : `${payload.solved} of ${payload.total} problems`,
+      });
+    }
   }
 
   rows.push({ label: "Issued", value: payload.issued });

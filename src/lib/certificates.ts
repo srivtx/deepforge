@@ -1,8 +1,9 @@
 /**
  * Completion certificates: localStorage-backed records for finished learning
  * paths, curated collections, category milestones, passed labs, completed
- * projects, and strong interview mocks. Certificates are claimed explicitly
- * by the user and can be printed, copied as text, or exported as PNG.
+ * projects, strong interview mocks, and swept research baselines. Certificates
+ * are claimed explicitly by the user and can be printed, copied as text, or
+ * exported as PNG.
  *
  * Shared certificates carry a self-verifying credential code built by
  * `src/lib/credentials.ts`: a canonical JSON evidence payload plus its
@@ -21,6 +22,7 @@ import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
 import { LABS, type Lab } from "@/data/labs";
 import { PROJECTS } from "@/data/projects";
+import { RESEARCH_CHALLENGES } from "@/data/research";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { getUserName } from "@/lib/leaderboard";
 import {
@@ -30,6 +32,7 @@ import {
 } from "@/lib/labs";
 import { getBestInterviewResult } from "@/lib/interview";
 import { getProjectProgress, isProjectComplete } from "@/lib/projects";
+import { beatsBaseline, getResearchState } from "@/lib/research";
 import {
   CREDENTIAL_VERSION,
   encodeCredential,
@@ -81,9 +84,9 @@ export interface CertificateEntry {
   refId: string;
   title: string;
   detail: string;
-  /** Present for problem-based kinds (path, collection, category, interview). */
+  /** Present for count-based kinds (path, collection, category, interview, research). */
   total?: number;
-  /** Present for problem-based kinds (path, collection, category, interview). */
+  /** Present for count-based kinds (path, collection, category, interview, research). */
   solved?: number;
   /** Present for lab credentials: the best score and the lab target. */
   score?: number;
@@ -207,6 +210,33 @@ function makeInterviewDetail(trackTitle: string, solved: number, total: number):
   return `${solved} of ${total} mock problems · ${trackTitle} interview`;
 }
 
+function makeResearchDetail(beaten: number, total: number): string {
+  return `${beaten} of ${total} baselines beaten · research challenges`;
+}
+
+/**
+ * How many research baselines the stored research state shows as beaten.
+ * `beatenBaseline` is sticky in the store; the best-score comparison keeps
+ * records written before that flag (or hand-restored backups) accurate.
+ */
+function countBaselinesBeaten(): number {
+  const state = getResearchState();
+  let beaten = 0;
+  for (const challenge of RESEARCH_CHALLENGES) {
+    const stored = state[challenge.id];
+    if (!stored) continue;
+    if (stored.beatenBaseline) {
+      beaten += 1;
+    } else if (
+      typeof stored.bestScore === "number" &&
+      beatsBaseline(challenge, stored.bestScore)
+    ) {
+      beaten += 1;
+    }
+  }
+  return beaten;
+}
+
 const CATEGORY_TOTALS: ReadonlyMap<Category, number> = (() => {
   const totals = new Map<Category, number>();
   for (const problem of PROBLEM_META) {
@@ -222,7 +252,8 @@ const CATEGORY_TOTALS: ReadonlyMap<Category, number> = (() => {
  * every learning path with all problems solved, every curated collection
  * with all problems solved, every category at or above 80% solved, every lab
  * whose best score meets its target, every project with every step solved,
- * and every interview mock at or above 80% of its problems solved.
+ * every interview mock at or above 80% of its problems solved, and the
+ * research certificate once every baseline in `RESEARCH_CHALLENGES` is beaten.
  */
 export function getEligible(): CertificateEntry[] {
   try {
@@ -332,6 +363,19 @@ export function getEligible(): CertificateEntry[] {
       });
     }
 
+    const researchTotal = RESEARCH_CHALLENGES.length;
+    const baselinesBeaten = countBaselinesBeaten();
+    if (researchTotal > 0 && baselinesBeaten >= researchTotal) {
+      entries.push({
+        kind: "research",
+        refId: "research-baselines",
+        title: `Research Challenges — ${baselinesBeaten}/${researchTotal} baselines beaten`,
+        detail: makeResearchDetail(baselinesBeaten, researchTotal),
+        total: researchTotal,
+        solved: baselinesBeaten,
+      });
+    }
+
     return entries;
   } catch {
     return [];
@@ -389,6 +433,9 @@ function fallbackDetail(entry: CertificateEntry): string {
     return `Score ${entry.score} vs target ${entry.target}`;
   }
   if (entry.solved !== undefined && entry.total !== undefined) {
+    if (entry.kind === "research") {
+      return `${entry.solved} of ${entry.total} baselines beaten`;
+    }
     return `${entry.solved} of ${entry.total} problems`;
   }
   return entry.title;
@@ -453,8 +500,9 @@ function parseDetailCounts(detail: string): { solved: number; total: number } {
  * Evidence payload for a certificate: the canonical fields `/verify`
  * re-checks. Records issued before counts were stored fall back to parsing
  * the human-readable `detail` line. Lab certificates must carry their
- * score/target, and project certificates map their stored step counts onto
- * the `stepsDone`/`stepsTotal` evidence fields.
+ * score/target, project certificates map their stored step counts onto
+ * the `stepsDone`/`stepsTotal` evidence fields, and research certificates
+ * carry the baselines beaten as `solved`/`total`.
  */
 export function payloadFromCertificate(cert: Certificate): CredentialPayload {
   const parsed = parseDetailCounts(cert.detail);

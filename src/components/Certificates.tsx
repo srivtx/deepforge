@@ -24,6 +24,7 @@ import {
 } from "@/lib/credentials";
 import { INTERVIEW_CHANGE_EVENT } from "@/lib/interview";
 import { LAB_CHANGE_EVENT } from "@/lib/labs";
+import { RESEARCH_CHANGE_EVENT } from "@/lib/research";
 
 /* ──────────────────────────────── chrome ────────────────────────────────── */
 
@@ -46,6 +47,7 @@ const KIND_LABELS: Record<CertificateKind, string> = {
   lab: "Lab",
   project: "Project",
   interview: "Interview",
+  research: "Research",
 };
 
 const CHANGE_EVENTS = [
@@ -54,6 +56,7 @@ const CHANGE_EVENTS = [
   "deepforge:username-change",
   LAB_CHANGE_EVENT,
   INTERVIEW_CHANGE_EVENT,
+  RESEARCH_CHANGE_EVENT,
   CERTIFICATES_CHANGE_EVENT,
 ];
 
@@ -68,6 +71,9 @@ function claimEvidence(entry: CertificateEntry): string {
     if (entry.kind === "project") return `${entry.solved}/${entry.total} steps`;
     if (entry.kind === "interview") {
       return `${entry.solved}/${entry.total} mock`;
+    }
+    if (entry.kind === "research") {
+      return `${entry.solved}/${entry.total} baselines`;
     }
     return `${entry.solved}/${entry.total}`;
   }
@@ -811,8 +817,8 @@ export function Certificates() {
             <div className="rounded-lg border border-hairline bg-canvas-card p-4 text-center text-sm text-body-mid sm:p-5">
               Nothing ready yet. Complete every problem in a learning path or a
               curated collection, solve 80% of any category, pass a lab at its
-              target, finish every step of a project, or score 80% on an
-              interview mock.
+              target, finish every step of a project, score 80% on an interview
+              mock, or beat every research baseline.
             </div>
           )
         ) : (

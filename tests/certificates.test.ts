@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   buildCertificateText,
   CATEGORY_MILESTONE_RATIO,
+  certificateCredentialCode,
   FALLBACK_RECIPIENT,
   formatCertificateDate,
   formatMeasure,
@@ -9,16 +10,19 @@ import {
   getIssued,
   INTERVIEW_MOCK_RATIO,
   issueCertificate,
+  payloadFromCertificate,
   revokeCertificate,
   verificationCode,
   type Certificate,
   type CertificateEntry,
 } from "@/lib/certificates";
+import { verifyCredential } from "@/lib/credentials";
 import { CATEGORIES, LEARNING_PATHS, PROBLEMS } from "@/data/problems";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
 import { LABS } from "@/data/labs";
 import { PROJECTS } from "@/data/projects";
+import { RESEARCH_CHALLENGES } from "@/data/research";
 import { setLabBest } from "@/lib/labs";
 import type { ProgressMap } from "@/lib/progress";
 
@@ -71,6 +75,7 @@ const CERTIFICATES_KEY = "deepforge:certificates:v1";
 const USERNAME_KEY = "deepforge:username:v1";
 const LABS_KEY = "deepforge:labs";
 const INTERVIEW_KEY = "deepforge:interview:v1";
+const RESEARCH_KEY = "deepforge:research:v1";
 
 function solvedProgress(ids: string[]): ProgressMap {
   const map: ProgressMap = {};
@@ -86,6 +91,34 @@ function solvedProgress(ids: string[]): ProgressMap {
 
 function seedSolved(ids: string[]): void {
   stub.setItem(PROGRESS_KEY, JSON.stringify(solvedProgress(ids)));
+}
+
+/**
+ * Seed the research store. `beatenIds` get the sticky `beatenBaseline` flag;
+ * `scores` optionally carry a `bestScore` to exercise the score comparison.
+ */
+function seedResearch(
+  beatenIds: string[],
+  scores: Record<string, number> = {},
+): void {
+  const beaten = new Set(beatenIds);
+  const state: Record<string, unknown> = {};
+  for (const challenge of RESEARCH_CHALLENGES) {
+    state[challenge.id] = {
+      bestScore: scores[challenge.id] ?? null,
+      bestAt: scores[challenge.id] === undefined ? null : "2026-01-14T12:00:00.000Z",
+      beatenBaseline: beaten.has(challenge.id),
+      attempts: [],
+    };
+  }
+  stub.setItem(RESEARCH_KEY, JSON.stringify(state));
+}
+
+function beatingScore(index: number): number {
+  const challenge = RESEARCH_CHALLENGES[index];
+  return challenge.higherIsBetter
+    ? challenge.baselineScore + 0.01
+    : challenge.baselineScore - 0.01;
 }
 
 function slugify(value: string): string {
@@ -128,6 +161,17 @@ const demoCertificate: Certificate = {
   recipient: "Ada Lovelace",
   issuedAt: "2026-01-14T12:00:00.000Z",
   detail: "7 of 7 problems · Demo Collection collection",
+};
+
+const RESEARCH_TOTAL = RESEARCH_CHALLENGES.length;
+
+const researchEntry: CertificateEntry = {
+  kind: "research",
+  refId: "research-baselines",
+  title: `Research Challenges — ${RESEARCH_TOTAL}/${RESEARCH_TOTAL} baselines beaten`,
+  detail: `${RESEARCH_TOTAL} of ${RESEARCH_TOTAL} baselines beaten · research challenges`,
+  total: RESEARCH_TOTAL,
+  solved: RESEARCH_TOTAL,
 };
 
 describe("eligibility", () => {
@@ -448,5 +492,93 @@ describe("verification and text", () => {
     );
     expect(text).toContain(`Issued ${formatCertificateDate(demoCertificate.issuedAt)}`);
     expect(text).toContain("DeepForge");
+  });
+});
+
+describe("research certificates", () => {
+  test("four of five baselines leaves the research certificate locked", () => {
+    seedResearch(
+      RESEARCH_CHALLENGES.slice(0, -1).map((challenge) => challenge.id),
+    );
+
+    expect(getEligible().some((entry) => entry.kind === "research")).toBe(
+      false,
+    );
+  });
+
+  test("all five baselines unlock the research certificate", () => {
+    seedResearch(RESEARCH_CHALLENGES.map((challenge) => challenge.id));
+
+    const entry = getEligible().find(
+      (candidate) => candidate.kind === "research",
+    );
+    expect(entry).toBeTruthy();
+    expect(entry!.title).toBe(
+      `Research Challenges — ${RESEARCH_TOTAL}/${RESEARCH_TOTAL} baselines beaten`,
+    );
+    expect(entry!.detail).toBe(
+      `${RESEARCH_TOTAL} of ${RESEARCH_TOTAL} baselines beaten · research challenges`,
+    );
+    expect(entry!.solved).toBe(RESEARCH_TOTAL);
+    expect(entry!.total).toBe(RESEARCH_TOTAL);
+  });
+
+  test("a beating best score counts even without the sticky flag", () => {
+    const rest = RESEARCH_CHALLENGES.slice(1);
+    seedResearch(
+      rest.map((challenge) => challenge.id),
+      { [RESEARCH_CHALLENGES[0].id]: beatingScore(0) },
+    );
+
+    expect(
+      getEligible().some((entry) => entry.kind === "research"),
+    ).toBe(true);
+  });
+
+  test("issue, code, and verify round-trip with kind research", async () => {
+    seedResearch(RESEARCH_CHALLENGES.map((challenge) => challenge.id));
+    const eligible = getEligible().find(
+      (candidate) => candidate.kind === "research",
+    );
+    expect(eligible).toBeTruthy();
+
+    const cert = issueCertificate(eligible!);
+    expect(cert.kind).toBe("research");
+    expect(cert.id).toBe("research:research-baselines");
+    expect(cert.solved).toBe(RESEARCH_TOTAL);
+    expect(cert.total).toBe(RESEARCH_TOTAL);
+    expect(verificationCode(cert)).toBe(referenceCode(cert));
+    expect(verificationCode(cert)).toMatch(/^[0-9A-Z]{8}$/);
+
+    const payload = payloadFromCertificate(cert);
+    expect(payload.kind).toBe("research");
+    expect(payload.solved).toBe(RESEARCH_TOTAL);
+    expect(payload.total).toBe(RESEARCH_TOTAL);
+    expect(payload.score).toBeUndefined();
+    expect(payload.stepsDone).toBeUndefined();
+
+    const code = await certificateCredentialCode(cert);
+    const result = await verifyCredential(code);
+    expect(result.status).toBe("valid");
+    expect(result.payload?.kind).toBe("research");
+    expect(result.payload?.solved).toBe(RESEARCH_TOTAL);
+    expect(result.payload?.total).toBe(RESEARCH_TOTAL);
+    expect(result.recomputed).toBe(result.fingerprint);
+  });
+
+  test("a revoked research certificate is dropped from the issued list", async () => {
+    seedResearch(RESEARCH_CHALLENGES.map((challenge) => challenge.id));
+    const eligible = getEligible().find(
+      (candidate) => candidate.kind === "research",
+    );
+    const cert = issueCertificate(eligible!);
+    const code = await certificateCredentialCode(cert);
+    expect((await verifyCredential(code)).status).toBe("valid");
+
+    expect(revokeCertificate(cert.id)).toBe(true);
+    expect(getIssued().some((candidate) => candidate.id === cert.id)).toBe(
+      false,
+    );
+    expect(revokeCertificate(cert.id)).toBe(false);
   });
 });

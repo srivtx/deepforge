@@ -46,17 +46,20 @@ export type CredentialKind =
   | "category"
   | "lab"
   | "project"
-  | "interview";
+  | "interview"
+  | "research";
 
 /**
  * Canonical evidence payload. Field names are deliberately stable: the
  * canonical serialization order is `v, kind, ref, title, recipient, solved,
  * total, issued, score, target, stepsDone, stepsTotal`, and any serializer
  * change would break every issued code. Counts are required for the
- * problem-based kinds (path, collection, category, interview); labs carry
- * `score`/`target` and projects carry `stepsDone`/`stepsTotal`, appended
- * after the fields that existed at the first release. All appended fields
- * stay optional so every v1 code issued before them keeps verifying.
+ * problem-based kinds (path, collection, category, interview) and for
+ * research certificates, where `solved` counts the baselines beaten out of
+ * `total`; labs carry `score`/`target` and projects carry
+ * `stepsDone`/`stepsTotal`, appended after the fields that existed at the
+ * first release. All appended fields stay optional so every v1 code issued
+ * before them keeps verifying.
  */
 export interface CredentialPayload {
   v: typeof CREDENTIAL_VERSION;
@@ -64,9 +67,9 @@ export interface CredentialPayload {
   ref: string;
   title: string;
   recipient: string;
-  /** Problems solved — path, collection, category, and interview mock totals. */
+  /** Problems solved — path, collection, category, interview mocks, and research baselines. */
   solved?: number;
-  /** Problems in scope — path, collection, category, and interview mock totals. */
+  /** Problems in scope — path, collection, category, interview mocks, and research baselines. */
   total?: number;
   issued: string;
   /** Lab metric value on the held-out set. */
@@ -216,6 +219,7 @@ const CREDENTIAL_KINDS: readonly CredentialKind[] = [
   "lab",
   "project",
   "interview",
+  "research",
 ];
 
 /** Public kind whitelist shared by the credential code and certificate stores. */
@@ -290,7 +294,7 @@ export function normalizeCredential(input: CredentialPayload): CredentialPayload
   }
   if (!isCredentialKind(input.kind)) {
     throw new Error(
-      "credential kind must be path, collection, category, lab, project, or interview",
+      "credential kind must be path, collection, category, lab, project, interview, or research",
     );
   }
   if (!isIsoDate(input.issued)) {
