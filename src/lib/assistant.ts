@@ -15,6 +15,13 @@ import type {
 import { getHintTiers } from "@/lib/hints";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { getDailyState, isTodaySolved } from "@/lib/daily";
+import { getConceptStats, getDueConcepts } from "@/lib/concepts";
+import { getReadinessScore } from "@/lib/readiness";
+import {
+  dueReviews,
+  getReviewBucketCounts,
+  getReviewMap,
+} from "@/lib/reviewQueue";
 import { CATEGORIES } from "@/data/problems/meta";
 import { LEARNING_PATHS } from "@/data/problems/paths";
 import { PROBLEM_META, type ProblemMeta } from "@/data/problems/problem-meta";
@@ -25,10 +32,12 @@ import { PROBLEM_META, type ProblemMeta } from "@/data/problems/problem-meta";
 // Answers that cite ids/titles/categories and all progress aggregations only
 // need the light PROBLEM_META index. Full records (description, hint, solution)
 // are needed for hint/solution answers and description-weighted retrieval, so
-// the heavy bank is dynamically imported instead of bundled: the browser warms
-// this cache on first use while every synchronous caller falls back to the
-// light index until it lands. Once loaded, answers are identical to the
-// previously bundled behaviour.
+// the heavy bank is dynamically imported on demand instead of bundled.
+// Explain/playlist/quiz answers warm this cache on first use while every
+// synchronous caller falls back to the light index until it lands — merely
+// mounting the assistant (or asking "what's due" / "am I ready") never pulls
+// the bank. Once loaded, answers are identical to the previously bundled
+// behaviour.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type ProblemBank = typeof import("@/data/problems");
@@ -57,11 +66,28 @@ function warmProblemBank(): void {
   });
 }
 
-if (typeof window !== "undefined") warmProblemBank();
+/**
+ * Warm the heavy bank once the user actually opens the panel. Mounting the
+ * assistant never pulls it, so no route pays for the 5.5k-record chunk at
+ * load; opening Zero (or the first explain/playlist/quiz answer) does.
+ */
+export function warmAssistant(): void {
+  warmProblemBank();
+}
 
 /** All catalogue entries as (id, title, category, difficulty) tuples. */
 function allProblems(): readonly ProblemMeta[] {
   return problemBank?.PROBLEMS ?? PROBLEM_META;
+}
+
+/** Light-index lookup, shared by every id → title/category citation. */
+const PROBLEM_META_BY_ID: ReadonlyMap<string, ProblemMeta> = new Map(
+  PROBLEM_META.map((problem) => [problem.id, problem]),
+);
+
+/** Title for a catalogue id; null when the id is unknown. */
+export function problemTitle(id: string): string | null {
+  return PROBLEM_META_BY_ID.get(id)?.title ?? null;
 }
 
 function findProblem(id: string): Problem | null {
@@ -71,7 +97,7 @@ function findProblem(id: string): Problem | null {
 }
 
 function findMeta(id: string): ProblemMeta | null {
-  return PROBLEM_META.find((problem) => problem.id === id) ?? null;
+  return PROBLEM_META_BY_ID.get(id) ?? null;
 }
 
 /** Synthesize a full Problem from the light index for hint-style answers. */
@@ -99,7 +125,15 @@ export type Intent =
   | "debug"
   | "playlist"
   | "quiz"
-  | "plan";
+  | "plan"
+  | "due"
+  | "ready";
+
+/** In-app deep link attached to an answer (e.g. /today, /stats). */
+export interface MsgAction {
+  label: string;
+  href: string;
+}
 
 export interface Msg {
   id: string;
@@ -107,6 +141,7 @@ export interface Msg {
   text: string;
   intent?: Intent;
   citations?: string[];
+  actions?: MsgAction[];
   at: string;
 }
 
@@ -126,6 +161,7 @@ export interface Ctx {
 interface Answer {
   text: string;
   citations: string[];
+  actions?: MsgAction[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -182,6 +218,25 @@ const INTENT_RULES: IntentRule[] = [
   { intent: "plan", weight: 5, pattern: /\bplans?\b|\bplanning\b|\bschedules?\b/ },
   { intent: "plan", weight: 4, pattern: /\bstreak\b|\binterview\b/ },
   { intent: "plan", weight: 3, pattern: /\broutine\b|\bprepare\b|\bstudy schedule\b/ },
+
+  // DUE — the spaced review queue and pen-and-paper concepts
+  {
+    intent: "due",
+    weight: 8,
+    pattern:
+      /\bwhat(?:'s| is| are)?\s+due\b|\bdue (?:today|now|reviews?|problems?)\b|\breview queue\b/,
+  },
+  {
+    intent: "due",
+    weight: 7,
+    pattern: /\bwhat should i review\b|\banything due\b|\breviews? due\b/,
+  },
+  { intent: "due", weight: 4, pattern: /\bdue\b/ },
+  { intent: "due", weight: 3, pattern: /\breview\b/ },
+
+  // READY — interview readiness score and its weakest component
+  { intent: "ready", weight: 9, pattern: /\bam i ready\b|\bhow ready am i\b/ },
+  { intent: "ready", weight: 6, pattern: /\breadiness\b|\bready for\b|\bready to\b/ },
 ];
 
 /** Ties resolve in this order so classification stays deterministic. */
@@ -191,6 +246,8 @@ const INTENT_PRIORITY: Intent[] = [
   "quiz",
   "playlist",
   "plan",
+  "due",
+  "ready",
   "explain",
 ];
 
@@ -1017,12 +1074,121 @@ function answerPlan(): Answer {
   return { text: lines.join("\n"), citations: Array.from(new Set(citations)).slice(0, 16) };
 }
 
+function plural(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
+}
+
+const TODAY_ACTION: MsgAction = { label: "Open Today", href: "/today" };
+const STATS_ACTION: MsgAction = { label: "Open Stats", href: "/stats" };
+
+function answerDue(): Answer {
+  const now = new Date();
+  const reviews = getReviewMap(now);
+  const counts = getReviewBucketCounts(reviews, now);
+  const codeDue = counts.due + counts.learning;
+  const queue = codeDue > 0 ? dueReviews(reviews, PROBLEM_META_BY_ID, now) : [];
+  const conceptStats = getConceptStats(now);
+  const concepts = conceptStats.due > 0 ? getDueConcepts(now) : [];
+
+  if (codeDue === 0 && conceptStats.due === 0) {
+    const scheduled = counts.scheduled + counts.new;
+    const ahead =
+      scheduled > 0
+        ? ` ${scheduled} ${plural(scheduled, "review is", "reviews are")} scheduled ahead.`
+        : "";
+    return {
+      text:
+        `Nothing is due right now.${ahead} ` +
+        "Solve or review a problem and it enters the spaced queue; " +
+        'ask "am I ready?" for the readiness picture.',
+      citations: [],
+      actions: [TODAY_ACTION],
+    };
+  }
+
+  const headline: string[] = [];
+  if (codeDue > 0) {
+    headline.push(`${codeDue} code ${plural(codeDue, "review", "reviews")}`);
+  }
+  if (conceptStats.due > 0) {
+    headline.push(
+      `${conceptStats.due} ${plural(conceptStats.due, "concept", "concepts")}`,
+    );
+  }
+
+  const lines = [`Due now: ${headline.join(", ")}.`];
+  if (queue.length > 0) {
+    lines.push(
+      "Code queue: " +
+        queue
+          .slice(0, 3)
+          .map((item) => `${item.id} — ${item.meta.title}`)
+          .join(", ") +
+        ".",
+    );
+  }
+  if (concepts.length > 0) {
+    lines.push(`Concepts: ${concepts.slice(0, 3).map((concept) => concept.title).join(", ")}.`);
+  }
+  lines.push("Open Today to run the session — code reviews first, then pen-and-paper.");
+
+  return {
+    text: lines.join("\n"),
+    citations: queue.slice(0, 3).map((item) => item.id),
+    actions: [TODAY_ACTION],
+  };
+}
+
+interface ReadinessComponent {
+  label: string;
+  value: number;
+  advice: string;
+}
+
+function answerReady(): Answer {
+  const score = getReadinessScore();
+  const components: ReadinessComponent[] = [
+    {
+      label: "coverage",
+      value: score.coverage,
+      advice: "solve across more categories; the mean solved share over all 15 is the anchor",
+    },
+    {
+      label: "retention",
+      value: score.retention,
+      advice: "run the due reviews; attempted problems are decaying past the retention threshold",
+    },
+    {
+      label: "balance",
+      value: score.balance,
+      advice: "close the weakest category and move your Easy/Medium/Hard mix toward the catalogue's",
+    },
+    {
+      label: "consistency",
+      value: score.consistency,
+      advice: "study on more distinct days; 14 active days in the last 28 saturate it",
+    },
+  ];
+  let weakest = components[0];
+  for (const component of components) {
+    if (component.value < weakest.value) weakest = component;
+  }
+
+  return {
+    text:
+      `Readiness ${score.value}/100 — coverage ${score.coverage}, retention ${score.retention}, ` +
+      `balance ${score.balance}, consistency ${score.consistency}.\n\n` +
+      `Weakest component: ${weakest.label} (${weakest.value}/100) — ${weakest.advice}.`,
+    citations: [],
+    actions: [STATS_ACTION],
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // respond — synchronous, template-based, always cited
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function respond(q: string, ctx: Ctx = {}): Msg {
-  warmProblemBank();
   const intent = classify(q ?? "");
   let answer: Answer;
   switch (intent) {
@@ -1033,19 +1199,34 @@ export function respond(q: string, ctx: Ctx = {}): Msg {
       answer = answerDebug(ctx);
       break;
     case "playlist":
+      warmProblemBank();
       answer = answerPlaylist(q ?? "", ctx);
       break;
     case "quiz":
+      warmProblemBank();
       answer = answerQuiz(q ?? "", ctx);
       break;
     case "plan":
       answer = answerPlan();
       break;
+    case "due":
+      answer = answerDue();
+      break;
+    case "ready":
+      answer = answerReady();
+      break;
     default:
+      warmProblemBank();
       answer = answerExplain(q ?? "", ctx);
       break;
   }
-  return createMessage("assistant", answer.text, intent, answer.citations);
+  return createMessage(
+    "assistant",
+    answer.text,
+    intent,
+    answer.citations,
+    answer.actions,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1130,6 +1311,7 @@ export function createMessage(
   text: string,
   intent?: Intent,
   citations?: string[],
+  actions?: MsgAction[],
 ): Msg {
   return {
     id: nextId(role === "user" ? "u" : "z"),
@@ -1137,6 +1319,7 @@ export function createMessage(
     text,
     ...(intent ? { intent } : {}),
     ...(citations && citations.length > 0 ? { citations } : {}),
+    ...(actions && actions.length > 0 ? { actions } : {}),
     at: new Date().toISOString(),
   };
 }
@@ -1170,6 +1353,8 @@ export function suggestedPrompts(ctx: Ctx = {}): string[] {
       "Explain this problem",
       "Debug my code",
       `Quiz me on ${ctx.problem.category}`,
+      "What's due?",
+      "Am I ready?",
     ];
   }
   return [
@@ -1177,5 +1362,7 @@ export function suggestedPrompts(ctx: Ctx = {}): string[] {
     "Build me a playlist",
     "Quiz me",
     "Plan my week",
+    "What's due?",
+    "Am I ready?",
   ];
 }

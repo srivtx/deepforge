@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { PwaManager } from "@/components/PwaManager";
+import { ZeroAssistantMount } from "@/components/ZeroAssistantMount";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 
 const inter = Inter({
@@ -157,6 +158,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark">
           {children}
           <PwaManager />
+          <ZeroAssistantMount />
         </ThemeProvider>
       </body>
     </html>

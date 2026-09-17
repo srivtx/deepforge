@@ -14,19 +14,17 @@ import {
   appendMessage,
   createMessage,
   getMessages,
+  problemTitle,
   respond,
   resetConversation,
   suggestedPrompts,
+  warmAssistant,
   type Ctx,
   type Msg,
+  type MsgAction,
 } from "@/lib/assistant";
-import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { problemHref } from "@/lib/problemLinks";
 import { cn } from "@/lib/utils";
-
-const PROBLEM_TITLES = new Map(
-  PROBLEM_META.map((problem) => [problem.id, problem.title]),
-);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Module-level context store.
@@ -63,7 +61,7 @@ const PROBLEM_CONTEXT_EVENT = "deepforge:problem-context";
 function CitationChip({ id }: { id: string }) {
   const router = useRouter();
   const pathname = usePathname();
-  const title = PROBLEM_TITLES.get(id);
+  const title = problemTitle(id);
   return (
     <button
       type="button"
@@ -73,6 +71,19 @@ function CitationChip({ id }: { id: string }) {
       className="max-w-full truncate rounded-md border border-hairline bg-canvas px-1.5 py-0.5 text-left font-mono text-[10px] text-body-mid transition-colors hover:border-accent/40 hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
     >
       {title ? `${id} — ${title}` : id}
+    </button>
+  );
+}
+
+function ActionChip({ action }: { action: MsgAction }) {
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      onClick={() => router.push(action.href)}
+      className="rounded-md border border-accent/40 px-1.5 py-0.5 text-[10px] font-medium text-accent transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+    >
+      {action.label}
     </button>
   );
 }
@@ -99,6 +110,16 @@ function MessageBubble({ message }: { message: Msg }) {
           <div className="mt-2 flex flex-wrap gap-1.5">
             {message.citations.map((id) => (
               <CitationChip key={id} id={id} />
+            ))}
+          </div>
+        )}
+        {!mine && message.actions && message.actions.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {message.actions.map((action) => (
+              <ActionChip
+                key={`${action.href}:${action.label}`}
+                action={action}
+              />
             ))}
           </div>
         )}
@@ -187,9 +208,12 @@ export function ZeroAssistant() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // Focus the input when opened; clean up a pending reply timer on unmount.
+  // Focus the input when opened and warm the full catalogue in the background;
+  // clean up a pending reply timer on unmount.
   useEffect(() => {
-    if (open) inputRef.current?.focus();
+    if (!open) return;
+    inputRef.current?.focus();
+    warmAssistant();
   }, [open]);
 
   useEffect(() => {

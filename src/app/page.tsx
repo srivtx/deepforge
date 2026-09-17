@@ -8,7 +8,6 @@ import { StatsStrip } from "@/components/StatsStrip";
 import { CategoryGrid } from "@/components/CategoryGrid";
 import { SectionHub } from "@/components/SectionHub";
 import { PageShell } from "@/components/PageShell";
-import { ZeroAssistant } from "@/components/ZeroAssistant";
 import { DeepLink } from "@/components/DeepLink";
 import { categorySlug, findSectionByHash } from "@/lib/sections";
 import { CATEGORIES } from "@/data/problems/meta";
@@ -121,7 +120,6 @@ export default function Page() {
           </span>
         </Link>
       </section>
-      <ZeroAssistant />
       <DeepLink />
     </PageShell>
   );
