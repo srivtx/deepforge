@@ -36,20 +36,62 @@ const DIFFICULTY_POINTS: Record<Difficulty, number> = {
 
 const META_BY_ID = new Map(PROBLEM_META.map((problem) => [problem.id, problem]));
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Finite numbers only, clamped non-negative and rounded like the save path. */
+function nonNegativeInt(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.round(value))
+    : 0;
+}
+
+/**
+ * Validate one persisted result. A result without a contest or completion
+ * timestamp cannot be rendered or ranked, so it is dropped; numeric fields
+ * that are missing or not finite fall back to 0.
+ */
+function sanitizeContestResult(value: unknown): ContestResult | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.contestId !== "string" || value.contestId.length === 0) {
+    return null;
+  }
+  if (typeof value.completedAt !== "string" || value.completedAt.length === 0) {
+    return null;
+  }
+  return {
+    contestId: value.contestId,
+    score: nonNegativeInt(value.score),
+    solved: nonNegativeInt(value.solved),
+    total: nonNegativeInt(value.total),
+    durationSeconds: nonNegativeInt(value.durationSeconds),
+    completedAt: value.completedAt,
+  };
+}
+
+function parseContestResults(raw: string | null): ContestResult[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const out: ContestResult[] = [];
+    for (const value of parsed) {
+      const result = sanitizeContestResult(value);
+      if (result) out.push(result);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 const contestStore = createStore<ContestResult[]>({
   id: "contests",
   storageKey: STORAGE_KEY,
   event: CONTEST_CHANGE_EVENT,
   empty: () => [],
-  parse: (raw) => {
-    if (!raw) return [];
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as ContestResult[]) : [];
-    } catch {
-      return [];
-    }
-  },
+  parse: parseContestResults,
   serialize: (v) => JSON.stringify(v),
 });
 
@@ -114,14 +156,6 @@ export const CONTEST_SPEC: StoreSpec<ContestResult[]> = {
   storageKey: STORAGE_KEY,
   event: CONTEST_CHANGE_EVENT,
   empty: () => [],
-  parse: (raw) => {
-    if (!raw) return [];
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as ContestResult[]) : [];
-    } catch {
-      return [];
-    }
-  },
+  parse: parseContestResults,
   serialize: (v) => JSON.stringify(v),
 };

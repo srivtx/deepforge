@@ -20,6 +20,14 @@ export interface ImportResult {
   error: string | null;
 }
 
+/**
+ * Every `deepforge:*` change event a store dispatches, replayed after an
+ * import so open views re-read the restored data instead of staying stale.
+ *
+ * Source of truth: the `new CustomEvent(...)` call sites and `createStore` /
+ * sync store specs under `src/lib` (the source-scan test in
+ * `tests/backup.test.ts` fails if this list drifts in either direction).
+ */
 export const PROGRESS_CHANGE_EVENTS = [
   "deepforge:progress-change",
   "deepforge:contest-change",
@@ -31,6 +39,8 @@ export const PROGRESS_CHANGE_EVENTS = [
   "deepforge:username-change",
   "deepforge:lab-change",
   "deepforge:research-change",
+  "deepforge:reviews-change",
+  "deepforge:explanation-change",
   "deepforge:forum-change",
   "deepforge:notebook-change",
   "deepforge:assistant-change",
@@ -39,7 +49,16 @@ export const PROGRESS_CHANGE_EVENTS = [
   "deepforge:submissions-change",
   "deepforge:concepts-change",
   "deepforge:certificates-change",
-  "deepforge:quests-change",
+  "deepforge:agentic-change",
+  "deepforge:avatar-change",
+  "deepforge:readiness-goal-change",
+  "deepforge:reminders-change",
+  "deepforge:placement-change",
+  "deepforge:sync-change",
+  "deepforge:groups-change",
+  "deepforge:checkpoint-change",
+  "deepforge:bug-hunt-change",
+  "deepforge:lab-reviews-change",
 ] as const;
 
 function getStorage(): Storage | null {

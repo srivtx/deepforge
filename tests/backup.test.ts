@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { clearAllProgress, exportProgress, importProgress } from "@/lib/backup";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  clearAllProgress,
+  exportProgress,
+  importProgress,
+  PROGRESS_CHANGE_EVENTS,
+} from "@/lib/backup";
+import { getContestResults } from "@/lib/contestStore";
 
 function createStorageStub(): Storage {
   const store = new Map<string, string>();
@@ -175,5 +184,125 @@ describe("clearAllProgress", () => {
     expect(stub.getItem("other:foreign")).toBe("keep-out");
     expect(stub.getItem("theme")).toBe("dark");
     expect(stub.length).toBe(2);
+  });
+});
+
+const CONTEST_KEY = "deepforge:contests:v1";
+const CONTEST_AT = "2026-01-02T03:04:05.000Z";
+
+describe("contest result sanitization", () => {
+  test("non-array and unparseable payloads read as empty without throwing", () => {
+    for (const raw of [
+      "not json at all",
+      "null",
+      "42",
+      '"nope"',
+      "{}",
+      '{"contestId":"speedrun"}',
+    ]) {
+      stub.setItem(CONTEST_KEY, raw);
+      expect(getContestResults()).toEqual([]);
+    }
+  });
+
+  test("malformed entries are dropped and junk numerics fall back to 0", () => {
+    stub.setItem(
+      CONTEST_KEY,
+      `[null,42,"nope",[],{},{` +
+        `"contestId":7,"score":1,"solved":1,"total":1,"durationSeconds":1,"completedAt":"${CONTEST_AT}"},{` +
+        `"contestId":"","score":1,"solved":1,"total":1,"durationSeconds":1,"completedAt":"${CONTEST_AT}"},{` +
+        `"contestId":"no-time","score":1,"solved":1,"total":1,"durationSeconds":1,"completedAt":null},{` +
+        `"contestId":"partial","score":"9","solved":null,"total":true,"durationSeconds":1e400,"completedAt":"${CONTEST_AT}"},{` +
+        `"contestId":"clamped","score":-2,"solved":1.6,"total":-1,"durationSeconds":90.5,"completedAt":"${CONTEST_AT}"},{` +
+        `"contestId":"valid","score":7,"solved":3,"total":5,"durationSeconds":600,"completedAt":"${CONTEST_AT}"}]`,
+    );
+
+    expect(getContestResults()).toEqual([
+      { contestId: "partial", score: 0, solved: 0, total: 0, durationSeconds: 0, completedAt: CONTEST_AT },
+      { contestId: "clamped", score: 0, solved: 2, total: 0, durationSeconds: 91, completedAt: CONTEST_AT },
+      { contestId: "valid", score: 7, solved: 3, total: 5, durationSeconds: 600, completedAt: CONTEST_AT },
+    ]);
+  });
+
+  test("a corrupted backup round-trips into sanitized stores", () => {
+    const backup = JSON.stringify({
+      app: "deepforge",
+      version: 1,
+      exportedAt: new Date(0).toISOString(),
+      data: {
+        "deepforge:contests:v1": '[null, {"contestId": 4}]',
+        "deepforge:interview:v1": "not json at all",
+      },
+    });
+
+    const result = importProgress(backup);
+    expect(result.error).toBeNull();
+    expect(result.imported).toBe(2);
+    expect(getContestResults()).toEqual([]);
+  });
+});
+
+function collectLibSources(dir: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...collectLibSources(full));
+    else if (entry.isFile() && entry.name.endsWith(".ts")) files.push(full);
+  }
+  return files;
+}
+
+/** Events ending in `-change` that src/lib dispatches or hands to createStore. */
+function scanDispatchedChangeEvents(): Set<string> {
+  const libDir = fileURLToPath(new URL("../src/lib", import.meta.url));
+  const sources = collectLibSources(libDir).map((file) =>
+    readFileSync(file, "utf8"),
+  );
+
+  const constants = new Map<string, string>();
+  for (const text of sources) {
+    for (const match of text.matchAll(/const\s+([A-Za-z0-9_$]+)\s*=\s*"([^"]+)"/g)) {
+      constants.set(match[1], match[2]);
+    }
+  }
+
+  const dispatched = new Set<string>();
+  const addEvent = (value: string | undefined) => {
+    if (value && value.startsWith("deepforge:") && value.endsWith("-change")) {
+      dispatched.add(value);
+    }
+  };
+  const resolve = (name: string) => addEvent(constants.get(name) ?? name);
+
+  for (const text of sources) {
+    for (const match of text.matchAll(
+      /new\s+CustomEvent(?:\s*<[^>]*>)?\s*\(\s*"([^"]+)"/g,
+    )) {
+      resolve(match[1]);
+    }
+    for (const match of text.matchAll(
+      /new\s+CustomEvent(?:\s*<[^>]*>)?\s*\(\s*([A-Za-z0-9_$]+)/g,
+    )) {
+      resolve(match[1]);
+    }
+    for (const match of text.matchAll(/\bevent:\s*([A-Za-z0-9_$]+)/g)) {
+      resolve(match[1]);
+    }
+  }
+  return dispatched;
+}
+
+describe("refresh events", () => {
+  test("the import list exactly matches every dispatched store change event", () => {
+    const dispatched = [...scanDispatchedChangeEvents()].sort();
+    expect(dispatched.length).toBeGreaterThan(0);
+    expect(dispatched).toEqual([...PROGRESS_CHANGE_EVENTS].sort());
+  });
+
+  test("the import list has no duplicates and no ghost events", () => {
+    expect(new Set(PROGRESS_CHANGE_EVENTS).size).toBe(
+      PROGRESS_CHANGE_EVENTS.length,
+    );
+    expect(PROGRESS_CHANGE_EVENTS).not.toContain("deepforge:quests-change");
   });
 });

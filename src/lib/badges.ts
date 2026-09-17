@@ -295,9 +295,11 @@ function derive(snapshot: BadgeSnapshot): Derived {
     }
   }
 
-  const labsPassed = Object.values(snapshot.labs).filter((r) => r.passed).length;
+  const labsPassed = Object.values(snapshot.labs).filter(
+    (r) => r?.passed === true,
+  ).length;
   const beatenBaselines = Object.values(snapshot.research).filter(
-    (state) => state.beatenBaseline,
+    (state) => state?.beatenBaseline === true,
   ).length;
 
   const result: Derived = {
@@ -734,6 +736,7 @@ function deriveEarnedAt(id: string, snapshot: BadgeSnapshot): string | null {
     case "under-pressure": {
       let earliest: number | null = null;
       for (const result of snapshot.contests) {
+        if (typeof result?.completedAt !== "string") continue;
         const at = parseIso(result.completedAt);
         if (!at) continue;
         const time = at.getTime();
@@ -827,9 +830,9 @@ function xpForSnapshot(snapshot: BadgeSnapshot): number {
   for (const problem of derived.solved) xp += awardForDifficulty(problem.difficulty);
   xp += derived.labsPassed * LAB_PASS_XP;
   for (const state of Object.values(snapshot.research)) {
-    const attempts = Array.isArray(state.attempts) ? state.attempts.length : 0;
+    const attempts = Array.isArray(state?.attempts) ? state.attempts.length : 0;
     xp += attempts * RESEARCH_ATTEMPT_XP;
-    if (state.beatenBaseline) xp += RESEARCH_BASELINE_XP;
+    if (state?.beatenBaseline === true) xp += RESEARCH_BASELINE_XP;
   }
   return xp;
 }
@@ -904,7 +907,7 @@ function hardSolvesOnDay(derived: Derived, dayKey: string): number {
 function researchAttemptsOnDay(snapshot: BadgeSnapshot, dayKey: string): number {
   let count = 0;
   for (const state of Object.values(snapshot.research)) {
-    if (!Array.isArray(state.attempts)) continue;
+    if (!Array.isArray(state?.attempts)) continue;
     for (const attempt of state.attempts) {
       const at = parseIso(attempt.at);
       if (at && getDailyDateKey(at) === dayKey) count += 1;
@@ -916,8 +919,9 @@ function researchAttemptsOnDay(snapshot: BadgeSnapshot, dayKey: string): number 
 /** Was any lab scored on this calendar day? */
 function labsRunOnDay(snapshot: BadgeSnapshot, dayKey: string): number {
   for (const record of Object.values(snapshot.labs)) {
-    if (!record.lastScoredAt) continue;
-    const at = parseIso(record.lastScoredAt);
+    const lastScoredAt = record?.lastScoredAt;
+    if (typeof lastScoredAt !== "string" || !lastScoredAt) continue;
+    const at = parseIso(lastScoredAt);
     if (at && getDailyDateKey(at) === dayKey) return 1;
   }
   return 0;
@@ -1079,7 +1083,7 @@ export function getActivityHeatmap(
   const counts = new Map<string, number>();
 
   for (const record of Object.values(snapshot.progress)) {
-    if (!record.solvedAt) continue;
+    if (!record?.solvedAt) continue;
     const at = parseIso(record.solvedAt);
     if (!at) continue;
     const key = getDailyDateKey(at);
@@ -1087,7 +1091,7 @@ export function getActivityHeatmap(
   }
 
   for (const state of Object.values(snapshot.research)) {
-    if (!Array.isArray(state.attempts)) continue;
+    if (!Array.isArray(state?.attempts)) continue;
     for (const attempt of state.attempts) {
       const at = parseIso(attempt.at);
       if (!at) continue;
