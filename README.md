@@ -49,14 +49,17 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Today & review queue** — one zero-decision daily session: spaced repetition for code you have solved (SM-2 style, due/learning/new buckets), lab re-runs and math concepts that come due with inline grading, a weak-area pick, the daily problem, a placement plan, a stage-checkpoint-ready row, and a transparent "Do this next" pick
 - **Onboarding** — a three-minute diagnostic at `/start` that recommends paths, a first problem set, and a daily target
 - **Projects** — 5 multi-step builds: GPT from scratch, neural network framework, search engine, recommender, CNN — each with a detail page
-- **Labs** — 8 dataset-driven challenges with metrics, baselines, and time limits, scored in-browser
-- **Research** — 5 beat-the-baseline benchmarks against hidden test sets, best submissions saved locally
+- **Labs** — 8 dataset-driven challenges with metrics, baselines, and time limits, scored in-browser; each has a detail page with theory, rules, a deterministic data preview, and a timed runner
+- **Lab trails** — four guided arcs over the eight labs with live per-trail progress and per-lab pass/best rows
+- **Research** — 5 beat-the-baseline benchmarks against hidden test sets, best submissions saved locally; each has a detail page with research notes, a data preview, and a last-5-attempts workspace
+- **Dataset previews** — deterministic SSR-safe SVG previews on every lab and research page (scatter with legend, correlation bars that accent the signal columns, a 4×4 next-token matrix, noisy windows against the clean wave)
 - **Contests** — 12 timed sets (10–60 min) with countdown, difficulty-weighted scoring, and local results
 - **Speedrun** — seeded timed solve-a-thons with shareable run codes, ghost races, and a one-click drill playlist built from your misses
 - **Collections** — 24 premade sets with detail pages, plus user-created collections and shareable URLs
 - **Playlists** — build, reorder, share, and fork problem playlists via compact `?playlist=` codes
 - **Interview Prep** — 13 company tracks with paced practice, timed mocks, and an agentic round (instruct, review the plan, verify, diagnose the fix) against a deterministic copilot
 - **Pen & Paper Math** — 60 no-code problems (multiple choice + numeric) with SM-2 mastery review
+- **Concepts** — browse every math checkpoint grouped by category with mastery bars, due/locked status, prerequisite reasoning, worked steps, practice and code links, and the same self-grading as Today
 - **Notebook mode** — per-cell Python execution with run-all and test validation, persisted per problem
 - **Self-explanation** — after a solve, explain the key step in your own words before moving on; graded deterministically, no model or network
 - **Spot the bug** — find and explain a seeded mutation of a verified solution, test-checked before it is shown; rounds are tracked across devices with bug-slayer, exterminator, and flawless badges plus a daily quest
@@ -73,11 +76,11 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Streak shields & reminders** — one solve streak shown everywhere (the daily-challenge chain is labeled separately); shields cover a missed calendar day; opt-in local reminders for streak, reviews due, and a daily digest
 - **Submit a Problem** — author problems locally, validate with real Python, export ready-to-paste TS
 - **Leaderboard** — Flame Score (Easy 1, Medium 3, Hard 5), streaks, username, and a weekly mode (Monday-local week, bots rotate each week); global view when signed in
-- **Search & shortcuts** — command palette over problems, paths, articles, and blog with quick actions; g-sequences and a `?` overlay for every shortcut
+- **Search & shortcuts** — command palette over problems, paths, articles, blog, research challenges, and labs with quick actions (labs, lab trails, research); g-sequences and a `?` overlay for every shortcut
 - **Backup** — full local export/import with an audited inventory of every stored key and documented exclusions
 - **Sync** — local-first progress/streaks/collections sync through Supabase (magic link or Google) when you opt in
 - **Accessibility** — keyboard pass across dialogs, menus, comment threads, and the command palette: Tab containment, Escape-to-close, focus-visible rings, and aria-live status
-- **PWA** — installable, offline shell v4 with a per-route fallback (verified by a route-inventory test), service worker that never caches dev assets
+- **PWA** — installable, offline shell v5 with a per-route fallback (verified by a route-inventory test), service worker that never caches dev assets
 
 ## Optional: sync & accounts
 
@@ -102,14 +105,14 @@ See [`docs/SETUP-SUPABASE.md`](./docs/SETUP-SUPABASE.md) for schema, RLS, and au
 
 ## Performance
 
-Measured with `bun run scripts/measure-bundle.ts` (gzip first-load JS):
+Measured with `bun run scripts/measure-bundle.ts --check` (gzip first-load JS; all four routes within budget):
 
 | Route | Before light index | Now |
 |---|---:|---:|
-| `/` | 1,553 KB | **276.3 KB** |
-| `/problems` | 1,499 KB | **318.9 KB** |
-| `/about` | 1,497 KB | **243.2 KB** |
-| `/stats` | 1,572 KB | **403.5 KB** |
+| `/` | 1,553 KB | **276.4 KB** |
+| `/problems` | 1,499 KB | **319.1 KB** |
+| `/about` | 1,497 KB | **243.3 KB** |
+| `/stats` | 1,572 KB | **403.9 KB** |
 
 The 5 MB problem bank is a lazy chunk; pages use a generated light index
 (`src/data/problems/problem-meta.ts`) and load full problem payloads on demand.
@@ -144,10 +147,10 @@ bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 1,082 unit tests
+bun test                                  # 1,129 unit tests (62 files)
 bun run build
 bunx next start -p 3099 &                 # production server the smoke suite expects
-bun run scripts/e2e-smoke.mjs             # 148-check end-to-end smoke against :3099
+bun run scripts/e2e-smoke.mjs             # 159-check end-to-end smoke against :3099
 ```
 
 ## Quick Start
