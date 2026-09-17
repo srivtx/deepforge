@@ -8,15 +8,21 @@ import {
   buildCertificateText,
   certificateCredentialCode,
   formatCertificateDate,
-  getEligible,
+  formatMeasure,
   getIssued,
+  getTrackProgress,
   issueCertificate,
+  listCertificateCandidates,
   revokeCertificate,
   verificationCode,
+  type CertTrackProgress,
   type Certificate,
+  type CertificateCandidate,
   type CertificateEntry,
   type CertificateKind,
 } from "@/lib/certificates";
+import { CERT_TRACKS, type CertTrack } from "@/data/certTracks";
+import { LEARNING_PATHS } from "@/data/problems/paths";
 import {
   fingerprintFromCode,
   formatFingerprint,
@@ -48,7 +54,107 @@ const KIND_LABELS: Record<CertificateKind, string> = {
   project: "Project",
   interview: "Interview",
   research: "Research",
+  track: "Track",
 };
+
+const LEVEL_LABELS: Record<CertTrack["level"], string> = {
+  foundation: "Foundation",
+  practitioner: "Practitioner",
+  specialist: "Specialist",
+};
+
+/** Catalog groups, small ones open by default so the page never reads empty. */
+const CATALOG_GROUPS: {
+  kind: CertificateKind;
+  title: string;
+  blurb: string;
+  open: boolean;
+}[] = [
+  {
+    kind: "path",
+    title: "Learning paths",
+    blurb: "Solve every problem in the path.",
+    open: false,
+  },
+  {
+    kind: "collection",
+    title: "Curated collections",
+    blurb: "One focused set, start to finish.",
+    open: false,
+  },
+  {
+    kind: "category",
+    title: "Category milestones",
+    blurb: "Reach 80% of a category's problems.",
+    open: false,
+  },
+  {
+    kind: "lab",
+    title: "Scored labs",
+    blurb: "Hit the held-out target.",
+    open: true,
+  },
+  {
+    kind: "project",
+    title: "Project builds",
+    blurb: "Complete every build step.",
+    open: true,
+  },
+  {
+    kind: "interview",
+    title: "Interview mocks",
+    blurb: "Score 80% on a timed mock.",
+    open: false,
+  },
+  {
+    kind: "research",
+    title: "Research challenges",
+    blurb: "Beat every baseline.",
+    open: true,
+  },
+];
+
+/** Where an entry's work lives, so every catalog row can link out. */
+function candidateHref(entry: CertificateEntry): string {
+  switch (entry.kind) {
+    case "path": {
+      const path = LEARNING_PATHS.find((item) => item.id === entry.refId);
+      return path ? `/paths/${path.slug}` : "/paths";
+    }
+    case "collection":
+      return `/collections/${entry.refId}`;
+    case "category":
+      return `/categories/${entry.refId}`;
+    case "lab":
+      return `/labs/${entry.refId}`;
+    case "project":
+      return `/projects/${entry.refId}`;
+    case "interview":
+      return `/interview/${entry.refId}`;
+    case "research":
+      return "/research";
+    case "track":
+      return "/certificates";
+  }
+}
+
+/** Compact mono readout for a candidate: counts or a measure pair. */
+function candidateValue(entry: CertificateEntry): string {
+  if (entry.score !== undefined && entry.target !== undefined) {
+    const metric = entry.metric ?? "accuracy";
+    return `${formatMeasure(metric, entry.score)} / ${formatMeasure(metric, entry.target)}`;
+  }
+  if (entry.solved !== undefined && entry.total !== undefined) {
+    if (entry.kind === "project") return `${entry.solved}/${entry.total} steps`;
+    if (entry.kind === "interview") return `${entry.solved}/${entry.total} mock`;
+    if (entry.kind === "research") {
+      return `${entry.solved}/${entry.total} baselines`;
+    }
+    if (entry.kind === "track") return `${entry.solved}/${entry.total} steps`;
+    return `${entry.solved}/${entry.total}`;
+  }
+  return "";
+}
 
 const CHANGE_EVENTS = [
   "deepforge:progress-change",
@@ -59,26 +165,6 @@ const CHANGE_EVENTS = [
   RESEARCH_CHANGE_EVENT,
   CERTIFICATES_CHANGE_EVENT,
 ];
-
-/** One-line evidence shown on a claimable card, per kind. */
-function claimEvidence(entry: CertificateEntry): string {
-  if (entry.score !== undefined && entry.target !== undefined) {
-    const format = (value: number) =>
-      entry.metric === "mse" ? value.toFixed(2) : value.toFixed(3);
-    return `${format(entry.score)} / target ${format(entry.target)}`;
-  }
-  if (entry.solved !== undefined && entry.total !== undefined) {
-    if (entry.kind === "project") return `${entry.solved}/${entry.total} steps`;
-    if (entry.kind === "interview") {
-      return `${entry.solved}/${entry.total} mock`;
-    }
-    if (entry.kind === "research") {
-      return `${entry.solved}/${entry.total} baselines`;
-    }
-    return `${entry.solved}/${entry.total}`;
-  }
-  return "";
-}
 
 /* ────────────────────────────── certificate art ─────────────────────────── */
 
@@ -98,14 +184,27 @@ const PNG_HEIGHT = 750;
 
 interface CertificateState {
   eligible: CertificateEntry[];
+  candidates: CertificateCandidate[];
+  tracks: CertTrackProgress[];
   issued: Certificate[];
 }
 
-const EMPTY_STATE: CertificateState = { eligible: [], issued: [] };
+const EMPTY_STATE: CertificateState = {
+  eligible: [],
+  candidates: [],
+  tracks: [],
+  issued: [],
+};
 
 function safeLoad(): CertificateState {
   try {
-    return { eligible: getEligible(), issued: getIssued() };
+    const candidates = listCertificateCandidates();
+    return {
+      eligible: candidates.filter((candidate) => candidate.eligible),
+      candidates,
+      tracks: CERT_TRACKS.map((track) => getTrackProgress(track)),
+      issued: getIssued(),
+    };
   } catch {
     return EMPTY_STATE;
   }
@@ -669,6 +768,198 @@ function CertificateCard({
   );
 }
 
+/* ─────────────────────────── track + catalog ────────────────────────────── */
+
+function ProgressBar({ value, label }: { value: number; label: string }) {
+  const pct = Math.round(Math.min(1, Math.max(0, value)) * 100);
+  return (
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-label={label}
+      className="h-1.5 w-full overflow-hidden rounded-full bg-canvas-soft"
+    >
+      <div
+        aria-hidden
+        className="h-full rounded-full bg-accent"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
+function LevelBadge({ level }: { level: CertTrack["level"] }) {
+  return (
+    <span className="rounded-full border border-hairline bg-canvas-soft px-2 py-0.5 text-[11px] text-body-mid">
+      {LEVEL_LABELS[level]}
+    </span>
+  );
+}
+
+const STEP_LINK =
+  "min-w-0 truncate rounded-sm text-xs text-ink underline-offset-2 transition-colors hover:text-accent hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
+
+function TrackCard({
+  progress,
+  entry,
+  issued,
+  onClaim,
+}: {
+  progress: CertTrackProgress;
+  entry?: CertificateEntry;
+  issued: boolean;
+  onClaim: (entry: CertificateEntry) => void;
+}) {
+  const { track } = progress;
+  const firstUndone = progress.steps.findIndex((step) => !step.done);
+  const next = firstUndone === -1 ? null : progress.steps[firstUndone];
+  return (
+    <article className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <LevelBadge level={track.level} />
+        {issued && (
+          <span className="rounded-full border border-accent/40 bg-accent/5 px-2 py-0.5 text-[11px] font-medium text-accent">
+            Claimed
+          </span>
+        )}
+      </div>
+
+      <div>
+        <h4 className="text-sm font-medium text-ink">{track.title}</h4>
+        <p className="mt-1 text-xs leading-relaxed text-body-mid">
+          {track.blurb}
+        </p>
+        <p className="mt-1.5 text-xs leading-relaxed text-body-mid">
+          <span className="text-mute">Outcome: </span>
+          {track.outcome}
+        </p>
+      </div>
+
+      <ol className="space-y-1.5">
+        {progress.steps.map((step, index) => (
+          <li
+            key={`${step.step.kind}:${step.step.id}`}
+            className={cn(
+              "flex flex-col gap-1 rounded-md border px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3",
+              step.done
+                ? "border-hairline bg-canvas-soft/60"
+                : index === firstUndone
+                  ? "border-accent/40 bg-accent/5"
+                  : "border-hairline",
+            )}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <span
+                aria-hidden
+                className={cn(
+                  "h-1.5 w-1.5 shrink-0 rotate-45",
+                  step.done ? "bg-accent" : "bg-hairline",
+                )}
+              />
+              <Link href={step.href} className={STEP_LINK}>
+                {step.label}
+              </Link>
+            </span>
+            <span className="shrink-0 font-mono text-[11px] text-body-mid">
+              {step.progress}
+            </span>
+          </li>
+        ))}
+      </ol>
+
+      {next && (
+        <p className="text-xs leading-relaxed text-body-mid">
+          Next: <span className="text-ink">{next.label}</span>
+          {" — "}
+          {next.progress}.
+        </p>
+      )}
+
+      <div className="mt-auto flex flex-wrap items-center gap-3">
+        <div className="min-w-[8rem] flex-1">
+          <ProgressBar
+            value={progress.total === 0 ? 0 : progress.done / progress.total}
+            label={`${track.title} progress`}
+          />
+        </div>
+        <span className="font-mono text-xs text-body-mid">
+          {progress.done}/{progress.total}
+        </span>
+        {progress.complete && entry && !issued && (
+          <button
+            type="button"
+            onClick={() => onClaim(entry)}
+            aria-label={`Claim the ${track.title} certificate`}
+            className={PRIMARY_BUTTON}
+          >
+            Claim
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function CandidateRow({
+  candidate,
+  issued,
+  onClaim,
+}: {
+  candidate: CertificateCandidate;
+  issued: boolean;
+  onClaim: (entry: CertificateEntry) => void;
+}) {
+  const href = candidateHref(candidate);
+  const value = candidateValue(candidate);
+  return (
+    <li className="flex flex-col gap-2 rounded-lg border border-hairline bg-canvas-card px-3 py-2.5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <Link href={href} className={STEP_LINK}>
+            {candidate.title}
+          </Link>
+          <p className="mt-0.5 text-xs leading-relaxed text-body-mid">
+            {candidate.requirement}
+          </p>
+        </div>
+        {issued ? (
+          <span className="shrink-0 rounded-full border border-accent/40 bg-accent/5 px-2 py-0.5 text-[11px] font-medium text-accent">
+            Issued
+          </span>
+        ) : candidate.eligible ? (
+          <button
+            type="button"
+            onClick={() => onClaim(candidate)}
+            aria-label={`Claim certificate for ${candidate.title}`}
+            className={PRIMARY_BUTTON}
+          >
+            Claim
+          </button>
+        ) : (
+          <span className="shrink-0 rounded-full border border-hairline px-2 py-0.5 text-[11px] text-mute">
+            {KIND_LABELS[candidate.kind]}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <ProgressBar
+            value={candidate.progress}
+            label={`${candidate.title} progress`}
+          />
+        </div>
+        {value && (
+          <span className="shrink-0 font-mono text-[11px] text-body-mid">
+            {value}
+          </span>
+        )}
+      </div>
+    </li>
+  );
+}
+
 /* ─────────────────────────────── section ────────────────────────────────── */
 
 export function Certificates() {
@@ -676,6 +967,7 @@ export function Certificates() {
   const [status, setStatus] = useState("");
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
   const [codes, setCodes] = useState<Record<string, string>>({});
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const loaded = state !== EMPTY_STATE;
 
   useEffect(() => {
@@ -715,6 +1007,24 @@ export function Certificates() {
   const claimable = state.eligible.filter(
     (entry) => !issuedKeys.has(`${entry.kind}:${entry.refId}`),
   );
+  const trackCandidates = new Map(
+    state.candidates
+      .filter((candidate) => candidate.kind === "track")
+      .map((candidate) => [candidate.refId, candidate]),
+  );
+  const closest = state.candidates
+    .filter(
+      (candidate) =>
+        !candidate.eligible &&
+        !issuedKeys.has(`${candidate.kind}:${candidate.refId}`) &&
+        candidate.progress > 0,
+    )
+    .sort((a, b) => b.progress - a.progress)
+    .slice(0, 3);
+
+  const handleGroupToggle = (kind: CertificateKind, open: boolean) => {
+    setOpenGroups((previous) => ({ ...previous, [kind]: open }));
+  };
 
   const handleClaim = (entry: CertificateEntry) => {
     try {
@@ -790,7 +1100,8 @@ export function Certificates() {
     >
       <div className="mb-6">
         <h2 className="text-sm font-medium text-body-mid">
-          {claimable.length} ready to claim · {state.issued.length} issued
+          {claimable.length} ready to claim · {state.candidates.length} to work
+          toward · {state.issued.length} issued
         </h2>
       </div>
 
@@ -802,62 +1113,152 @@ export function Certificates() {
         {status}
       </p>
 
-      {/* Ready to claim */}
-      <div>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="text-base font-semibold text-ink">Ready to claim</h3>
-          {claimable.length > 0 && (
-            <span className="font-mono text-xs text-body-mid">
-              {claimable.length}
-            </span>
+      {loaded && state.eligible.length === 0 && (
+        <div className="mb-8 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+          <h3 className="text-sm font-medium text-ink">
+            Nothing ready to claim yet
+          </h3>
+          {closest.length > 0 ? (
+            <>
+              <p className="mt-1 text-xs leading-relaxed text-body-mid">
+                Certificates are earned by completing curated work. These are
+                closest to done:
+              </p>
+              <ul className="mt-3 space-y-2">
+                {closest.map((candidate) => (
+                  <li
+                    key={`${candidate.kind}:${candidate.refId}`}
+                    className="flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <Link
+                      href={candidateHref(candidate)}
+                      className={STEP_LINK}
+                    >
+                      {candidate.title}
+                    </Link>
+                    <span className="font-mono text-[11px] text-body-mid">
+                      {candidate.requirement} ·{" "}
+                      {Math.round(candidate.progress * 100)}%
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="mt-1 text-xs leading-relaxed text-body-mid">
+              Certificates are earned by completing curated work — every
+              problem in a path or collection, 80% of a category, a lab at its
+              target, every project step, 80% on an interview mock, or every
+              research baseline. Start with a certification track below, then
+              open a path or collection and solve your first problem.
+            </p>
           )}
         </div>
-        {claimable.length === 0 ? (
+      )}
+
+      {/* Certification tracks */}
+      <div>
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-ink">
+            Certification tracks
+          </h3>
+          <p className="mt-0.5 text-xs leading-relaxed text-body-mid">
+            Curated routes from first principles to applied work. Complete every
+            step to claim the track certificate.
+          </p>
+        </div>
+        {state.tracks.length === 0 ? (
           loaded && (
             <div className="rounded-lg border border-hairline bg-canvas-card p-4 text-center text-sm text-body-mid sm:p-5">
-              Nothing ready yet. Complete every problem in a learning path or a
-              curated collection, solve 80% of any category, pass a lab at its
-              target, finish every step of a project, score 80% on an interview
-              mock, or beat every research baseline.
+              Track progress is unavailable in this browser.
             </div>
           )
         ) : (
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {claimable.map((entry) => (
-              <li
-                key={`${entry.kind}:${entry.refId}`}
-                className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h4 className="text-sm font-medium text-ink">
-                      {entry.title}
-                    </h4>
-                    <p className="mt-1 text-xs leading-relaxed text-body-mid">
-                      {entry.detail}
-                    </p>
+          <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {state.tracks.map((progress) => {
+              const entry = trackCandidates.get(progress.track.id);
+              return (
+                <li key={progress.track.id} className="flex">
+                  <div className="flex w-full flex-col">
+                    <TrackCard
+                      progress={progress}
+                      entry={entry}
+                      issued={issuedKeys.has(
+                        `track:${progress.track.id}`,
+                      )}
+                      onClaim={handleClaim}
+                    />
                   </div>
-                  <span className="shrink-0 rounded-full border border-accent/40 bg-accent/5 px-2 py-0.5 text-[10px] font-medium text-accent">
-                    {KIND_LABELS[entry.kind]}
-                  </span>
-                </div>
-                <div className="mt-auto flex items-center justify-between gap-3">
-                  <span className="font-mono text-xs text-body-mid">
-                    {claimEvidence(entry)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleClaim(entry)}
-                    aria-label={`Claim certificate for ${entry.title}`}
-                    className={PRIMARY_BUTTON}
-                  >
-                    Claim
-                  </button>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
+      </div>
+
+      {/* Catalog */}
+      <div className="mt-10">
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-ink">
+            Certificate catalog
+          </h3>
+          <p className="mt-0.5 text-xs leading-relaxed text-body-mid">
+            Everything you can earn, with live progress and what each one needs.
+          </p>
+        </div>
+        <div className="space-y-3">
+          {CATALOG_GROUPS.map((group) => {
+            const entries = state.candidates.filter(
+              (candidate) => candidate.kind === group.kind,
+            );
+            if (entries.length === 0) return null;
+            const earned = entries.filter(
+              (candidate) =>
+                candidate.eligible ||
+                issuedKeys.has(`${candidate.kind}:${candidate.refId}`),
+            ).length;
+            const readyToClaim = entries.some(
+              (candidate) =>
+                candidate.eligible &&
+                !issuedKeys.has(`${candidate.kind}:${candidate.refId}`),
+            );
+            const open = openGroups[group.kind] ?? (group.open || readyToClaim);
+            return (
+              <details
+                key={group.kind}
+                open={open}
+                onToggle={(event) =>
+                  handleGroupToggle(group.kind, event.currentTarget.open)
+                }
+                className="rounded-lg border border-hairline bg-canvas-card"
+              >
+                <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40">
+                  <span className="min-w-0">
+                    {group.title}
+                    <span className="ml-2 text-xs font-normal text-body-mid">
+                      {group.blurb}
+                    </span>
+                  </span>
+                  <span className="font-mono text-[11px] text-body-mid">
+                    {earned}/{entries.length}
+                  </span>
+                </summary>
+                <ul className="grid grid-cols-1 gap-2 border-t border-hairline p-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {entries.map((candidate) => (
+                    <CandidateRow
+                      key={`${candidate.kind}:${candidate.refId}`}
+                      candidate={candidate}
+                      issued={issuedKeys.has(
+                        `${candidate.kind}:${candidate.refId}`,
+                      )}
+                      onClaim={handleClaim}
+                    />
+                  ))}
+                </ul>
+              </details>
+            );
+          })}
+        </div>
       </div>
 
       {/* Issued certificates */}

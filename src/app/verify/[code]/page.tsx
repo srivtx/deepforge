@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/PageShell";
+import { CERT_TRACKS } from "@/data/certTracks";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
 import { LABS } from "@/data/labs";
@@ -43,6 +44,7 @@ const KIND_LABELS: Record<CredentialKind, string> = {
   project: "Project build",
   interview: "Interview mock",
   research: "Research challenge",
+  track: "Certification track",
 };
 
 const LINK =
@@ -90,6 +92,12 @@ function targetFor(
   }
   if (payload.kind === "research") {
     return { href: "/research", label: "Research challenges" };
+  }
+  if (payload.kind === "track") {
+    const track = CERT_TRACKS.find((entry) => entry.id === payload.ref);
+    if (track) {
+      return { href: "/certificates", label: track.title };
+    }
   }
   return null;
 }
@@ -175,6 +183,11 @@ function Summary({ payload }: { payload: CredentialPayload }) {
       rows.push({
         label: "Baselines",
         value: `${payload.solved} of ${payload.total} baselines beaten`,
+      });
+    } else if (payload.kind === "track") {
+      rows.push({
+        label: "Steps",
+        value: `${payload.solved} of ${payload.total} steps`,
       });
     } else {
       rows.push({

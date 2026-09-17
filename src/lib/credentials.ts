@@ -47,16 +47,18 @@ export type CredentialKind =
   | "lab"
   | "project"
   | "interview"
-  | "research";
+  | "research"
+  | "track";
 
 /**
  * Canonical evidence payload. Field names are deliberately stable: the
  * canonical serialization order is `v, kind, ref, title, recipient, solved,
  * total, issued, score, target, stepsDone, stepsTotal`, and any serializer
  * change would break every issued code. Counts are required for the
- * problem-based kinds (path, collection, category, interview) and for
+ * problem-based kinds (path, collection, category, interview), for
  * research certificates, where `solved` counts the baselines beaten out of
- * `total`; labs carry `score`/`target` and projects carry
+ * `total`, and for certification tracks, where `solved` counts the completed
+ * steps; labs carry `score`/`target` and projects carry
  * `stepsDone`/`stepsTotal`, appended after the fields that existed at the
  * first release. All appended fields stay optional so every v1 code issued
  * before them keeps verifying.
@@ -220,6 +222,7 @@ const CREDENTIAL_KINDS: readonly CredentialKind[] = [
   "project",
   "interview",
   "research",
+  "track",
 ];
 
 /** Public kind whitelist shared by the credential code and certificate stores. */
@@ -294,7 +297,7 @@ export function normalizeCredential(input: CredentialPayload): CredentialPayload
   }
   if (!isCredentialKind(input.kind)) {
     throw new Error(
-      "credential kind must be path, collection, category, lab, project, interview, or research",
+      "credential kind must be path, collection, category, lab, project, interview, research, or track",
     );
   }
   if (!isIsoDate(input.issued)) {

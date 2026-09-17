@@ -4,7 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
-  "Claim printable certificates for completed paths, collections, and categories. Free, no account needed.";
+  "Browse the full certificate catalog and curated certification tracks, watch live progress on paths, collections, labs, projects, interview mocks, and research challenges, then claim printable certificates. Free, no account needed.";
 
 export const metadata: Metadata = {
   title: "Certificates",

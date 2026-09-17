@@ -10,13 +10,16 @@ import {
   getIssued,
   INTERVIEW_MOCK_RATIO,
   issueCertificate,
+  listCertificateCandidates,
   payloadFromCertificate,
   revokeCertificate,
   verificationCode,
   type Certificate,
+  type CertificateCandidate,
   type CertificateEntry,
 } from "@/lib/certificates";
 import { verifyCredential } from "@/lib/credentials";
+import { CERT_TRACKS } from "@/data/certTracks";
 import { CATEGORIES, LEARNING_PATHS, PROBLEMS } from "@/data/problems";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
@@ -580,5 +583,267 @@ describe("research certificates", () => {
       false,
     );
     expect(revokeCertificate(cert.id)).toBe(false);
+  });
+});
+
+describe("certificate catalog", () => {
+  test("candidates cover every possible certificate with exact counts", () => {
+    const candidates = listCertificateCandidates();
+    const count = (kind: CertificateCandidate["kind"]) =>
+      candidates.filter((candidate) => candidate.kind === kind).length;
+
+    expect(count("path")).toBe(LEARNING_PATHS.length);
+    expect(count("collection")).toBe(PREMADE_COLLECTIONS.length);
+    expect(count("category")).toBe(CATEGORIES.length);
+    expect(count("lab")).toBe(LABS.length);
+    expect(count("project")).toBe(PROJECTS.length);
+    expect(count("interview")).toBe(INTERVIEW_TRACKS.length);
+    expect(count("research")).toBe(1);
+    expect(count("track")).toBe(CERT_TRACKS.length);
+    expect(candidates).toHaveLength(
+      LEARNING_PATHS.length +
+        PREMADE_COLLECTIONS.length +
+        CATEGORIES.length +
+        LABS.length +
+        PROJECTS.length +
+        INTERVIEW_TRACKS.length +
+        1 +
+        CERT_TRACKS.length,
+    );
+
+    const keys = candidates.map((candidate) => `${candidate.kind}:${candidate.refId}`);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  test("a fresh profile locks every candidate with zero progress and a requirement", () => {
+    const candidates = listCertificateCandidates();
+    expect(candidates.length).toBeGreaterThan(0);
+    for (const candidate of candidates) {
+      expect(candidate.eligible).toBe(false);
+      expect(candidate.progress).toBe(0);
+      expect(candidate.requirement.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  test("a path candidate flips eligible exactly when the last problem lands", () => {
+    const path = LEARNING_PATHS[2];
+    const unique = [...new Set(path.problemIds)];
+    const find = () =>
+      listCertificateCandidates().find(
+        (candidate) => candidate.kind === "path" && candidate.refId === path.id,
+      )!;
+
+    seedSolved(unique.slice(0, -1));
+    expect(find().eligible).toBe(false);
+    expect(
+      Math.abs(find().progress - (unique.length - 1) / unique.length),
+    ).toBeLessThan(1e-9);
+    expect(find().requirement).toBe(`Solve all ${unique.length} problems`);
+    expect(find().detail).toContain(
+      `${unique.length - 1} of ${unique.length} problems`,
+    );
+
+    seedSolved(unique);
+    expect(find().eligible).toBe(true);
+    expect(find().progress).toBe(1);
+  });
+
+  test("a collection candidate flips when the set is complete", () => {
+    const collection = PREMADE_COLLECTIONS[3];
+    const unique = [...new Set(collection.problemIds)];
+    const find = () =>
+      listCertificateCandidates().find(
+        (candidate) =>
+          candidate.kind === "collection" && candidate.refId === collection.id,
+      )!;
+
+    seedSolved(unique.slice(0, -1));
+    expect(find().eligible).toBe(false);
+    seedSolved(unique);
+    expect(find().eligible).toBe(true);
+    expect(find().progress).toBe(1);
+  });
+
+  test("a category candidate flips at the 80% threshold", () => {
+    const category = CATEGORIES[0];
+    const problems = PROBLEMS.filter(
+      (problem) => problem.category === category.name,
+    );
+    const threshold = Math.ceil(problems.length * CATEGORY_MILESTONE_RATIO);
+    const refId = slugify(category.name);
+    const find = () =>
+      listCertificateCandidates().find(
+        (candidate) =>
+          candidate.kind === "category" && candidate.refId === refId,
+      )!;
+
+    seedSolved(problems.slice(0, threshold - 1).map((problem) => problem.id));
+    expect(find().eligible).toBe(false);
+    expect(find().requirement).toBe(
+      `${Math.round(CATEGORY_MILESTONE_RATIO * 100)}% of ${problems.length} problems`,
+    );
+
+    seedSolved(problems.slice(0, threshold).map((problem) => problem.id));
+    expect(find().eligible).toBe(true);
+  });
+
+  test("a lab candidate carries its best score and flips at target", () => {
+    const lab = LABS.find((entry) => entry.higherIsBetter)!;
+    const find = () =>
+      listCertificateCandidates().find(
+        (candidate) => candidate.kind === "lab" && candidate.refId === lab.id,
+      )!;
+
+    setLabBest(lab.id, lab.target - 0.05);
+    expect(find().eligible).toBe(false);
+    expect(Math.abs((find().score ?? 0) - (lab.target - 0.05))).toBeLessThan(
+      1e-9,
+    );
+    expect(find().progress).toBeLessThan(1);
+    expect(find().requirement).toContain("best");
+
+    stub.removeItem(LABS_KEY);
+    setLabBest(lab.id, lab.target);
+    expect(find().eligible).toBe(true);
+    expect(find().progress).toBe(1);
+    expect(find().requirement).toContain(formatMeasure(lab.metric, lab.target));
+    expect(find().requirement).toContain("best");
+  });
+
+  test("an interview candidate flips at 80% of the stored mock", () => {
+    const track = INTERVIEW_TRACKS[0];
+    const total = track.mockProblemIds.length;
+    const threshold = Math.ceil(total * INTERVIEW_MOCK_RATIO);
+    const seed = (solved: number) =>
+      stub.setItem(
+        INTERVIEW_KEY,
+        JSON.stringify([
+          {
+            trackId: track.id,
+            solved,
+            total,
+            seconds: 600,
+            completedAt: "2026-01-14T12:00:00.000Z",
+          },
+        ]),
+      );
+    const find = () =>
+      listCertificateCandidates().find(
+        (candidate) =>
+          candidate.kind === "interview" && candidate.refId === track.id,
+      )!;
+
+    seed(threshold - 1);
+    expect(find().eligible).toBe(false);
+    expect(
+      Math.abs(find().progress - (threshold - 1) / total),
+    ).toBeLessThan(1e-9);
+    expect(find().requirement).toBe(
+      `Solve ${threshold} of ${total} mock problems`,
+    );
+
+    seed(threshold);
+    expect(find().eligible).toBe(true);
+    expect(Math.abs(find().progress - threshold / total)).toBeLessThan(1e-9);
+  });
+
+  test("a project candidate flips when every step is solved", () => {
+    const project = PROJECTS[0];
+    const ids = project.steps.map((step) => step.id);
+    const find = () =>
+      listCertificateCandidates().find(
+        (candidate) =>
+          candidate.kind === "project" && candidate.refId === project.id,
+      )!;
+
+    seedSolved(ids.slice(0, -1));
+    expect(find().eligible).toBe(false);
+    expect(
+      Math.abs(find().progress - (ids.length - 1) / ids.length),
+    ).toBeLessThan(1e-9);
+    expect(find().requirement).toBe(`Complete all ${ids.length} steps`);
+
+    seedSolved(ids);
+    expect(find().eligible).toBe(true);
+    expect(find().progress).toBe(1);
+  });
+
+  test("the research candidate reaches 4/5 locked and 5/5 unlocked", () => {
+    const total = RESEARCH_CHALLENGES.length;
+    seedResearch(
+      RESEARCH_CHALLENGES.slice(0, -1).map((challenge) => challenge.id),
+    );
+    const locked = listCertificateCandidates().find(
+      (candidate) => candidate.kind === "research",
+    )!;
+    expect(locked.eligible).toBe(false);
+    expect(Math.abs(locked.progress - (total - 1) / total)).toBeLessThan(1e-9);
+    expect(locked.requirement).toBe(`Beat all ${total} baselines`);
+
+    seedResearch(RESEARCH_CHALLENGES.map((challenge) => challenge.id));
+    const complete = listCertificateCandidates().find(
+      (candidate) => candidate.kind === "research",
+    )!;
+    expect(complete.eligible).toBe(true);
+    expect(complete.progress).toBe(1);
+  });
+
+  test("track candidates start locked with their step counts", () => {
+    const track = CERT_TRACKS[0];
+    const candidate = listCertificateCandidates().find(
+      (entry) => entry.kind === "track" && entry.refId === track.id,
+    )!;
+    expect(candidate.eligible).toBe(false);
+    expect(candidate.progress).toBe(0);
+    expect(candidate.total).toBe(track.steps.length);
+    expect(candidate.solved).toBe(0);
+    expect(candidate.requirement).toBe(
+      `Complete all ${track.steps.length} steps`,
+    );
+  });
+
+  test("getEligible matches the eligible subset of the catalog exactly", () => {
+    const path = LEARNING_PATHS[0];
+    const collection = PREMADE_COLLECTIONS[0];
+    const lab = LABS[1];
+    seedSolved([...path.problemIds, ...collection.problemIds]);
+    setLabBest(lab.id, lab.target);
+
+    const eligible = getEligible();
+    const candidates = listCertificateCandidates();
+    const eligibleCandidates = candidates.filter(
+      (candidate) => candidate.eligible,
+    );
+    expect(eligibleCandidates).toHaveLength(eligible.length);
+    expect(eligible.length).toBeGreaterThanOrEqual(3);
+
+    const compare = (
+      candidate: CertificateCandidate,
+      entry: CertificateEntry,
+    ) => {
+      expect(candidate.kind).toBe(entry.kind);
+      expect(candidate.refId).toBe(entry.refId);
+      expect(candidate.title).toBe(entry.title);
+      expect(candidate.detail).toBe(entry.detail);
+      expect(candidate.total).toBe(entry.total);
+      expect(candidate.solved).toBe(entry.solved);
+      expect(candidate.score).toBe(entry.score);
+      expect(candidate.target).toBe(entry.target);
+      expect(candidate.metric).toBe(entry.metric);
+    };
+    for (const entry of eligible) {
+      const candidate = candidates.find(
+        (item) => item.kind === entry.kind && item.refId === entry.refId,
+      );
+      expect(candidate).toBeTruthy();
+      compare(candidate!, entry);
+    }
+    for (const candidate of eligibleCandidates) {
+      const entry = eligible.find(
+        (item) => item.kind === candidate.kind && item.refId === candidate.refId,
+      );
+      expect(entry).toBeTruthy();
+      compare(candidate, entry!);
+    }
   });
 });
