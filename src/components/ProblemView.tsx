@@ -39,6 +39,11 @@ import {
   saveCode,
 } from "@/lib/progress";
 import {
+  getBugStats,
+  recordBugRound,
+  REASON_OK_THRESHOLD,
+} from "@/lib/bugHunt";
+import {
   getLatestExplanation,
   gradeExplanation,
   hasExplained,
@@ -143,6 +148,7 @@ export function ProblemView({
   const [bugShowFix, setBugShowFix] = useState(false);
   const [bugLoading, setBugLoading] = useState(false);
   const [bugUnavailable, setBugUnavailable] = useState(false);
+  const [bugVersion, setBugVersion] = useState(0);
 
   const pyRef = useRef<any>(null);
   const celebratedRef = useRef<Set<string>>(new Set());
@@ -178,6 +184,7 @@ export function ProblemView({
   const bugActive = bugHunt?.problemId === problem.id ? bugHunt : null;
   const bugMutant = bugActive?.mutant ?? null;
   const bugCandidates = useMemo(() => generateBugMutants(problem), [problem]);
+  const bugStats = useMemo(() => getBugStats(), [problem.id, bugVersion]);
   const codeLineCount = code.split("\n").length;
 
   // Roving tabindex for the mobile tab switcher: one tab stop, arrow keys move
@@ -476,7 +483,16 @@ export function ProblemView({
 
   const lockBugAnswer = () => {
     if (!bugMutant || !bugReason.trim()) return;
-    setBugScore(scoreBugAnswer(bugMutant, { line: bugLine, reason: bugReason }));
+    const score = scoreBugAnswer(bugMutant, { line: bugLine, reason: bugReason });
+    setBugScore(score);
+    recordBugRound({
+      problemId: problem.id,
+      category: bugMutant.category,
+      lineOk: score.lineCorrect,
+      reasonOk: score.reasonScore >= REASON_OK_THRESHOLD,
+      clean: score.verdict === "nailed-it",
+    });
+    setBugVersion((v) => v + 1);
     setBugHunt((prev) => (prev ? { ...prev, phase: "scored" } : prev));
   };
 
@@ -1413,6 +1429,12 @@ export function ProblemView({
                             </p>
                           )}
                         </>
+                      )}
+                      {bugStats.total > 0 && (
+                        <p className="font-mono text-[11px] text-body-mid">
+                          Clean hunts {bugStats.clean} of {bugStats.total} · best
+                          streak {bugStats.bestCleanStreak}
+                        </p>
                       )}
                       <div className="flex flex-wrap items-center gap-2">
                         <button

@@ -10,6 +10,7 @@
  * through the sync state (`deepforge:sync-change`), never by throwing.
  */
 
+import { BUG_HUNT_SPEC, mergeBugHunt } from "@/lib/bugHunt";
 import { COLLECTIONS_SPEC } from "@/lib/collections";
 import { CONCEPTS_SPEC, mergeConcepts } from "@/lib/concepts";
 import { CONTEST_SPEC } from "@/lib/contestStore";
@@ -121,7 +122,7 @@ const SYNC_CHANGE_EVENT = "deepforge:sync-change";
  *
  * Synced through `user_stores`: progress, daily, collections, contests,
  * interview, penpaper, concepts, labs (`deepforge:labs`, unversioned),
- * research, reviews, explanations, username.
+ * research, reviews, explanations, bugHunt, username.
  *
  * Local-only on purpose (keys that never travel through this engine):
  *   deepforge:avatar:v1          avatars.ts — device-local choice; photos use avatarStorage
@@ -154,6 +155,7 @@ const ALL_STORE_IDS: StoreId[] = [
   "research",
   "reviews",
   "explanations",
+  "bugHunt",
   "username",
 ];
 
@@ -205,6 +207,7 @@ const STORE_SPECS: Record<StoreId, StoreSpec<any>> = {
   research: RESEARCH_SPEC,
   reviews: REVIEWS_SPEC,
   explanations: EXPLANATIONS_SPEC,
+  bugHunt: BUG_HUNT_SPEC,
   username: USERNAME_SPEC,
 };
 
@@ -417,6 +420,8 @@ function mergeStoreValue(id: StoreId, local: any, remote: any): any {
       return mergeReviews(local ?? {}, remote ?? {});
     case "explanations":
       return mergeExplanations(local ?? {}, remote ?? {});
+    case "bugHunt":
+      return mergeBugHunt(local ?? {}, remote ?? {});
     case "username":
       return mergeUsername(local, remote);
   }
