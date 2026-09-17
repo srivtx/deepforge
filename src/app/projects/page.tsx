@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageShell } from "@/components/PageShell";
 import { Projects } from "@/components/Projects";
+import { PaperProjectsBand } from "@/components/papers/PaperProjectsBand";
 import { SECTIONS_BY_ID } from "@/lib/sections";
 
 const description =
@@ -27,6 +28,7 @@ export default function ProjectsPage() {
   return (
     <PageShell title={title} description={blurb}>
       <Projects />
+      <PaperProjectsBand />
     </PageShell>
   );
 }

@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/PageShell";
+import { PaperProjectSection } from "@/components/papers/PaperProjectSection";
 import { PaperQuestions } from "@/components/papers/PaperQuestions";
 import { PaperReadBadge } from "@/components/papers/PaperReadBadge";
 import { PaperSections } from "@/components/papers/PaperSections";
@@ -40,7 +41,11 @@ const RESEARCH_TITLES = new Map(
 );
 const PROBLEM_TITLES = new Map(PROBLEM_META.map((problem) => [problem.id, problem.title]));
 
-/** The four numbered flow sections, in the order they render on the page. */
+/**
+ * The numbered flow sections, in the order they render on the page. Papers
+ * with a project insert a "Build" step between implementation and keep going,
+ * so the indices below are the no-project baseline.
+ */
 const FLOW_LINKS = [
   { id: "theory", index: 1, label: "Theory" },
   { id: "inside-paper", index: 2, label: "Inside the paper" },
@@ -192,6 +197,15 @@ export default async function PaperPage({
     return candidate ? [candidate] : [];
   });
   const practiceGroups = resolvePractice(paper.practice);
+  const hasProject = Boolean(paper.project);
+  const flowLinks = hasProject
+    ? [
+        ...FLOW_LINKS.slice(0, 3),
+        { id: "project", index: 4, label: "Build" },
+        { id: "keep-going", index: 5, label: "Keep going" },
+      ]
+    : FLOW_LINKS;
+  const keepGoingIndex = hasProject ? 5 : 4;
   const sourceHref = paper.arxivId
     ? `https://arxiv.org/abs/${paper.arxivId}`
     : paper.url;
@@ -280,7 +294,7 @@ export default async function PaperPage({
         </header>
 
         <nav aria-label="Paper flow" className="flex flex-wrap gap-2">
-          {FLOW_LINKS.map((step) => (
+          {flowLinks.map((step) => (
             <a
               key={step.id}
               href={`#${step.id}`}
@@ -398,8 +412,19 @@ export default async function PaperPage({
           />
         </section>
 
+        {paper.project && (
+          <section aria-labelledby="project" className="flex flex-col gap-4">
+            <FlowHeading id="project" index={4} title="Build it yourself" />
+            <PaperProjectSection project={paper.project} />
+          </section>
+        )}
+
         <section aria-labelledby="keep-going" className="flex flex-col gap-4">
-          <FlowHeading id="keep-going" index={4} title="Keep going" />
+          <FlowHeading
+            id="keep-going"
+            index={keepGoingIndex}
+            title="Keep going"
+          />
           {(prev || next) && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {prev && (
