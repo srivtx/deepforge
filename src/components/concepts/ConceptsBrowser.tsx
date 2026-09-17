@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CONCEPTS, type Concept } from "@/data/concepts";
 import { PENPAPER_PROBLEMS } from "@/data/penpaper";
@@ -21,7 +21,9 @@ import {
   type ConceptStateMap,
   type ConceptStats,
 } from "@/lib/concepts";
+import { clampMastery } from "@/lib/conceptGraph";
 import { cn } from "@/lib/utils";
+import { ConceptMap } from "@/components/concepts/ConceptMap";
 
 const CONCEPT_BY_ID = new Map(CONCEPTS.map((concept) => [concept.id, concept]));
 const PENPAPER_BY_ID = new Map(
@@ -315,6 +317,7 @@ interface ConceptsView {
 
 export function ConceptsBrowser() {
   const [view, setView] = useState<ConceptsView | null>(null);
+  const [mode, setMode] = useState<"list" | "map">("list");
 
   const refresh = useCallback(() => {
     const now = new Date();
@@ -347,6 +350,14 @@ export function ConceptsBrowser() {
     refresh();
   };
 
+  const mastery = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [id, state] of Object.entries(activeView.states)) {
+      out[id] = clampMastery(masteryOf(state) / 100);
+    }
+    return out;
+  }, [activeView.states]);
+
   const groups = groupConceptsByCategory();
 
   return (
@@ -365,6 +376,44 @@ export function ConceptsBrowser() {
         </p>
       </div>
 
+      <div
+        role="group"
+        aria-label="Concept view"
+        className="mt-4 flex w-fit items-center gap-1 rounded-lg border border-hairline bg-canvas-card p-1"
+      >
+        <button
+          type="button"
+          aria-pressed={mode === "list"}
+          onClick={() => setMode("list")}
+          className={cn(
+            "min-h-9 rounded-md px-3 text-xs transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+            mode === "list"
+              ? "bg-accent/10 text-accent"
+              : "text-body-mid hover:text-ink",
+          )}
+        >
+          List
+        </button>
+        <button
+          type="button"
+          aria-pressed={mode === "map"}
+          onClick={() => setMode("map")}
+          className={cn(
+            "min-h-9 rounded-md px-3 text-xs transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+            mode === "map"
+              ? "bg-accent/10 text-accent"
+              : "text-body-mid hover:text-ink",
+          )}
+        >
+          Map
+        </button>
+      </div>
+
+      {mode === "map" ? (
+        <div className="mt-6">
+          <ConceptMap concepts={CONCEPTS} mastery={mastery} />
+        </div>
+      ) : (
       <div className="mt-6 space-y-8">
         {groups.map((group) => {
           const groupId = `concepts-${group.category
@@ -400,6 +449,7 @@ export function ConceptsBrowser() {
           );
         })}
       </div>
+      )}
 
       <p className="mt-8 text-xs leading-relaxed text-body-mid">
         Concepts unlock once each prerequisite reaches {UNLOCK_REPS} reps or{" "}
