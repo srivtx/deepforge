@@ -3,9 +3,14 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  BACKUP_EXCLUDED_KEYS,
+  BACKUP_INCLUDED_KEYS,
+  BACKUP_INCLUDED_KEY_PREFIXES,
+  BACKUP_NON_STORAGE_LITERALS,
   clearAllProgress,
   exportProgress,
   importProgress,
+  isBackupExcludedKey,
   PROGRESS_CHANGE_EVENTS,
 } from "@/lib/backup";
 import { getContestResults } from "@/lib/contestStore";
@@ -38,14 +43,19 @@ const globalScope = globalThis as unknown as { window?: unknown };
 let originalWindow: unknown;
 let hadWindow = false;
 let stub: Storage;
+let dispatchedEvents: string[];
 
 beforeEach(() => {
   hadWindow = "window" in globalScope;
   originalWindow = globalScope.window;
   stub = createStorageStub();
+  dispatchedEvents = [];
   globalScope.window = {
     localStorage: stub,
-    dispatchEvent: () => true,
+    dispatchEvent: (event: { type?: unknown }) => {
+      if (typeof event?.type === "string") dispatchedEvents.push(event.type);
+      return true;
+    },
   };
 });
 
@@ -167,6 +177,109 @@ describe("importProgress", () => {
     expect(result.imported).toBe(1);
     expect(stub.getItem("deepforge:progress:v1")).toBe("{}");
     expect(stub.getItem("other:foreign")).toBeNull();
+  });
+
+  test("a legacy backup without the newest stores still imports cleanly", () => {
+    const legacy = JSON.stringify({
+      app: "deepforge",
+      version: 1,
+      exportedAt: new Date(0).toISOString(),
+      data: {
+        "deepforge:progress:v1": '{"la-001":{"solved":true}}',
+        "deepforge:contests:v1": "[]",
+      },
+    });
+
+    const result = importProgress(legacy);
+    expect(result.error).toBeNull();
+    expect(result.imported).toBe(2);
+    expect(stub.getItem("deepforge:progress:v1")).toBe(
+      '{"la-001":{"solved":true}}',
+    );
+    expect(stub.getItem("deepforge:contests:v1")).toBe("[]");
+    expect(stub.getItem("deepforge:bug-hunt:v1")).toBeNull();
+  });
+});
+
+describe("newest stores", () => {
+  const SEEDS: Record<string, string> = {
+    "deepforge:bug-hunt:v1": '{"found":["al-001"],"attempts":2}',
+    "deepforge:lab-reviews:v1": '{"reviews":[{"labId":"lab-1","score":8}]}',
+    "deepforge:agentic-round:v1": '[{"problemId":"ml-001","round":3}]',
+    "deepforge:assistant-hidden:v1": '{"ml-001":true}',
+    "deepforge:concepts:v1": '{"concepts":{"pr-001":{"reps":2}}}',
+    "deepforge:assistant:al-001": '[{"role":"user","text":"why?"}]',
+  };
+
+  test("round-trips the newest stores, including a dynamic assistant key", () => {
+    for (const [key, value] of Object.entries(SEEDS)) stub.setItem(key, value);
+
+    const backup = exportProgress();
+    stub.clear();
+
+    const result = importProgress(backup);
+    expect(result.error).toBeNull();
+    expect(result.imported).toBe(Object.keys(SEEDS).length);
+    for (const [key, value] of Object.entries(SEEDS)) {
+      expect(stub.getItem(key)).toBe(value);
+    }
+  });
+
+  test("restoring the newest stores dispatches their refresh events", () => {
+    const result = importProgress(
+      JSON.stringify({
+        app: "deepforge",
+        version: 1,
+        exportedAt: new Date(0).toISOString(),
+        data: {
+          "deepforge:bug-hunt:v1": "{}",
+          "deepforge:lab-reviews:v1": "{}",
+          "deepforge:assistant-hidden:v1": "{}",
+          "deepforge:agentic-round:v1": "[]",
+        },
+      }),
+    );
+
+    expect(result.error).toBeNull();
+    expect(dispatchedEvents).toContain("deepforge:bug-hunt-change");
+    expect(dispatchedEvents).toContain("deepforge:lab-reviews-change");
+    expect(dispatchedEvents).toContain("deepforge:assistant-hidden-change");
+    expect(dispatchedEvents).toContain("deepforge:agentic-change");
+  });
+});
+
+describe("device-bound exclusions", () => {
+  test("export omits excluded keys", () => {
+    stub.setItem("deepforge:progress:v1", '{"solved":1}');
+    stub.setItem("deepforge:session:v1", '{"userId":"user-1"}');
+    stub.setItem("deepforge:sync:v1", '"2026-01-01T00:00:00.000Z"');
+    stub.setItem("deepforge:pyodide-worker", "off");
+
+    const parsed = JSON.parse(exportProgress()) as ParsedBackup;
+    expect(Object.keys(parsed.data)).toEqual(["deepforge:progress:v1"]);
+  });
+
+  test("import skips excluded keys from pre-classification backups", () => {
+    const result = importProgress(
+      JSON.stringify({
+        app: "deepforge",
+        version: 1,
+        exportedAt: new Date(0).toISOString(),
+        data: {
+          "deepforge:progress:v1": '{"solved":2}',
+          "deepforge:session:v1": '{"userId":"user-1"}',
+          "deepforge:sync:v1": '"2026-01-01T00:00:00.000Z"',
+          "deepforge:pwa-hint-dismissed": "1",
+        },
+      }),
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.imported).toBe(1);
+    expect(stub.getItem("deepforge:progress:v1")).toBe('{"solved":2}');
+    expect(stub.getItem("deepforge:session:v1")).toBeNull();
+    expect(stub.getItem("deepforge:sync:v1")).toBeNull();
+    expect(stub.getItem("deepforge:pwa-hint-dismissed")).toBeNull();
   });
 });
 
@@ -304,5 +417,92 @@ describe("refresh events", () => {
       PROGRESS_CHANGE_EVENTS.length,
     );
     expect(PROGRESS_CHANGE_EVENTS).not.toContain("deepforge:quests-change");
+  });
+});
+
+/**
+ * Every `deepforge:` string literal in `src/lib`: quoted literals plus
+ * dynamic template literals (the only unquoted key form is
+ * `deepforge:assistant:<problemId>`). Doc comments use backticks without
+ * interpolation, so prose is skipped on purpose.
+ */
+function scanLibDeepforgeLiterals(): string[] {
+  const libDir = fileURLToPath(new URL("../src/lib", import.meta.url));
+  const sources = collectLibSources(libDir).map((file) =>
+    readFileSync(file, "utf8"),
+  );
+
+  const found = new Set<string>();
+  const add = (literal: string) => {
+    if (literal.startsWith("deepforge:")) found.add(literal);
+  };
+  for (const source of sources) {
+    for (const match of source.matchAll(/"(deepforge:[^"]*)"/g)) add(match[1]);
+    for (const match of source.matchAll(/'(deepforge:[^']*)'/g)) add(match[1]);
+    for (const match of source.matchAll(/`(deepforge:[^`]*)`/g)) {
+      if (!match[1].includes("${")) continue;
+      add(match[1].replace(/\$\{[^}]*\}/g, ""));
+    }
+  }
+  return [...found].sort();
+}
+
+function classificationOf(literal: string): string | null {
+  if (literal.endsWith("-change")) return "event";
+  if ((BACKUP_NON_STORAGE_LITERALS as readonly string[]).includes(literal)) {
+    return "non-storage";
+  }
+  if ((BACKUP_INCLUDED_KEYS as readonly string[]).includes(literal)) {
+    return "included";
+  }
+  if (
+    BACKUP_INCLUDED_KEY_PREFIXES.some((prefix) => literal.startsWith(prefix))
+  ) {
+    return "included-prefix";
+  }
+  if (isBackupExcludedKey(literal)) return "excluded";
+  return null;
+}
+
+describe("key inventory", () => {
+  test("every deepforge: literal in src/lib is classified", () => {
+    const literals = scanLibDeepforgeLiterals();
+    expect(literals.length).toBeGreaterThan(20);
+
+    const unclassified = literals.filter(
+      (literal) => classificationOf(literal) === null,
+    );
+    expect(unclassified).toEqual([]);
+  });
+
+  test("the included inventory only names keys that exist in src/lib", () => {
+    const scanned = new Set(scanLibDeepforgeLiterals());
+    const missing = (BACKUP_INCLUDED_KEYS as readonly string[]).filter(
+      (key) => !scanned.has(key),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  test("the newest stores are in the included inventory", () => {
+    for (const key of [
+      "deepforge:bug-hunt:v1",
+      "deepforge:lab-reviews:v1",
+      "deepforge:agentic-round:v1",
+      "deepforge:assistant-hidden:v1",
+      "deepforge:concepts:v1",
+      "deepforge:checkpoint-attempts:v1",
+      "deepforge:groups:v1",
+    ]) {
+      expect((BACKUP_INCLUDED_KEYS as readonly string[])).toContain(key);
+    }
+  });
+
+  test("excluded keys carry a reason and are not also included", () => {
+    for (const [key, reason] of Object.entries(BACKUP_EXCLUDED_KEYS)) {
+      expect(key.startsWith("deepforge:")).toBe(true);
+      expect(reason.length).toBeGreaterThan(0);
+      expect((BACKUP_INCLUDED_KEYS as readonly string[])).not.toContain(key);
+      expect(isBackupExcludedKey(key)).toBe(true);
+    }
   });
 });

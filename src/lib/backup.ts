@@ -2,6 +2,12 @@
  * Local backup: export, import, and clear every "deepforge:" localStorage
  * key. All app data lives in the browser under that prefix, so one JSON
  * file is enough to move progress between devices.
+ *
+ * Export is generic: every `deepforge:` key is included except the
+ * device-bound keys in `BACKUP_EXCLUDED_KEYS`, so stores added later are
+ * never silently dropped. `BACKUP_INCLUDED_KEYS` is the audited inventory
+ * that the source-scan test in `tests/backup.test.ts` checks every
+ * `deepforge:` literal in `src/lib` against.
  */
 
 const STORAGE_PREFIX = "deepforge:";
@@ -18,6 +24,104 @@ export interface ProgressBackupFile {
 export interface ImportResult {
   imported: number;
   error: string | null;
+}
+
+/**
+ * Every storage key a backup is expected to carry, audited against the
+ * `deepforge:` literals in `src/lib`. Kept explicit so the inventory test
+ * fails when a store is added without being classified. Export and import
+ * do NOT read this list: they iterate the prefix generically (minus
+ * `BACKUP_EXCLUDED_KEYS`) so later stores and dynamic keys like
+ * `deepforge:assistant:<problemId>` travel without edits here.
+ */
+export const BACKUP_INCLUDED_KEYS = [
+  "deepforge:progress:v1",
+  "deepforge:daily:v1",
+  "deepforge:contests:v1",
+  "deepforge:collections:v1",
+  "deepforge:interview:v1",
+  "deepforge:penpaper:v1",
+  "deepforge:labs",
+  "deepforge:research:v1",
+  "deepforge:reviews:v1",
+  "deepforge:explanations:v1",
+  "deepforge:explain-prefs:v1",
+  "deepforge:concepts:v1",
+  "deepforge:bug-hunt:v1",
+  "deepforge:agentic-round:v1",
+  "deepforge:username:v1",
+  "deepforge:notebook:v1",
+  "deepforge:playlists:v1",
+  "deepforge:certificates:v1",
+  "deepforge:reminders:v1",
+  "deepforge:readiness-goal:v1",
+  "deepforge:placement:v1",
+  "deepforge:placement-draft:v1",
+  "deepforge:checkpoint-attempts:v1",
+  "deepforge:avatar:v1",
+  "deepforge:assistant:v1",
+  "deepforge:assistant-hidden:v1",
+  "deepforge:lab-reviews:v1",
+  "deepforge:submissions:v1",
+  "deepforge:runs:v1",
+  "deepforge:comments:v1",
+  "deepforge:forum",
+  "deepforge:groups:v1",
+  "deepforge:badge-dates:v1",
+  "deepforge:xp:v1",
+  "deepforge:quests:v1",
+] as const;
+
+/**
+ * Dynamic key families included by prefix. The assistant keeps per-problem
+ * scratch chats under `deepforge:assistant:<problemId>`; the generic prefix
+ * sweep exports them like any other key.
+ */
+export const BACKUP_INCLUDED_KEY_PREFIXES = ["deepforge:assistant:"] as const;
+
+/**
+ * `deepforge:` literals in `src/lib` that never name a storage key: the
+ * shared prefix itself and in-app event channels that do not end in
+ * `-change` (which the inventory test filters separately).
+ */
+export const BACKUP_NON_STORAGE_LITERALS = [
+  "deepforge:",
+  "deepforge:reminder",
+] as const;
+
+/**
+ * Keys deliberately left out of export and import. Each is device-bound
+ * state rather than learner data, so carrying it across devices would
+ * mislead the restored app:
+ *
+ * - `deepforge:session:v1` — cached auth session (user id + email only).
+ *   supabase-js stores the actual tokens under `sb-<ref>-auth-token`, which
+ *   is outside our prefix and never travels in a backup. Restoring the
+ *   marker on another device would select the remote backend with no valid
+ *   credentials and point sync at the exporting account's user id.
+ * - `deepforge:sync:v1` — per-device "last synced" stamp; importing another
+ *   device's stamp would misreport sync freshness until the next sync.
+ * - `deepforge:pyodide-worker` — manual execution-mode switch (worker vs
+ *   main thread); an environment flag, not progress.
+ * - `deepforge:pwa-hint-dismissed` — install-hint dismissal written by
+ *   `PwaManager.tsx`; device UI state, and a new device should show its own
+ *   hint. (Not under `src/lib`, so it only appears in pre-classification
+ *   backups.)
+ */
+export const BACKUP_EXCLUDED_KEYS: Readonly<Record<string, string>> = {
+  "deepforge:session:v1":
+    "device-bound auth session marker; tokens live outside the backup prefix",
+  "deepforge:sync:v1":
+    "per-device last-synced stamp, misleading on another device",
+  "deepforge:pyodide-worker":
+    "manual execution-mode switch, an environment flag not learner data",
+  "deepforge:pwa-hint-dismissed":
+    "device install-hint dismissal, not learner data",
+};
+
+/** True when a key must never be exported or restored. */
+export function isBackupExcludedKey(key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(BACKUP_EXCLUDED_KEYS, key);
 }
 
 /**
@@ -103,6 +207,7 @@ export function exportProgress(): string {
   const store = getStorage();
   if (store) {
     for (const key of listKeys(store)) {
+      if (isBackupExcludedKey(key)) continue;
       try {
         const value = store.getItem(key);
         if (value !== null) data[key] = value;
@@ -175,6 +280,7 @@ export function importProgress(
     let failed = 0;
     for (const [key, value] of entries) {
       if (!key.startsWith(STORAGE_PREFIX)) continue;
+      if (isBackupExcludedKey(key)) continue;
       if (!replace) {
         let existing: string | null = null;
         try {
