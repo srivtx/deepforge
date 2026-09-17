@@ -24,4 +24,4 @@ export function difficultyClasses(d: "Easy" | "Medium" | "Hard"): string {
 }
 
 /** Number of problems shown in the marketing claim. Keep in sync with the shipped count in PROBLEM_META. */
-export const MARKETING_PROBLEM_COUNT = 5550;
+export const MARKETING_PROBLEM_COUNT = 5730;

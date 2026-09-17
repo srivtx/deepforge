@@ -57,7 +57,7 @@ function isErrorPage(body) {
 console.log(`\nDeepForge e2e smoke -> ${BASE_URL}\n`);
 
 // --- 1. Top-level routes: 200 + brand + exactly one <h1> -------------------
-console.log("[1/12] Top-level routes (200 + brand + single <h1>)");
+console.log("[1/13] Top-level routes (200 + brand + single <h1>)");
 const routeResults = await Promise.all(
   ROUTES.map(async (route) => ({ route, ...(await get(route)) })),
 );
@@ -72,7 +72,7 @@ for (const { route, url, status, body, error } of routeResults) {
 }
 
 // --- 2. Home page markers ---------------------------------------------------
-console.log("\n[2/12] Home page markers");
+console.log("\n[2/13] Home page markers");
 const home = await get("/");
 const homeChecks = [
   ["df-aurora marker", has(home.body, "df-aurora")],
@@ -86,7 +86,7 @@ for (const [label, ok] of homeChecks) {
 }
 
 // --- 3. /problems practice browser -----------------------------------------
-console.log("\n[3/12] /problems practice browser");
+console.log("\n[3/13] /problems practice browser");
 const problems = await get("/problems");
 const wrapperOk = /id="problems"/.test(problems.body);
 record("problems: wrapper id", wrapperOk, problems.url, 'PracticeBrowser section id="problems" missing');
@@ -104,7 +104,7 @@ record("problems: filtered", problemsFiltered.status === 200, problemsFiltered.u
 line(problemsFiltered.status === 200, `GET /problems?category=linear-algebra  status=${problemsFiltered.status}`);
 
 // --- 4. /paths catalog + detail ---------------------------------------------
-console.log("\n[4/12] /paths catalog");
+console.log("\n[4/13] /paths catalog");
 const paths = await get("/paths");
 const pathLinks = count(paths.body, /href="\/paths\//g);
 record("paths: link count", pathLinks >= 28, paths.url, `expected >= 28 path links, found ${pathLinks}`);
@@ -125,7 +125,7 @@ if (slug) {
 }
 
 // --- 5. New advanced paths: checkpoint cards + prerequisite links -----------
-console.log("\n[5/12] New advanced paths (checkpoints + prerequisites)");
+console.log("\n[5/13] New advanced paths (checkpoints + prerequisites)");
 const NEW_PATHS = [
   {
     slug: "computer-vision-deep-learning",
@@ -193,7 +193,7 @@ for (const { path, status, body, url } of newPathPages) {
 }
 
 // --- 6. New articles ---------------------------------------------------------
-console.log("\n[6/12] New articles");
+console.log("\n[6/13] New articles");
 const NEW_ARTICLES = [
   { slug: "kv-cache-and-flashattention", marker: "FlashAttention" },
   { slug: "rag-from-chunks-to-citations", marker: "From Chunks to Citations" },
@@ -224,7 +224,7 @@ for (const { article, status, body, url } of articlePages) {
 }
 
 // --- 7. Problem workspace via sitemap ---------------------------------------
-console.log("\n[7/12] Problem workspace (first /problems/<id> in sitemap)");
+console.log("\n[7/13] Problem workspace (first /problems/<id> in sitemap)");
 const sitemap = await get("/sitemap.xml");
 const problemMatch = sitemap.body.match(/\/problems\/([a-z0-9-]+)/i);
 if (!problemMatch) {
@@ -245,7 +245,7 @@ if (!problemMatch) {
 }
 
 // --- 8. Sitemap + robots ----------------------------------------------------
-console.log("\n[8/12] Sitemap and robots");
+console.log("\n[8/13] Sitemap and robots");
 const pathEntries = count(sitemap.body, /\/paths\//g);
 const noUndefined = !has(sitemap.body, "undefined");
 record("sitemap: /paths/ entries", pathEntries >= 28, sitemap.url, `expected >= 28 /paths/ entries, found ${pathEntries}`);
@@ -266,7 +266,7 @@ line(sitemapPaths.length === NEW_PATHS.length,
   `GET /sitemap.xml  new-path-entries=${sitemapPaths.length}/${NEW_PATHS.length}`);
 
 // --- 9. Legacy deep links (client-side redirects) ---------------------------
-console.log("\n[9/12] Legacy deep links");
+console.log("\n[9/13] Legacy deep links");
 if (problemMatch) {
   const legacy = await get(`/?p=${problemMatch[1]}`);
   const legacyError = isErrorPage(legacy.body);
@@ -286,7 +286,7 @@ record("legacy: /?category=", catOk, legacyCategory.url,
 line(catOk, `GET /?category=linear-algebra  status=${legacyCategory.status} error-page=${catError ? "YES" : "no"}`);
 
 // --- 10. /discuss threads ---------------------------------------------------
-console.log("\n[10/12] /discuss threads");
+console.log("\n[10/13] /discuss threads");
 const discuss = await get("/discuss");
 const discussForum = has(discuss.body, 'aria-label="Discuss forum"');
 const discussThreads = has(discuss.body, '>Threads</h2>') && /aria-label="\d+ threads"/.test(discuss.body);
@@ -311,7 +311,7 @@ line(discuss.status === 200 && discussForum && discussThreads,
   `GET /discuss  status=${discuss.status} forum=${discussForum ? "yes" : "NO"} threads-list=${discussThreads ? "yes" : "NO"}`);
 
 // --- 11. New routes: /today, /start, /verify --------------------------------
-console.log("\n[11/12] New routes (today + start + verify)");
+console.log("\n[11/13] New routes (today + start + verify)");
 const today = await get("/today");
 const todayTitle = (today.body.match(/<title[^>]*>([^<]*)<\/title>/i) ?? [])[1] ?? "";
 const todayOk = today.status === 200 && !isErrorPage(today.body) && todayTitle.includes("Today");
@@ -339,8 +339,41 @@ const todaySitemap = has(sitemap.body, "/today");
 record("sitemap: /today entry", todaySitemap, sitemap.url, '"/today" missing from sitemap');
 line(todaySitemap, `GET /sitemap.xml  today-entry=${todaySitemap ? "yes" : "NO"}`);
 
-// --- 12. Summary -------------------------------------------------------------
-console.log("\n[12/12] Summary");
+// --- 12. Wave-32 surfaces (projects, weekly board, siblings, kernels) --------
+console.log("\n[12/13] Wave-32 surfaces");
+const projectPage = await get("/projects/gpt");
+const projectOk = projectPage.status === 200 && !isErrorPage(projectPage.body);
+record("projects: detail 200", projectOk, projectPage.url,
+  `expected 200, got ${projectPage.status}`);
+line(projectOk, `GET /projects/gpt  status=${projectPage.status}`);
+const projectSteps = count(projectPage.body, /href="\/problems\/[a-z0-9-]+/g);
+record("projects: step links", projectSteps >= 3, projectPage.url,
+  `expected >= 3 step links, found ${projectSteps}`);
+line(projectSteps >= 3, `GET /projects/gpt  step-links=${projectSteps}`);
+const projectSitemap = has(sitemap.body, "/projects/gpt");
+record("sitemap: /projects/<id> entries", projectSitemap, sitemap.url,
+  '"/projects/gpt" missing from sitemap');
+line(projectSitemap, `GET /sitemap.xml  project-entry=${projectSitemap ? "yes" : "NO"}`);
+const weeklyBoard = await get("/leaderboard");
+const weeklyToggle = has(weeklyBoard.body, "This week");
+record("leaderboard: weekly toggle", weeklyToggle, weeklyBoard.url,
+  '"This week" toggle missing');
+line(weeklyToggle, `GET /leaderboard  weekly-toggle=${weeklyToggle ? "yes" : "NO"}`);
+if (problemMatch) {
+  const siblingPage = await get(`/problems/${problemMatch[1]}`);
+  const siblings = has(siblingPage.body, "More like this");
+  record("problem: sibling challenges", siblings, siblingPage.url,
+    '"More like this" section missing');
+  line(siblings, `GET /problems/${problemMatch[1]}  siblings=${siblings ? "yes" : "NO"}`);
+}
+const softmaxArticle = await get("/articles/why-softmax-needs-temperature");
+const kernelQuestion = has(softmaxArticle.body, "Predict the readout");
+record("article: kernel question", kernelQuestion, softmaxArticle.url,
+  '"Predict the readout" block missing');
+line(kernelQuestion, `GET /articles/why-softmax-needs-temperature  kernel=${kernelQuestion ? "yes" : "NO"}`);
+
+// --- 13. Summary -------------------------------------------------------------
+console.log("\n[13/13] Summary");
 const groupNames = [...new Set(checks.map((c) => c.group))];
 console.table(
   groupNames.map((group) => {
