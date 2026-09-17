@@ -6,6 +6,9 @@ import {
   prefersReducedMotion,
   type DemoPalette,
 } from "@/lib/articles-demos";
+import { checkAnswer, optimizerQuestions } from "@/lib/simChecks";
+
+const QUIZ = optimizerQuestions();
 
 const W = 640;
 const H = 320;
@@ -170,6 +173,9 @@ export function OptimizerRace({ active = true }: { active?: boolean }) {
   const [running, setRunning] = useState(false);
   const [lr, setLr] = useState(0.08);
   const [themeEpoch, setThemeEpoch] = useState(0);
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [quizPick, setQuizPick] = useState<number | null>(null);
+  const question = QUIZ[quizIndex];
 
   useEffect(() => {
     const obs = new MutationObserver(() => setThemeEpoch((e) => e + 1));
@@ -391,6 +397,59 @@ export function OptimizerRace({ active = true }: { active?: boolean }) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-4 border-t border-hairline pt-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-xs font-semibold text-ink">Check your intuition</p>
+          <span className="font-mono text-[10px] text-mute">
+            {quizIndex + 1} / {QUIZ.length}
+          </span>
+        </div>
+        <p className="mt-1.5 text-xs leading-relaxed text-body">{question.prompt}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {question.choices.map((choice, i) => {
+            const answered = quizPick !== null;
+            const tone = !answered
+              ? "border-hairline text-body-mid hover:bg-canvas-soft hover:text-ink"
+              : i === question.answerIndex
+                ? "border-accent text-accent"
+                : quizPick === i
+                  ? "border-error text-error"
+                  : "border-hairline text-mute";
+            return (
+              <button
+                key={choice}
+                type="button"
+                disabled={answered}
+                onClick={() => setQuizPick(i)}
+                className={`min-h-11 rounded-lg border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:cursor-default sm:min-h-0 ${tone}`}
+              >
+                {choice}
+              </button>
+            );
+          })}
+        </div>
+        <div role="status" aria-live="polite" className="mt-2 text-xs leading-relaxed">
+          {quizPick === null ? (
+            <span className="text-mute">Pick an answer to see why.</span>
+          ) : (
+            <span className={checkAnswer(question, quizPick) ? "text-accent" : "text-error"}>
+              {checkAnswer(question, quizPick) ? "Correct. " : "Not quite. "}
+              <span className="text-body-mid">{question.explain}</span>
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setQuizIndex((quizIndex + 1) % QUIZ.length);
+            setQuizPick(null);
+          }}
+          className="mt-2 min-h-11 rounded-lg border border-hairline px-3 py-1.5 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0"
+        >
+          Next question
+        </button>
       </div>
     </figure>
   );
