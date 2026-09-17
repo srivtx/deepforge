@@ -13,6 +13,8 @@ const KIND_LABELS: Record<string, string> = {
   problem: "Problem",
   category: "Category",
   home: "Home",
+  research: "Research",
+  lab: "Lab",
 };
 
 const DIFFICULTY_STYLES: Record<
