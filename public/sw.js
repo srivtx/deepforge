@@ -8,11 +8,18 @@
  *   /_next/static/** + font files ....... cache-first (immutable build output)
  *   cdn.jsdelivr.net/pyodide/** ......... cache-first (offline Python solving)
  *   navigations ......................... network-first; the exact page is
- *                                         cached per pathname, then the app
- *                                         shell, then a self-contained
- *                                         offline page for any other route
+ *                                         cached per pathname, then the
+ *                                         nearest NAVIGATION_FALLBACKS page,
+ *                                         then the app shell, then a
+ *                                         self-contained offline page
  *   other same-origin GETs .............. stale-while-revalidate
  *   everything else ..................... straight to the network
+ *
+ * Route coverage: PRECACHE_ROUTES lists every static user-facing page under
+ * src/app so each gets an exact copy at install; NAVIGATION_FALLBACKS maps
+ * dynamic routes (/problems/<id>, /paths/<slug>, ...) to the index page that
+ * should stand in for them offline, with "/" as the explicit catch-all.
+ * Adding a route without updating these tables fails tests/offline.test.ts.
  *
  * Updates: a new worker installs and waits instead of activating itself. The
  * page can post { type: "SKIP_WAITING" } to promote it; activate() deletes
@@ -22,7 +29,7 @@
  * schemes are ignored entirely.
  */
 
-const VERSION = "v3";
+const VERSION = "v4";
 
 const IS_LOCAL = ["localhost", "127.0.0.1", "0.0.0.0"].includes(
   self.location.hostname,
@@ -43,6 +50,57 @@ const PYODIDE_ORIGIN = "https://cdn.jsdelivr.net";
 const PYODIDE_PATH_PREFIX = "/pyodide/";
 const FONT_PATTERN = /\.(?:woff2?|ttf|otf|eot)$/i;
 
+// Every static page route under src/app, including the "/" app shell. These
+// are fetched at install so each page has an exact offline copy without a
+// prior visit. /og is deliberately absent: route.tsx is an image endpoint,
+// not a navigation target.
+const PRECACHE_ROUTES = [
+  "/",
+  "/about",
+  "/articles",
+  "/backup",
+  "/badges",
+  "/blog",
+  "/certificates",
+  "/collections",
+  "/contests",
+  "/daily",
+  "/discuss",
+  "/interview",
+  "/labs",
+  "/leaderboard",
+  "/math",
+  "/paths",
+  "/playground",
+  "/playlists",
+  "/problems",
+  "/projects",
+  "/research",
+  "/sims",
+  "/speedrun",
+  "/start",
+  "/stats",
+  "/submit",
+  "/today",
+  "/verify",
+];
+
+// Offline stand-ins for dynamic routes. Longest matching prefix wins, so the
+// order here is irrelevant; the "/" entry is the explicit catch-all and must
+// stay last for readability. "/categories/<slug>" falls back to /problems
+// because there is no /categories index page.
+const NAVIGATION_FALLBACKS = [
+  { prefix: "/articles/", fallback: "/articles" },
+  { prefix: "/blog/", fallback: "/blog" },
+  { prefix: "/categories/", fallback: "/problems" },
+  { prefix: "/collections/", fallback: "/collections" },
+  { prefix: "/interview/", fallback: "/interview" },
+  { prefix: "/paths/", fallback: "/paths" },
+  { prefix: "/problems/", fallback: "/problems" },
+  { prefix: "/verify/", fallback: "/verify" },
+  { prefix: "/", fallback: "/" },
+];
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
@@ -52,6 +110,20 @@ self.addEventListener("install", (event) => {
       }
       const cache = await caches.open(PRECACHE);
       await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
+      // Precaching the rest is best-effort: one failing page must not fail
+      // the install, and any route can still be cached at runtime the first
+      // time it is visited.
+      await Promise.all(
+        PRECACHE_ROUTES.filter((route) => route !== OFFLINE_URL).map(
+          async (route) => {
+            try {
+              await cache.add(new Request(route, { cache: "reload" }));
+            } catch {
+              // Best-effort.
+            }
+          },
+        ),
+      );
       // No skipWaiting(): a worker that replaces a live one waits so the page
       // can surface the update and apply it through the message below.
     })(),
@@ -181,10 +253,10 @@ async function networkFirstNavigation(request) {
       const key = navigationKey(url);
       try {
         await runtime.put(key, response.clone());
-        if (url.pathname === OFFLINE_URL) {
-          // Keep the install-time app shell fresh with the latest "/" HTML.
+        if (PRECACHE_ROUTES.includes(url.pathname)) {
+          // Keep install-time precached pages fresh with the latest HTML.
           const precache = await caches.open(PRECACHE);
-          await precache.put(OFFLINE_URL, response.clone());
+          await precache.put(url.pathname, response.clone());
         }
       } catch {
         // Best-effort refresh.
@@ -193,14 +265,36 @@ async function networkFirstNavigation(request) {
     return response;
   } catch {
     // Offline (or network failure) fallback chain: the exact visited page,
-    // then the cached app shell, then a self-contained offline page so any
-    // route gets a usable response instead of a browser error.
+    // then the nearest index page from NAVIGATION_FALLBACKS, then the cached
+    // app shell, then a self-contained offline page so any route gets a
+    // usable response instead of a browser error.
     const cached =
       (await caches.match(navigationKey(url))) ||
+      (await caches.match(fallbackKey(url.pathname))) ||
       (await caches.match(OFFLINE_URL));
     if (cached) return cached;
     return offlinePage();
   }
+}
+
+/**
+ * Offline stand-in for a pathname: the longest matching prefix in
+ * NAVIGATION_FALLBACKS wins, and its "/" entry guarantees a catch-all.
+ */
+function fallbackFor(pathname) {
+  let bestLength = -1;
+  let target = OFFLINE_URL;
+  for (const entry of NAVIGATION_FALLBACKS) {
+    if (pathname.startsWith(entry.prefix) && entry.prefix.length > bestLength) {
+      bestLength = entry.prefix.length;
+      target = entry.fallback;
+    }
+  }
+  return target;
+}
+
+function fallbackKey(pathname) {
+  return new Request(new URL(fallbackFor(pathname), self.location.origin).href);
 }
 
 async function staleWhileRevalidate(event, cacheName) {
