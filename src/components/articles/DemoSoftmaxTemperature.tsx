@@ -2,6 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { clamp, type DemoProps } from "@/lib/articles-demos";
+import {
+  buildKernelQuestion,
+  formatKernelChoice,
+  gumbelPick,
+  softmaxWithTemperature,
+} from "@/lib/articleKernels";
 
 const TOKENS = ["cat", "dog", "fox", "eel"];
 const LOGITS = [2.4, 2.1, 0.7, -0.4];
@@ -16,33 +22,12 @@ const BAR_MAX = 348;
 const ROW_Y = 16;
 const ROW_H = 36;
 
-function softmaxAt(logits: number[], temp: number): number[] {
-  const scaled = logits.map((z) => z / temp);
-  const max = Math.max(...scaled);
-  const exps = scaled.map((z) => Math.exp(z - max));
-  const sum = exps.reduce((a, b) => a + b, 0);
-  return exps.map((e) => e / sum);
-}
-
-function gumbelPick(temp: number): number {
-  let best = 0;
-  let bestScore = -Infinity;
-  for (let i = 0; i < LOGITS.length; i++) {
-    const score = LOGITS[i] / temp + GUMBEL[i];
-    if (score > bestScore) {
-      bestScore = score;
-      best = i;
-    }
-  }
-  return best;
-}
-
 function findFlips(lo: number, hi: number, samples: number): number[] {
   const flips: number[] = [];
-  let prev = gumbelPick(lo);
+  let prev = gumbelPick(LOGITS, GUMBEL, lo);
   for (let k = 1; k <= samples; k++) {
     const t = lo + ((hi - lo) * k) / samples;
-    const pick = gumbelPick(t);
+    const pick = gumbelPick(LOGITS, GUMBEL, t);
     if (pick !== prev) {
       const rounded = Math.round(t * 100) / 100;
       const last = flips.length > 0 ? flips[flips.length - 1] : -1;
@@ -78,11 +63,25 @@ export function SoftmaxTemperatureDemo({ params }: DemoProps) {
   const [temp, setTemp] = useState<number>(() =>
     clamp(params?.temp ?? 1, T_MIN, T_MAX),
   );
+  const [variant, setVariant] = useState(0);
+  const [reply, setReply] = useState<{ id: string; index: number } | null>(
+    null,
+  );
 
-  const probs = useMemo(() => softmaxAt(LOGITS, temp), [temp]);
+  const probs = useMemo(() => softmaxWithTemperature(LOGITS, temp), [temp]);
   const greedy = useMemo(() => probs.indexOf(Math.max(...probs)), [probs]);
-  const sampled = gumbelPick(temp);
+  const sampled = gumbelPick(LOGITS, GUMBEL, temp);
   const top = probs[greedy];
+
+  const question = useMemo(
+    () =>
+      buildKernelQuestion({
+        kind: "softmax-temperature",
+        params: { logits: LOGITS, tokens: TOKENS, temp, variant },
+      }),
+    [temp, variant],
+  );
+  const picked = reply !== null && reply.id === question.id ? reply.index : null;
 
   const pct = (p: number) => `${(p * 100).toFixed(1)}%`;
   const rows = TOKENS.map((token, i) => ({ token, i }));
@@ -271,6 +270,61 @@ export function SoftmaxTemperatureDemo({ params }: DemoProps) {
       >
         {status}
       </p>
+
+      <div className="mt-4 rounded-lg border border-hairline bg-canvas-soft p-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="text-xs font-semibold text-ink">
+            Predict the readout
+          </span>
+          <button
+            type="button"
+            onClick={() => setVariant((v) => v + 1)}
+            className="rounded-lg border border-hairline bg-canvas px-2.5 py-1 text-xs text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 motion-reduce:transition-none"
+          >
+            Next question
+          </button>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-body">
+          {question.prompt}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {question.choices.map((value, index) => {
+            const chosen = picked === index;
+            const isAnswer = index === question.answerIndex;
+            const state =
+              picked === null
+                ? "border-hairline bg-canvas text-body hover:text-ink"
+                : isAnswer
+                  ? "border-accent/40 bg-accent/5 text-accent"
+                  : chosen
+                    ? "border-error/40 bg-error/5 text-error"
+                    : "border-hairline bg-canvas text-body-mid opacity-60";
+            return (
+              <button
+                key={index}
+                type="button"
+                disabled={picked !== null}
+                aria-pressed={chosen}
+                onClick={() => setReply({ id: question.id, index })}
+                className={`rounded-lg border px-2.5 py-1 font-mono text-xs transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 motion-reduce:transition-none ${state}`}
+              >
+                {formatKernelChoice(value)}
+              </button>
+            );
+          })}
+        </div>
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-2 text-xs leading-relaxed text-body-mid"
+        >
+          {picked === null
+            ? "Choose the value the figure reports."
+            : picked === question.answerIndex
+              ? `Correct. ${question.explain}`
+              : `Not quite. Answer ${formatKernelChoice(question.choices[question.answerIndex])}. ${question.explain}`}
+        </p>
+      </div>
     </figure>
   );
 }

@@ -12,6 +12,13 @@ import {
   getCanvasPalette,
   type DemoProps,
 } from "@/lib/articles-demos";
+import {
+  GD_INITIAL_POINTS,
+  buildKernelQuestion,
+  fitLogistic,
+  formatKernelChoice,
+  type KernelRule,
+} from "@/lib/articleKernels";
 
 const W = 520;
 const H = 420;
@@ -27,104 +34,7 @@ interface LabeledPoint {
   label: 1 | -1;
 }
 
-type Rule = "logistic" | "mse";
-
-const INITIAL_POINTS: LabeledPoint[] = [
-  { x: 0.3, y: 0.65, label: 1 },
-  { x: 0.6, y: 0.4, label: 1 },
-  { x: 0.75, y: 0.8, label: 1 },
-  { x: 0.4, y: 0.95, label: 1 },
-  { x: 0.95, y: 0.35, label: 1 },
-  { x: 0.2, y: 0.45, label: 1 },
-  { x: 0.65, y: 0.15, label: 1 },
-  { x: -0.35, y: -0.6, label: -1 },
-  { x: -0.65, y: -0.35, label: -1 },
-  { x: -0.8, y: -0.75, label: -1 },
-  { x: -0.45, y: -0.9, label: -1 },
-  { x: -0.95, y: -0.3, label: -1 },
-  { x: -0.25, y: -0.5, label: -1 },
-  { x: -0.6, y: -0.15, label: -1 },
-];
-
-interface Fit {
-  w1: number;
-  w2: number;
-  b: number;
-  curve: number[];
-  loss: number;
-  accuracy: number;
-}
-
-function sigmoid(z: number): number {
-  return 1 / (1 + Math.exp(-z));
-}
-
-function probability(
-  p: LabeledPoint,
-  w1: number,
-  w2: number,
-  b: number,
-): number {
-  return sigmoid(w1 * p.x + w2 * p.y + b);
-}
-
-function meanLoss(
-  points: LabeledPoint[],
-  rule: Rule,
-  w1: number,
-  w2: number,
-  b: number,
-): number {
-  if (points.length === 0) return 0;
-  let total = 0;
-  for (const p of points) {
-    const prob = clamp(probability(p, w1, w2, b), 1e-9, 1 - 1e-9);
-    const y = p.label === 1 ? 1 : 0;
-    total +=
-      rule === "logistic"
-        ? -(y * Math.log(prob) + (1 - y) * Math.log(1 - prob))
-        : (prob - y) * (prob - y);
-  }
-  return total / points.length;
-}
-
-function fitLogistic(
-  points: LabeledPoint[],
-  rule: Rule,
-  lr: number,
-  steps: number,
-): Fit {
-  let w1 = 0;
-  let w2 = 0;
-  let b = 0;
-  const curve: number[] = [meanLoss(points, rule, w1, w2, b)];
-
-  for (let s = 0; s < steps; s++) {
-    const p = points[s % points.length];
-    const y = p.label === 1 ? 1 : 0;
-    const prob = sigmoid(w1 * p.x + w2 * p.y + b);
-    const err =
-      rule === "logistic" ? prob - y : (prob - y) * prob * (1 - prob);
-    w1 -= lr * err * p.x;
-    w2 -= lr * err * p.y;
-    b -= lr * err;
-    if ((s + 1) % 5 === 0) curve.push(meanLoss(points, rule, w1, w2, b));
-  }
-
-  let correct = 0;
-  for (const p of points) {
-    const predicted = probability(p, w1, w2, b) >= 0.5 ? 1 : -1;
-    if (predicted === p.label) correct += 1;
-  }
-  return {
-    w1,
-    w2,
-    b,
-    curve,
-    loss: curve[curve.length - 1],
-    accuracy: points.length > 0 ? correct / points.length : 0,
-  };
-}
+type Rule = KernelRule;
 
 function toPx(x: number, y: number): [number, number] {
   return [CX + x * SCALE, CY - y * SCALE];
@@ -186,15 +96,29 @@ function LossCurve({ curve, rule }: { curve: number[]; rule: Rule }) {
 
 export function GradientDescentDemo({ params }: DemoProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [points, setPoints] = useState<LabeledPoint[]>(INITIAL_POINTS);
+  const [points, setPoints] = useState<LabeledPoint[]>(GD_INITIAL_POINTS);
   const [adding, setAdding] = useState<1 | -1>(1);
   const [rule, setRule] = useState<Rule>("logistic");
   const [lr, setLr] = useState(() => clamp(params?.lr ?? 0.6, 0.05, 2));
+  const [variant, setVariant] = useState(0);
+  const [reply, setReply] = useState<{ id: string; index: number } | null>(
+    null,
+  );
 
   const fit = useMemo(
     () => fitLogistic(points, rule, lr, STEPS),
     [points, rule, lr],
   );
+
+  const question = useMemo(
+    () =>
+      buildKernelQuestion({
+        kind: "gradient-descent",
+        params: { points, rule, lr, steps: STEPS, variant },
+      }),
+    [points, rule, lr, variant],
+  );
+  const picked = reply !== null && reply.id === question.id ? reply.index : null;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -387,7 +311,7 @@ export function GradientDescentDemo({ params }: DemoProps) {
         </div>
         <button
           type="button"
-          onClick={() => setPoints(INITIAL_POINTS)}
+          onClick={() => setPoints(GD_INITIAL_POINTS)}
           className="ml-auto rounded-lg border border-hairline px-2.5 py-1 text-xs text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink"
         >
           Reset
@@ -425,6 +349,61 @@ export function GradientDescentDemo({ params }: DemoProps) {
       >
         {status}
       </p>
+
+      <div className="mt-4 rounded-lg border border-hairline bg-canvas-soft p-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="text-xs font-semibold text-ink">
+            Predict the readout
+          </span>
+          <button
+            type="button"
+            onClick={() => setVariant((v) => v + 1)}
+            className="rounded-lg border border-hairline bg-canvas px-2.5 py-1 text-xs text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 motion-reduce:transition-none"
+          >
+            Next question
+          </button>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-body">
+          {question.prompt}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {question.choices.map((value, index) => {
+            const chosen = picked === index;
+            const isAnswer = index === question.answerIndex;
+            const state =
+              picked === null
+                ? "border-hairline bg-canvas text-body hover:text-ink"
+                : isAnswer
+                  ? "border-accent/40 bg-accent/5 text-accent"
+                  : chosen
+                    ? "border-error/40 bg-error/5 text-error"
+                    : "border-hairline bg-canvas text-body-mid opacity-60";
+            return (
+              <button
+                key={index}
+                type="button"
+                disabled={picked !== null}
+                aria-pressed={chosen}
+                onClick={() => setReply({ id: question.id, index })}
+                className={`rounded-lg border px-2.5 py-1 font-mono text-xs transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 motion-reduce:transition-none ${state}`}
+              >
+                {formatKernelChoice(value)}
+              </button>
+            );
+          })}
+        </div>
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-2 text-xs leading-relaxed text-body-mid"
+        >
+          {picked === null
+            ? "Choose the value the figure reports."
+            : picked === question.answerIndex
+              ? `Correct. ${question.explain}`
+              : `Not quite. Answer ${formatKernelChoice(question.choices[question.answerIndex])}. ${question.explain}`}
+        </p>
+      </div>
     </figure>
   );
 }

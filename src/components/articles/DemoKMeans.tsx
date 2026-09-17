@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getCanvasPalette,
   prefersReducedMotion,
   type DemoProps,
 } from "@/lib/articles-demos";
+import {
+  buildKernelQuestion,
+  formatKernelChoice,
+  kMeansInitial,
+  kMeansStep,
+  runKMeans,
+  type KernelKMeansSnapshot,
+} from "@/lib/articleKernels";
 
 const W = 520;
 const H = 420;
@@ -45,90 +53,7 @@ const INITIAL_CENTROIDS: Pt[] = [
   { x: 0.9, y: -0.4 },
 ];
 
-interface Snapshot {
-  centroids: Pt[];
-  assignments: number[];
-  inertia: number;
-  iter: number;
-  converged: boolean;
-}
-
-function nearestCentroid(p: Pt, centroids: Pt[]): number {
-  let best = 0;
-  let bestDistance = Infinity;
-  for (let i = 0; i < centroids.length; i++) {
-    const dx = p.x - centroids[i].x;
-    const dy = p.y - centroids[i].y;
-    const d = dx * dx + dy * dy;
-    if (d < bestDistance) {
-      bestDistance = d;
-      best = i;
-    }
-  }
-  return best;
-}
-
-function inertiaOf(
-  points: Pt[],
-  centroids: Pt[],
-  assignments: number[],
-): number {
-  let total = 0;
-  for (let i = 0; i < points.length; i++) {
-    const c = centroids[assignments[i]];
-    total += (points[i].x - c.x) ** 2 + (points[i].y - c.y) ** 2;
-  }
-  return total;
-}
-
-function initialSnapshot(): Snapshot {
-  const centroids = INITIAL_CENTROIDS.map((c) => ({ ...c }));
-  const assignments = POINTS.map((p) => nearestCentroid(p, centroids));
-  return {
-    centroids,
-    assignments,
-    inertia: inertiaOf(POINTS, centroids, assignments),
-    iter: 0,
-    converged: false,
-  };
-}
-
-function stepOnce(prev: Snapshot): Snapshot {
-  if (prev.converged) return prev;
-  const assignments = POINTS.map((p) => nearestCentroid(p, prev.centroids));
-  const sums = prev.centroids.map(() => ({ x: 0, y: 0, n: 0 }));
-  for (let i = 0; i < POINTS.length; i++) {
-    const c = assignments[i];
-    sums[c].x += POINTS[i].x;
-    sums[c].y += POINTS[i].y;
-    sums[c].n += 1;
-  }
-  const centroids = prev.centroids.map((c, i) =>
-    sums[i].n > 0
-      ? { x: sums[i].x / sums[i].n, y: sums[i].y / sums[i].n }
-      : { ...c },
-  );
-  const moved = centroids.some(
-    (c, i) =>
-      Math.hypot(c.x - prev.centroids[i].x, c.y - prev.centroids[i].y) > 1e-9,
-  );
-  const changed = assignments.some((a, i) => a !== prev.assignments[i]);
-  return {
-    centroids,
-    assignments,
-    inertia: inertiaOf(POINTS, centroids, assignments),
-    iter: prev.iter + 1,
-    converged: !moved && !changed,
-  };
-}
-
-function runToConvergence(start: Snapshot): Snapshot {
-  let next = start;
-  for (let i = 0; i < 50 && !next.converged; i++) {
-    next = stepOnce(next);
-  }
-  return next;
-}
+type Snapshot = KernelKMeansSnapshot;
 
 function toPx(p: Pt): [number, number] {
   return [CX + p.x * SCALE, CY - p.y * SCALE];
@@ -166,13 +91,29 @@ function drawMarker(
 
 export function KMeansDemo(_props: DemoProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [snapshot, setSnapshot] = useState<Snapshot>(initialSnapshot);
+  const [snapshot, setSnapshot] = useState<Snapshot>(() =>
+    kMeansInitial(POINTS, INITIAL_CENTROIDS),
+  );
   const [running, setRunning] = useState(false);
+  const [variant, setVariant] = useState(0);
+  const [reply, setReply] = useState<{ id: string; index: number } | null>(
+    null,
+  );
+
+  const question = useMemo(
+    () =>
+      buildKernelQuestion({
+        kind: "kmeans",
+        params: { points: POINTS, centroids: snapshot.centroids, variant },
+      }),
+    [snapshot.centroids, variant],
+  );
+  const picked = reply !== null && reply.id === question.id ? reply.index : null;
 
   useEffect(() => {
     if (!running || snapshot.converged) return;
     const id = window.setTimeout(() => {
-      const next = stepOnce(snapshot);
+      const next = kMeansStep(POINTS, snapshot);
       setSnapshot(next);
       if (next.converged) setRunning(false);
     }, 650);
@@ -295,7 +236,7 @@ export function KMeansDemo(_props: DemoProps) {
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={() => setSnapshot((prev) => stepOnce(prev))}
+          onClick={() => setSnapshot((prev) => kMeansStep(POINTS, prev))}
           disabled={snapshot.converged}
           className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-40"
         >
@@ -305,7 +246,7 @@ export function KMeansDemo(_props: DemoProps) {
           type="button"
           onClick={() => {
             if (prefersReducedMotion()) {
-              setSnapshot((prev) => runToConvergence(prev));
+              setSnapshot((prev) => runKMeans(POINTS, prev));
             } else {
               setRunning(true);
             }
@@ -319,7 +260,7 @@ export function KMeansDemo(_props: DemoProps) {
           type="button"
           onClick={() => {
             setRunning(false);
-            setSnapshot(initialSnapshot());
+            setSnapshot(kMeansInitial(POINTS, INITIAL_CENTROIDS));
           }}
           className={secondary}
         >
@@ -339,6 +280,61 @@ export function KMeansDemo(_props: DemoProps) {
       >
         {status}
       </p>
+
+      <div className="mt-4 rounded-lg border border-hairline bg-canvas-soft p-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="text-xs font-semibold text-ink">
+            Predict the readout
+          </span>
+          <button
+            type="button"
+            onClick={() => setVariant((v) => v + 1)}
+            className="rounded-lg border border-hairline bg-canvas px-2.5 py-1 text-xs text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 motion-reduce:transition-none"
+          >
+            Next question
+          </button>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-body">
+          {question.prompt}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {question.choices.map((value, index) => {
+            const chosen = picked === index;
+            const isAnswer = index === question.answerIndex;
+            const state =
+              picked === null
+                ? "border-hairline bg-canvas text-body hover:text-ink"
+                : isAnswer
+                  ? "border-accent/40 bg-accent/5 text-accent"
+                  : chosen
+                    ? "border-error/40 bg-error/5 text-error"
+                    : "border-hairline bg-canvas text-body-mid opacity-60";
+            return (
+              <button
+                key={index}
+                type="button"
+                disabled={picked !== null}
+                aria-pressed={chosen}
+                onClick={() => setReply({ id: question.id, index })}
+                className={`rounded-lg border px-2.5 py-1 font-mono text-xs transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 motion-reduce:transition-none ${state}`}
+              >
+                {formatKernelChoice(value)}
+              </button>
+            );
+          })}
+        </div>
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-2 text-xs leading-relaxed text-body-mid"
+        >
+          {picked === null
+            ? "Choose the value the figure reports."
+            : picked === question.answerIndex
+              ? `Correct. ${question.explain}`
+              : `Not quite. Answer ${formatKernelChoice(question.choices[question.answerIndex])}. ${question.explain}`}
+        </p>
+      </div>
     </figure>
   );
 }
