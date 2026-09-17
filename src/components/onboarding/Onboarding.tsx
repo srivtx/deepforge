@@ -2,6 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import {
+  CARD,
+  FLOW_SECTION,
+  PRIMARY_BUTTON,
+  RESULT_SECTION,
+  SECONDARY_BUTTON,
+  TERTIARY_LINK,
+} from "@/components/onboarding/layout";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import {
@@ -29,12 +37,6 @@ import type { Category } from "@/types/problem";
 
 type Phase = "loading" | "intro" | "quiz" | "plan";
 
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
-const SECONDARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
-const CARD = "rounded-lg border border-hairline bg-canvas-card p-4 sm:p-6";
-
 const META_BY_ID = new Map(PROBLEM_META.map((problem) => [problem.id, problem]));
 
 function DifficultyPill({ difficulty }: { difficulty: "Easy" | "Medium" | "Hard" }) {
@@ -59,6 +61,20 @@ function CategoryList({ categories }: { categories: readonly Category[] }) {
           ? `${categories[0]} and ${categories[1]}`
           : `${categories.slice(0, -1).join(", ")}, and ${categories[categories.length - 1]}`}
     </span>
+  );
+}
+
+function ProgressBar({ value }: { value: number }) {
+  return (
+    <div
+      aria-hidden
+      className="h-1 w-full overflow-hidden rounded-full bg-canvas-soft"
+    >
+      <div
+        className="h-full rounded-full bg-accent transition-[width] duration-300"
+        style={{ width: `${value}%` }}
+      />
+    </div>
   );
 }
 
@@ -144,6 +160,16 @@ export function Onboarding() {
     }
   };
 
+  const handleBack = () => {
+    if (answers.length === 0) {
+      setPhase("intro");
+      return;
+    }
+    const next = answers.slice(0, -1);
+    saveDraft({ areas, minutesPerDay: minutes, answers: next });
+    setAnswers(next);
+  };
+
   const handleRetake = () => {
     clearPlacement();
     clearDraft();
@@ -156,7 +182,7 @@ export function Onboarding() {
     return (
       <section
         aria-live="polite"
-        className="mx-auto w-full max-w-6xl px-4 py-10 text-sm text-body-mid sm:px-6 sm:py-14"
+        className={cn(FLOW_SECTION, "text-sm text-body-mid")}
       >
         Preparing the check…
       </section>
@@ -165,7 +191,7 @@ export function Onboarding() {
 
   if (phase === "intro") {
     return (
-      <section className="mx-auto w-full max-w-3xl px-4 pb-14 pt-8 sm:px-6 sm:pt-10">
+      <section className={FLOW_SECTION}>
         <div className={CARD}>
           <h2 className="text-lg font-semibold tracking-tight text-ink">
             How this works
@@ -199,10 +225,9 @@ export function Onboarding() {
             <legend className="text-sm font-medium text-ink">
               Which areas interest you most?
             </legend>
-            <p className="mt-1 text-xs text-body-mid">
-              Optional — pick up to {MAX_INTERESTS}. Leave everything
-              unpicked and the check spreads evenly across all{" "}
-              {CATEGORIES.length} areas.
+            <p className="mt-1 text-xs leading-relaxed text-body-mid">
+              Optional — pick up to {MAX_INTERESTS}. Leave everything unpicked
+              and the check spreads evenly across all {CATEGORIES.length} areas.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {CATEGORIES.map((category) => {
@@ -231,7 +256,7 @@ export function Onboarding() {
             <legend className="text-sm font-medium text-ink">
               How much time do you have on a normal day?
             </legend>
-            <p className="mt-1 text-xs text-body-mid">
+            <p className="mt-1 text-xs leading-relaxed text-body-mid">
               This sets how many problems the plan suggests. It does not change
               your level.
             </p>
@@ -254,7 +279,7 @@ export function Onboarding() {
             </div>
           </fieldset>
 
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+          <div className="mt-7 flex flex-col gap-2 sm:flex-row-reverse">
             <button type="button" onClick={handleStart} className={PRIMARY_BUTTON}>
               Start the check
               <span aria-hidden>→</span>
@@ -262,10 +287,10 @@ export function Onboarding() {
             <Link href="/paths" className={SECONDARY_BUTTON}>
               Skip for now
             </Link>
-            <span className="text-xs text-body-mid">
-              No account needed. Answers stay in this browser.
-            </span>
           </div>
+          <p className="mt-3 text-xs text-body-mid sm:text-right">
+            No account needed. Answers stay in this browser.
+          </p>
         </div>
       </section>
     );
@@ -277,8 +302,16 @@ export function Onboarding() {
       (answers.length / DIAGNOSTIC_MAX_QUESTIONS) * 100,
     );
     return (
-      <section className="mx-auto w-full max-w-3xl px-4 pb-14 pt-8 sm:px-6 sm:pt-10">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section className={FLOW_SECTION}>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-8"
+          >
+            <span aria-hidden>←</span>
+            Back
+          </button>
           <p
             role="status"
             aria-live="polite"
@@ -286,24 +319,12 @@ export function Onboarding() {
           >
             Question {questionNumber} of up to {DIAGNOSTIC_MAX_QUESTIONS}
           </p>
-          <Link
-            href="/paths"
-            className="text-xs text-body-mid underline-offset-4 transition-colors hover:text-ink hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
-          >
-            Skip for now
-          </Link>
         </div>
-        <div
-          aria-hidden
-          className="mt-3 h-1 w-full overflow-hidden rounded-full bg-canvas-soft"
-        >
-          <div
-            className="h-full rounded-full bg-accent transition-[width] duration-300"
-            style={{ width: `${progressPct}%` }}
-          />
+        <div className="mt-3">
+          <ProgressBar value={progressPct} />
         </div>
 
-        <div className={cn(CARD, "mt-6")}>
+        <div className={cn(CARD, "mt-4")}>
           <p className="flex flex-wrap items-center gap-2 text-xs text-body-mid">
             <span className="font-mono text-[11px] text-mute">
               {question.id}
@@ -325,26 +346,31 @@ export function Onboarding() {
             If this problem appeared right now, could you write a working
             solution from scratch — no notes, no autocomplete?
           </p>
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-5 flex flex-col gap-2">
             <button
               type="button"
               onClick={() => handleAnswer(true)}
-              className={cn(PRIMARY_BUTTON, "sm:flex-1")}
+              className={cn(PRIMARY_BUTTON, "w-full")}
             >
               Yes, I could
             </button>
             <button
               type="button"
               onClick={() => handleAnswer(false)}
-              className={cn(SECONDARY_BUTTON, "sm:flex-1")}
+              className={cn(SECONDARY_BUTTON, "w-full")}
             >
               Not yet
             </button>
           </div>
-          <p className="mt-4 text-xs text-mute">
-            Honest answers give a better starting point. Nobody sees this, and
-            it is not a score.
-          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <p className="text-xs leading-relaxed text-mute">
+              Honest answers give a better starting point. Nobody sees this, and
+              it is not a score.
+            </p>
+            <Link href="/paths" className={TERTIARY_LINK}>
+              Skip for now
+            </Link>
+          </div>
         </div>
       </section>
     );
@@ -354,7 +380,7 @@ export function Onboarding() {
     const firstId = plan.firstProblemIds[0];
     const firstMeta = firstId ? META_BY_ID.get(firstId) : undefined;
     return (
-      <section className="mx-auto w-full max-w-6xl px-4 pb-14 pt-8 sm:px-6 sm:pt-10">
+      <section className={RESULT_SECTION}>
         <div className={CARD}>
           <p className="font-mono text-[11px] text-mute">
             Based on {plan.answered}{" "}
@@ -393,6 +419,28 @@ export function Onboarding() {
               )}
             </dl>
           )}
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className={CARD}>
+            <p className="text-xs font-medium text-body-mid">Answers given</p>
+            <p className="mt-2 font-mono text-2xl text-ink">{plan.answered}</p>
+            <p className="mt-1 text-xs text-body-mid">
+              of up to {DIAGNOSTIC_MAX_QUESTIONS}
+            </p>
+          </div>
+          <div className={CARD}>
+            <p className="text-xs font-medium text-body-mid">Daily target</p>
+            <p className="mt-2 font-mono text-2xl text-ink">{plan.dailyTarget}</p>
+            <p className="mt-1 text-xs text-body-mid">problems a day</p>
+          </div>
+          <div className={CARD}>
+            <p className="text-xs font-medium text-body-mid">Session length</p>
+            <p className="mt-2 font-mono text-2xl text-ink">
+              {plan.minutesPerDay}
+            </p>
+            <p className="mt-1 text-xs text-body-mid">minutes a session</p>
+          </div>
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -528,21 +576,11 @@ export function Onboarding() {
           </div>
         </div>
 
-        <p className="mt-6 max-w-3xl text-xs leading-relaxed text-body-mid">
+        <p className="mt-6 max-w-2xl text-xs leading-relaxed text-body-mid">
           {plan.note}
         </p>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Link
-            href={firstId ? problemHref(firstId, "/start") : "/problems"}
-            className={PRIMARY_BUTTON}
-          >
-            {firstMeta ? `Start with ${firstMeta.title}` : "Start practicing"}
-            <span aria-hidden>→</span>
-          </Link>
-          <button type="button" onClick={handleRetake} className={SECONDARY_BUTTON}>
-            Retake the check
-          </button>
+        <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <span className="text-xs text-body-mid">
             Saved in this browser —{" "}
             <Link
@@ -552,6 +590,22 @@ export function Onboarding() {
               move it to another device
             </Link>
           </span>
+          <div className="flex flex-col gap-2 sm:flex-row-reverse">
+            <Link
+              href={firstId ? problemHref(firstId, "/start") : "/problems"}
+              className={PRIMARY_BUTTON}
+            >
+              {firstMeta ? `Start with ${firstMeta.title}` : "Start practicing"}
+              <span aria-hidden>→</span>
+            </Link>
+            <button
+              type="button"
+              onClick={handleRetake}
+              className={SECONDARY_BUTTON}
+            >
+              Retake the check
+            </button>
+          </div>
         </div>
       </section>
     );
@@ -560,7 +614,7 @@ export function Onboarding() {
   return (
     <section
       aria-live="polite"
-      className="mx-auto w-full max-w-6xl px-4 py-10 text-sm text-body-mid sm:px-6 sm:py-14"
+      className={cn(FLOW_SECTION, "text-sm text-body-mid")}
     >
       Preparing the check…
     </section>

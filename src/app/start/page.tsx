@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
 import { PageShell } from "@/components/PageShell";
 import { Onboarding } from "@/components/onboarding/Onboarding";
+import { PAGE_HEADER } from "@/components/onboarding/layout";
+
+const TITLE = "Find your starting point";
 
 const description =
   "A 2–3 minute placement check built from real DeepForge problems. Answer honestly and get a starting level, two or three learning paths that fit, and a first problem set.";
 
+const blurb =
+  "Eight to twelve real problems, about three minutes. No account, no score — just enough signal to pick where to begin.";
+
 export const metadata: Metadata = {
-  title: "Find your starting point",
+  title: TITLE,
   description,
   alternates: {
     canonical: "/start",
@@ -22,11 +28,13 @@ export const metadata: Metadata = {
 
 export default function StartPage() {
   return (
-    <PageShell
-      eyebrow="Getting started"
-      title="Find your starting point"
-      description="Eight to twelve real problems, about three minutes. No account, no score — just enough signal to pick where to begin."
-    >
+    <PageShell>
+      <header className={PAGE_HEADER}>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+          {TITLE}
+        </h1>
+        <p className="mt-2 text-sm leading-relaxed text-body-mid">{blurb}</p>
+      </header>
       <Onboarding />
     </PageShell>
   );
