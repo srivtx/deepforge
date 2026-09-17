@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { PwaManager } from "@/components/PwaManager";
 import { ZeroAssistantMount } from "@/components/ZeroAssistantMount";
+import { Shortcuts } from "@/components/Shortcuts";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 
 const inter = Inter({
@@ -159,6 +160,7 @@ export default function RootLayout({
           {children}
           <PwaManager />
           <ZeroAssistantMount />
+          <Shortcuts />
         </ThemeProvider>
       </body>
     </html>
