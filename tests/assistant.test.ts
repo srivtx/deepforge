@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
+  ASSISTANT_HIDDEN_EVENT,
   classify,
+  isAssistantHidden,
   respond,
   retrieve,
+  setAssistantHidden,
   suggestedPrompts,
   type Ctx,
   type Intent,
@@ -163,14 +166,19 @@ const globalScope = globalThis as unknown as { window?: unknown };
 let originalWindow: unknown;
 let hadWindow = false;
 let stub: Storage;
+let dispatched: string[];
 
 beforeEach(() => {
   hadWindow = "window" in globalScope;
   originalWindow = globalScope.window;
   stub = createStorageStub();
+  dispatched = [];
   globalScope.window = {
     localStorage: stub,
-    dispatchEvent: () => true,
+    dispatchEvent: (event: Event) => {
+      dispatched.push((event as CustomEvent).type);
+      return true;
+    },
   };
 });
 
@@ -330,5 +338,63 @@ describe("suggested prompts", () => {
     });
     expect(withProblem).toContain("What's due?");
     expect(withProblem).toContain("Am I ready?");
+  });
+});
+
+describe("hidden launcher preference", () => {
+  const HIDDEN_KEY = "deepforge:assistant-hidden:v1";
+
+  test("defaults to visible when the key is unset", () => {
+    expect(stub.getItem(HIDDEN_KEY)).toBeNull();
+    expect(isAssistantHidden()).toBe(false);
+  });
+
+  test("round-trips hidden and visible through the store", () => {
+    setAssistantHidden(true);
+    expect(isAssistantHidden()).toBe(true);
+    expect(stub.getItem(HIDDEN_KEY)).toBe("true");
+
+    setAssistantHidden(false);
+    expect(isAssistantHidden()).toBe(false);
+    expect(stub.getItem(HIDDEN_KEY)).toBe("false");
+  });
+
+  test("sanitizes junk, legacy, and non-boolean payloads to visible", () => {
+    const junk = [
+      "yes",
+      "TRUE",
+      "1",
+      "0",
+      "",
+      "null",
+      "{}",
+      '{"hidden":true}',
+      '"true"',
+      "undefined",
+    ];
+    for (const value of junk) {
+      stub.setItem(HIDDEN_KEY, value);
+      expect(isAssistantHidden(), value).toBe(false);
+    }
+
+    stub.setItem(HIDDEN_KEY, "true");
+    expect(isAssistantHidden()).toBe(true);
+  });
+
+  test("dispatches the hidden-change event on every write", () => {
+    expect(ASSISTANT_HIDDEN_EVENT).toBe("deepforge:assistant-hidden-change");
+    setAssistantHidden(true);
+    setAssistantHidden(false);
+    expect(dispatched).toEqual([
+      ASSISTANT_HIDDEN_EVENT,
+      ASSISTANT_HIDDEN_EVENT,
+    ]);
+  });
+
+  test("is SSR-safe and a no-op without a window", () => {
+    globalScope.window = undefined;
+    expect(isAssistantHidden()).toBe(false);
+    setAssistantHidden(true);
+    expect(dispatched).toEqual([]);
   });
 });

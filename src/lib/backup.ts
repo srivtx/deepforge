@@ -59,6 +59,7 @@ export const PROGRESS_CHANGE_EVENTS = [
   "deepforge:checkpoint-change",
   "deepforge:bug-hunt-change",
   "deepforge:lab-reviews-change",
+  "deepforge:assistant-hidden-change",
 ] as const;
 
 function getStorage(): Storage | null {

@@ -1366,3 +1366,36 @@ export function suggestedPrompts(ctx: Ctx = {}): string[] {
     "Am I ready?",
   ];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Launcher visibility — localStorage boolean, default visible, same-tab event
+//
+// Hidden collapses the orb to a tiny restore dot; the preference is a chrome
+// setting, so it is JSON-safe ("true" / "false") and anything else — missing
+// key, junk, older formats — reads as visible. SSR has no storage, so the
+// server (and the first paint) always renders the full orb.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const ASSISTANT_HIDDEN_EVENT = "deepforge:assistant-hidden-change";
+
+const HIDDEN_STORAGE_KEY = "deepforge:assistant-hidden:v1";
+
+/** True only when the exact JSON boolean true is stored; visible otherwise. */
+export function isAssistantHidden(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(HIDDEN_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setAssistantHidden(hidden: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(HIDDEN_STORAGE_KEY, JSON.stringify(hidden));
+    window.dispatchEvent(new CustomEvent(ASSISTANT_HIDDEN_EVENT));
+  } catch {
+    /* storage unavailable — silently ignore */
+  }
+}

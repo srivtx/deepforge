@@ -11,12 +11,15 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import {
   ASSISTANT_CHANGE_EVENT,
+  ASSISTANT_HIDDEN_EVENT,
   appendMessage,
   createMessage,
   getMessages,
+  isAssistantHidden,
   problemTitle,
   respond,
   resetConversation,
+  setAssistantHidden,
   suggestedPrompts,
   warmAssistant,
   type Ctx,
@@ -24,6 +27,7 @@ import {
   type MsgAction,
 } from "@/lib/assistant";
 import { problemHref } from "@/lib/problemLinks";
+import { useReducedMotion } from "@/components/motion/useReducedMotion";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,6 +61,26 @@ function getContextSnapshot(): Ctx {
 }
 
 const PROBLEM_CONTEXT_EVENT = "deepforge:problem-context";
+
+// Launcher visibility comes from the assistant store; subscribe through the
+// same useSyncExternalStore seam as the context store so the server snapshot
+// stays on the visible orb.
+function subscribeHidden(onStoreChange: () => void): () => void {
+  window.addEventListener(ASSISTANT_HIDDEN_EVENT, onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    window.removeEventListener(ASSISTANT_HIDDEN_EVENT, onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
+function getHiddenSnapshot(): boolean {
+  return isAssistantHidden();
+}
+
+function getHiddenServerSnapshot(): boolean {
+  return false;
+}
 
 function CitationChip({ id }: { id: string }) {
   const router = useRouter();
@@ -152,13 +176,21 @@ export function ZeroAssistant() {
     getContextSnapshot,
     getContextSnapshot,
   );
+  const hidden = useSyncExternalStore(
+    subscribeHidden,
+    getHiddenSnapshot,
+    getHiddenServerSnapshot,
+  );
+  const reduced = useReducedMotion();
 
   const [open, setOpen] = useState(false);
+  const [shown, setShown] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
 
   const fabRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const ctxRef = useRef<Ctx>(ctx);
@@ -167,8 +199,27 @@ export function ZeroAssistant() {
 
   const chips = useMemo(() => suggestedPrompts(ctx), [ctx]);
 
+  // A hidden launcher never shows the panel, even if it was open when the
+  // preference flipped in another tab.
+  const panelOpen = open && !hidden;
+
   const close = useCallback(() => {
     setOpen(false);
+    setShown(false);
+    fabRef.current?.focus();
+  }, []);
+
+  const openPanel = useCallback(() => {
+    setShown(false);
+    setOpen(true);
+  }, []);
+
+  // Collapse the orb to its restore dot; the same launcher button stays
+  // mounted, so focus parks on the dot ready to bring the orb back.
+  const hide = useCallback(() => {
+    setAssistantHidden(true);
+    setOpen(false);
+    setShown(false);
     fabRef.current?.focus();
   }, []);
 
@@ -200,21 +251,45 @@ export function ZeroAssistant() {
 
   // Escape closes the panel and returns focus to the launcher.
   useEffect(() => {
-    if (!open) return;
+    if (!panelOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [panelOpen, close]);
+
+  // Clicking outside the panel closes it; the launcher is excluded so its own
+  // click can toggle instead. Citations, sends, and the header stay inside.
+  useEffect(() => {
+    if (!panelOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (panelRef.current?.contains(target)) return;
+      if (fabRef.current?.contains(target)) return;
+      close();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [panelOpen, close]);
+
+  // Grow the panel out of the orb; reduced motion skips the tween entirely.
+  // `openPanel` resets `shown` first, so the first paint is at scale-95 and
+  // the next frame flips it to full size for the 150ms transition.
+  useEffect(() => {
+    if (!panelOpen || reduced) return;
+    const frame = window.requestAnimationFrame(() => setShown(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [panelOpen, reduced]);
 
   // Focus the input when opened and warm the full catalogue in the background;
   // clean up a pending reply timer on unmount.
   useEffect(() => {
-    if (!open) return;
+    if (!panelOpen) return;
     inputRef.current?.focus();
     warmAssistant();
-  }, [open]);
+  }, [panelOpen]);
 
   useEffect(() => {
     return () => {
@@ -226,7 +301,7 @@ export function ZeroAssistant() {
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, busy, open]);
+  }, [messages, busy, panelOpen]);
 
   const clear = useCallback(() => {
     exchangeRef.current += 1;
@@ -275,11 +350,20 @@ export function ZeroAssistant() {
 
   return (
     <>
-      {open && (
+      {panelOpen && (
         <div
+          ref={panelRef}
           role="dialog"
           aria-label="Zero study assistant"
-          className="df-slide-up fixed bottom-16 right-4 z-40 flex h-[min(70vh,540px)] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-hairline bg-canvas shadow-xl"
+          className={cn(
+            "fixed z-[80] flex h-[min(70vh,540px)] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-hairline bg-canvas",
+            "bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-[calc(1rem+env(safe-area-inset-right,0px))]",
+            !reduced &&
+              "origin-bottom-right transition-[transform,opacity] duration-150 ease-out",
+            reduced || shown
+              ? "translate-y-0 scale-100 opacity-100"
+              : "translate-y-2 scale-95 opacity-0",
+          )}
         >
           <div className="flex items-center gap-2 border-b border-hairline px-3 py-2.5">
             <span
@@ -303,6 +387,14 @@ export function ZeroAssistant() {
               className="shrink-0 rounded-lg border border-hairline px-2 py-1 text-[10px] text-body-mid transition-colors hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
             >
               Clear
+            </button>
+            <button
+              type="button"
+              onClick={hide}
+              title="Hide Zero assistant"
+              className="shrink-0 rounded-md px-1.5 py-1 text-[10px] font-medium text-body-mid transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+            >
+              Hide
             </button>
             <button
               type="button"
@@ -394,17 +486,53 @@ export function ZeroAssistant() {
       <button
         ref={fabRef}
         type="button"
-        onClick={() => (open ? close() : setOpen(true))}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-label="Zero study assistant"
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-accent/40 bg-canvas px-3.5 py-2 text-xs font-medium text-accent shadow-lg transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+        onClick={() => {
+          if (hidden) {
+            setAssistantHidden(false);
+            setOpen(false);
+            setShown(false);
+            return;
+          }
+          if (panelOpen) close();
+          else openPanel();
+        }}
+        aria-expanded={panelOpen}
+        aria-haspopup={hidden ? undefined : "dialog"}
+        aria-label={hidden ? "Show Zero assistant" : "Open Zero assistant"}
+        title={hidden ? "Show Zero assistant" : "Open Zero assistant"}
+        className={cn(
+          "fixed z-[70] flex h-12 w-12 items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60",
+          "bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-[calc(1rem+env(safe-area-inset-right,0px))]",
+          hidden
+            ? "group border-transparent bg-transparent"
+            : "border-hairline bg-canvas-card",
+        )}
       >
-        <span
-          className="df-pulse h-1.5 w-1.5 rounded-full bg-accent"
-          aria-hidden
-        />
-        Zero
+        {hidden ? (
+          <span
+            aria-hidden
+            className="h-2.5 w-2.5 rounded-full bg-accent/40 transition-opacity group-hover:bg-accent/70"
+          />
+        ) : (
+          <>
+            <span
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-0 rounded-full",
+                !panelOpen && !reduced && "df-pulse",
+              )}
+              style={{
+                boxShadow:
+                  "0 0 0 5px color-mix(in srgb, var(--accent) 14%, transparent), 0 0 20px 5px color-mix(in srgb, var(--accent) 32%, transparent)",
+              }}
+            />
+            <span className="relative flex h-[22px] w-[22px] items-center justify-center rounded-full bg-accent">
+              <span className="text-[10px] font-semibold leading-none text-canvas">
+                Z
+              </span>
+            </span>
+          </>
+        )}
       </button>
     </>
   );
