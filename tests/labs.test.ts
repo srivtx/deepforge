@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { LABS, type Lab } from "@/data/labs";
 import {
+  LAB_HISTORY_CAP,
+  LAB_SPEC,
   getLabBest,
   getLabRecords,
   meetsTarget,
   metricLabel,
+  sanitizeLabRecord,
   setLabBest,
 } from "@/lib/labs";
 
@@ -184,5 +187,105 @@ describe("setLabBest", () => {
     const second = setLabBest(higher.id, higher.target, later);
     expect(second.lastScoredAt).toBe(later.toISOString());
     expect(getLabBest(higher.id)!.lastScoredAt).toBe(later.toISOString());
+  });
+
+  test("keeps a short append-only pass history and the latest score", () => {
+    const at1 = new Date(2026, 0, 5, 10, 0, 0, 0);
+    const miss = higher.target - 0.2;
+    const first = setLabBest(higher.id, miss, at1);
+    expect(first.recentPasses).toEqual([]);
+    expect(first.lastScore).toBe(miss);
+
+    const at2 = new Date(2026, 0, 6, 10, 0, 0, 0);
+    const pass = setLabBest(higher.id, higher.target, at2);
+    expect(pass.recentPasses).toEqual([at2.toISOString()]);
+    expect(pass.lastScore).toBe(higher.target);
+
+    const low = setLabBest(lower.id, lower.target + 1, at1);
+    expect(low.recentPasses).toEqual([]);
+    const lowPass = setLabBest(lower.id, lower.target, at2);
+    expect(lowPass.recentPasses).toEqual([at2.toISOString()]);
+  });
+});
+
+describe("lab record payload hardening", () => {
+  function storage(): Storage {
+    return (globalScope.window as { localStorage: Storage }).localStorage;
+  }
+
+  test("invalid payloads read as an empty map", () => {
+    expect(LAB_SPEC.parse(null)).toEqual({});
+    expect(LAB_SPEC.parse("")).toEqual({});
+    expect(LAB_SPEC.parse("{not json")).toEqual({});
+    expect(LAB_SPEC.parse("[]")).toEqual({});
+    expect(LAB_SPEC.parse("null")).toEqual({});
+    expect(LAB_SPEC.parse('"nope"')).toEqual({});
+    expect(LAB_SPEC.parse("7")).toEqual({});
+  });
+
+  test('a stored {"x":null} payload never reaches a derived view', () => {
+    storage().setItem("deepforge:labs", JSON.stringify({ x: null }));
+    expect(getLabRecords()).toEqual({});
+    expect(getLabBest("x")).toBeNull();
+  });
+
+  test("malformed entries drop instead of throwing", () => {
+    const parsed = LAB_SPEC.parse(
+      JSON.stringify({
+        good: {
+          best: 0.9,
+          attempts: 2,
+          passed: true,
+          lastScoredAt: "2026-01-05T10:00:00.000Z",
+        },
+        nil: null,
+        arr: [],
+        str: "x",
+        num: 5,
+      }),
+    );
+    expect(Object.keys(parsed)).toEqual(["good"]);
+    expect(parsed.good).toEqual({
+      best: 0.9,
+      attempts: 2,
+      passed: true,
+      lastScoredAt: "2026-01-05T10:00:00.000Z",
+    });
+  });
+
+  test("present-but-invalid fields sanitize to defaults", () => {
+    const parsed = LAB_SPEC.parse(
+      JSON.stringify({
+        bad: {
+          best: "nope",
+          attempts: -3.7,
+          passed: "yes",
+          lastScoredAt: 42,
+          lastScore: Number.NaN,
+          recentPasses: "nope",
+        },
+      }),
+    );
+    expect(parsed.bad).toEqual({ best: null, attempts: 0, passed: false });
+  });
+
+  test("recentPasses keeps only ISO timestamps, newest last, capped", () => {
+    const passes = Array.from(
+      { length: 14 },
+      (_, i) =>
+        `2026-01-${String(i + 1).padStart(2, "0")}T10:00:00.000Z`,
+    );
+    const sanitized = sanitizeLabRecord({
+      best: 1,
+      attempts: 14,
+      passed: true,
+      lastScoredAt: passes[13],
+      lastScore: 1,
+      recentPasses: ["nope", ...passes, 7],
+    });
+    expect(sanitized).not.toBeNull();
+    expect(sanitized!.recentPasses).toHaveLength(LAB_HISTORY_CAP);
+    expect(sanitized!.recentPasses![0]).toBe(passes[4]);
+    expect(sanitized!.recentPasses![LAB_HISTORY_CAP - 1]).toBe(passes[13]);
   });
 });

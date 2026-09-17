@@ -2,9 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import type { Concept } from "@/data/concepts";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { Reveal } from "@/components/motion/Reveal";
 import { getDailyQuests, type Quest } from "@/lib/badges";
+import {
+  CONCEPTS_CHANGE_EVENT,
+  getConceptStats,
+  getConceptStates,
+  getDueConcepts,
+  gradeConcept,
+  type ConceptQuality,
+  type ConceptStats,
+} from "@/lib/concepts";
 import {
   DAILY_CHANGE_EVENT,
   getDailyDateKey,
@@ -13,6 +23,18 @@ import {
   markDailySolved,
 } from "@/lib/daily";
 import { getDailyProblem } from "@/lib/dailyProblem";
+import {
+  LAB_REVIEWS_CHANGE_EVENT,
+  labReviewDue,
+  type LabReviewItem,
+} from "@/lib/labReviews";
+import { readPlacement, type PlacementRecord } from "@/lib/onboarding";
+import {
+  evaluateStageCheckpoint,
+  readCheckpointAttempts,
+  summarizeCheckpoints,
+} from "@/lib/pathCheckpoints";
+import { getAllPaths } from "@/lib/paths";
 import {
   getProblemProgress,
   getProgress,
@@ -35,6 +57,18 @@ import { cn, difficultyClasses } from "@/lib/utils";
 const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
 const META_BY_ID = new Map(PROBLEM_META.map((problem) => [problem.id, problem]));
 
+interface DueConcept {
+  concept: Concept;
+  due: string;
+}
+
+interface PlanCheckpoint {
+  pathTitle: string;
+  pathSlug: string;
+  stageTitle: string;
+  passedStages: number;
+}
+
 interface SessionView {
   now: Date;
   reviews: ReviewMap;
@@ -42,6 +76,12 @@ interface SessionView {
   dailySolved: boolean;
   streak: number;
   quests: Quest[];
+  labReviews: LabReviewItem[];
+  conceptsDue: DueConcept[];
+  conceptStats: ConceptStats;
+  placement: PlacementRecord | null;
+  solvedToday: number;
+  checkpoint: PlanCheckpoint | null;
 }
 
 const CARD_CLASSES = "rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5";
@@ -77,6 +117,60 @@ function formatDateKey(dateKey: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+function conceptDueLabel(due: string, todayKey: string): string {
+  return due < todayKey ? `Overdue since ${formatDateKey(due)}` : "Due today";
+}
+
+function labOverdueLabel(item: LabReviewItem): string {
+  if (item.overdueDays === 0) return "Due today";
+  return item.overdueDays === 1 ? "1 day overdue" : `${item.overdueDays} days overdue`;
+}
+
+function solvedTodayCount(progress: ProgressMap, todayKey: string): number {
+  let count = 0;
+  for (const entry of Object.values(progress)) {
+    if (!entry?.solved || !entry.solvedAt) continue;
+    const solved = new Date(entry.solvedAt);
+    if (Number.isNaN(solved.getTime())) continue;
+    if (getDailyDateKey(solved) === todayKey) count += 1;
+  }
+  return count;
+}
+
+/**
+ * First recommended path whose checkpoint roll-up shows a passed stage, with
+ * the stage to name in the row. Reads the same inputs as the Paths list, so
+ * the two views can never disagree.
+ */
+function findReadyCheckpoint(
+  placement: PlacementRecord,
+  progress: ProgressMap,
+  reviews: ReviewMap,
+  now: Date,
+): PlanCheckpoint | null {
+  if (placement.recommendedPathIds.length === 0) return null;
+  const attempts = readCheckpointAttempts();
+  const pathsById = new Map(getAllPaths().map((path) => [path.id, path]));
+  for (const pathId of placement.recommendedPathIds) {
+    const path = pathsById.get(pathId);
+    if (!path) continue;
+    const options = { pathId: path.id, reviews, attempts, now };
+    const summary = summarizeCheckpoints(path.stages, META_BY_ID, progress, options);
+    if (summary.passed <= 0) continue;
+    const ready = path.stages.find(
+      (stage) =>
+        evaluateStageCheckpoint(stage, META_BY_ID, progress, options).passed,
+    );
+    return {
+      pathTitle: path.title,
+      pathSlug: path.slug,
+      stageTitle: ready?.title ?? "",
+      passedStages: summary.passed,
+    };
+  }
+  return null;
 }
 
 function DueReviewRow({
@@ -126,24 +220,39 @@ export function TodayScreen() {
 
   const refresh = useCallback(() => {
     const now = new Date();
+    const todayKey = getDailyDateKey(now);
     const daily = getDailyProblem(now);
     const dailyProgress = getProblemProgress(daily.id);
     if (
       dailyProgress?.solved &&
       dailyProgress.solvedAt &&
-      getDailyDateKey(new Date(dailyProgress.solvedAt)) === getDailyDateKey(now)
+      getDailyDateKey(new Date(dailyProgress.solvedAt)) === todayKey
     ) {
       markDailySolved(now);
     }
     const reviews = syncReviewQueue(now);
     const dailyState = getDailyState();
+    const progress = getProgress();
+    const conceptStates = getConceptStates(now);
+    const placement = readPlacement();
     setView({
       now,
       reviews,
-      progress: getProgress(),
+      progress,
       dailySolved: isTodaySolved(now),
       streak: dailyState.streak,
       quests: getDailyQuests(),
+      labReviews: labReviewDue(now),
+      conceptsDue: getDueConcepts(now).map((concept) => ({
+        concept,
+        due: conceptStates[concept.id]?.due ?? todayKey,
+      })),
+      conceptStats: getConceptStats(now),
+      placement,
+      solvedToday: solvedTodayCount(progress, todayKey),
+      checkpoint: placement
+        ? findReadyCheckpoint(placement, progress, reviews, now)
+        : null,
     });
   }, []);
 
@@ -153,11 +262,15 @@ export function TodayScreen() {
     window.addEventListener(REVIEWS_CHANGE_EVENT, apply);
     window.addEventListener(PROGRESS_CHANGE_EVENT, apply);
     window.addEventListener(DAILY_CHANGE_EVENT, apply);
+    window.addEventListener(CONCEPTS_CHANGE_EVENT, apply);
+    window.addEventListener(LAB_REVIEWS_CHANGE_EVENT, apply);
     window.addEventListener("storage", apply);
     return () => {
       window.removeEventListener(REVIEWS_CHANGE_EVENT, apply);
       window.removeEventListener(PROGRESS_CHANGE_EVENT, apply);
       window.removeEventListener(DAILY_CHANGE_EVENT, apply);
+      window.removeEventListener(CONCEPTS_CHANGE_EVENT, apply);
+      window.removeEventListener(LAB_REVIEWS_CHANGE_EVENT, apply);
       window.removeEventListener("storage", apply);
     };
   }, [refresh]);
@@ -192,9 +305,20 @@ export function TodayScreen() {
         : null;
 
   const questsDone = view.quests.filter((quest) => quest.done).length;
+  const todayKey = getDailyDateKey(view.now);
+  const planTarget = view.placement?.dailyTarget ?? 0;
+  const planPct =
+    planTarget > 0
+      ? Math.min(100, Math.round((view.solvedToday / planTarget) * 100))
+      : 0;
 
   const handleForget = (id: string) => {
     forgetReview(id, new Date());
+    refresh();
+  };
+
+  const handleConceptGrade = (conceptId: string, quality: ConceptQuality) => {
+    gradeConcept(conceptId, quality, new Date());
     refresh();
   };
 
@@ -261,6 +385,54 @@ export function TodayScreen() {
           </dl>
         </section>
       </Reveal>
+
+      {view.placement && (
+        <Reveal delay={30} className="mt-6">
+          <section aria-labelledby="today-plan" className={CARD_CLASSES}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <SectionHeading id="today-plan">Today&apos;s plan</SectionHeading>
+              <p className="font-mono text-[11px] text-mute">
+                {view.solvedToday}/{planTarget} solved today
+              </p>
+            </div>
+            <p className="mt-2 text-xs text-body-mid">
+              {view.placement.levelLabel}
+              <span className="mx-1.5 text-mute">·</span>
+              planned ~{view.placement.minutesPerDay} min a day
+            </p>
+            <div
+              aria-hidden
+              className="mt-3 h-1.5 overflow-hidden rounded-full bg-canvas-soft"
+            >
+              <div
+                className="h-full rounded-full bg-accent"
+                style={{ width: `${planPct}%` }}
+              />
+            </div>
+            {view.checkpoint && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/40 bg-accent/5 p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-accent">
+                    Stage checkpoint ready
+                  </p>
+                  <p className="mt-0.5 text-xs text-body-mid">
+                    {view.checkpoint.stageTitle
+                      ? `${view.checkpoint.stageTitle} · `
+                      : ""}
+                    {view.checkpoint.pathTitle}
+                  </p>
+                </div>
+                <Link
+                  href={`/paths/${view.checkpoint.pathSlug}`}
+                  className={SECONDARY_LINK_CLASSES}
+                >
+                  Open path
+                </Link>
+              </div>
+            )}
+          </section>
+        </Reveal>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-2">
         <Reveal delay={60} className="h-full">
@@ -425,6 +597,121 @@ export function TodayScreen() {
             </div>
           </section>
         </Reveal>
+
+        {view.labReviews.length > 0 && (
+          <Reveal delay={300} className="h-full">
+            <section
+              aria-labelledby="today-lab-reruns"
+              className={cn(CARD_CLASSES, "flex h-full flex-col")}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <SectionHeading id="today-lab-reruns">
+                  Lab re-runs due
+                </SectionHeading>
+                <p className="font-mono text-[11px] text-mute">
+                  {view.labReviews.length} due
+                </p>
+              </div>
+              <ul className="mt-3 divide-y divide-hairline">
+                {view.labReviews.map((item) => (
+                  <li key={item.lab.id}>
+                    <Link
+                      href="/labs"
+                      className="flex min-h-11 items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-ink">
+                          {item.lab.title}
+                        </span>
+                        <span className="block text-xs text-body-mid">
+                          {item.lab.category}
+                          <span className="mx-1.5 text-mute">·</span>
+                          {labOverdueLabel(item)}
+                        </span>
+                      </span>
+                      <span aria-hidden className="shrink-0 text-mute">
+                        →
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-body-mid">
+                Beat the target again on a passed lab to keep it sharp.
+              </p>
+              <div className="mt-auto pt-4">
+                <Link href="/labs" className={SECONDARY_LINK_CLASSES}>
+                  Open Labs
+                </Link>
+              </div>
+            </section>
+          </Reveal>
+        )}
+
+        {view.conceptsDue.length > 0 && (
+          <Reveal delay={360} className="h-full">
+            <section
+              aria-labelledby="today-concepts"
+              className={cn(CARD_CLASSES, "flex h-full flex-col")}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <SectionHeading id="today-concepts">
+                  Math concepts due
+                </SectionHeading>
+                <p className="font-mono text-[11px] text-mute">
+                  {view.conceptStats.due} due · {view.conceptStats.mastered}/
+                  {view.conceptStats.total} mastered
+                </p>
+              </div>
+              <ul className="mt-3 divide-y divide-hairline">
+                {view.conceptsDue.map(({ concept, due }) => (
+                  <li
+                    key={concept.id}
+                    className="flex flex-wrap items-center gap-2 py-2"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-ink">
+                        {concept.title}
+                      </span>
+                      <span className="block text-xs text-body-mid">
+                        {concept.category}
+                        <span className="mx-1.5 text-mute">·</span>
+                        {conceptDueLabel(due, todayKey)}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 gap-1.5">
+                      <button
+                        type="button"
+                        aria-label={`Mark ${concept.title} as reviewed`}
+                        onClick={() => handleConceptGrade(concept.id, 5)}
+                        className="min-h-11 rounded-lg border border-accent px-3 text-xs font-medium text-accent transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-8"
+                      >
+                        Reviewed
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Mark ${concept.title} as missed`}
+                        onClick={() => handleConceptGrade(concept.id, 0)}
+                        className="min-h-11 rounded-lg border border-hairline px-3 text-xs text-body-mid transition-colors hover:border-error/40 hover:text-error focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-8"
+                      >
+                        Missed
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-body-mid">
+                Grading here updates the SM-2 schedule; full practice with
+                worked steps lives on Pen &amp; Paper Math.
+              </p>
+              <div className="mt-auto pt-4">
+                <Link href="/math" className={SECONDARY_LINK_CLASSES}>
+                  Open Pen &amp; Paper Math
+                </Link>
+              </div>
+            </section>
+          </Reveal>
+        )}
       </div>
     </div>
   );

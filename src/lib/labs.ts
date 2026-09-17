@@ -16,6 +16,9 @@ const STORAGE_KEY = "deepforge:labs";
 
 export const LAB_CHANGE_EVENT = "deepforge:lab-change";
 
+/** Passing runs kept per lab — a short append-only re-run history. */
+export const LAB_HISTORY_CAP = 10;
+
 export interface LabRecord {
   /** Best score ever recorded, according to the lab's direction. */
   best: number | null;
@@ -25,6 +28,10 @@ export interface LabRecord {
   passed: boolean;
   /** ISO timestamp of the most recent scored run, when known. */
   lastScoredAt?: string;
+  /** Metric value of the most recent scored run, when known. */
+  lastScore?: number | null;
+  /** ISO timestamps of passing runs, oldest first, capped at `LAB_HISTORY_CAP`. */
+  recentPasses?: string[];
 }
 
 export type LabRecords = Record<string, LabRecord>;
@@ -146,6 +153,61 @@ export function meetsTarget(lab: Lab, score: number): boolean {
   return lab.higherIsBetter ? score >= lab.target : score <= lab.target;
 }
 
+function isIsoTimestamp(value: unknown): value is string {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * Validate a persisted lab record. Malformed entries return null so a bad
+ * payload (an array, a scalar, `{"x":null}`) can never reach a derived view.
+ * Missing optional fields stay absent; present-but-invalid ones are dropped.
+ */
+export function sanitizeLabRecord(value: unknown): LabRecord | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const sanitized: LabRecord = {
+    best: isFiniteNumber(record.best) ? record.best : null,
+    attempts: isFiniteNumber(record.attempts)
+      ? Math.max(0, Math.round(record.attempts))
+      : 0,
+    passed: record.passed === true,
+  };
+  if (isIsoTimestamp(record.lastScoredAt)) {
+    sanitized.lastScoredAt = record.lastScoredAt;
+  }
+  if (isFiniteNumber(record.lastScore)) sanitized.lastScore = record.lastScore;
+  if (Array.isArray(record.recentPasses)) {
+    const passes = record.recentPasses.filter(isIsoTimestamp);
+    sanitized.recentPasses = passes.slice(-LAB_HISTORY_CAP);
+  }
+  return sanitized;
+}
+
+/** Parse the stored lab map. Invalid payloads read as empty; bad entries drop. */
+export function parseLabRecords(raw: string | null): LabRecords {
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    const out: LabRecords = {};
+    for (const [id, value] of Object.entries(parsed)) {
+      const record = sanitizeLabRecord(value);
+      if (record) out[id] = record;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Run the user's code against the lab's held-out set and return the metric.
  */
@@ -189,15 +251,7 @@ const labStore = createStore<LabRecords>({
   storageKey: STORAGE_KEY,
   event: LAB_CHANGE_EVENT,
   empty: () => ({}),
-  parse: (raw) => {
-    if (!raw) return {};
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      return parsed && typeof parsed === "object" ? (parsed as LabRecords) : {};
-    } catch {
-      return {};
-    }
-  },
+  parse: parseLabRecords,
   serialize: (v) => JSON.stringify(v),
 });
 
@@ -213,7 +267,8 @@ export function getLabBest(labId: string): LabRecord | null {
 
 /**
  * Record one scored run. Increments attempts, keeps the best score in the
- * direction that fits the metric, and flips passed once the target is met.
+ * direction that fits the metric, flips passed once the target is met, and
+ * appends the run to the short pass history when it meets the target.
  */
 export function setLabBest(
   labId: string,
@@ -234,11 +289,18 @@ export function setLabBest(
         ? score > current.best
         : score < current.best
       : score > current.best);
+  const passedRun = lab !== null && meetsTarget(lab, score);
+  const recentPasses = [
+    ...(current.recentPasses ?? []),
+    ...(passedRun ? [at.toISOString()] : []),
+  ].slice(-LAB_HISTORY_CAP);
   const next: LabRecord = {
     best: better ? score : current.best,
     attempts: current.attempts + 1,
-    passed: current.passed || (lab !== null && meetsTarget(lab, score)),
+    passed: current.passed || passedRun,
     lastScoredAt: at.toISOString(),
+    lastScore: score,
+    recentPasses,
   };
   records[labId] = next;
   labStore.set(records);
@@ -250,14 +312,6 @@ export const LAB_SPEC: StoreSpec<LabRecords> = {
   storageKey: STORAGE_KEY,
   event: LAB_CHANGE_EVENT,
   empty: () => ({}),
-  parse: (raw) => {
-    if (!raw) return {};
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      return parsed && typeof parsed === "object" ? (parsed as LabRecords) : {};
-    } catch {
-      return {};
-    }
-  },
+  parse: parseLabRecords,
   serialize: (v) => JSON.stringify(v),
 };
