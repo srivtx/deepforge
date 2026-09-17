@@ -1,4 +1,7 @@
 import type { MetadataRoute } from "next";
+import { PROBLEM_META } from "@/data/problems/problem-meta";
+
+const problemCount = PROBLEM_META.length.toLocaleString("en-US");
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -6,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "DeepForge — Forge your ML skills",
     short_name: "DeepForge",
     description:
-      "5,550+ ML problems across 15 categories with real Python execution in your browser via Pyodide. No account needed, free and MIT-licensed.",
+      `${problemCount}+ ML problems across 15 categories with real Python execution in your browser via Pyodide. No account needed, free and MIT-licensed.`,
     start_url: "/",
     scope: "/",
     lang: "en",
@@ -32,7 +35,7 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "Problems",
         short_name: "Problems",
-        description: "Browse 5,550+ ML problems by category",
+        description: `Browse ${problemCount}+ ML problems by category`,
         url: "/#problems",
       },
       {

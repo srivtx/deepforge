@@ -5,17 +5,11 @@ import { PROBLEM_META, getCategoryCounts } from "@/data/problems/problem-meta";
 import type { Difficulty } from "@/types/problem";
 import { PageShell } from "@/components/PageShell";
 import { PracticeBrowser } from "@/components/PracticeBrowser";
+import { categorySlug } from "@/lib/sections";
 
 const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app"
 ).replace(/\/$/, "");
-
-function categorySlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 const description = `Browse all ${PROBLEM_META.length} DeepForge problems across ${CATEGORIES.length} categories — linear algebra, calculus, statistics, probability, machine learning, deep learning, and more. Every problem runs Python in your browser.`;
 

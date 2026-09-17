@@ -47,12 +47,11 @@ import type { StoreId, StoreSpec } from "@/lib/sync/types";
 import { PENPAPER_SPEC } from "@/lib/penpaper";
 import { REVIEWS_SPEC } from "@/lib/reviewQueue";
 import {
-  getFlameScore,
   getCurrentStreak,
   getLongestStreak,
-  getSolvedCount,
   USERNAME_SPEC,
 } from "@/lib/leaderboard";
+import { getFlameScore, getSolvedCount } from "@/lib/leaderboardScores";
 import { PROGRESS_SPEC, getProgress, type ProgressMap } from "@/lib/progress";
 import { RESEARCH_SPEC } from "@/lib/research";
 

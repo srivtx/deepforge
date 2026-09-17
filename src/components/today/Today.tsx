@@ -8,11 +8,11 @@ import { getDailyQuests, type Quest } from "@/lib/badges";
 import {
   DAILY_CHANGE_EVENT,
   getDailyDateKey,
-  getDailyProblem,
   getDailyState,
   isTodaySolved,
   markDailySolved,
 } from "@/lib/daily";
+import { getDailyProblem } from "@/lib/dailyProblem";
 import {
   getProblemProgress,
   getProgress,

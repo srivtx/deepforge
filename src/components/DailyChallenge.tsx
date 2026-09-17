@@ -8,11 +8,11 @@ import { problemHref } from "@/lib/problemLinks";
 import {
   DAILY_CHANGE_EVENT,
   getDailyDateKey,
-  getDailyProblem,
   getDailyState,
   markDailySolved,
   type DailyState,
 } from "@/lib/daily";
+import { getDailyProblem } from "@/lib/dailyProblem";
 import {
   getReviewBucketCounts,
   getReviewMap,

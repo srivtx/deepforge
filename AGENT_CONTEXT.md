@@ -248,18 +248,18 @@ bun run build                                 # production build
 ### Phase 3: Polish — ✅ Partially complete
 - ✅ SEO: metadata + OpenGraph, PWA manifest, robots.txt, sitemap.xml
 - ✅ Dark/light mode across all views
-- ✅ Bundle split: light problem index; home 283 KB gzip (from 1,553 KB)
+- ✅ Bundle split: light problem index, plus per-route picks (daily, leaderboard scoring); home 352 KB gzip (from 1,553 KB)
 - ✅ Mobile audits at 375px across new views
 - ✅ Keyboard/focus pass across dialogs, menus, command palette, and social threads; 🔲 full screen-reader + contrast sweep
 - ✅ PWA offline: route fallback chain + “update available” prompt (SW v3); 🔲 per-route offline verification
-- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 136-check smoke
+- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 142-check smoke
 
 ### Next steps (sensible order)
 1. **Path curation, continued** — 33 paths shipped with stage checkpoints, artifact links, and resolved prerequisites; still open from [`docs/research/path-curation.md`](./docs/research/path-curation.md): mixed-kind steps (problems + labs + math + projects) and a capstone per path.
 2. **Content growth** — 5,550 problems shipped; keep rebalancing the thinnest categories (Linear Algebra at 275; Information Theory, Time Series, Graph Algorithms at 315) and the level mix.
 3. **Production hardening** — Vercel deploy, custom SMTP for magic links, two-account RLS spot check.
 4. **Social scale** — realtime subscriptions, pagination, and the per-problem comments UI shipped; remaining: global-leaderboard polish.
-5. **E2E in CI** — shipped: the 136-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
+5. **E2E in CI** — shipped: the 142-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
 6. **Deploy & credentials** — work the human items in [`docs/next-wave-plan.md`](./docs/next-wave-plan.md), then certificate signing (phase 2).
 
 ---
@@ -333,7 +333,7 @@ If you are an AI agent working on DeepForge:
 - **Habit mechanics:** ✅ Streak shields, reminders, readiness projection
 - **Certificates:** ✅ SHA-256 code + public `/verify`
 - **Avatars:** ✅ 12 character presets, two art styles (Illustrated + Pixel)
-- **Tests:** ✅ 567+ unit tests + 136 e2e smoke checks (CI)
+- **Tests:** ✅ 672+ unit tests + 142 e2e smoke checks (CI)
 - **PWA:** ✅ Offline route fallback + update prompt
 - **SEO:** ✅ Metadata, manifest, robots, sitemap
 

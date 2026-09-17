@@ -7,26 +7,22 @@ import { PROJECTS } from "@/data/projects";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getAllPaths, pathSlug } from "@/lib/paths";
+import { categorySlug } from "@/lib/sections";
 
 const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app"
 ).replace(/\/$/, "");
 
-const LAST_MODIFIED = new Date("2026-09-01T00:00:00.000Z");
+// Build time: sitemap entries without a real publish date use the build date.
+const LAST_MODIFIED = new Date();
 
 const BANK_IDS = new Set(PROBLEM_META.map((problem) => problem.id));
-
-function categorySlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 const ROUTES = [
   { path: "/start", changeFrequency: "monthly", priority: 0.7 },
   { path: "/paths", changeFrequency: "weekly", priority: 0.9 },
   { path: "/daily", changeFrequency: "daily", priority: 0.8 },
+  { path: "/today", changeFrequency: "daily", priority: 0.7 },
   { path: "/projects", changeFrequency: "weekly", priority: 0.8 },
   { path: "/labs", changeFrequency: "weekly", priority: 0.8 },
   { path: "/contests", changeFrequency: "weekly", priority: 0.8 },

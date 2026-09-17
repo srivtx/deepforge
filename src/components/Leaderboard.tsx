@@ -4,12 +4,12 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 import { getProgress } from "@/lib/progress";
 import {
-  getLeaderboard,
   getLongestStreak,
   getUserName,
   setUserName,
   type LeaderboardEntry,
 } from "@/lib/leaderboard";
+import { getLeaderboard } from "@/lib/leaderboardScores";
 import {
   fetchGlobalLeaderboard,
   isGlobalLeaderboardAvailable,

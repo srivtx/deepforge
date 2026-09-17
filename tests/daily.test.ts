@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   applyShield,
   getDailyDateKey,
-  getDailyProblemId,
   getDailyShieldUsedDates,
   getDailyShields,
   getDailyState,
@@ -11,6 +10,7 @@ import {
   markDailySolved,
   MAX_SHIELDS,
 } from "@/lib/daily";
+import { getDailyProblemId } from "@/lib/dailyProblem";
 import { PROBLEMS } from "@/data/problems";
 
 function createStorageStub(): Storage {

@@ -11,7 +11,7 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 | # | Area | Status | Notes |
 |---|------|--------|-------|
 | 1 | Problem bank | Done | 5,550 across 15 categories · 1,994 Easy / 2,473 Medium / 1,083 Hard |
-| 2 | Quality gates | Done, in CI | `verify-problems.ts` (real Python) + `verify-paths.ts` + `verify-paths-content.ts`; 567+ `bun test` greens; GitHub Actions (`.github/workflows/ci.yml`) runs every gate, the build, and the 136-check e2e smoke |
+| 2 | Quality gates | Done, in CI | `verify-problems.ts` (real Python) + `verify-paths.ts` + `verify-paths-content.ts`; 672+ `bun test` greens; GitHub Actions (`.github/workflows/ci.yml`) runs every gate, the build, and the 142-check e2e smoke |
 | 3 | Routes | Done | 27 user-facing destinations incl. `/today` and `/verify`; section modals retired; home is a short landing |
 | 4 | Learning paths | Done | 33 curated paths with stages, checkpoints, resolved prerequisites, artifacts, and hours |
 | 5 | Supabase schema | Live | Project `klogjcspyiygnggmugjy`; 3 migrations incl. hardening (indexes, posting rate limit, RLS tightening) |
@@ -20,9 +20,9 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 | 8 | Leaderboard | Live | Reads the live `leaderboard` view when signed in; local bots remain the offline fallback |
 | 9 | Discuss / comments | Done | Forum pagination + realtime, plus a per-problem comments UI (`src/components/ProblemComments.tsx`) |
 | 10 | Social scale | Done | `postgres_changes` subscriptions with teardown + cursor pagination in `src/lib/sync/social.ts` |
-| 11 | Performance | Done | Light problem index; home 283 KB gzip (from 1,553 KB); gzip budgets enforced by `scripts/measure-bundle.ts --check` |
+| 11 | Performance | Done | Light problem index + per-route picks (daily, leaderboard scoring); home 352 KB gzip (from 1,553 KB); gzip budgets enforced by `scripts/measure-bundle.ts --check` |
 | 12 | Deploy | Open | No Vercel project; `NEXT_PUBLIC_SITE_URL` still falls back to `deepforge.app` |
-| 13 | SEO | Partial | `layout.tsx` derives the count; `manifest.ts` hardcodes “5,550+” (agrees today); `sitemap.ts` still uses one hardcoded `lastModified` (NW-06 remainder) |
+| 13 | SEO | Done | `layout.tsx` and `manifest.ts` derive the count from the generated index; `sitemap.ts` derives `lastModified` (blog posts use publish dates, the rest the build date) and lists `/today`; deploy-time origin check rides with NW-01 |
 | 14 | PWA / offline | Done | SW v3: per-route offline fallback + “update available” prompt (`PwaManager.tsx`) |
 | 15 | Accessibility | Done | Keyboard/focus pass shipped across dialogs, menus, palette, and threads; full screen-reader + contrast sweep remains |
 | 16 | Certificates | Phase 1 shipped | Printable/PNG certificates + SHA-256 code + `/verify/<code>`; server-signed credentials are the follow-up |
@@ -68,12 +68,7 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 - Why: nothing is public yet; deploy is the gate for live SEO/auth verification.
 - Files: new `docs/DEPLOY-VERCEL.md`, `.env.example` comment, `README.md` (deploy section), optional `vercel.json`.
 - Accept: `bun run build` clean with and without Supabase env; preview serves `/`, `/problems/[id]`, `/paths/[slug]`, `/discuss`, `/verify`; smoke checklist signed off; built HTML contains no `deepforge.app` fallback origin.
-- Gate: build + 136-check smoke against the preview + `curl -sI` 200s.
-
-**NW-06R · SEO metadata truth pass (remainder)** · `S` · deps: NW-01 for live checks
-- Why: one hardcoded `lastModified` still stamps ~5,600 sitemap URLs, `manifest.ts` hardcodes the problem count, and `/today` is missing from the route list.
-- Files: `src/app/sitemap.ts` (derive `lastModified` per route type, add `/today`), `src/app/manifest.ts` (derive from `PROBLEMS.length` / `MARKETING_PROBLEM_COUNT`), `src/app/problems/[id]/page.tsx` (drop the third `categorySlug` copy).
-- Accept: no hardcoded count or date in SEO surfaces; live `/robots.txt`, `/sitemap.xml`, one problem OG, one path OG verified; canonical origin == deployed `NEXT_PUBLIC_SITE_URL`.
+- Gate: build + 142-check smoke against the preview + `curl -sI` 200s.
 
 **NW-09R · Two-account RLS verification** · `S` · deps: U-2, U-3, NW-01
 - Why: the hardening migration is written, but no second account has ever exercised the policies.
@@ -110,7 +105,6 @@ Detail and sourcing live in [`docs/research/feature-gaps-2026.md`](./research/fe
 
 ## 5. Ownership conflicts that still apply
 
-- `src/app/sitemap.ts` — NW-06R only.
 - `src/lib/sync/social.ts` — serialize any social work on one lane.
 - `src/lib/pyodide.ts` + any new worker module — worker lane only.
 - `src/lib/concepts.ts` — concept-sync lane only.
@@ -125,6 +119,6 @@ Detail and sourcing live in [`docs/research/feature-gaps-2026.md`](./research/fe
 |---|------|------------|
 | 1 | Auth redirect misconfiguration breaks sign-in on prod/preview | Exact URI checklist (U-1..U-3); inline SyncPanel errors; magic link stays as fallback |
 | 2 | RLS gap leaks cross-user data | NW-09R two-account matrix; RPC-only counter writes; no secrets in `NEXT_PUBLIC_*` |
-| 3 | Stale sitemap `lastmod` / drifting hardcoded counts poison SEO | NW-06R derives both; set `NEXT_PUBLIC_SITE_URL` before first indexed deploy |
+| 3 | Stale sitemap `lastmod` / drifting hardcoded counts poison SEO | Shipped: `manifest.ts` derives the count and `sitemap.ts` derives `lastModified`; set `NEXT_PUBLIC_SITE_URL` before first indexed deploy |
 | 4 | Pyodide on the main thread freezes the UI on long solutions (mobile especially) | Move execution to a Web Worker; keep the lazy loader and SW Pyodide cache |
 | 5 | Research docs drift from the code and misdirect agents | NW-12; `AGENT_CONTEXT.md` counts refreshed each wave |

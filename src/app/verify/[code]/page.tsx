@@ -14,6 +14,7 @@ import {
   type CredentialVerification,
 } from "@/lib/credentials";
 import { getPathBySlug } from "@/lib/paths";
+import { categorySlug } from "@/lib/sections";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -39,13 +40,6 @@ const KIND_LABELS: Record<CredentialKind, string> = {
 
 const LINK =
   "rounded-sm text-accent underline decoration-accent/40 underline-offset-2 transition-colors hover:decoration-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40";
-
-function categorySlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function targetFor(
   payload: CredentialPayload,

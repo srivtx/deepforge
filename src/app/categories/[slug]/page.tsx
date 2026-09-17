@@ -6,6 +6,7 @@ import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import type { CategoryMeta, Difficulty } from "@/types/problem";
 import { cn, difficultyClasses } from "@/lib/utils";
+import { categorySlug } from "@/lib/sections";
 
 const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://deepforge.app"
@@ -14,13 +15,6 @@ const siteUrl = (
 const MAX_LISTED = 50;
 
 export const dynamicParams = false;
-
-function categorySlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function categoryFromSlug(slug: string): CategoryMeta | undefined {
   return CATEGORIES.find((category) => categorySlug(category.name) === slug);

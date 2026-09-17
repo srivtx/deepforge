@@ -10,6 +10,7 @@ import {
 import { PROJECTS } from "@/data/projects";
 import type { Problem } from "@/types/problem";
 import { cn, clipRepr, difficultyClasses } from "@/lib/utils";
+import { categorySlug } from "@/lib/sections";
 import { ProblemWorkspace } from "./ProblemWorkspace";
 
 const siteUrl = (
@@ -17,13 +18,6 @@ const siteUrl = (
 ).replace(/\/$/, "");
 
 export const dynamicParams = false;
-
-function categorySlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function problemMetaDescription(problem: Problem): string {
   const summary = problem.description

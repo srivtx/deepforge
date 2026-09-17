@@ -10,7 +10,6 @@
  * streak alive but never extends it — only a real solve does.
  */
 
-import { PROBLEM_META, type ProblemMeta } from "@/data/problems/problem-meta";
 import { createStore } from "@/lib/sync/store";
 import type { StoreSpec } from "@/lib/sync/types";
 
@@ -57,39 +56,6 @@ function shiftLocalDays(d: Date, days: number): Date {
   const shifted = new Date(d);
   shifted.setDate(shifted.getDate() + days);
   return shifted;
-}
-
-/** FNV-1a (32-bit) hash of a string. */
-function fnv1a(input: string): number {
-  let hash = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function compareIds(a: ProblemMeta, b: ProblemMeta): number {
-  if (a.id < b.id) return -1;
-  if (a.id > b.id) return 1;
-  return 0;
-}
-
-/** Stable id order so the pick never depends on import order. */
-const ORDERED_PROBLEMS: ProblemMeta[] = [...PROBLEM_META].sort(compareIds);
-
-function dailyIndex(d: Date): number {
-  return fnv1a(getDailyDateKey(d)) % ORDERED_PROBLEMS.length;
-}
-
-/** Deterministic problem id for the given day. */
-export function getDailyProblemId(d = new Date()): string {
-  return ORDERED_PROBLEMS[dailyIndex(d)].id;
-}
-
-/** Deterministic problem for the given day. */
-export function getDailyProblem(d = new Date()): ProblemMeta {
-  return ORDERED_PROBLEMS[dailyIndex(d)];
 }
 
 function emptyState(): DailyState {
