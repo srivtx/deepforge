@@ -30,7 +30,7 @@ const backendListeners = new Set<() => void>();
 let syncer: Syncer | null = null;
 let supabaseModule: Promise<any | null> | null = null;
 const pendingFlushes = new Map<StoreId, ReturnType<typeof setTimeout>>();
-let pageListenersAttached = false;
+let pageListenersWindow: Window | null = null;
 
 /** Both public Supabase env vars must be present. */
 export function isSupabaseConfigured(): boolean {
@@ -167,9 +167,12 @@ function flushPending(): void {
 }
 
 function attachPageListeners(): void {
-  if (pageListenersAttached || typeof window === "undefined") return;
+  if (typeof window === "undefined") return;
   if (typeof window.addEventListener !== "function") return;
-  pageListenersAttached = true;
+  // Track the window object we attached to rather than a one-shot flag: tests
+  // swap `window` per case, and a stale flag would skip the new listeners.
+  if (pageListenersWindow === window) return;
+  pageListenersWindow = window;
   window.addEventListener("pagehide", flushPending);
   window.addEventListener("visibilitychange", () => {
     try {
