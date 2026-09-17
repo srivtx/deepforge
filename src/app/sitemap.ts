@@ -4,6 +4,7 @@ import { POSTS } from "@/data/blog";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
 import { LABS } from "@/data/labs";
+import { PAPERS } from "@/data/papers";
 import { PROJECTS } from "@/data/projects";
 import { RESEARCH_CHALLENGES } from "@/data/research";
 import { CATEGORIES } from "@/data/problems/meta";
@@ -41,6 +42,7 @@ const ROUTES = [
   { path: "/playlists", changeFrequency: "weekly", priority: 0.7 },
   { path: "/interview", changeFrequency: "weekly", priority: 0.8 },
   { path: "/math", changeFrequency: "weekly", priority: 0.8 },
+  { path: "/papers", changeFrequency: "weekly", priority: 0.8 },
   { path: "/concepts", changeFrequency: "weekly", priority: 0.8 },
   { path: "/articles", changeFrequency: "weekly", priority: 0.8 },
   { path: "/blog", changeFrequency: "weekly", priority: 0.7 },
@@ -127,6 +129,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${siteUrl}/labs/${lab.id}`,
       lastModified: LAST_MODIFIED,
       changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
+    ...PAPERS.map((paper) => ({
+      url: `${siteUrl}/papers/${paper.slug}`,
+      lastModified: LAST_MODIFIED,
+      changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
     ...RESEARCH_CHALLENGES.map((challenge) => ({

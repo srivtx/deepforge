@@ -37,6 +37,7 @@ const STATIC_ROUTES: Record<string, string> = {
   labs: "/labs",
   leaderboard: "/leaderboard",
   math: "/math",
+  papers: "/papers",
   paths: "/paths",
   playground: "/playground",
   playlists: "/playlists",
@@ -105,6 +106,12 @@ const DYNAMIC_ROUTES: DynamicRoute[] = [
     prefix: "/labs/",
     fallback: "/labs",
     reason: "lab index lists every hands-on challenge",
+  },
+  {
+    dir: "papers/[slug]",
+    prefix: "/papers/",
+    fallback: "/papers",
+    reason: "papers index lists the full curriculum in reading order",
   },
   {
     dir: "paths/[slug]",

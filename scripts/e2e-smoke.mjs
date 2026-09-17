@@ -409,6 +409,23 @@ const trailsOk = trails.status === 200 && has(trails.body, "labs passed");
 record("labs: trails page", trailsOk, trails.url,
   `status=${trails.status}`);
 line(trailsOk, `GET /labs/trails  status=${trails.status}`);
+const papersIndex = await get("/papers");
+const paperLinks = count(papersIndex.body, /href="\/papers\/[a-z0-9-]+"/g);
+record("papers: index links to papers", paperLinks >= 30, papersIndex.url,
+  `expected >= 30 paper links, found ${paperLinks}`);
+line(paperLinks >= 30, `GET /papers  paper-links=${paperLinks}`);
+const paperDetail = await get("/papers/deepseek-r1");
+const paperDetailOk = paperDetail.status === 200 && !isErrorPage(paperDetail.body);
+const paperTheory = has(paperDetail.body, "Theory from first principles");
+const paperCheck = has(paperDetail.body, "Implementation check");
+record("papers: detail 200 + theory + check", paperDetailOk && paperTheory && paperCheck, paperDetail.url,
+  `status=${paperDetail.status} theory=${paperTheory} check=${paperCheck}`);
+line(paperDetailOk && paperTheory && paperCheck,
+  `GET /papers/deepseek-r1  status=${paperDetail.status} theory=${paperTheory ? "yes" : "NO"} check=${paperCheck ? "yes" : "NO"}`);
+const sitemapPapers = has(sitemap.body, "/papers/deepseek-r1");
+record("sitemap: papers detail urls", sitemapPapers, sitemap.url,
+  '"/papers/deepseek-r1" missing from sitemap');
+line(sitemapPapers, `GET /sitemap.xml  papers=${sitemapPapers ? "yes" : "NO"}`);
 const concepts = await get("/concepts");
 const conceptsOk =
   concepts.status === 200 &&
