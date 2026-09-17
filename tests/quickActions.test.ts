@@ -84,7 +84,7 @@ describe("registry", () => {
       expect(ids.has(id), id).toBe(true);
     }
     expect(actionById("today-session").href).toBe("/today");
-    expect(actionById("review-queue").href).toBe("/today");
+    expect(actionById("review-queue").href).toBe("/review");
     expect(actionById("daily-challenge").href).toBe("/daily");
     expect(actionById("stats").href).toBe("/stats");
     expect(actionById("labs").href).toBe("/labs");
@@ -115,29 +115,31 @@ describe("matching", () => {
     const review = actionById("review-queue");
     const assistant = actionById("assistant-show");
     expect(scoreQuickAction(review, "open")).toBe(0);
-    expect(scoreQuickAction(review, "my")).toBe(1);
+    expect(scoreQuickAction(review, "the")).toBe(1);
     expect(scoreQuickAction(assistant, "ero")).toBe(2);
     expect(scoreQuickAction(review, "zzz")).toBe(-1);
     expect(scoreQuickAction(review, "")).toBe(-1);
   });
 
   test("orders ties by shorter label, then registry order", () => {
-    // "the" prefixes the theme keyword, starts a later word in both assistant
-    // labels (23 chars each), and a later word in the 25-char daily label.
+    // "the" prefixes the theme keyword, starts a later word in the 21-char
+    // review label, both assistant labels (23 chars each), and the 25-char
+    // daily label.
     expect(matchQuickActions("the").map((action) => action.id)).toEqual([
       "theme-toggle",
+      "review-queue",
       "assistant-show",
       "assistant-hide",
       "daily-challenge",
     ]);
-    // All "Open …" labels prefix-match; shorter labels first, then the two
-    // 20-char labels in registry order.
+    // All "Open …" labels prefix-match; shorter labels first (labs, then the
+    // 19-char review label, then the 20-char today label).
     expect(matchQuickActions("open").map((action) => action.id)).toEqual([
       "papers",
       "lab-trails",
       "labs",
-      "today-session",
       "review-queue",
+      "today-session",
       "research",
     ]);
     // Same prefix tier: the 15-char stats label beats the 23-char one.

@@ -1,5 +1,6 @@
 export type SectionId =
   | "today"
+  | "review"
   | "daily"
   | "problems"
   | "paths"
@@ -61,6 +62,16 @@ const SECTION_LIST: SectionMeta[] = [
     group: "Practice",
     icon: "M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z",
     keywords: ["today", "session", "reviews", "due", "plan", "spaced"],
+  },
+  {
+    id: "review",
+    href: "/review",
+    title: "Review",
+    blurb:
+      "The whole spaced queue: what's due, what's overdue, and a drill that catches you up.",
+    group: "Practice",
+    icon: "M12 8v4l3 2M3.05 11a9 9 0 1 1 .5 4M3 4v4h4",
+    keywords: ["review", "reviews", "due", "overdue", "forecast", "spaced", "drill"],
   },
   {
     id: "daily",

@@ -15,6 +15,7 @@ import { SECTIONS_BY_ID } from "@/lib/sections";
 
 export type NavItemId =
   | "today"
+  | "review"
   | "problems"
   | "paths"
   | "projects"
@@ -43,6 +44,7 @@ export type NavItemId =
 
 const NAV_ITEM_LABELS: Record<NavItemId, string> = {
   today: "Today",
+  review: "Review",
   problems: "Problems",
   paths: "Paths",
   projects: "Projects",
@@ -95,7 +97,9 @@ export const NAV_MENUS: NavMenu[] = [
   {
     id: "practice",
     label: "Practice",
-    groups: [{ items: ["today", "daily", "labs", "playground", "sims", "research"] }],
+    groups: [
+      { items: ["today", "review", "daily", "labs", "playground", "sims", "research"] },
+    ],
   },
   {
     id: "compete",
@@ -130,7 +134,7 @@ export const MOBILE_NAV_GROUPS: { label: string; items: NavItemId[] }[] = [
   },
   {
     label: "Practice",
-    items: ["today", "daily", "labs", "playground", "sims", "research"],
+    items: ["today", "review", "daily", "labs", "playground", "sims", "research"],
   },
   {
     label: "Compete",

@@ -44,6 +44,7 @@ const STATIC_ROUTES: Record<string, string> = {
   problems: "/problems",
   projects: "/projects",
   research: "/research",
+  review: "/review",
   sims: "/sims",
   speedrun: "/speedrun",
   start: "/start",

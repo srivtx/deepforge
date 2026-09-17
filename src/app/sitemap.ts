@@ -44,6 +44,7 @@ const ROUTES = [
   { path: "/math", changeFrequency: "weekly", priority: 0.8 },
   { path: "/papers", changeFrequency: "weekly", priority: 0.8 },
   { path: "/concepts", changeFrequency: "weekly", priority: 0.8 },
+  { path: "/review", changeFrequency: "weekly", priority: 0.7 },
   { path: "/articles", changeFrequency: "weekly", priority: 0.8 },
   { path: "/blog", changeFrequency: "weekly", priority: 0.7 },
   { path: "/sims", changeFrequency: "weekly", priority: 0.7 },

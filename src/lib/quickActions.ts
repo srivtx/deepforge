@@ -46,10 +46,10 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
   },
   {
     id: "review-queue",
-    label: "Open my review queue",
-    keywords: ["review", "reviews", "queue", "due", "spaced"],
+    label: "Open the review hub",
+    keywords: ["review", "reviews", "queue", "due", "overdue", "forecast", "spaced", "drill"],
     kind: "navigate",
-    href: "/today",
+    href: "/review",
   },
   {
     id: "stats",

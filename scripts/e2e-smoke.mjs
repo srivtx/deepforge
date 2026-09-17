@@ -16,6 +16,7 @@ const ROUTES = [
   "/speedrun", "/research", "/leaderboard", "/badges", "/stats", "/certificates",
   "/backup", "/collections", "/playlists", "/interview", "/math", "/articles",
   "/sims", "/discuss", "/submit", "/playground", "/about", "/concepts",
+  "/review",
 ];
 
 const ERROR_TITLE_RE = /^(404|500|403)\b|internal server error|application error/i;
@@ -460,8 +461,30 @@ record("og: lab kind renders", labOgOk, `${BASE_URL}/og?kind=lab`,
   `status=${labOg?.status ?? 0} type=${labOg?.headers.get("content-type") ?? "none"}`);
 line(labOgOk, `GET /og?kind=lab  status=${labOg?.status ?? 0}`);
 
-// --- 14. Summary -------------------------------------------------------------
-console.log("\n[14/14] Summary");
+// --- 14. Wave-39 surfaces (review hub, concept map, runnable projects) -------
+console.log("\n[14/15] Wave-39 surfaces");
+const reviewHub = await get("/review");
+const reviewHubOk =
+  reviewHub.status === 200 &&
+  has(reviewHub.body, "Reading your review schedule") &&
+  has(reviewHub.body, 'href="/review"');
+record("review: hub", reviewHubOk, reviewHub.url,
+  `status=${reviewHub.status} shell=${has(reviewHub.body, "Reading your review schedule")}`);
+line(reviewHubOk, `GET /review  status=${reviewHub.status}`);
+const conceptsMap = has(concepts.body, ">Map<");
+record("concepts: map toggle", conceptsMap, concepts.url,
+  "Map view toggle missing from /concepts");
+line(conceptsMap, `GET /concepts  map-toggle=${conceptsMap ? "yes" : "NO"}`);
+const paperRunner = has(paperDetail.body, "<textarea") && has(paperDetail.body, "Run</button>");
+record("papers: runnable starter", paperRunner, paperDetail.url,
+  `textarea=${has(paperDetail.body, "<textarea")} run=${has(paperDetail.body, "Run</button>")}`);
+line(paperRunner, `GET /papers/deepseek-r1  runner=${paperRunner ? "yes" : "NO"}`);
+const sitemapReview = has(sitemap.body, "/review");
+record("sitemap: review route", sitemapReview, sitemap.url, '"/review" missing from sitemap');
+line(sitemapReview, `GET /sitemap.xml  review=${sitemapReview ? "yes" : "NO"}`);
+
+// --- 15. Summary -------------------------------------------------------------
+console.log("\n[15/15] Summary");
 const groupNames = [...new Set(checks.map((c) => c.group))];
 console.table(
   groupNames.map((group) => {
