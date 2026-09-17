@@ -157,7 +157,7 @@ export function ReminderSettings({ onClose }: ReminderSettingsProps) {
         />
         <ToggleRow
           label="Streak at risk"
-          description="When your daily streak is about to slip."
+          description="When your solve streak is about to slip."
           checked={prefs.streakAtRisk}
           disabled={categoriesDisabled}
           onChange={(checked) => update({ streakAtRisk: checked })}

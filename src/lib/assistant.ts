@@ -14,7 +14,7 @@ import type {
 } from "@/types/problem";
 import { getHintTiers } from "@/lib/hints";
 import { getProgress, type ProgressMap } from "@/lib/progress";
-import { getDailyState, isTodaySolved } from "@/lib/daily";
+import { getSolveStreak, isTodaySolved } from "@/lib/daily";
 import { getConceptStats, getDueConcepts } from "@/lib/concepts";
 import { getReadinessScore } from "@/lib/readiness";
 import {
@@ -1015,7 +1015,7 @@ function nextUnsolved(
 function answerPlan(): Answer {
   const map = getProgress();
   const stats = progressStats();
-  const daily = getDailyState();
+  const streak = getSolveStreak();
   const today = isTodaySolved();
   const remaining = stats.total - stats.solved;
 
@@ -1025,7 +1025,7 @@ function answerPlan(): Answer {
 
   const lines = [
     `7-day light plan — ${stats.solved}/${stats.total} solved, ` +
-      `${stats.solvedLast7} in the last 7 days, streak ${daily.streak}` +
+      `${stats.solvedLast7} in the last 7 days, solve streak ${streak}` +
       `${today ? " (today done)" : " (today not done yet)"}.`,
     "",
     `Daily target: ${perDay} problem${perDay === 1 ? "" : "s"} ` +

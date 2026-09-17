@@ -19,6 +19,7 @@ import {
   DAILY_CHANGE_EVENT,
   getDailyDateKey,
   getDailyState,
+  getSolveStreak,
   isTodaySolved,
   markDailySolved,
 } from "@/lib/daily";
@@ -242,7 +243,7 @@ export function TodayScreen() {
       reviews,
       progress,
       dailySolved: isTodaySolved(now),
-      streak: dailyState.streak,
+      streak: getSolveStreak(progress, now),
       quests: getDailyQuests(),
       labReviews: labReviewDue(now),
       conceptsDue: getDueConcepts(now).map((concept) => ({

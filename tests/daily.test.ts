@@ -6,6 +6,7 @@ import {
   getDailyShields,
   getDailyState,
   getShieldStatus,
+  getSolveStreak,
   isTodaySolved,
   markDailySolved,
   MAX_SHIELDS,
@@ -74,6 +75,44 @@ function solveConsecutive(start: Date, count: number): void {
   for (let i = 0; i < count; i += 1) {
     markDailySolved(daysAfter(i, start));
   }
+}
+
+interface ProgressStubEntry {
+  solved: boolean;
+  solvedAt: string;
+}
+
+function storage(): Storage {
+  return (globalScope.window as { localStorage: Storage }).localStorage;
+}
+
+function seedProgress(entries: Record<string, ProgressStubEntry>): void {
+  storage().setItem("deepforge:progress:v1", JSON.stringify(entries));
+}
+
+/** One progress solve per day for `count` consecutive days ending at `end`. */
+function solveDaysEnding(
+  end: Date,
+  count: number,
+): Record<string, ProgressStubEntry> {
+  const map: Record<string, ProgressStubEntry> = {};
+  for (let i = 0; i < count; i += 1) {
+    map[`p-${i}`] = {
+      solved: true,
+      solvedAt: daysBefore(i, end).toISOString(),
+    };
+  }
+  return map;
+}
+
+function seedDailyState(state: {
+  lastSolvedDate: string | null;
+  streak: number;
+  solvedDates: string[];
+  shields?: number;
+  shieldUsedDates?: string[];
+}): void {
+  storage().setItem("deepforge:daily:v1", JSON.stringify(state));
 }
 
 describe("daily problem selection", () => {
@@ -374,5 +413,113 @@ describe("streak shields — timezone and DST safety", () => {
       getDailyDateKey(missed),
     ]);
     expect(covered.streak).toBe(7);
+  });
+});
+
+describe("solve streak — any solve day counts", () => {
+  test("counts consecutive progress solves ending today", () => {
+    const today = atNoon(2026, 4, 20);
+    seedProgress(solveDaysEnding(today, 3));
+    expect(getSolveStreak(undefined, today)).toBe(3);
+  });
+
+  test("a daily-challenge solve also counts as a solve day", () => {
+    const today = atNoon(2026, 4, 20);
+    markDailySolved(daysBefore(1, today));
+    markDailySolved(today);
+    expect(getSolveStreak({}, today)).toBe(2);
+  });
+
+  test("a run that ended two days ago is not current", () => {
+    const today = atNoon(2026, 4, 20);
+    seedProgress(solveDaysEnding(daysBefore(2, today), 4));
+    expect(getSolveStreak(undefined, today)).toBe(0);
+  });
+
+  test("the daily-challenge chain stays separate from the solve streak", () => {
+    const today = atNoon(2026, 4, 20);
+    seedProgress(solveDaysEnding(today, 5));
+
+    const state = markDailySolved(today);
+    expect(state.streak).toBe(1);
+    expect(state.solvedDates).toEqual([getDailyDateKey(today)]);
+    expect(getSolveStreak(undefined, today)).toBe(5);
+  });
+});
+
+describe("solve-streak shields", () => {
+  test("any solve yesterday leaves the shield untouched", () => {
+    const today = atNoon(2026, 4, 20);
+    const yesterday = daysBefore(1, today);
+    seedProgress(solveDaysEnding(yesterday, 7));
+    seedDailyState({
+      lastSolvedDate: null,
+      streak: 0,
+      solvedDates: [],
+      shields: 1,
+      shieldUsedDates: [],
+    });
+
+    const state = applyShield(today);
+    expect(getDailyShields(state)).toBe(1);
+    expect(getDailyShieldUsedDates(state)).toEqual([]);
+
+    const status = getShieldStatus(today);
+    expect(status.coveredYesterday).toBe(false);
+    expect(status.solvedToday).toBe(false);
+    expect(status.solveStreak).toBe(7);
+    expect(status.protectedToday).toBe(true);
+  });
+
+  test("a fully missed day spends a shield without extending the run", () => {
+    const start = atNoon(2026, 4, 1);
+    const lastSolve = daysAfter(6, start);
+    const missed = daysAfter(7, start);
+    const visit = daysAfter(8, start);
+    seedProgress(solveDaysEnding(lastSolve, 7));
+    seedDailyState({
+      lastSolvedDate: null,
+      streak: 0,
+      solvedDates: [],
+      shields: 1,
+      shieldUsedDates: [],
+    });
+
+    const state = applyShield(visit);
+    expect(getDailyShields(state)).toBe(0);
+    expect(getDailyShieldUsedDates(state)).toEqual([getDailyDateKey(missed)]);
+    expect(state.lastSolvedDate).toBe(getDailyDateKey(missed));
+    expect(getSolveStreak(undefined, visit)).toBe(7);
+
+    const status = getShieldStatus(visit);
+    expect(status.coveredYesterday).toBe(true);
+    expect(status.solveStreak).toBe(7);
+    expect(status.atRisk).toBe(true);
+
+    // The covered day never extends the run; the next real solve does.
+    seedProgress({
+      ...solveDaysEnding(lastSolve, 7),
+      extra: { solved: true, solvedAt: visit.toISOString() },
+    });
+    expect(getSolveStreak(undefined, visit)).toBe(8);
+  });
+
+  test("two missed days with one shield lapse it", () => {
+    const start = atNoon(2026, 4, 1);
+    const lastSolve = daysAfter(6, start);
+    const visit = daysAfter(9, start);
+    seedProgress(solveDaysEnding(lastSolve, 7));
+    seedDailyState({
+      lastSolvedDate: null,
+      streak: 0,
+      solvedDates: [],
+      shields: 1,
+      shieldUsedDates: [],
+    });
+
+    const state = applyShield(visit);
+    expect(getDailyShields(state)).toBe(1);
+    expect(getDailyShieldUsedDates(state)).toEqual([]);
+    expect(getSolveStreak(undefined, visit)).toBe(0);
   });
 });

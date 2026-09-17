@@ -81,7 +81,7 @@ export interface ReminderSignals {
   solvedToday: boolean;
   /** Local time is at or past the user's usual solve hour. */
   pastUsualHour: boolean;
-  /** Daily-challenge streak (canonical for shield copy). */
+  /** Solve streak: any day with a solve counts (canonical for shield copy). */
   streak: number;
   shields: number;
   coveredYesterday: boolean;
@@ -345,7 +345,7 @@ function buildStreakReminder(signals: ReminderSignals): Reminder | null {
       return {
         category: "streak",
         title: "A shield covered yesterday",
-        body: "Solve one problem today to keep the daily streak moving.",
+        body: "Solve any problem today to keep the solve streak moving.",
         href: "/daily",
       };
     }
@@ -353,18 +353,18 @@ function buildStreakReminder(signals: ReminderSignals): Reminder | null {
       return {
         category: "streak",
         title: hasStreak
-          ? `${streakLabel}daily streak is on the line`
+          ? `${streakLabel}solve streak is on the line`
           : "Today's challenge is ready",
-        body: "A shield can cover a missed day. Solve today to keep it going.",
+        body: "A shield can cover one missed day. Solve any problem today to keep it going.",
         href: "/daily",
       };
     }
     return {
       category: "streak",
       title: hasStreak
-        ? `${streakLabel}daily streak is at risk`
+        ? `${streakLabel}solve streak is at risk`
         : "Keep the momentum going",
-      body: "Solve one problem today to keep it alive.",
+      body: "Solve any problem today to keep it alive.",
       href: "/daily",
     };
   }
@@ -377,7 +377,7 @@ function buildStreakReminder(signals: ReminderSignals): Reminder | null {
       return {
         category: "streak",
         title: "Back on track?",
-        body: "A shield covered yesterday. Solve today to keep the run going.",
+        body: "A shield covered yesterday. Solve any problem today to keep the run going.",
         href: "/daily",
       };
     }
@@ -385,7 +385,7 @@ function buildStreakReminder(signals: ReminderSignals): Reminder | null {
       return {
         category: "streak",
         title: "Your shield is ready",
-        body: "Come back with one problem today and the streak stays protected.",
+        body: "Come back with one problem today and the solve streak stays protected.",
         href: "/daily",
       };
     }
@@ -424,7 +424,7 @@ function buildDigestReminder(signals: ReminderSignals): Reminder | null {
     signals.weekSolved === 1 ? "" : "s"
   } solved in the last 7 days`;
   const streak =
-    signals.streak > 0 ? ` · ${signals.streak}-day daily streak` : "";
+    signals.streak > 0 ? ` · ${signals.streak}-day solve streak` : "";
   return {
     category: "digest",
     title: "Your week on DeepForge",
@@ -509,8 +509,16 @@ export async function collectReminderSignals(
   now = new Date(),
 ): Promise<ReminderSignals> {
   const prefs = getReminderPrefs();
-  const [{ getDailyState, applyShield, getDailyShields, getDailyShieldUsedDates }, { getProgress }] =
-    await Promise.all([import("@/lib/daily"), import("@/lib/progress")]);
+  const [
+    {
+      getDailyState,
+      applyShield,
+      getDailyShields,
+      getDailyShieldUsedDates,
+      getSolveStreak,
+    },
+    { getProgress },
+  ] = await Promise.all([import("@/lib/daily"), import("@/lib/progress")]);
 
   applyShield(now);
   const daily = getDailyState();
@@ -586,7 +594,7 @@ export async function collectReminderSignals(
     learnerState: deriveLearnerState({ todayKey, lastSolveKey }),
     solvedToday,
     pastUsualHour: now.getHours() >= usualHour,
-    streak: daily.streak,
+    streak: getSolveStreak(progress, now),
     shields: getDailyShields(daily),
     coveredYesterday: usedDates.includes(yesterdayKey),
     reviewDueCount,

@@ -171,7 +171,7 @@ export function DailyChallenge() {
 
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-hairline bg-canvas p-4">
-              <div className="text-xs text-body-mid">Daily streak</div>
+              <div className="text-xs text-body-mid">Daily chain</div>
               <div className="mt-1.5 font-mono text-xl text-ink">
                 {dailyState.streak}
                 <span className="ml-1.5 text-xs text-body-mid">
@@ -193,7 +193,7 @@ export function DailyChallenge() {
             >
               <FlameGlyph className="h-3.5 w-3.5 shrink-0" />
               <span>
-                Streak: {dailyState.streak} {streakUnit} — see you tomorrow
+                Daily chain: {dailyState.streak} {streakUnit} — see you tomorrow
               </span>
             </div>
           )}

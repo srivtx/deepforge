@@ -10,11 +10,12 @@ import {
   getDailyShieldUsedDates,
   getDailyState,
   getShieldStatus,
+  getSolveStreak,
   MAX_SHIELDS,
   SHIELD_EARN_INTERVAL,
   type ShieldStatus,
 } from "@/lib/daily";
-import { getCurrentStreak, getLongestStreak } from "@/lib/leaderboard";
+import { getLongestStreak } from "@/lib/leaderboard";
 import { getProgress } from "@/lib/progress";
 
 const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
@@ -44,6 +45,7 @@ const EMPTY_SHIELDS: ShieldStatus = {
   atRisk: false,
   protectedToday: false,
   dailyStreak: 0,
+  solveStreak: 0,
 };
 
 const EMPTY_SNAPSHOT: StreakSnapshot = {
@@ -96,7 +98,7 @@ function buildSnapshot(): StreakSnapshot {
   }
 
   return {
-    current: getCurrentStreak(progress),
+    current: getSolveStreak(progress, now),
     longest: getLongestStreak(progress),
     days,
     shields: getShieldStatus(now),
@@ -164,35 +166,36 @@ function ShieldGlyph({
   );
 }
 
-/** Honest, state-specific shield copy. Never claims more than a save. */
+/** Honest, state-specific shield copy for the solve streak. */
 function shieldCopy(status: ShieldStatus): string {
   if (status.solvedToday) {
     if (status.available >= status.max) {
-      return "Both shields ready — streak safe.";
+      return "Both shields ready — the solve streak is safe.";
     }
     const remaining =
       SHIELD_EARN_INTERVAL - (status.dailyStreak % SHIELD_EARN_INTERVAL);
-    return `Streak safe — ${remaining} more day${
+    return `Solve streak safe — ${remaining} more daily challenge${
       remaining === 1 ? "" : "s"
     } to the next shield.`;
   }
   if (status.coveredYesterday) {
-    return "A shield covered yesterday — solve today's daily challenge to keep it going.";
+    return "A shield covered yesterday — solve any problem today to keep the run going.";
   }
   if (status.atRisk) {
-    return "No shield left — solve today's daily challenge or the streak resets.";
+    return "No shield left — solve any problem today or the solve streak resets.";
   }
   if (status.protectedToday) {
-    return "Solve today's daily challenge — a shield covers one missed day.";
+    return "Solve any problem today — a shield covers one missed calendar day.";
   }
   return `Solve ${SHIELD_EARN_INTERVAL} daily challenges in a row to earn a shield.`;
 }
 
 /**
- * Compact streak widget sourced from the canonical stores: current/longest
- * from `getCurrentStreak`/`getLongestStreak` over progress, the 7-day row from
- * both solve timestamps and daily-challenge solve dates, and streak shields
- * from the daily state (auto-cover runs on mount, before the snapshot is read).
+ * Compact streak widget sourced from the canonical stores: the current solve
+ * streak from `getSolveStreak` and the longest from `getLongestStreak` over
+ * progress, the 7-day row from solve timestamps and daily-challenge solve
+ * dates, and streak shields from the daily state (auto-cover runs on mount,
+ * before the snapshot is read).
  */
 export function StreakCard() {
   // Visiting the card is the auto-cover trigger: a single missed day is
@@ -223,11 +226,14 @@ export function StreakCard() {
             <FlameGlyph />
           </span>
           <div className="min-w-0">
+            <div className="text-xs text-body-mid">Solve streak</div>
             <div className="flex items-baseline gap-1.5">
               <span className="font-mono text-2xl font-medium text-ink">
                 {snapshot.current}
               </span>
-              <span className="text-xs text-body-mid">day streak</span>
+              <span className="text-xs text-body-mid">
+                {snapshot.current === 1 ? "day" : "days"}
+              </span>
             </div>
             <div className="text-xs text-body-mid">
               Longest {snapshot.longest} days
@@ -300,8 +306,8 @@ export function StreakCard() {
         </div>
 
         <p className="mt-auto pt-3 text-xs text-body-mid">
-          Earn one at every {SHIELD_EARN_INTERVAL}-day daily streak, up to{" "}
-          {MAX_SHIELDS}. A shield keeps the streak through one missed day; it
+          Earn one at every {SHIELD_EARN_INTERVAL}-day daily challenge chain,
+          up to {MAX_SHIELDS}. A shield covers one missed calendar day; it
           never counts as a solve.
         </p>
       </div>

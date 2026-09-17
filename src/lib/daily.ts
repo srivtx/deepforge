@@ -1,15 +1,23 @@
 /**
- * Daily challenge: one deterministic problem per local calendar day,
- * plus a localStorage-backed solving streak and streak shields.
+ * Daily challenge: one deterministic problem per local calendar day, plus
+ * streak shields and the daily-challenge chain.
+ *
+ * The user-visible "streak" is the solve streak: any calendar day with at
+ * least one solved problem counts (the same rule as `getCurrentStreak` in
+ * `src/lib/leaderboard.ts`, the source of truth). The daily-challenge chain
+ * (`state.streak`) is a separate, smaller mechanic and must be labeled
+ * "Daily challenge chain" wherever it is shown — never the bare word
+ * "streak".
  *
  * Persistence routes through the local-first sync seam (`createStore`);
  * key, event, and validation semantics are unchanged.
  *
- * Shields are a retention save, not a second streak: one missed calendar day
- * is auto-covered before it can reset the streak. A covered day keeps the
- * streak alive but never extends it — only a real solve does.
+ * Shields protect the solve streak: one fully missed calendar day is
+ * auto-covered before it can lapse. A covered day keeps the run alive but
+ * never extends it — only a real solve does.
  */
 
+import { getProgress, type ProgressMap } from "@/lib/progress";
 import { createStore } from "@/lib/sync/store";
 import type { StoreSpec } from "@/lib/sync/types";
 
@@ -142,28 +150,131 @@ export function getDailyShieldUsedDates(state: DailyState): string[] {
   return sanitizeDateKeys(state.shieldUsedDates);
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /**
- * Auto-cover a single missed day with a shield, before the streak can reset.
+ * Local calendar day number. Mirrors `localDayNumber` in
+ * `src/lib/leaderboard.ts`, the source of truth for solve-streak math — keep
+ * the two in lockstep.
+ */
+function localDayNumber(date: Date): number {
+  return Math.floor(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS,
+  );
+}
+
+/** Day number for a "YYYY-MM-DD" key, or null when malformed. */
+function dayNumberFromKey(key: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!match) return null;
+  return Math.floor(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / DAY_MS,
+  );
+}
+
+/** Real solve days: progress solves plus daily-challenge solves. */
+function solveDayNumbers(progress: ProgressMap, state: DailyState): Set<number> {
+  const days = new Set<number>();
+  for (const entry of Object.values(progress)) {
+    if (!entry?.solved || !entry.solvedAt) continue;
+    const at = new Date(entry.solvedAt);
+    if (Number.isNaN(at.getTime())) continue;
+    days.add(localDayNumber(at));
+  }
+  for (const key of state.solvedDates) {
+    const day = dayNumberFromKey(key);
+    if (day !== null) days.add(day);
+  }
+  return days;
+}
+
+/** Day numbers covered by a spent shield. */
+function coveredDayNumbers(state: DailyState): Set<number> {
+  const days = new Set<number>();
+  for (const key of getDailyShieldUsedDates(state)) {
+    const day = dayNumberFromKey(key);
+    if (day !== null) days.add(day);
+  }
+  return days;
+}
+
+/**
+ * Days that keep the run alive: real solve days, shield-covered days, and
+ * the legacy `lastSolvedDate` marker. Covered days bridge a single missed
+ * day; they are never counted as solves.
+ */
+function activeDayNumbers(
+  progress: ProgressMap,
+  state: DailyState,
+  solves: Set<number>,
+): Set<number> {
+  const active = new Set(solves);
+  for (const day of coveredDayNumbers(state)) active.add(day);
+  if (state.lastSolvedDate) {
+    const day = dayNumberFromKey(state.lastSolvedDate);
+    if (day !== null) active.add(day);
+  }
+  return active;
+}
+
+/**
+ * Current solve streak — the user-visible streak: any calendar day with at
+ * least one solved problem counts, including days solved only through the
+ * daily challenge. The day-number math mirrors `localDayNumber` /
+ * `getCurrentStreak` in `src/lib/leaderboard.ts` (the source of truth); a
+ * shield-covered day bridges the run without adding to the count, so shields
+ * never extend a streak — they only prevent the lapse.
+ */
+export function getSolveStreak(
+  progress: ProgressMap = getProgress(),
+  d = new Date(),
+): number {
+  const state = dailyStore.get();
+  const solves = solveDayNumbers(progress, state);
+  if (solves.size === 0) return 0;
+  const active = [...activeDayNumbers(progress, state, solves)].sort(
+    (a, b) => b - a,
+  );
+  const today = localDayNumber(d);
+  if (active[0] !== today && active[0] !== today - 1) return 0;
+  let streak = 0;
+  for (let i = 0; i < active.length; i += 1) {
+    if (i > 0 && active[i] !== active[i - 1] - 1) break;
+    if (solves.has(active[i])) streak += 1;
+  }
+  return streak;
+}
+
+/**
+ * Auto-cover a single missed day with a shield, before the solve streak can
+ * reset.
  *
- * Applies when the last activity was exactly two calendar days ago (so
- * yesterday was missed), the user holds a shield, and yesterday is not
- * already covered. The streak count is preserved and `lastSolvedDate` moves
- * forward to the covered day so the next real solve extends the run instead
- * of starting over. Idempotent; safe to call on every visit or solve.
+ * Applies when the run was alive exactly two calendar days ago (a solve on
+ * any problem or a covered day), yesterday had no solve at all, the user
+ * holds a shield, and yesterday is not already covered. Any solve yesterday
+ * — daily challenge or not — consumes nothing. The streak count is
+ * preserved and `lastSolvedDate` moves forward to the covered day so the
+ * next real solve extends the run instead of starting over. Idempotent; safe
+ * to call on every visit or solve.
  */
 export function applyShield(d = new Date()): DailyState {
   const state = dailyStore.get();
   const dateKey = getDailyDateKey(d);
   if (state.solvedDates.includes(dateKey)) return state;
 
+  const progress = getProgress();
+  const solves = solveDayNumbers(progress, state);
   const yesterdayKey = getDailyDateKey(shiftLocalDays(d, -1));
-  if (state.solvedDates.includes(yesterdayKey)) return state;
+  const yesterday = dayNumberFromKey(yesterdayKey);
+  if (yesterday !== null && solves.has(yesterday)) return state;
 
   const shields = getDailyShields(state);
   if (shields <= 0) return state;
 
   const dayBeforeKey = getDailyDateKey(shiftLocalDays(d, -2));
-  if (state.lastSolvedDate !== dayBeforeKey) return state;
+  const dayBefore = dayNumberFromKey(dayBeforeKey);
+  const active = activeDayNumbers(progress, state, solves);
+  if (dayBefore === null || !active.has(dayBefore)) return state;
 
   const used = getDailyShieldUsedDates(state);
   if (used.includes(yesterdayKey)) return state;
@@ -221,27 +332,37 @@ export interface ShieldStatus {
   spent: number;
   /** Most recent covered day, "YYYY-MM-DD". */
   lastUsedDate: string | null;
+  /** A solve happened today, on any problem or the daily challenge. */
   solvedToday: boolean;
   /** Yesterday was missed and auto-covered. */
   coveredYesterday: boolean;
-  /** A miss today would reset the streak: today unsolved and no shield left. */
+  /** A miss today would lapse the solve streak: today unsolved and no shield left. */
   atRisk: boolean;
   /** Today is unsolved but a shield is ready to cover one miss. */
   protectedToday: boolean;
+  /**
+   * Daily-challenge chain length. This is not the user-visible streak; label
+   * it "Daily challenge chain" wherever shown.
+   */
   dailyStreak: number;
+  /** The user-visible solve streak, same source as `getSolveStreak`. */
+  solveStreak: number;
 }
 
 /**
- * Read-only shield summary for UI. Pair with `applyShield()` on visit so the
- * summary reflects the auto-cover that just happened.
+ * Read-only shield summary for UI, evaluated against the solve streak. Pair
+ * with `applyShield()` on visit so the summary reflects the auto-cover that
+ * just happened.
  */
 export function getShieldStatus(d = new Date()): ShieldStatus {
   const state = dailyStore.get();
+  const progress = getProgress();
   const available = getDailyShields(state);
   const used = getDailyShieldUsedDates(state);
-  const dateKey = getDailyDateKey(d);
   const yesterdayKey = getDailyDateKey(shiftLocalDays(d, -1));
-  const solvedToday = state.solvedDates.includes(dateKey);
+  const solves = solveDayNumbers(progress, state);
+  const solvedToday = solves.has(localDayNumber(d));
+  const solveStreak = getSolveStreak(progress, d);
   return {
     available,
     max: MAX_SHIELDS,
@@ -249,9 +370,10 @@ export function getShieldStatus(d = new Date()): ShieldStatus {
     lastUsedDate: used.length > 0 ? used[used.length - 1] : null,
     solvedToday,
     coveredYesterday: used.includes(yesterdayKey),
-    atRisk: !solvedToday && state.streak > 0 && available === 0,
+    atRisk: !solvedToday && available === 0 && solveStreak > 0,
     protectedToday: !solvedToday && available > 0,
     dailyStreak: state.streak,
+    solveStreak,
   };
 }
 

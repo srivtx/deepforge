@@ -8,6 +8,8 @@ import {
 import {
   buildGroupBoard,
   createGroup,
+  currentDailyStreak,
+  currentSolveStreak,
   formatNudgeCooldown,
   getGroupLeaderboard,
   getGroupSnapshot,
@@ -744,6 +746,64 @@ describe("weekly aggregation math", () => {
     expect(board!.members.at(-1)?.isYou).toBe(true);
     expect(board!.members.at(-1)?.weeklySolved).toBe(1);
     expect(buildGroupBoard("missing", snapshot)).toBeNull();
+  });
+});
+
+describe("group solve streak", () => {
+  const NOW = new Date(2026, 8, 16, 20, 0, 0);
+
+  function isoDaysAgo(days: number): string {
+    const d = new Date(NOW);
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - days);
+    return d.toISOString();
+  }
+
+  test("counts consecutive solve days ending yesterday", () => {
+    seedProgress({
+      a: { solved: true, solvedAt: isoDaysAgo(1) },
+      b: { solved: true, solvedAt: isoDaysAgo(2) },
+      c: { solved: true, solvedAt: isoDaysAgo(3) },
+    });
+
+    expect(currentSolveStreak(NOW)).toBe(3);
+    expect(currentDailyStreak(NOW)).toBe(3);
+  });
+
+  test("a labs-only day does not extend the solve streak", () => {
+    seedProgress({
+      a: { solved: true, solvedAt: isoDaysAgo(1) },
+      b: { solved: true, solvedAt: isoDaysAgo(2) },
+    });
+    // A scored lab today writes only to the labs store — never a solve day.
+    stub.setItem(
+      "deepforge:labs",
+      JSON.stringify({
+        "lab-1": {
+          best: 1,
+          attempts: 1,
+          passed: true,
+          lastScoredAt: isoDaysAgo(0),
+        },
+      }),
+    );
+
+    expect(currentSolveStreak(NOW)).toBe(2);
+  });
+
+  test("a daily-challenge solve counts as a solve day", () => {
+    stub.setItem(
+      "deepforge:daily:v1",
+      JSON.stringify({
+        lastSolvedDate: "2026-09-16",
+        streak: 1,
+        solvedDates: ["2026-09-16"],
+        shields: 0,
+        shieldUsedDates: [],
+      }),
+    );
+
+    expect(currentSolveStreak(NOW)).toBe(1);
   });
 });
 

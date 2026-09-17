@@ -22,7 +22,7 @@ import {
   type ForumReply,
   type ForumThread,
 } from "@/lib/comments";
-import { getDailyDateKey, getDailyState } from "@/lib/daily";
+import { getDailyDateKey, getDailyState, getSolveStreak } from "@/lib/daily";
 import { getUserName } from "@/lib/leaderboard";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { getCachedSession, onSessionChange } from "@/lib/sync/backend";
@@ -1322,7 +1322,7 @@ export interface GroupMemberInfo {
   joinedAt: string;
   /** Aggregate solved count for the current week. */
   weeklySolved: number;
-  /** Current daily streak, recency-aware. */
+  /** Current solve streak, recency-aware (any day with a solve counts). */
   streak: number;
   lastActiveAt: string | null;
   isYou: boolean;
@@ -1634,12 +1634,6 @@ function setCachedNudgeSeen(nudgeId: string): void {
 
 /* ──────────────────────────── weekly aggregates ─────────────────────────── */
 
-function shiftDays(d: Date, days: number): Date {
-  const copy = new Date(d);
-  copy.setDate(copy.getDate() + days);
-  return copy;
-}
-
 /** Monday of the week containing `d`, as a local "YYYY-MM-DD" key. */
 export function startOfWeekKey(d = new Date()): string {
   const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -1667,20 +1661,19 @@ export function weeklySolvedCount(
 }
 
 /**
- * Current daily streak, recency-aware: a stored streak only counts while the
- * last active day is today or yesterday (a shield-covered day moves
- * `lastSolvedDate` forward without adding a solve, which is exactly how
- * `daily.ts` keeps the run alive).
+ * Current solve streak, recency-aware: any calendar day with a solve
+ * (progress or daily challenge) counts, a shield-covered day keeps the run
+ * alive without extending it, and a run only counts while the last active
+ * day is today or yesterday. Shared with the UI through `getSolveStreak`,
+ * which mirrors the leaderboard's day math.
  */
+export function currentSolveStreak(d = new Date()): number {
+  return getSolveStreak(getProgress(), d);
+}
+
+/** Kept for existing callers: this is the same solve streak as above. */
 export function currentDailyStreak(d = new Date()): number {
-  const state = getDailyState();
-  if (!state.lastSolvedDate) return 0;
-  const today = getDailyDateKey(d);
-  const yesterday = getDailyDateKey(shiftDays(d, -1));
-  if (state.lastSolvedDate !== today && state.lastSolvedDate !== yesterday) {
-    return 0;
-  }
-  return Math.max(0, Math.floor(state.streak));
+  return currentSolveStreak(d);
 }
 
 function latestSolveAt(): string | null {
@@ -1705,7 +1698,7 @@ export interface GroupActivitySignal {
 export function selfGroupActivity(): GroupActivitySignal {
   return {
     weeklySolved: weeklySolvedCount(getProgress(), startOfWeekKey()),
-    streak: currentDailyStreak(),
+    streak: currentSolveStreak(),
     lastActiveAt: latestSolveAt(),
   };
 }

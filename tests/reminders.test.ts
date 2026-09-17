@@ -107,6 +107,20 @@ function storedPrefs(): ReminderPrefs {
   );
 }
 
+/** One progress solve per day for `count` consecutive days ending at `end`. */
+function seedProgressDays(end: Date, count: number): void {
+  const progress: Record<string, { solved: boolean; solvedAt: string }> = {};
+  for (let i = 0; i < count; i += 1) {
+    const day = new Date(end.getTime() - i * 86_400_000);
+    day.setHours(12, 0, 0, 0);
+    progress[`p-${i}`] = { solved: true, solvedAt: day.toISOString() };
+  }
+  windowStub.localStorage.setItem(
+    "deepforge:progress:v1",
+    JSON.stringify(progress),
+  );
+}
+
 function basePrefs(overrides: Partial<ReminderPrefs> = {}): ReminderPrefs {
   const base = defaultReminderPrefs();
   return {
@@ -356,6 +370,17 @@ describe("category rules", () => {
     expect(
       evaluateReminders(signals({ learnerState: "active", solvedToday: true })),
     ).toEqual([]);
+  });
+
+  test("streak copy describes the solve streak, not the daily challenge", () => {
+    const reminders = evaluateReminders(
+      signals({ learnerState: "wobbling", solvedToday: false, streak: 9 }),
+    );
+    expect(reminders[0]?.title).toContain("solve streak");
+    expect(reminders[0]?.body).toContain("any problem");
+
+    const digest = evaluateReminders(signals({ weekSolved: 5, streak: 9 }));
+    expect(digest[0]?.body).toContain("9-day solve streak");
   });
 
   test("at-risk and dormant get a recovery nudge, not a counting one", () => {
@@ -697,6 +722,7 @@ describe("collectReminderSignals (integration)", () => {
     const yesterdayKey = localDateKey(
       new Date(NOW.getTime() - 86_400_000),
     );
+    seedProgressDays(new Date(NOW.getTime() - 86_400_000), 9);
     windowStub.localStorage.setItem(
       "deepforge:daily:v1",
       JSON.stringify({
@@ -720,6 +746,18 @@ describe("collectReminderSignals (integration)", () => {
     expect(derived.pastUsualHour).toBe(true);
     expect(derived.prefs.enabled).toBe(true);
     expect(DEFAULT_USUAL_HOUR).toBe(19);
+  });
+
+  test("the streak signal is the solve streak from progress solves", async () => {
+    seedProgressDays(new Date(NOW.getTime() - 86_400_000), 3);
+    setReminderPrefs({ enabled: true });
+    startReminderSession(new Date(NOW.getTime() - 2 * 60 * 60 * 1000));
+
+    const { collectReminderSignals } = await import("@/lib/reminders");
+    const derived = await collectReminderSignals(NOW);
+    expect(derived.streak).toBe(3);
+    expect(derived.learnerState).toBe("wobbling");
+    expect(derived.solvedToday).toBe(false);
   });
 
   test("no historical solves means no review or digest pressure", async () => {

@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DAILY_CHANGE_EVENT, getDailyState, isTodaySolved } from "@/lib/daily";
+import {
+  DAILY_CHANGE_EVENT,
+  getDailyState,
+  getSolveStreak,
+  isTodaySolved,
+} from "@/lib/daily";
 import {
   getReviewBucketCounts,
   getReviewMap,
@@ -33,7 +38,7 @@ export function TodayEntry() {
       const dailyPending = !isTodaySolved(now);
       setPending(
         due > 0 || dailyPending
-          ? { due, streak: getDailyState().streak }
+          ? { due, streak: getSolveStreak() }
           : null,
       );
     };

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { getShieldStatus, getSolveStreak } from "@/lib/daily";
+import { getCurrentStreak } from "@/lib/leaderboard";
 import {
   getWeekKey,
   getWeeklyLeaderboard,
@@ -304,5 +306,44 @@ describe("getWeeklyLeaderboard", () => {
     expect(you.weeklySolved).toBe(target.weeklySolved);
     expect(board.indexOf(you)).toBeGreaterThan(board.indexOf(tiedBot));
     expect(getWeeklyLeaderboard(NOW)).toEqual(board);
+  });
+});
+
+describe("solve-streak parity with the leaderboard", () => {
+  function isoDaysAgo(days: number): string {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - days);
+    return d.toISOString();
+  }
+
+  function solvesOn(...days: number[]): ProgressMap {
+    const map: ProgressMap = {};
+    days.forEach((daysAgo, index) => {
+      map[`parity-${index}`] = { solved: true, solvedAt: isoDaysAgo(daysAgo) };
+    });
+    return map;
+  }
+
+  test("StreakCard's source equals the leaderboard number on the same fixture", () => {
+    const fixtures: ProgressMap[] = [
+      solvesOn(0, 1, 2),
+      solvesOn(1),
+      solvesOn(0, 1, 3),
+      solvesOn(2),
+      solvesOn(0, 0, 1),
+      {},
+    ];
+    for (const progress of fixtures) {
+      expect(getSolveStreak(progress)).toBe(getCurrentStreak(progress));
+    }
+  });
+
+  test("shield status reports the same solve streak as the leaderboard", () => {
+    const progress = solvesOn(0, 1);
+    seedProgress(progress);
+    expect(getShieldStatus(new Date()).solveStreak).toBe(
+      getCurrentStreak(progress),
+    );
   });
 });
