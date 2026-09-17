@@ -34,6 +34,7 @@ const STATIC_ROUTES: Record<string, string> = {
   daily: "/daily",
   discuss: "/discuss",
   interview: "/interview",
+  inventions: "/inventions",
   labs: "/labs",
   leaderboard: "/leaderboard",
   math: "/math",
@@ -103,6 +104,12 @@ const DYNAMIC_ROUTES: DynamicRoute[] = [
     reason: "track index lists all company tracks",
   },
   {
+    dir: "inventions/[slug]",
+    prefix: "/inventions/",
+    fallback: "/inventions",
+    reason: "inventions index lists every published paper",
+  },
+  {
     dir: "labs/[id]",
     prefix: "/labs/",
     fallback: "/labs",
@@ -154,6 +161,8 @@ const EXCLUDED_ROUTE_DIRS: Record<string, string> = {
 /** Nested route directories that are not pages (e.g. route handlers). */
 const EXCLUDED_NESTED_DIRS: Record<string, string> = {
   "blog/rss.xml": "RSS route handler at /blog/rss.xml, not an HTML page",
+  "inventions/[slug]/paper.pdf":
+    "PDF route handler at /inventions/<slug>/paper.pdf, not an HTML page",
 };
 
 function topLevelRouteDirs(): string[] {

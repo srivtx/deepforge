@@ -15,8 +15,9 @@ const ROUTES = [
   "/", "/problems", "/paths", "/daily", "/projects", "/labs", "/contests",
   "/speedrun", "/research", "/leaderboard", "/badges", "/stats", "/certificates",
   "/backup", "/collections", "/playlists", "/interview", "/math", "/articles",
-  "/sims", "/discuss", "/submit", "/playground", "/about", "/concepts",
+  "/sims", "/discuss", "/submit", "/playground", "/about",   "/concepts",
   "/review",
+  "/inventions",
 ];
 
 const ERROR_TITLE_RE = /^(404|500|403)\b|internal server error|application error/i;
@@ -483,8 +484,41 @@ const sitemapReview = has(sitemap.body, "/review");
 record("sitemap: review route", sitemapReview, sitemap.url, '"/review" missing from sitemap');
 line(sitemapReview, `GET /sitemap.xml  review=${sitemapReview ? "yes" : "NO"}`);
 
-// --- 15. Summary -------------------------------------------------------------
-console.log("\n[15/15] Summary");
+// --- 15. Wave-40 surfaces (inventions: page + PDF) ---------------------------
+console.log("\n[15/16] Wave-40 surfaces");
+const inventions = await get("/inventions");
+const inventionsOk =
+  inventions.status === 200 &&
+  has(inventions.body, "/inventions/ladder-graded-spacing");
+record("inventions: index", inventionsOk, inventions.url, `status=${inventions.status}`);
+line(inventionsOk, `GET /inventions  status=${inventions.status}`);
+const inventionPage = await get("/inventions/ladder-graded-spacing");
+const inventionPageOk =
+  inventionPage.status === 200 && has(inventionPage.body, "Abstract");
+record("inventions: paper page", inventionPageOk, inventionPage.url,
+  `status=${inventionPage.status} abstract=${has(inventionPage.body, "Abstract")}`);
+line(inventionPageOk, `GET /inventions/ladder-graded-spacing  status=${inventionPage.status}`);
+const pdfRes = await fetch(`${BASE_URL}/inventions/ladder-graded-spacing/paper.pdf`, {
+  signal: AbortSignal.timeout(20000),
+}).catch(() => null);
+const pdfType = pdfRes?.headers.get("content-type") ?? "";
+const pdfBody = pdfRes ? Buffer.from(await pdfRes.arrayBuffer()) : Buffer.alloc(0);
+const pdfMagic = pdfBody.subarray(0, 5).toString();
+const pdfOk =
+  Boolean(pdfRes) &&
+  pdfRes.status === 200 &&
+  pdfType.includes("application/pdf") &&
+  pdfMagic === "%PDF-";
+record("inventions: pdf", pdfOk, `${BASE_URL}/inventions/ladder-graded-spacing/paper.pdf`,
+  `status=${pdfRes?.status ?? 0} type=${pdfType} magic=${pdfMagic}`);
+line(pdfOk, `GET /inventions/ladder-graded-spacing/paper.pdf  status=${pdfRes?.status ?? 0} type=${pdfType.split(";")[0]}`);
+const sitemapInventions = has(sitemap.body, "/inventions/ladder-graded-spacing");
+record("sitemap: inventions", sitemapInventions, sitemap.url,
+  "missing /inventions/<slug>");
+line(sitemapInventions, `GET /sitemap.xml  inventions=${sitemapInventions ? "yes" : "NO"}`);
+
+// --- 16. Summary -------------------------------------------------------------
+console.log("\n[16/16] Summary");
 const groupNames = [...new Set(checks.map((c) => c.group))];
 console.table(
   groupNames.map((group) => {

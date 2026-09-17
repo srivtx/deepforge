@@ -3,6 +3,7 @@ import { ARTICLES } from "@/data/articles";
 import { POSTS } from "@/data/blog";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
+import { INVENTIONS } from "@/data/inventions";
 import { LABS } from "@/data/labs";
 import { PAPERS } from "@/data/papers";
 import { PROJECTS } from "@/data/projects";
@@ -43,6 +44,7 @@ const ROUTES = [
   { path: "/interview", changeFrequency: "weekly", priority: 0.8 },
   { path: "/math", changeFrequency: "weekly", priority: 0.8 },
   { path: "/papers", changeFrequency: "weekly", priority: 0.8 },
+  { path: "/inventions", changeFrequency: "monthly", priority: 0.8 },
   { path: "/concepts", changeFrequency: "weekly", priority: 0.8 },
   { path: "/review", changeFrequency: "weekly", priority: 0.7 },
   { path: "/articles", changeFrequency: "weekly", priority: 0.8 },
@@ -137,6 +139,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: LAST_MODIFIED,
       changeFrequency: "monthly" as const,
       priority: 0.7,
+    })),
+    ...INVENTIONS.map((paper) => ({
+      url: `${siteUrl}/inventions/${paper.slug}`,
+      lastModified: LAST_MODIFIED,
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
     })),
     ...RESEARCH_CHALLENGES.map((challenge) => ({
       url: `${siteUrl}/research/${challenge.id}`,

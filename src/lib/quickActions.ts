@@ -87,6 +87,13 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
     href: "/papers",
   },
   {
+    id: "inventions",
+    label: "Read our inventions",
+    keywords: ["inventions", "invention", "publication", "pdf", "lgs"],
+    kind: "navigate",
+    href: "/inventions",
+  },
+  {
     id: "theme-toggle",
     label: "Toggle theme",
     keywords: ["theme", "dark", "light", "appearance", "mode"],

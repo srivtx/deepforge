@@ -21,6 +21,7 @@ export type SectionId =
   | "concepts"
   | "articles"
   | "papers"
+  | "inventions"
   | "sims"
   | "discuss"
   | "submit"
@@ -258,6 +259,16 @@ const SECTION_LIST: SectionMeta[] = [
     group: "Learn",
     icon: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z",
     keywords: ["papers", "deepseek", "research", "lineage"],
+  },
+  {
+    id: "inventions",
+    href: "/inventions",
+    title: "Inventions",
+    blurb:
+      "Papers from the forge: the algorithms behind the platform, published in full with a PDF.",
+    group: "Learn",
+    icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15h6M9 11h3",
+    keywords: ["inventions", "invention", "publication", "pdf", "lgs"],
   },
   {
     id: "sims",

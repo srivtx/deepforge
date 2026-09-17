@@ -29,7 +29,7 @@
  * schemes are ignored entirely.
  */
 
-const VERSION = "v7";
+const VERSION = "v8";
 
 const IS_LOCAL = ["localhost", "127.0.0.1", "0.0.0.0"].includes(
   self.location.hostname,
@@ -68,6 +68,7 @@ const PRECACHE_ROUTES = [
   "/daily",
   "/discuss",
   "/interview",
+  "/inventions",
   "/labs",
   "/labs/trails",
   "/leaderboard",
@@ -99,6 +100,7 @@ const NAVIGATION_FALLBACKS = [
   { prefix: "/categories/", fallback: "/problems" },
   { prefix: "/collections/", fallback: "/collections" },
   { prefix: "/interview/", fallback: "/interview" },
+  { prefix: "/inventions/", fallback: "/inventions" },
   { prefix: "/labs/", fallback: "/labs" },
   { prefix: "/papers/", fallback: "/papers" },
   { prefix: "/paths/", fallback: "/paths" },
