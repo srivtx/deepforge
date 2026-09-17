@@ -40,6 +40,7 @@ DeepForge is a practice platform for machine learning, math, and engineering. Us
 | Certificates | Printable/PNG path, collection, category, lab, project, and interview kinds; SHA-256 verification code + `/verify` |
 | Blog | **4** engineering write-ups with SVG diagrams + RSS (`/blog`) |
 | Interactive articles | **14** lessons with live demos, a figure per topic, and a kernel question each |
+| Papers curriculum | **35** DeepSeek papers across 4 eras (founding → frontier), from DeepSeek LLM (Jan 2024) to V4.1 Flash; theory-first with lineage, a reading guide, and implementation checks (`/papers`, `/papers/<slug>`) |
 
 Honest caveats: without an account everything stays on one device. Signing in with a magic link or Google syncs progress, streaks, leaderboard and community data through Supabase.
 
@@ -135,6 +136,7 @@ deepforge/
 │   │                           #   motion/, avatars/, sims/
 │   ├── data/
 │   │   ├── problems/           # 15 categories · 5,730 problems · paths.ts · problem-meta.ts
+│   │   ├── papers/             # Understanding Papers · 4 eras · theory + reading + questions
 │   │   └── contests.ts · projects.ts · labs.ts · interview.ts · penpaper.ts ·
 │   │       collections.ts · articles.ts · blog/
 │   ├── lib/
@@ -143,7 +145,7 @@ deepforge/
 │   │   ├── certificates.ts · credentials.ts · labs.ts · pyodide.ts · paths.ts
 │   │   └── ...
 │   └── types/problem.ts
-├── tests/                      # 1,174 bun tests
+├── tests/                      # 1,210 bun tests
 ├── scripts/                    # verify-problems, verify-paths(-content), e2e-smoke, measure-bundle
 ├── supabase/migrations/        # init, avatars, hardening
 ├── docs/                       # DESIGN-SYSTEM, SETUP-SUPABASE, next-wave-plan, research/
@@ -244,22 +246,23 @@ bun run build                                 # production build
 - **Certificates** — printable/PNG with a SHA-256 verification code and a public `/verify` page
 - **Sync/social backend** — Supabase (projects klogjcspyiygnggmugjy): local-first sync, magic link + Google, RLS
 - **Blog** — 4 engineering write-ups at `/blog` with SVG diagrams and RSS
+- **Papers** — Understanding Papers: 35 DeepSeek papers across 4 eras, theory-first with lineage, a reading guide, implementation checks, and 18 deterministic SVG figure kinds; `/papers` + `/papers/<slug>`
 
 ### Phase 3: Polish — ✅ Partially complete
 - ✅ SEO: metadata + OpenGraph (kinds for problems, categories, research, and labs), PWA manifest, robots.txt, sitemap.xml
 - ✅ Dark/light mode across all views
-- ✅ Bundle split: light problem index, per-route picks (daily problem, leaderboard scoring), and a lazy Zero mount; home 276 KB gzip (from 1,553 KB)
+- ✅ Bundle split: light problem index, per-route picks (daily problem, leaderboard scoring), and a lazy Zero mount; home 276.6 KB gzip (from 1,553 KB)
 - ✅ Mobile audits at 375px across new views
 - ✅ Keyboard/focus pass across dialogs, menus, command palette, and social threads; 🔲 full screen-reader + contrast sweep
-- ✅ PWA offline: route fallback chain + “update available” prompt (SW v5) with per-route fallback verified by a route-inventory test
-- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 161-check smoke
+- ✅ PWA offline: route fallback chain + “update available” prompt (SW v6) with per-route fallback verified by a route-inventory test
+- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 164-check smoke
 
 ### Next steps (sensible order)
 1. **Path curation, continued** — 33 paths shipped with stage checkpoints, artifact links, resolved prerequisites, and a verified capstone each; still open from [`docs/research/path-curation.md`](./docs/research/path-curation.md): mixed-kind steps (problems + labs + math + projects).
 2. **Content growth** — 5,730 problems shipped; keep rebalancing the thinnest categories (Linear Algebra at 320; Data Structures at 355) and the level mix.
 3. **Production hardening** — Vercel deploy, custom SMTP for magic links, two-account RLS spot check.
 4. **Social scale** — realtime subscriptions, pagination, and the per-problem comments UI shipped; remaining: global-leaderboard polish.
-5. **E2E in CI** — shipped: the 161-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
+5. **E2E in CI** — shipped: the 164-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
 6. **Deploy & credentials** — work the human items in [`docs/next-wave-plan.md`](./docs/next-wave-plan.md), then certificate signing (phase 2).
 
 ---
@@ -317,6 +320,7 @@ If you are an AI agent working on DeepForge:
 - **Learning paths:** 33 — ✅ (stage checkpoints, artifact links, capstones 33/33)
 - **Interactive articles:** ✅ 14 with live demos, a figure per topic, and a kernel question each
 - **Blog:** ✅ 4 engineering posts + RSS
+- **Papers:** ✅ Understanding Papers: 35 DeepSeek papers across 4 eras (founding → frontier), DeepSeek LLM (Jan 2024) to V4.1 Flash; theory-first (visuals/formulas/Python), per-paper reading guide, lineage, self-graded implementation MCQs; 18 deterministic SVG figure kinds; `/papers` + `/papers/<slug>`; local store `deepforge:papers:v1` wired into sync + backup
 - **Light mode:** ✅ Working
 - **Dark mode:** ✅ Working
 - **Pyodide execution:** ✅ Working (Web Worker by default with a main-thread fallback)
@@ -335,11 +339,12 @@ If you are an AI agent working on DeepForge:
 - **Gamification:** ✅ Bug hunts (synced) with bug-slayer/exterminator/flawless badges; speedrunner/speed-demon badges; heatmap counts bug hunts + speedruns
 - **Certificates:** ✅ Path/collection/category/lab/project/interview kinds, SHA-256 code + public `/verify`
 - **Avatars:** ✅ 12 character presets, two art styles (Illustrated + Pixel)
-- **Tests:** ✅ 1,174 unit tests (62 files) + 161 e2e smoke checks (CI)
+- **Tests:** ✅ 1,210 unit tests (65 files) + 164 e2e smoke checks (CI)
 - **Solutions on rails:** ✅ every lab and research challenge carries a Python-verified reference solution (Show solution reveal); certificates gain a research kind (5/5 baselines); stats and Today surface labs/research progress
-- **PWA:** ✅ Offline v5 per-route fallback (route-inventory test, nested static routes modeled) + update prompt
-- **Search & shortcuts:** ✅ Palette search over problems, paths, articles, blog, research challenges, and labs + quick actions (labs, trails, research); g-sequences + `?` overlay
+- **PWA:** ✅ Offline v6 per-route fallback (route-inventory test, nested static routes modeled) + update prompt
+- **Search & shortcuts:** ✅ Palette search over problems, paths, articles, blog, research challenges, papers, and labs + quick actions (labs, trails, research); g-sequences + `?` overlay
 - **Backup:** ✅ Full local export/import with an audited key inventory
-- **SEO:** ✅ Metadata, manifest, robots, sitemap (lastModified derived; lists `/today`, `/labs/trails`, `/concepts`, and all 13 lab/research detail URLs); OG image kinds `research` and `lab`
+- **SEO:** ✅ Metadata, manifest, robots, sitemap (lastModified derived; lists `/today`, `/labs/trails`, `/concepts`, all 13 lab/research detail URLs, and all 35 paper URLs); OG image kinds `research` and `lab`
+- **Onboarding layout:** ✅ `/start` flow sits on one shared column system (flow `max-w-2xl` / result `max-w-5xl`) with a progress header, equal-height answer rows, and an aligned stat grid; logic unchanged
 
 **Next priority:** push the Supabase hardening migration to project `klogjcspyiygnggmugjy` (see docs/SETUP-SUPABASE.md), configure Auth redirect URLs, then deploy per [`docs/next-wave-plan.md`](./docs/next-wave-plan.md) (U-1..U-5) and start certificate signing (phase 2). Sync code is shipped and env-gated: the app stays 100% local until `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set and a user signs in.

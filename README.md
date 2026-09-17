@@ -25,8 +25,8 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Local-first, sync optional** — no account needed; sign in with a magic link or Google only if you want cross-device progress, a global leaderboard, and shared discussions
 - **Real curriculum** — 33 learning paths with stages, goals, resolved prerequisites, adaptive per-stage checkpoints, a mini-project artifact per stage, a verified capstone (project, lab, contest, collection, or pen-and-paper set) per path, each with its own page
 - **Beyond problems** — labs, research benchmarks, timed contests, speedruns, sims, notebook mode, and spaced-repetition review across code and pen-and-paper math
-- **Fast by design** — a light problem index keeps the landing page at ~276 KB gzip; the full bank loads on demand
-- **Discoverable** — 5,730 statically generated problem pages, 15 category hubs, 33 path pages, JSON-LD, OG images, sitemap, RSS
+- **Fast by design** — a light problem index keeps the landing page at ~277 KB gzip; the full bank loads on demand
+- **Discoverable** — 5,730 statically generated problem pages, 15 category hubs, 33 path pages, 35 paper pages, JSON-LD, OG images, sitemap, RSS
 - **Open source** — MIT, file-based content, verifiable and diffable
 
 ## Categories (15)
@@ -65,6 +65,7 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Spot the bug** — find and explain a seeded mutation of a verified solution, test-checked before it is shown; rounds are tracked across devices with bug-slayer, exterminator, and flawless badges plus a daily quest
 - **Sims** — optimizer race, neural-net trainer with decision boundary, Dijkstra step-through — each with a deterministic intuition check
 - **Articles** — 14 interactive lessons with live demos (softmax temperature, eigenvectors, gradient descent, k-means, attention, BPE tokenization, embeddings, quantization, KV cache & FlashAttention, RAG chunk retrieval, post-training RLHF/DPO/GRPO, PCA/SVD projection, calibration & uncertainty, LoRA rank), a figure for every topic, and a "predict the readout" kernel question per lesson
+- **Papers** — Understanding Papers: 35 DeepSeek papers across 4 eras, from DeepSeek LLM (Jan 2024) to V4.1 Flash, taught theory-first (visuals, formulas, Python) with lineage, a reading guide per paper, and self-graded implementation checks
 - **Blog** — 4 engineering write-ups with SVG diagrams and RSS at `/blog`
 - **Discuss** — paginated forum with threads, replies, upvotes, problem references, and live updates; server-backed when signed in
 - **Problem comments** — per-problem discussion with upvotes, load-more pagination, and live updates on the problem page
@@ -76,11 +77,11 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Streak shields & reminders** — one solve streak shown everywhere (the daily-challenge chain is labeled separately); shields cover a missed calendar day; opt-in local reminders for streak, reviews due, and a daily digest
 - **Submit a Problem** — author problems locally, validate with real Python, export ready-to-paste TS
 - **Leaderboard** — Flame Score (Easy 1, Medium 3, Hard 5), streaks, username, and a weekly mode (Monday-local week, bots rotate each week); global view when signed in
-- **Search & shortcuts** — command palette over problems, paths, articles, blog, research challenges, and labs with quick actions (labs, lab trails, research); g-sequences and a `?` overlay for every shortcut
+- **Search & shortcuts** — command palette over problems, paths, articles, blog, research challenges, papers, and labs with quick actions (labs, lab trails, research); g-sequences and a `?` overlay for every shortcut
 - **Backup** — full local export/import with an audited inventory of every stored key and documented exclusions
 - **Sync** — local-first progress/streaks/collections sync through Supabase (magic link or Google) when you opt in
 - **Accessibility** — keyboard pass across dialogs, menus, comment threads, and the command palette: Tab containment, Escape-to-close, focus-visible rings, and aria-live status
-- **PWA** — installable, offline shell v5 with a per-route fallback (verified by a route-inventory test), service worker that never caches dev assets
+- **PWA** — installable, offline shell v6 with a per-route fallback (verified by a route-inventory test), service worker that never caches dev assets
 
 ## Optional: sync & accounts
 
@@ -109,10 +110,10 @@ Measured with `bun run scripts/measure-bundle.ts --check` (gzip first-load JS; a
 
 | Route | Before light index | Now |
 |---|---:|---:|
-| `/` | 1,553 KB | **276.5 KB** |
-| `/problems` | 1,499 KB | **319.1 KB** |
-| `/about` | 1,497 KB | **243.3 KB** |
-| `/stats` | 1,572 KB | **407.6 KB** |
+| `/` | 1,553 KB | **276.6 KB** |
+| `/problems` | 1,499 KB | **319.2 KB** |
+| `/about` | 1,497 KB | **243.5 KB** |
+| `/stats` | 1,572 KB | **407.7 KB** |
 
 The 5 MB problem bank is a lazy chunk; pages use a generated light index
 (`src/data/problems/problem-meta.ts`) and load full problem payloads on demand.
@@ -123,7 +124,7 @@ duplicated home mount was removed.
 
 ```
 src/
-├── app/                      # routes: /problems, /paths, /labs, /blog, /collections, ...
+├── app/                      # routes: /problems, /paths, /labs, /papers, /blog, /collections, ...
 ├── components/               # UI + motion/ (Aurora, Reveal, CountUp) + blog/ (prose, diagrams)
 ├── data/
 │   ├── problems/             # 15 categories · 5,730 problems · paths.ts · generated problem-meta.ts
@@ -147,10 +148,10 @@ bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 1,174 unit tests (62 files)
+bun test                                  # 1,210 unit tests (65 files)
 bun run build
 bunx next start -p 3099 &                 # production server the smoke suite expects
-bun run scripts/e2e-smoke.mjs             # 161-check end-to-end smoke against :3099
+bun run scripts/e2e-smoke.mjs             # 164-check end-to-end smoke against :3099
 ```
 
 ## Quick Start
