@@ -2,6 +2,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import Link from "next/link";
+import { HandsOnBand } from "@/components/articles/HandsOnBand";
 import { FIGURES, type Article } from "@/data/articles";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { DEMOS } from "@/lib/articles-demos";
@@ -139,6 +140,8 @@ export function ArticleDetail({ article, prev, next }: ArticleDetailProps) {
           })}
         </div>
       </div>
+
+      <HandsOnBand article={article} />
 
       <nav
         aria-label="Article navigation"

@@ -7,6 +7,9 @@ import {
 } from "@/data/articles";
 import { DEMOS } from "@/lib/articles-demos";
 import { PROBLEMS } from "@/data/problems";
+import { LABS } from "@/data/labs";
+import { RESEARCH_CHALLENGES } from "@/data/research";
+import { resolveHandsOnLinks } from "@/components/articles/handsOn";
 import {
   DECODE_TILE,
   DECODE_TOKENS,
@@ -326,6 +329,64 @@ describe("article catalogue", () => {
     for (const kind of Object.keys(FIGURES) as FigureKind[]) {
       expect(typeof FIGURES[kind], kind).toBe("function");
     }
+  });
+});
+
+describe("article hands-on links", () => {
+  const labIds = new Set(LABS.map((lab) => lab.id));
+  const researchIds = new Set(
+    RESEARCH_CHALLENGES.map((challenge) => challenge.id),
+  );
+
+  test("every related lab and research id resolves in the catalogues", () => {
+    for (const article of ARTICLES) {
+      for (const id of article.relatedLabIds ?? []) {
+        expect(labIds.has(id), `${article.id} -> ${id}`).toBe(true);
+      }
+      for (const id of article.relatedResearchIds ?? []) {
+        expect(researchIds.has(id), `${article.id} -> ${id}`).toBe(true);
+      }
+    }
+  });
+
+  test("no article repeats a hands-on link and at least eight carry one", () => {
+    let withLinks = 0;
+    for (const article of ARTICLES) {
+      const labs = article.relatedLabIds ?? [];
+      const research = article.relatedResearchIds ?? [];
+      expect(new Set(labs).size, `${article.id} lab duplicates`).toBe(
+        labs.length,
+      );
+      expect(new Set(research).size, `${article.id} research duplicates`).toBe(
+        research.length,
+      );
+      if (labs.length + research.length > 0) withLinks += 1;
+    }
+    expect(withLinks).toBeGreaterThanOrEqual(8);
+  });
+
+  test("resolveHandsOnLinks builds hrefs and skips unknown ids", () => {
+    for (const article of ARTICLES) {
+      const links = resolveHandsOnLinks(article);
+      const expectedCount =
+        (article.relatedLabIds?.length ?? 0) +
+        (article.relatedResearchIds?.length ?? 0);
+      expect(links, article.id).toHaveLength(expectedCount);
+      expect(new Set(links.map((link) => link.href)).size, article.id).toBe(
+        links.length,
+      );
+      for (const link of links) {
+        expect(link.title.trim().length > 0, article.id).toBe(true);
+        expect(link.href, article.id).toMatch(/^\/(labs|research)\/[a-z0-9-]+$/);
+      }
+    }
+
+    const stray = resolveHandsOnLinks({
+      ...ARTICLES[0],
+      relatedLabIds: ["lab-99"],
+      relatedResearchIds: ["not-a-challenge"],
+    });
+    expect(stray).toEqual([]);
   });
 });
 

@@ -95,6 +95,8 @@ export interface Article {
   readMinutes: number;
   category: string;
   problemIds: string[];
+  relatedLabIds?: string[];
+  relatedResearchIds?: string[];
   sections: ArticleSection[];
 }
 
@@ -107,6 +109,8 @@ export const ARTICLES: Article[] = [
     readMinutes: 7,
     category: "Deep Learning",
     problemIds: ["dl-021", "ml-065", "nlp-075", "dl-003", "la-149"],
+    relatedLabIds: ["lab-02"],
+    relatedResearchIds: ["mini-language-model"],
     sections: [
       {
         kind: "prose",
@@ -207,6 +211,8 @@ export const ARTICLES: Article[] = [
     readMinutes: 9,
     category: "Optimization",
     problemIds: ["ml-103", "ml-012", "op-001", "ml-083", "ml-002"],
+    relatedLabIds: ["lab-01", "lab-03", "lab-04", "lab-08"],
+    relatedResearchIds: ["tabular-classification-showdown", "imbalanced-signal-hunt"],
     sections: [
       {
         kind: "prose",
@@ -257,6 +263,7 @@ export const ARTICLES: Article[] = [
     readMinutes: 7,
     category: "ML Fundamentals",
     problemIds: ["ml-003", "ml-032", "ml-033", "ml-034", "ml-145"],
+    relatedLabIds: ["lab-05"],
     sections: [
       {
         kind: "prose",
@@ -302,6 +309,7 @@ export const ARTICLES: Article[] = [
     readMinutes: 8,
     category: "Deep Learning",
     problemIds: ["dl-034", "dl-035", "dl-036", "nlp-050", "nlp-072"],
+    relatedResearchIds: ["mini-language-model"],
     sections: [
       {
         kind: "prose",
@@ -357,6 +365,7 @@ export const ARTICLES: Article[] = [
     readMinutes: 7,
     category: "NLP",
     problemIds: ["nlp-001", "nlp-022", "nlp-096", "nlp-099", "nlp-235", "nlp-238"],
+    relatedResearchIds: ["mini-language-model"],
     sections: [
       {
         kind: "prose",
@@ -406,6 +415,7 @@ export const ARTICLES: Article[] = [
     readMinutes: 8,
     category: "NLP",
     problemIds: ["la-025", "la-130", "ml-046", "nlp-005", "nlp-067", "nlp-247"],
+    relatedLabIds: ["lab-05"],
     sections: [
       {
         kind: "prose",
@@ -508,6 +518,7 @@ export const ARTICLES: Article[] = [
     readMinutes: 11,
     category: "Deep Learning",
     problemIds: ["dl-075", "dl-124", "dl-186", "dl-211", "dl-370", "dl-401"],
+    relatedResearchIds: ["mini-language-model"],
     sections: [
       {
         kind: "prose",
@@ -720,6 +731,7 @@ export const ARTICLES: Article[] = [
     readMinutes: 7,
     category: "ML Fundamentals",
     problemIds: ["ml-065", "ml-072", "ml-101", "ml-337", "dl-086", "ml-291"],
+    relatedLabIds: ["lab-06", "lab-07"],
     sections: [
       {
         kind: "prose",
