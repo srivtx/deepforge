@@ -5,14 +5,14 @@
  * tie-breaks. The palette lazy-loads this module the same way it lazy-loads
  * the problem bank, so these registries never enter the global client graph.
  *
- * `src/data/articles.ts` is deliberately not imported: every article record
- * carries its prose sections and pulls the figure/demo component graph, so
- * the whole module is far too heavy for palette search. The Articles group is
- * kept in the type and ordering contract for when a light article index
- * exists; `searchGlobal` never returns it today.
+ * Articles come from the generated light index `src/data/articleIndex.ts`
+ * ({ slug, title, dek } only). `src/data/articles.ts` is never imported here:
+ * every article record carries its prose sections and pulls the figure/demo
+ * component graph, so the whole module is far too heavy for palette search.
  */
 
 import { CATEGORIES } from "@/data/problems/meta";
+import { ARTICLE_INDEX } from "@/data/articleIndex";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
 import { POSTS } from "@/data/blog";
@@ -77,6 +77,13 @@ const INTERVIEW_ITEMS: GlobalSearchItem[] = INTERVIEW_TRACKS.map((track) => ({
   href: `/interview/${track.id}`,
 }));
 
+const ARTICLE_ITEMS: GlobalSearchItem[] = ARTICLE_INDEX.map((article) => ({
+  id: article.slug,
+  title: article.title,
+  subtitle: article.dek,
+  href: `/articles/${article.slug}`,
+}));
+
 const BLOG_ITEMS: GlobalSearchItem[] = POSTS.map((entry) => ({
   id: entry.post.slug,
   title: entry.post.title,
@@ -94,7 +101,7 @@ const INDEX: Record<GlobalSearchGroup, readonly GlobalSearchItem[]> = {
   Paths: PATH_ITEMS,
   Collections: COLLECTION_ITEMS,
   Interview: INTERVIEW_ITEMS,
-  Articles: [],
+  Articles: ARTICLE_ITEMS,
   Blog: BLOG_ITEMS,
   Categories: CATEGORY_ITEMS,
 };

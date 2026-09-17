@@ -328,7 +328,7 @@ export function CommandPalette() {
         <>
           <span className="min-w-0 flex-1 truncate">{row.item.title}</span>
           {row.item.subtitle && (
-            <span className="shrink-0 text-xs text-body-mid">
+            <span className="hidden max-w-[45%] truncate text-xs text-body-mid sm:inline">
               {row.item.subtitle}
             </span>
           )}

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { CATEGORIES } from "@/data/problems/meta";
+import { ARTICLES } from "@/data/articles";
+import { ARTICLE_INDEX } from "@/data/articleIndex";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
 import { POSTS } from "@/data/blog";
@@ -92,6 +94,24 @@ describe("searchGlobal", () => {
     ]);
   });
 
+  test("ranks across groups in canonical group order", () => {
+    // "attention" matches one collection and two articles: Collections must
+    // precede Articles, and inside Articles a title-prefix match must beat a
+    // mid-word one.
+    const results = searchGlobal("attention", 10);
+    expect(results.map((result) => result.group)).toEqual([
+      "Collections",
+      "Articles",
+    ]);
+    expect(groupOf(results, "Collections").map((item) => item.title)).toEqual([
+      "Attention Is All You Need",
+    ]);
+    expect(groupOf(results, "Articles").map((item) => item.title)).toEqual([
+      "Attention Is a Heatmap",
+      "KV Cache & FlashAttention",
+    ]);
+  });
+
   test("limit caps items per group", () => {
     const capped = groupOf(searchGlobal("ing"), "Paths");
     expect(capped).toHaveLength(4);
@@ -154,13 +174,50 @@ describe("searchGlobal", () => {
     }
   });
 
+  test("article hrefs resolve to real article slugs", () => {
+    expect(ARTICLES.length).toBeGreaterThan(0);
+    for (const article of ARTICLES) {
+      const item = itemById(
+        groupOf(searchGlobal(article.title, 100), "Articles"),
+        article.slug,
+      );
+      expect(item, article.id).not.toBeUndefined();
+      expect(item?.title).toBe(article.title);
+      expect(item?.href).toBe(`/articles/${article.slug}`);
+    }
+  });
+
+  test("the generated article index is in sync with the registry", () => {
+    expect(ARTICLE_INDEX.length).toBe(ARTICLES.length);
+    expect(ARTICLE_INDEX.map((entry) => entry.slug)).toEqual(
+      ARTICLES.map((article) => article.slug),
+    );
+    expect(ARTICLE_INDEX.map((entry) => entry.title)).toEqual(
+      ARTICLES.map((article) => article.title),
+    );
+    expect(ARTICLE_INDEX.map((entry) => entry.dek)).toEqual(
+      ARTICLES.map((article) => article.dek),
+    );
+    for (const entry of ARTICLE_INDEX) {
+      expect(Object.keys(entry).sort()).toEqual(["dek", "slug", "title"]);
+    }
+  });
+
   test("is deterministic and duplicate-free", () => {
-    const queries = ["deep", "line", "data", "ing", "math", "interview"];
+    const queries = [
+      "deep",
+      "line",
+      "data",
+      "ing",
+      "math",
+      "interview",
+      "attention",
+    ];
     const first = JSON.stringify(queries.map((query) => searchGlobal(query)));
     const second = JSON.stringify(queries.map((query) => searchGlobal(query)));
     expect(second).toBe(first);
 
-    for (const query of ["deep", "graph", "learning"]) {
+    for (const query of ["deep", "graph", "learning", "attention"]) {
       for (const result of searchGlobal(query, 100)) {
         const ids = result.items.map((item) => item.id);
         expect(new Set(ids).size).toBe(ids.length);
@@ -168,11 +225,11 @@ describe("searchGlobal", () => {
     }
   });
 
-  test("the Articles group is reserved but never returned", () => {
+  test("the Articles group is populated from the light index", () => {
     expect(GLOBAL_SEARCH_GROUPS).toContain("Articles");
     const groups = new Set(
-      searchGlobal("softmax temperature", 20).map((result) => result.group),
+      searchGlobal("softmax", 20).map((result) => result.group),
     );
-    expect(groups.has("Articles")).toBe(false);
+    expect(groups.has("Articles")).toBe(true);
   });
 });
