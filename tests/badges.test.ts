@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   BADGE_CATALOG,
+  badgeProgress,
   computeXp,
   earnedBadges,
+  getActivityHeatmap,
   getDailyQuests,
   getTotals,
   type BadgeSnapshot,
@@ -10,6 +12,10 @@ import {
 import type { LabRecords } from "@/lib/labs";
 import type { ProgressMap } from "@/lib/progress";
 import type { ResearchState } from "@/lib/research";
+import { getDailyDateKey } from "@/lib/daily";
+import type { BugRound } from "@/lib/bugHunt";
+import type { RunState } from "@/lib/runs";
+import { BUG_CATEGORIES } from "@/lib/spotBug";
 import { PROBLEMS } from "@/data/problems";
 
 function createStorageStub(): Storage {
@@ -64,6 +70,8 @@ function emptySnapshot(now: Date = FIXED_NOW): BadgeSnapshot {
     labs: {},
     research: {},
     contests: [],
+    bugHunts: [],
+    runs: [],
     now,
   };
 }
@@ -81,6 +89,32 @@ const byDifficulty = {
   medium: PROBLEMS.filter((p) => p.difficulty === "Medium"),
   hard: PROBLEMS.filter((p) => p.difficulty === "Hard"),
 };
+
+function cleanHunts(count: number, at: Date = FIXED_NOW): BugRound[] {
+  return Array.from({ length: count }, (_, i) => ({
+    problemId: `bug-${i}`,
+    category: BUG_CATEGORIES[i % BUG_CATEGORIES.length],
+    lineOk: true,
+    reasonOk: true,
+    clean: true,
+    at: new Date(at.getTime() + i * 1_000).toISOString(),
+  }));
+}
+
+function finishedRun(i = 0, at: Date = FIXED_NOW): RunState {
+  const startedAt = at.getTime() + i * 60_000;
+  return {
+    id: `run-${i}`,
+    seed: `seed-${i}`,
+    startedAt,
+    endsAt: startedAt + 300_000,
+    problemIds: ["al-001"],
+    solvedIds: [],
+    solvedAt: {},
+    score: 0,
+    status: "finished",
+  };
+}
 
 describe("badge catalog", () => {
   test("has unique ids and non-negative progress bars", () => {
@@ -261,5 +295,250 @@ describe("lab quest", () => {
     const today = labQuest(day);
     expect(today?.done).toBe(true);
     expect(today?.progress).toBe(1);
+  });
+});
+
+describe("bug hunt badges", () => {
+  function withHunts(count: number): BadgeSnapshot {
+    return { ...emptySnapshot(), bugHunts: cleanHunts(count) };
+  }
+
+  test("bug-slayer sits at the first clean hunt and dates it", () => {
+    const none = earnedBadges(emptySnapshot()).map((badge) => badge.id);
+    expect(none).not.toContain("bug-slayer");
+    expect(badgeProgress("bug-slayer", emptySnapshot())).toEqual([0, 1]);
+
+    const earned = earnedBadges(withHunts(1));
+    const slayer = earned.find((badge) => badge.id === "bug-slayer");
+    expect(slayer?.earnedAt).toBe(cleanHunts(1)[0].at);
+    expect(badgeProgress("bug-slayer", withHunts(1))).toEqual([1, 1]);
+  });
+
+  test("exterminator flips between 9 and 10 clean hunts", () => {
+    expect(earnedBadges(withHunts(9)).map((b) => b.id)).not.toContain(
+      "exterminator",
+    );
+    expect(badgeProgress("exterminator", withHunts(9))).toEqual([9, 10]);
+    expect(earnedBadges(withHunts(10)).map((b) => b.id)).toContain(
+      "exterminator",
+    );
+    expect(badgeProgress("exterminator", withHunts(10))).toEqual([10, 10]);
+  });
+
+  test("flawless flips between 24 and 25 clean hunts and clamps", () => {
+    expect(earnedBadges(withHunts(24)).map((b) => b.id)).not.toContain(
+      "flawless",
+    );
+    expect(earnedBadges(withHunts(25)).map((b) => b.id)).toContain("flawless");
+    expect(badgeProgress("flawless", withHunts(25))).toEqual([25, 25]);
+    expect(badgeProgress("flawless", withHunts(40))).toEqual([25, 25]);
+  });
+
+  test("dirty rounds never advance the clean-hunt badges", () => {
+    const snapshot: BadgeSnapshot = {
+      ...emptySnapshot(),
+      bugHunts: [
+        ...cleanHunts(9),
+        { ...cleanHunts(1)[0], problemId: "bug-dirty", clean: false, lineOk: false },
+      ],
+    };
+    const ids = earnedBadges(snapshot).map((b) => b.id);
+    expect(ids).not.toContain("exterminator");
+    expect(ids).toContain("bug-slayer");
+    expect(badgeProgress("exterminator", snapshot)).toEqual([9, 10]);
+  });
+
+  test("earnedAt is the moment the Nth clean hunt landed", () => {
+    const hunts = cleanHunts(10);
+    const earned = earnedBadges({ ...emptySnapshot(), bugHunts: hunts });
+    expect(earned.find((b) => b.id === "exterminator")?.earnedAt).toBe(
+      hunts[9].at,
+    );
+  });
+});
+
+describe("speedrun badges", () => {
+  function withRuns(count: number): BadgeSnapshot {
+    return {
+      ...emptySnapshot(),
+      runs: Array.from({ length: count }, (_, i) => finishedRun(i)),
+    };
+  }
+
+  test("speedrunner needs one finished run and dates it", () => {
+    expect(earnedBadges(withRuns(0)).map((b) => b.id)).not.toContain(
+      "speedrunner",
+    );
+    expect(badgeProgress("speedrunner", withRuns(0))).toEqual([0, 1]);
+
+    const earned = earnedBadges(withRuns(1));
+    expect(earned.find((b) => b.id === "speedrunner")?.earnedAt).toBe(
+      FIXED_NOW.toISOString(),
+    );
+    expect(badgeProgress("speedrunner", withRuns(1))).toEqual([1, 1]);
+  });
+
+  test("speed-demon flips between 9 and 10 finished runs", () => {
+    expect(earnedBadges(withRuns(9)).map((b) => b.id)).not.toContain(
+      "speed-demon",
+    );
+    expect(badgeProgress("speed-demon", withRuns(9))).toEqual([9, 10]);
+
+    const earned = earnedBadges(withRuns(10));
+    expect(earned.map((b) => b.id)).toContain("speed-demon");
+    expect(earned.find((b) => b.id === "speed-demon")?.earnedAt).toBe(
+      new Date(FIXED_NOW.getTime() + 9 * 60_000).toISOString(),
+    );
+  });
+
+  test("abandoned runs are not completions", () => {
+    const snapshot: BadgeSnapshot = {
+      ...emptySnapshot(),
+      runs: [{ ...finishedRun(0), status: "abandoned" }],
+    };
+    expect(earnedBadges(snapshot)).toHaveLength(0);
+    expect(badgeProgress("speedrunner", snapshot)).toEqual([0, 1]);
+  });
+});
+
+describe("bug hunt quest", () => {
+  function dayWithBugHuntQuest(): Date | null {
+    for (let offset = 0; offset < 30; offset += 1) {
+      const now = new Date(2026, 0, 14 + offset, 12, 0, 0, 0);
+      if (
+        getDailyQuests(emptySnapshot(now)).some(
+          (quest) => quest.id === "bug-hunt",
+        )
+      ) {
+        return now;
+      }
+    }
+    return null;
+  }
+
+  test("completes for a clean round on the same day, not another day", () => {
+    const day = dayWithBugHuntQuest();
+    expect(
+      day,
+      "expected a day whose quest pick includes a bug hunt",
+    ).not.toBeNull();
+    if (!day) return;
+
+    const yesterday = new Date(day.getTime() - 86_400_000);
+    const roundOn = (date: Date, clean: boolean): BugRound => ({
+      problemId: `al-${date.getTime()}`,
+      category: "off-by-one",
+      lineOk: clean,
+      reasonOk: clean,
+      clean,
+      at: date.toISOString(),
+    });
+
+    const stale = getDailyQuests({
+      ...emptySnapshot(day),
+      bugHunts: [roundOn(yesterday, true)],
+    }).find((quest) => quest.id === "bug-hunt");
+    expect(stale?.done).toBe(false);
+    expect(stale?.progress).toBe(0);
+
+    const dirty = getDailyQuests({
+      ...emptySnapshot(day),
+      bugHunts: [roundOn(day, false)],
+    }).find((quest) => quest.id === "bug-hunt");
+    expect(dirty?.done).toBe(false);
+    expect(dirty?.progress).toBe(0);
+
+    const clean = getDailyQuests({
+      ...emptySnapshot(day),
+      bugHunts: [roundOn(day, true)],
+    }).find((quest) => quest.id === "bug-hunt");
+    expect(clean?.done).toBe(true);
+    expect(clean?.progress).toBe(1);
+  });
+});
+
+describe("activity heatmap sources", () => {
+  test("counts bug hunts and finished runs without restructuring", () => {
+    const todayKey = getDailyDateKey(FIXED_NOW);
+    const snapshot: BadgeSnapshot = {
+      ...emptySnapshot(),
+      bugHunts: [
+        ...cleanHunts(2),
+        { ...cleanHunts(1)[0], problemId: "bug-dirty", clean: false, lineOk: false },
+      ],
+      runs: [finishedRun(0)],
+    };
+
+    const days = getActivityHeatmap(52, snapshot);
+    expect(days).toHaveLength(364);
+    const today = days.find((entry) => entry.date === todayKey);
+    expect(today?.count).toBe(4);
+    expect(today?.level).toBe(3);
+  });
+
+  test("a dirty round still marks the day, an abandoned run does not", () => {
+    const todayKey = getDailyDateKey(FIXED_NOW);
+    const dirty = getActivityHeatmap(52, {
+      ...emptySnapshot(),
+      bugHunts: [{ ...cleanHunts(1)[0], clean: false }],
+    }).find((entry) => entry.date === todayKey);
+    expect(dirty?.count).toBe(1);
+    expect(dirty?.level).toBe(1);
+
+    const abandoned = getActivityHeatmap(52, {
+      ...emptySnapshot(),
+      runs: [{ ...finishedRun(0), status: "abandoned" }],
+    }).find((entry) => entry.date === todayKey);
+    expect(abandoned?.count).toBe(0);
+    expect(abandoned?.level).toBe(0);
+  });
+});
+
+describe("junk bug hunt and run payloads", () => {
+  test("malformed entries are treated as absent and never throw", () => {
+    const junk = {
+      ...emptySnapshot(),
+      bugHunts: [
+        null,
+        42,
+        "nope",
+        {},
+        { at: 123 },
+        { at: "not-a-date", clean: true },
+        { at: SOLVED_AT, clean: "yes" },
+      ],
+      runs: [
+        null,
+        {},
+        { status: "finished", startedAt: Number.NaN },
+        { status: "finished", startedAt: -1 },
+        { status: "finished", startedAt: "soon" },
+        { status: "abandoned", startedAt: FIXED_NOW.getTime() },
+      ],
+    } as unknown as BadgeSnapshot;
+
+    expect(earnedBadges(junk)).toHaveLength(0);
+    expect(getTotals(junk).badges).toBe(0);
+    expect(getDailyQuests(junk)).toHaveLength(3);
+
+    const todayKey = getDailyDateKey(FIXED_NOW);
+    const today = getActivityHeatmap(52, junk).find(
+      (entry) => entry.date === todayKey,
+    );
+    // The one entry with a parseable `at` still counts as activity, but its
+    // junk `clean` value never earns a hunt badge.
+    expect(today?.count).toBe(1);
+  });
+
+  test("a snapshot missing the new fields entirely is safe", () => {
+    const missing = {
+      ...emptySnapshot(),
+      bugHunts: undefined,
+      runs: undefined,
+    } as unknown as BadgeSnapshot;
+    expect(earnedBadges(missing)).toHaveLength(0);
+    expect(getDailyQuests(missing)).toHaveLength(3);
+    expect(getTotals(missing).badges).toBe(0);
+    expect(getActivityHeatmap(52, missing)).toHaveLength(364);
   });
 });

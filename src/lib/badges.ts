@@ -23,8 +23,10 @@ import {
 import { LABS } from "@/data/labs";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { getDailyDateKey, getDailyState, type DailyState } from "@/lib/daily";
+import { getBugRounds, type BugRound } from "@/lib/bugHunt";
 import { getLabRecords, type LabRecords } from "@/lib/labs";
 import { getResearchState, type ResearchState } from "@/lib/research";
+import { getRunHistory, type RunState } from "@/lib/runs";
 import { getContestResults, type ContestResult } from "@/lib/contestStore";
 import { getCurrentStreak, getLongestStreak } from "@/lib/leaderboard";
 import type { Category, Difficulty, Problem } from "@/types/problem";
@@ -73,6 +75,10 @@ export interface BadgeSnapshot {
   labs: LabRecords;
   research: ResearchState;
   contests: ContestResult[];
+  /** Bug-hunt history (newest or oldest first; derived sorts it). */
+  bugHunts: BugRound[];
+  /** Speedrun history, newest first as `getRunHistory` returns it. */
+  runs: RunState[];
   now: Date;
 }
 
@@ -187,6 +193,8 @@ export function getBadgeSnapshot(): BadgeSnapshot {
     labs: getLabRecords(),
     research: getResearchState(),
     contests: getContestResults(),
+    bugHunts: getBugRounds(),
+    runs: getRunHistory(),
     now: new Date(),
   };
 }
@@ -198,9 +206,25 @@ interface SolveEntry {
   at: Date;
 }
 
+interface BugHuntEntry {
+  at: Date;
+  clean: boolean;
+}
+
+/** A finished speedrun, dated by its start (the only real timestamp). */
+interface FinishedRunEntry {
+  at: Date;
+}
+
 interface Derived {
   solved: ProblemMeta[];
   entries: SolveEntry[];
+  /** Valid bug-hunt rounds, oldest first. */
+  bugHunts: BugHuntEntry[];
+  /** The `clean === true` subset of `bugHunts`, oldest first. */
+  cleanBugHunts: BugHuntEntry[];
+  /** Finished speedruns (abandoned ones excluded), oldest first. */
+  finishedRuns: FinishedRunEntry[];
   byDifficulty: Record<Difficulty, number>;
   solvedByCategory: Map<Category, number>;
   longestStreak: number;
@@ -225,6 +249,51 @@ const CATEGORY_TOTALS: ReadonlyMap<Category, number> = (() => {
   }
   return totals;
 })();
+
+/**
+ * Sanitize a snapshot's bug-hunt history. Entries that are not objects or
+ * lack a parseable `at` are treated as absent; `clean` counts only when it
+ * is exactly `true`. Sorted oldest first.
+ */
+function sanitizeBugHunts(value: unknown): BugHuntEntry[] {
+  if (!Array.isArray(value)) return [];
+  const entries: BugHuntEntry[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const record = raw as Record<string, unknown>;
+    if (typeof record.at !== "string") continue;
+    const at = parseIso(record.at);
+    if (!at) continue;
+    entries.push({ at, clean: record.clean === true });
+  }
+  entries.sort((a, b) => a.at.getTime() - b.at.getTime());
+  return entries;
+}
+
+/**
+ * Sanitize a snapshot's run history: only finished runs with a real start
+ * time count. Everything else is treated as absent. Sorted oldest first.
+ */
+function sanitizeFinishedRuns(value: unknown): FinishedRunEntry[] {
+  if (!Array.isArray(value)) return [];
+  const entries: FinishedRunEntry[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const record = raw as Record<string, unknown>;
+    if (record.status !== "finished") continue;
+    const startedAt = record.startedAt;
+    if (
+      typeof startedAt !== "number" ||
+      !Number.isFinite(startedAt) ||
+      startedAt <= 0
+    ) {
+      continue;
+    }
+    entries.push({ at: new Date(startedAt) });
+  }
+  entries.sort((a, b) => a.at.getTime() - b.at.getTime());
+  return entries;
+}
 
 function derive(snapshot: BadgeSnapshot): Derived {
   const cached = DERIVED_CACHE.get(snapshot);
@@ -302,9 +371,16 @@ function derive(snapshot: BadgeSnapshot): Derived {
     (state) => state?.beatenBaseline === true,
   ).length;
 
+  const bugHunts = sanitizeBugHunts(snapshot.bugHunts);
+  const cleanBugHunts = bugHunts.filter((entry) => entry.clean);
+  const finishedRuns = sanitizeFinishedRuns(snapshot.runs);
+
   const result: Derived = {
     solved,
     entries,
+    bugHunts,
+    cleanBugHunts,
+    finishedRuns,
     byDifficulty,
     solvedByCategory,
     longestStreak: getLongestStreak(snapshot.progress),
@@ -549,6 +625,46 @@ export const BADGE_CATALOG: Badge[] = [
     rule: (s) => s.contests.length >= 1,
     progress: (s) => [clamp(s.contests.length, 1), 1],
   },
+  {
+    id: "bug-slayer",
+    name: "Bug Slayer",
+    description: "Land your first clean bug hunt.",
+    tier: "bronze",
+    rule: (s) => derive(s).cleanBugHunts.length >= 1,
+    progress: (s) => [clamp(derive(s).cleanBugHunts.length, 1), 1],
+  },
+  {
+    id: "exterminator",
+    name: "Exterminator",
+    description: "Land 10 clean bug hunts.",
+    tier: "silver",
+    rule: (s) => derive(s).cleanBugHunts.length >= 10,
+    progress: (s) => [clamp(derive(s).cleanBugHunts.length, 10), 10],
+  },
+  {
+    id: "flawless",
+    name: "Flawless",
+    description: "Land 25 clean bug hunts.",
+    tier: "gold",
+    rule: (s) => derive(s).cleanBugHunts.length >= 25,
+    progress: (s) => [clamp(derive(s).cleanBugHunts.length, 25), 25],
+  },
+  {
+    id: "speedrunner",
+    name: "Speedrunner",
+    description: "Finish a speedrun.",
+    tier: "bronze",
+    rule: (s) => derive(s).finishedRuns.length >= 1,
+    progress: (s) => [clamp(derive(s).finishedRuns.length, 1), 1],
+  },
+  {
+    id: "speed-demon",
+    name: "Speed Demon",
+    description: "Finish 10 speedruns.",
+    tier: "silver",
+    rule: (s) => derive(s).finishedRuns.length >= 10,
+    progress: (s) => [clamp(derive(s).finishedRuns.length, 10), 10],
+  },
 ];
 
 export const TOTAL_BADGES = BADGE_CATALOG.length;
@@ -587,6 +703,15 @@ function nthSolveAt(
   const list = predicate ? entries.filter(predicate) : entries;
   if (target < 1 || list.length < target) return null;
   return list[target - 1].at.toISOString();
+}
+
+/** ISO timestamp of the `target`-th (1-based) dated entry, oldest first. */
+function nthDatedAt(
+  entries: ReadonlyArray<{ at: Date }>,
+  target: number,
+): string | null {
+  if (target < 1 || entries.length < target) return null;
+  return entries[target - 1].at.toISOString();
 }
 
 /** The moment all three difficulty counters reached 25, if they did. */
@@ -683,7 +808,8 @@ function streakEndKey(dayKeys: string[], target: number): string | null {
 }
 
 function deriveEarnedAt(id: string, snapshot: BadgeSnapshot): string | null {
-  const { entries } = derive(snapshot);
+  const derived = derive(snapshot);
+  const { entries } = derived;
   switch (id) {
     case "first-blood":
       return nthSolveAt(entries, 1);
@@ -744,6 +870,16 @@ function deriveEarnedAt(id: string, snapshot: BadgeSnapshot): string | null {
       }
       return earliest === null ? null : new Date(earliest).toISOString();
     }
+    case "bug-slayer":
+      return nthDatedAt(derived.cleanBugHunts, 1);
+    case "exterminator":
+      return nthDatedAt(derived.cleanBugHunts, 10);
+    case "flawless":
+      return nthDatedAt(derived.cleanBugHunts, 25);
+    case "speedrunner":
+      return nthDatedAt(derived.finishedRuns, 1);
+    case "speed-demon":
+      return nthDatedAt(derived.finishedRuns, 10);
     default:
       // Lab and research milestones have no timestamps in their stores —
       // these are first-seen stamped instead.
@@ -916,6 +1052,15 @@ function researchAttemptsOnDay(snapshot: BadgeSnapshot, dayKey: string): number 
   return count;
 }
 
+/** Clean bug-hunt rounds locked in on this calendar day. */
+function cleanBugHuntsOnDay(derived: Derived, dayKey: string): number {
+  let count = 0;
+  for (const entry of derived.cleanBugHunts) {
+    if (getDailyDateKey(entry.at) === dayKey) count += 1;
+  }
+  return count;
+}
+
 /** Was any lab scored on this calendar day? */
 function labsRunOnDay(snapshot: BadgeSnapshot, dayKey: string): number {
   for (const record of Object.values(snapshot.labs)) {
@@ -984,6 +1129,13 @@ const QUEST_POOL: QuestDefinition[] = [
     detail: "Solves and research runs count.",
     target: 100,
     measure: (snapshot, derived, dayKey) => xpOnDay(snapshot, derived, dayKey),
+  },
+  {
+    id: "bug-hunt",
+    label: "Land a clean bug hunt",
+    detail: "Exact line and solid reasoning.",
+    target: 1,
+    measure: (_snapshot, derived, dayKey) => cleanBugHuntsOnDay(derived, dayKey),
   },
 ];
 
@@ -1072,15 +1224,18 @@ function heatLevel(count: number): HeatmapLevel {
 
 /**
  * A `weeks`-long calendar ending on the current week, one entry per day,
- * oldest first. Counts merge solves (progress.solvedAt), daily completions
- * and research attempts; a day present in daily.solvedDates but absent from
- * progress still counts once, so the sources never double-count.
+ * oldest first. Counts merge solves (progress.solvedAt), daily completions,
+ * research attempts, bug-hunt rounds (clean or not) and finished speedruns;
+ * a day present in daily.solvedDates but absent from progress still counts
+ * once, so the sources never double-count. A speedrun lands on the day it
+ * started — the only real timestamp its record holds.
  */
 export function getActivityHeatmap(
   weeks = 52,
   snapshot: BadgeSnapshot = getBadgeSnapshot(),
 ): HeatmapDay[] {
   const counts = new Map<string, number>();
+  const derived = derive(snapshot);
 
   for (const record of Object.values(snapshot.progress)) {
     if (!record?.solvedAt) continue;
@@ -1098,6 +1253,16 @@ export function getActivityHeatmap(
       const key = getDailyDateKey(at);
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
+  }
+
+  for (const entry of derived.bugHunts) {
+    const key = getDailyDateKey(entry.at);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  for (const entry of derived.finishedRuns) {
+    const key = getDailyDateKey(entry.at);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
   for (const key of snapshot.daily.solvedDates) {

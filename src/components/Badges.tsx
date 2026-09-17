@@ -65,6 +65,8 @@ const PROFILE_EVENTS = [
   "deepforge:research-change",
   "deepforge:contest-change",
   "deepforge:username-change",
+  "deepforge:bug-hunt-change",
+  "deepforge:runs-change",
 ];
 
 let cached: ProfileData | null = null;
@@ -734,7 +736,8 @@ export function Badges() {
           <div>
             <h3 className="text-base font-semibold text-ink">Activity</h3>
             <p className="mt-0.5 text-xs text-body-mid">
-              Last 52 weeks — solves, dailies, and research runs.
+              Last 52 weeks — solves, dailies, research runs, bug hunts, and
+              speedruns.
             </p>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-body-mid">
