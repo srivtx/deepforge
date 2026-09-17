@@ -8,7 +8,7 @@
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg?style=flat-square&logo=typescript)
 ![Pyodide](https://img.shields.io/badge/Pyodide-0.26-3776AB.svg?style=flat-square&logo=python)
-![Problems](https://img.shields.io/badge/Problems-5%2C550-7FFF9F.svg?style=flat-square)
+![Problems](https://img.shields.io/badge/Problems-5%2C730-7FFF9F.svg?style=flat-square)
 ![Categories](https://img.shields.io/badge/Categories-15-507aa4.svg?style=flat-square)
 ![Learning paths](https://img.shields.io/badge/Learning%20paths-33-507aa4.svg?style=flat-square)
 
@@ -20,13 +20,13 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 
 ## Why DeepForge
 
-- **Verified from scratch** — 5,550 problems, every single solution executed in real Python (1e-6 deep-equality) before it ships
+- **Verified from scratch** — 5,730 problems, every single solution executed in real Python (1e-6 deep-equality) before it ships
 - **Runs in your browser** — Pyodide executes your code client-side; nothing to install, works offline once warm
 - **Local-first, sync optional** — no account needed; sign in with a magic link or Google only if you want cross-device progress, a global leaderboard, and shared discussions
-- **Real curriculum** — 33 learning paths with stages, goals, resolved prerequisites, adaptive per-stage checkpoints, and a mini-project artifact per stage, each with its own page
+- **Real curriculum** — 33 learning paths with stages, goals, resolved prerequisites, adaptive per-stage checkpoints, a mini-project artifact per stage, a verified capstone (project, lab, contest, collection, or pen-and-paper set) per path, each with its own page
 - **Beyond problems** — labs, research benchmarks, timed contests, speedruns, sims, notebook mode, and spaced-repetition review across code and pen-and-paper math
-- **Fast by design** — a light problem index keeps the landing page at ~352 KB gzip; the full bank loads on demand
-- **Discoverable** — 5,550 statically generated problem pages, 15 category hubs, 33 path pages, JSON-LD, OG images, sitemap, RSS
+- **Fast by design** — a light problem index keeps the landing page at ~276 KB gzip; the full bank loads on demand
+- **Discoverable** — 5,730 statically generated problem pages, 15 category hubs, 33 path pages, JSON-LD, OG images, sitemap, RSS
 - **Open source** — MIT, file-based content, verifiable and diffable
 
 ## Categories (15)
@@ -37,45 +37,47 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 | ML Fundamentals | 360 | | NLP | 420 |
 | Data Structures | 355 | | Statistics | 420 |
 | Computer Vision | 395 | | Probability | 420 |
-| Linear Algebra | 275 | | Calculus | 375 |
-| Deep Learning | 455 | | Graph Algorithms | 315 |
-| Reinforcement Learning | 360 | | Information Theory | 315 |
-| Time Series | 315 | | **Total** | **5,550** |
+| Linear Algebra | 320 | | Calculus | 375 |
+| Deep Learning | 455 | | Graph Algorithms | 360 |
+| Reinforcement Learning | 360 | | Information Theory | 360 |
+| Time Series | 360 | | **Total** | **5,730** |
 
 ## Features
 
-- **Problems** — code editor, in-browser Pyodide execution, test cases, one-line hints, saved code per problem
-- **Paths** — 33 curated learning paths with stages, goals, resolved prerequisites, adaptive per-stage checkpoints (boss sets that react to your last attempt), a mini-project artifact per stage, and progress; every path has a detail page
-- **Today & review queue** — one zero-decision daily session: spaced repetition for code you have solved (SM-2 style, due/learning/new buckets), a weak-area pick, the daily problem, streak, and quests
+- **Problems** — code editor, in-browser Pyodide execution, test cases, a tiered hint budget (approach after 1 failed run or 3 min; full solution after 2 or 6), saved code per problem
+- **Paths** — 33 curated learning paths with stages, goals, resolved prerequisites, adaptive per-stage checkpoints (boss sets that react to your last attempt), a mini-project artifact per stage, a capstone per path, and progress; every path has a detail page
+- **Today & review queue** — one zero-decision daily session: spaced repetition for code you have solved (SM-2 style, due/learning/new buckets), lab re-runs and math concepts that come due with inline grading, a weak-area pick, the daily problem, a placement plan, a stage-checkpoint-ready row, and a transparent "Do this next" pick
 - **Onboarding** — a three-minute diagnostic at `/start` that recommends paths, a first problem set, and a daily target
-- **Projects** — 5 multi-step builds: GPT from scratch, neural network framework, search engine, recommender, CNN
+- **Projects** — 5 multi-step builds: GPT from scratch, neural network framework, search engine, recommender, CNN — each with a detail page
 - **Labs** — 8 dataset-driven challenges with metrics, baselines, and time limits, scored in-browser
 - **Research** — 5 beat-the-baseline benchmarks against hidden test sets, best submissions saved locally
 - **Contests** — 12 timed sets (10–60 min) with countdown, difficulty-weighted scoring, and local results
-- **Speedrun** — seeded timed solve-a-thons with shareable run codes and ghost races
+- **Speedrun** — seeded timed solve-a-thons with shareable run codes, ghost races, and a one-click drill playlist built from your misses
 - **Collections** — 24 premade sets with detail pages, plus user-created collections and shareable URLs
 - **Playlists** — build, reorder, share, and fork problem playlists via compact `?playlist=` codes
 - **Interview Prep** — 13 company tracks with paced practice, timed mocks, and an agentic round (instruct, review the plan, verify, diagnose the fix) against a deterministic copilot
 - **Pen & Paper Math** — 60 no-code problems (multiple choice + numeric) with SM-2 mastery review
 - **Notebook mode** — per-cell Python execution with run-all and test validation, persisted per problem
 - **Self-explanation** — after a solve, explain the key step in your own words before moving on; graded deterministically, no model or network
-- **Spot the bug** — find and explain a seeded mutation of a verified solution, test-checked before it is shown
-- **Sims** — optimizer race, neural-net trainer with decision boundary, Dijkstra step-through
-- **Articles** — 14 interactive lessons with live demos (softmax temperature, eigenvectors, gradient descent, k-means, attention, BPE tokenization, embeddings, quantization, KV cache & FlashAttention, RAG chunk retrieval, post-training RLHF/DPO/GRPO, PCA/SVD projection, calibration & uncertainty, LoRA rank) and a figure for every topic
+- **Spot the bug** — find and explain a seeded mutation of a verified solution, test-checked before it is shown; rounds are tracked across devices with bug-slayer, exterminator, and flawless badges plus a daily quest
+- **Sims** — optimizer race, neural-net trainer with decision boundary, Dijkstra step-through — each with a deterministic intuition check
+- **Articles** — 14 interactive lessons with live demos (softmax temperature, eigenvectors, gradient descent, k-means, attention, BPE tokenization, embeddings, quantization, KV cache & FlashAttention, RAG chunk retrieval, post-training RLHF/DPO/GRPO, PCA/SVD projection, calibration & uncertainty, LoRA rank), a figure for every topic, and a "predict the readout" kernel question per lesson
 - **Blog** — 4 engineering write-ups with SVG diagrams and RSS at `/blog`
 - **Discuss** — paginated forum with threads, replies, upvotes, problem references, and live updates; server-backed when signed in
 - **Problem comments** — per-problem discussion with upvotes, load-more pagination, and live updates on the problem page
 - **Study groups** — local-first groups with join codes, shared weekly activity, and buddy nudges; syncs through Supabase when signed in
-- **Zero assistant** — catalogue-grounded study coach: recommends problems, explains concepts, reviews your code, builds playlists
-- **Profile & badges** — 24 badges, XP/levels, 52-week heatmap, deterministic daily quests, streak card, username editing, and trait-based generative avatars with 12 character presets across two art styles (Illustrated + Pixel), plus photo upload (synced to Supabase Storage when signed in)
-- **Stats & readiness** — personal dashboard with trends, records, mastery estimate, and a 0–100 readiness score (coverage, retention, balance, consistency) with target-date projection
-- **Certificates** — printable/PNG certificates whose tamper-evident codes verify offline at `/verify`
-- **Streak shields & reminders** — shields cover a missed calendar day; opt-in local reminders for streak, reviews due, and a daily digest
+- **Zero assistant** — catalogue-grounded study coach mounted on every route (hide-to-dot with a saved preference): recommends problems, explains concepts, reviews your code, builds playlists, and answers what's due / am I ready; context-aware prompt chips on problem pages
+- **Profile & badges** — 29 badges including bug-slayer, exterminator, flawless, speedrunner, and speed-demon, XP/levels, a 52-week heatmap that counts solves, clean bug hunts, and finished speedruns, deterministic daily quests, streak card, username editing, and trait-based generative avatars with 12 character presets across two art styles (Illustrated + Pixel), plus photo upload (synced to Supabase Storage when signed in)
+- **Stats & readiness** — personal dashboard with trends, records, mastery estimate, a review-health card, a this-week digest, and a 0–100 readiness score (coverage, retention, balance, consistency) with target-date projection
+- **Certificates** — printable/PNG certificates (path, collection, category, lab, project, and interview kinds) whose tamper-evident codes verify offline at `/verify`
+- **Streak shields & reminders** — one solve streak shown everywhere (the daily-challenge chain is labeled separately); shields cover a missed calendar day; opt-in local reminders for streak, reviews due, and a daily digest
 - **Submit a Problem** — author problems locally, validate with real Python, export ready-to-paste TS
-- **Leaderboard** — Flame Score (Easy 1, Medium 3, Hard 5), streaks, username; global view when signed in
+- **Leaderboard** — Flame Score (Easy 1, Medium 3, Hard 5), streaks, username, and a weekly mode (Monday-local week, bots rotate each week); global view when signed in
+- **Search & shortcuts** — command palette over problems, paths, articles, and blog with quick actions; g-sequences and a `?` overlay for every shortcut
+- **Backup** — full local export/import with an audited inventory of every stored key and documented exclusions
 - **Sync** — local-first progress/streaks/collections sync through Supabase (magic link or Google) when you opt in
 - **Accessibility** — keyboard pass across dialogs, menus, comment threads, and the command palette: Tab containment, Escape-to-close, focus-visible rings, and aria-live status
-- **PWA** — installable, offline shell with route fallback, service worker that never caches dev assets
+- **PWA** — installable, offline shell v4 with a per-route fallback (verified by a route-inventory test), service worker that never caches dev assets
 
 ## Optional: sync & accounts
 
@@ -92,7 +94,7 @@ See [`docs/SETUP-SUPABASE.md`](./docs/SETUP-SUPABASE.md) for schema, RLS, and au
 
 - Next.js 16 + TypeScript 5 (App Router)
 - Tailwind CSS 4
-- Pyodide v0.26 (in-browser Python, lazy-loaded)
+- Pyodide v0.26 (in-browser Python, lazy-loaded, Web Worker by default with a main-thread fallback)
 - Supabase (optional sync/social; `@supabase/supabase-js`)
 - next-themes (dark default, x.ai-style light toggle)
 - Inter + JetBrains Mono
@@ -104,13 +106,15 @@ Measured with `bun run scripts/measure-bundle.ts` (gzip first-load JS):
 
 | Route | Before light index | Now |
 |---|---:|---:|
-| `/` | 1,553 KB | **352.2 KB** |
-| `/problems` | 1,499 KB | **313.7 KB** |
-| `/about` | 1,497 KB | **240.0 KB** |
-| `/stats` | 1,572 KB | **373.5 KB** |
+| `/` | 1,553 KB | **276.3 KB** |
+| `/problems` | 1,499 KB | **318.9 KB** |
+| `/about` | 1,497 KB | **243.2 KB** |
+| `/stats` | 1,572 KB | **403.5 KB** |
 
 The 5 MB problem bank is a lazy chunk; pages use a generated light index
 (`src/data/problems/problem-meta.ts`) and load full problem payloads on demand.
+The landing page came down further because Zero now mounts lazily and the
+duplicated home mount was removed.
 
 ## Project Layout
 
@@ -119,7 +123,7 @@ src/
 ├── app/                      # routes: /problems, /paths, /labs, /blog, /collections, ...
 ├── components/               # UI + motion/ (Aurora, Reveal, CountUp) + blog/ (prose, diagrams)
 ├── data/
-│   ├── problems/             # 15 categories · 5,550 problems · paths.ts · generated problem-meta.ts
+│   ├── problems/             # 15 categories · 5,730 problems · paths.ts · generated problem-meta.ts
 │   ├── blog/                 # engineering posts (TSX) + registry
 │   ├── contests.ts · projects.ts · interview.ts · penpaper.ts · collections.ts · articles.ts
 ├── lib/
@@ -135,15 +139,15 @@ docs/                         # DESIGN-SYSTEM, SETUP-SUPABASE, research, plans
 ## Verification
 
 ```bash
-bun run scripts/verify-problems.ts        # real-Python execution of all 5,550 solutions
-bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids
+bun run scripts/verify-problems.ts        # real-Python execution of all 5,730 solutions
+bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids, capstones
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 672 unit tests
+bun test                                  # 1,082 unit tests
 bun run build
 bunx next start -p 3099 &                 # production server the smoke suite expects
-bun run scripts/e2e-smoke.mjs             # 142-check end-to-end smoke against :3099
+bun run scripts/e2e-smoke.mjs             # 148-check end-to-end smoke against :3099
 ```
 
 ## Quick Start

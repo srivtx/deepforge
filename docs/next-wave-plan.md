@@ -1,6 +1,6 @@
 # DeepForge — Next Wave Plan
 
-Written 2026-09-13; refreshed 2026-09-14 after waves 27–29.
+Written 2026-09-13; refreshed 2026-09-14 after waves 27–29 and 2026-09-17 after wave 32.
 Scope: deploy, SEO truth, Supabase verification, and the wave-2 feature shortlist.
 This is a working plan: shipped work is folded into the snapshot and is not repeated as tasks.
 
@@ -10,23 +10,27 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 
 | # | Area | Status | Notes |
 |---|------|--------|-------|
-| 1 | Problem bank | Done | 5,550 across 15 categories · 1,994 Easy / 2,473 Medium / 1,083 Hard |
-| 2 | Quality gates | Done, in CI | `verify-problems.ts` (real Python) + `verify-paths.ts` + `verify-paths-content.ts`; 672+ `bun test` greens; GitHub Actions (`.github/workflows/ci.yml`) runs every gate, the build, and the 142-check e2e smoke |
-| 3 | Routes | Done | 27 user-facing destinations incl. `/today` and `/verify`; section modals retired; home is a short landing |
-| 4 | Learning paths | Done | 33 curated paths with stages, checkpoints, resolved prerequisites, artifacts, and hours |
+| 1 | Problem bank | Done | 5,730 across 15 categories · 2,058 Easy / 2,553 Medium / 1,119 Hard |
+| 2 | Quality gates | Done, in CI | `verify-problems.ts` (real Python) + `verify-paths.ts` (capstones 33/33) + `verify-paths-content.ts`; 1,082 `bun test` greens; GitHub Actions (`.github/workflows/ci.yml`) runs every gate, the build, and the 148-check e2e smoke |
+| 3 | Routes | Done | 27 user-facing destinations incl. `/today` and `/verify`; projects have detail pages at `/projects/[id]`; section modals retired; home is a short landing |
+| 4 | Learning paths | Done | 33 curated paths with stages, checkpoints, resolved prerequisites, artifacts, hours, and a verified capstone each (33/33) |
 | 5 | Supabase schema | Live | Project `klogjcspyiygnggmugjy`; 3 migrations incl. hardening (indexes, posting rate limit, RLS tightening) |
-| 6 | Sync engine | Done | Local-first adapters + remote merge (`src/lib/sync/*`), SyncPanel, offline-safe env gating |
+| 6 | Sync engine | Done | Local-first adapters + remote merge (`src/lib/sync/*`), SyncPanel, offline-safe env gating; concept, agentic-attempt, and bug-hunt stores merge per their own rules (later due/at wins, sanitized) |
 | 7 | Auth | Code done, config open | Magic link + Google OAuth client shipped; provider + redirect URLs pending (U-1..U-3) |
-| 8 | Leaderboard | Live | Reads the live `leaderboard` view when signed in; local bots remain the offline fallback |
+| 8 | Leaderboard | Live | Reads the live `leaderboard` view when signed in; weekly mode (Monday-local week, bots rotate each week); local bots remain the offline fallback |
 | 9 | Discuss / comments | Done | Forum pagination + realtime, plus a per-problem comments UI (`src/components/ProblemComments.tsx`) |
-| 10 | Social scale | Done | `postgres_changes` subscriptions with teardown + cursor pagination in `src/lib/sync/social.ts` |
-| 11 | Performance | Done | Light problem index + per-route picks (daily, leaderboard scoring); home 352 KB gzip (from 1,553 KB); gzip budgets enforced by `scripts/measure-bundle.ts --check` |
+| 10 | Social scale | Done | `postgres_changes` subscriptions with teardown + cursor pagination in `src/lib/sync/social.ts`; local-first study groups with join codes and buddy nudges (Supabase-backed when signed in) |
+| 11 | Performance | Done | Light problem index, per-route picks (daily problem, leaderboard scoring), and a lazy Zero mount; home 276 KB gzip (from 1,553 KB); gzip budgets enforced by `scripts/measure-bundle.ts --check` (4/4 PASS) |
 | 12 | Deploy | Open | No Vercel project; `NEXT_PUBLIC_SITE_URL` still falls back to `deepforge.app` |
 | 13 | SEO | Done | `layout.tsx` and `manifest.ts` derive the count from the generated index; `sitemap.ts` derives `lastModified` (blog posts use publish dates, the rest the build date) and lists `/today`; deploy-time origin check rides with NW-01 |
-| 14 | PWA / offline | Done | SW v3: per-route offline fallback + “update available” prompt (`PwaManager.tsx`) |
+| 14 | PWA / offline | Done | SW v4: per-route offline fallback verified by a route-inventory test (`tests/offline.test.ts`) + “update available” prompt (`PwaManager.tsx`) |
 | 15 | Accessibility | Done | Keyboard/focus pass shipped across dialogs, menus, palette, and threads; full screen-reader + contrast sweep remains |
-| 16 | Certificates | Phase 1 shipped | Printable/PNG certificates + SHA-256 code + `/verify/<code>`; server-signed credentials are the follow-up |
-| 17 | Habit layer | Done | Review queue, `/today`, streak shields, opt-in reminders, readiness projection, self-explanation gate, spot-the-bug |
+| 16 | Certificates | Phase 1 shipped | Printable/PNG certificates (path, collection, category, lab, project, interview) + SHA-256 code + `/verify/<code>`; server-signed credentials are the follow-up |
+| 17 | Habit layer | Done | Review queue, `/today` v2 (lab re-runs + math concepts due with inline grading, placement plan, stage-checkpoint row, "Do this next" ranker), one solve streak, streak shields, opt-in reminders, tiered hint budget, review health + weekly digest, bug hunts with badges, self-explanation gate, spot-the-bug |
+| 18 | Study assistant | Done | Zero mounted on every route (lazy client wrapper), hide-to-dot with a saved preference, context-aware prompt chips on problem pages, 8 intents incl. what's due / am I ready |
+| 19 | Search & shortcuts | Done | Palette search across problems, paths, articles, and blog (generated light article index) + quick actions; g-sequences and a `?` overlay |
+| 20 | Pyodide execution | Done | Web Worker by default with a main-thread fallback (`deepforge:pyodide-worker=off` opts out); lazy loader + SW cache retained |
+| 21 | Content polish | Done | Sim intuition checks, article "predict the readout" kernels, full local backup inventory with audited exclusions, speedrun misses drill playlist |
 
 ---
 
@@ -68,7 +72,7 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 - Why: nothing is public yet; deploy is the gate for live SEO/auth verification.
 - Files: new `docs/DEPLOY-VERCEL.md`, `.env.example` comment, `README.md` (deploy section), optional `vercel.json`.
 - Accept: `bun run build` clean with and without Supabase env; preview serves `/`, `/problems/[id]`, `/paths/[slug]`, `/discuss`, `/verify`; smoke checklist signed off; built HTML contains no `deepforge.app` fallback origin.
-- Gate: build + 142-check smoke against the preview + `curl -sI` 200s.
+- Gate: build + 148-check smoke against the preview + `curl -sI` 200s.
 
 **NW-09R · Two-account RLS verification** · `S` · deps: U-2, U-3, NW-01
 - Why: the hardening migration is written, but no second account has ever exercised the policies.
@@ -81,7 +85,7 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 - Accept: Google button → consent → back on origin with a session; progress round-trips across two browsers; disabled-provider error renders inline.
 
 **NW-12 · Docs truth pass on research notes** · `S` · deps: none
-- Why: `docs/research/article-topics.md` still describes a 5,050-problem catalogue and 5 articles; `docs/research/path-curation.md` recommendations 1, 3 (partial) and 5 shipped without a note.
+- Why: `docs/research/article-topics.md` still describes a 5,050-problem catalogue and 5 articles (5,730 and 14 now); `docs/research/path-curation.md` still says 28 paths and predates shipped recommendations 1, 2, 3 (partial), and 5, plus capstones. Remaining gap: mixed-kind path steps stay open there.
 - Files: `docs/research/article-topics.md` (refresh “where the library is now”), `docs/research/path-curation.md` (mark shipped recommendations).
 - Accept: both docs agree with `README.md`/`AGENT_CONTEXT.md` counts; no plan items presented as open when shipped.
 
@@ -95,11 +99,8 @@ Detail and sourcing live in [`docs/research/feature-gaps-2026.md`](./research/fe
 |---|---|---|
 | Certificate signing phase 2 (Edge Function + public key) | M/L | U-4 |
 | Server push reminders (subscriptions table + cron) | L | U-4; local reminder phase shipped |
-| Study groups + buddy nudges | L | U-2/U-3; deploy/traffic |
-| Pyodide on a Web Worker | M | none |
-| Concept review state on the sync seam (`concepts.ts`) | S | none |
 | Server-side export/delete + privacy page | M | EU/public launch |
-| Spoken mock interviews + agentic round roster | L | mutation library shipped |
+| Spoken mock interviews (agentic round shipped) | L | mutation + agentic libraries shipped |
 
 ---
 
@@ -120,5 +121,5 @@ Detail and sourcing live in [`docs/research/feature-gaps-2026.md`](./research/fe
 | 1 | Auth redirect misconfiguration breaks sign-in on prod/preview | Exact URI checklist (U-1..U-3); inline SyncPanel errors; magic link stays as fallback |
 | 2 | RLS gap leaks cross-user data | NW-09R two-account matrix; RPC-only counter writes; no secrets in `NEXT_PUBLIC_*` |
 | 3 | Stale sitemap `lastmod` / drifting hardcoded counts poison SEO | Shipped: `manifest.ts` derives the count and `sitemap.ts` derives `lastModified`; set `NEXT_PUBLIC_SITE_URL` before first indexed deploy |
-| 4 | Pyodide on the main thread freezes the UI on long solutions (mobile especially) | Move execution to a Web Worker; keep the lazy loader and SW Pyodide cache |
+| 4 | Pyodide cold-start latency on mobile | Shipped: Web Worker execution by default (main-thread fallback); keep the lazy loader and SW Pyodide cache |
 | 5 | Research docs drift from the code and misdirect agents | NW-12; `AGENT_CONTEXT.md` counts refreshed each wave |

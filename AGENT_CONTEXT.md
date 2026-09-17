@@ -20,26 +20,26 @@ DeepForge is a practice platform for machine learning, math, and engineering. Us
 
 | Area | DeepForge today |
 |---|---|
-| Problems | **5,550**, every solution Python-verified |
+| Problems | **5,730**, every solution Python-verified |
 | Categories | **15** |
 | In-browser execution | Yes (Pyodide) |
 | Design | svx dark + light; see [`docs/DESIGN-SYSTEM.md`](./docs/DESIGN-SYSTEM.md) |
 | Account required | No — local-first, sync is optional |
 | Open source | Yes (MIT) |
 | Mobile-friendly | Yes |
-| Learning paths | **33** with stages, goals, verified prerequisites, per-stage checkpoints, artifact links, hours |
+| Learning paths | **33** with stages, goals, verified prerequisites, per-stage checkpoints, artifact links, capstones, hours |
 | Projects / Labs | **5 multi-step projects · 36 steps** · **8 scored labs** |
 | Contests (timed) | **12 sets (10–60 min)** + Speedrun |
-| Leaderboard | Flame Score + streaks + username; global view when signed in |
+| Leaderboard | Flame Score + streaks + username + weekly mode; global view when signed in |
 | Discuss / community | Threads, replies, upvotes, problem refs; paginated + live updates; per-problem comments; server-backed when signed in |
-| Study assistant | Zero: 6 intents, catalogue-grounded, code-aware |
+| Study assistant | Zero: 8 intents, mounted on every route, catalogue-grounded, code-aware |
 | Collections / playlists | **24 premade** + user sets + shareable playlists |
 | Interview prep | **13 company tracks** + timed mocks |
 | Pen-and-paper math | **60 no-code problems** + SM-2 mastery review |
-| Review & today | Spaced review queue for solved problems; one-screen daily session at `/today` |
-| Certificates | Printable/PNG; SHA-256 verification code + `/verify` |
+| Review & today | Spaced review queue for solved problems + due lab re-runs and math concepts; one-screen daily session at `/today` with a "Do this next" pick |
+| Certificates | Printable/PNG path, collection, category, lab, project, and interview kinds; SHA-256 verification code + `/verify` |
 | Blog | **4** engineering write-ups with SVG diagrams + RSS (`/blog`) |
-| Interactive articles | **14** lessons with live demos + a figure per topic |
+| Interactive articles | **14** lessons with live demos, a figure per topic, and a kernel question each |
 
 Honest caveats: without an account everything stays on one device. Signing in with a magic link or Google syncs progress, streaks, leaderboard and community data through Supabase.
 
@@ -51,12 +51,12 @@ Honest caveats: without an account everything stays on one device. Signing in wi
 | ML Fundamentals | 360 | | NLP | 420 |
 | Data Structures | 355 | | Statistics | 420 |
 | Computer Vision | 395 | | Probability | 420 |
-| Linear Algebra | 275 | | Calculus | 375 |
-| Deep Learning | 455 | | Graph Algorithms | 315 |
-| Reinforcement Learning | 360 | | Information Theory | 315 |
-| Time Series | 315 | | **Total** | **5,550** |
+| Linear Algebra | 320 | | Calculus | 375 |
+| Deep Learning | 455 | | Graph Algorithms | 360 |
+| Reinforcement Learning | 360 | | Information Theory | 360 |
+| Time Series | 360 | | **Total** | **5,730** |
 
-Difficulty mix: 1,994 Easy · 2,473 Medium · 1,083 Hard.
+Difficulty mix: 2,058 Easy · 2,553 Medium · 1,119 Hard.
 
 ---
 
@@ -67,7 +67,7 @@ Difficulty mix: 1,994 Easy · 2,473 Medium · 1,083 Hard.
 - **Styling:** Tailwind CSS 4 (via PostCSS, NOT @tailwindcss/vite)
 - **Fonts:** Inter (400, 500, 600, 700) + JetBrains Mono (code only)
 - **Theme:** next-themes (dark default, light toggle)
-- **Python execution:** Pyodide v0.26.2 (loaded from CDN, lazy)
+- **Python execution:** Pyodide v0.26.2 (loaded from CDN, lazy; Web Worker by default, main-thread fallback)
 - **Package manager:** bun
 - **Port:** 3001 (don't conflict with port 3000)
 
@@ -134,7 +134,7 @@ deepforge/
 │   │                           #   ProblemComments, StreakCard, articles/, blog/,
 │   │                           #   motion/, avatars/, sims/
 │   ├── data/
-│   │   ├── problems/           # 15 categories · 5,550 problems · paths.ts · problem-meta.ts
+│   │   ├── problems/           # 15 categories · 5,730 problems · paths.ts · problem-meta.ts
 │   │   └── contests.ts · projects.ts · labs.ts · interview.ts · penpaper.ts ·
 │   │       collections.ts · articles.ts · blog/
 │   ├── lib/
@@ -143,7 +143,7 @@ deepforge/
 │   │   ├── certificates.ts · credentials.ts · labs.ts · pyodide.ts · paths.ts
 │   │   └── ...
 │   └── types/problem.ts
-├── tests/                      # 567+ bun tests
+├── tests/                      # 1,082 bun tests
 ├── scripts/                    # verify-problems, verify-paths(-content), e2e-smoke, measure-bundle
 ├── supabase/migrations/        # init, avatars, hardening
 ├── docs/                       # DESIGN-SYSTEM, SETUP-SUPABASE, next-wave-plan, research/
@@ -226,7 +226,7 @@ bun run build                                 # production build
 ## Roadmap
 
 ### Phase 1: Problems — ✅ Complete
-5,550 verified problems across 15 categories. Every solution passes real-Python verification.
+5,730 verified problems across 15 categories. Every solution passes real-Python verification.
 
 ### Phase 2: Features — ✅ Complete
 - **Contests** — 12 timed sets (10–60 min), countdown, difficulty-weighted scores, local results
@@ -234,7 +234,7 @@ bun run build                                 # production build
 - **Projects** — 5 multi-step builds / 36 steps: GPT from scratch, neural network framework, search engine, recommender, CNN
 - **Labs** — 8 dataset-driven challenges with metrics, baselines, and time limits, scored in-browser
 - **Discuss** — threads, replies, upvotes, problem references, pagination, live updates, and per-problem comments; server-backed when signed in
-- **Study Assistant** — Zero: 6 intents, catalogue-grounded, code-aware
+- **Study Assistant** — Zero: 8 intents, mounted on every route, catalogue-grounded, code-aware
 - **Collections** — 24 premade sets with detail pages, user-created sets, shareable URLs
 - **Interview Prep** — 13 company tracks + timed mocks
 - **Pen-and-paper math** — 60 no-code problems, multiple choice + numeric, SM-2 mastery review
@@ -248,18 +248,18 @@ bun run build                                 # production build
 ### Phase 3: Polish — ✅ Partially complete
 - ✅ SEO: metadata + OpenGraph, PWA manifest, robots.txt, sitemap.xml
 - ✅ Dark/light mode across all views
-- ✅ Bundle split: light problem index, plus per-route picks (daily, leaderboard scoring); home 352 KB gzip (from 1,553 KB)
+- ✅ Bundle split: light problem index, per-route picks (daily problem, leaderboard scoring), and a lazy Zero mount; home 276 KB gzip (from 1,553 KB)
 - ✅ Mobile audits at 375px across new views
 - ✅ Keyboard/focus pass across dialogs, menus, command palette, and social threads; 🔲 full screen-reader + contrast sweep
-- ✅ PWA offline: route fallback chain + “update available” prompt (SW v3); 🔲 per-route offline verification
-- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 142-check smoke
+- ✅ PWA offline: route fallback chain + “update available” prompt (SW v4) with per-route fallback verified by a route-inventory test
+- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 148-check smoke
 
 ### Next steps (sensible order)
-1. **Path curation, continued** — 33 paths shipped with stage checkpoints, artifact links, and resolved prerequisites; still open from [`docs/research/path-curation.md`](./docs/research/path-curation.md): mixed-kind steps (problems + labs + math + projects) and a capstone per path.
-2. **Content growth** — 5,550 problems shipped; keep rebalancing the thinnest categories (Linear Algebra at 275; Information Theory, Time Series, Graph Algorithms at 315) and the level mix.
+1. **Path curation, continued** — 33 paths shipped with stage checkpoints, artifact links, resolved prerequisites, and a verified capstone each; still open from [`docs/research/path-curation.md`](./docs/research/path-curation.md): mixed-kind steps (problems + labs + math + projects).
+2. **Content growth** — 5,730 problems shipped; keep rebalancing the thinnest categories (Linear Algebra at 320; Data Structures at 355) and the level mix.
 3. **Production hardening** — Vercel deploy, custom SMTP for magic links, two-account RLS spot check.
 4. **Social scale** — realtime subscriptions, pagination, and the per-problem comments UI shipped; remaining: global-leaderboard polish.
-5. **E2E in CI** — shipped: the 142-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
+5. **E2E in CI** — shipped: the 148-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
 6. **Deploy & credentials** — work the human items in [`docs/next-wave-plan.md`](./docs/next-wave-plan.md), then certificate signing (phase 2).
 
 ---
@@ -312,29 +312,32 @@ If you are an AI agent working on DeepForge:
 
 ## Current Status (as of last update)
 
-- **Problems:** 5,550 (1,994 Easy · 2,473 Medium · 1,083 Hard) — ✅ target exceeded
+- **Problems:** 5,730 (2,058 Easy · 2,553 Medium · 1,119 Hard) — ✅ target exceeded
 - **Categories:** 15 — ✅
-- **Learning paths:** 33 — ✅ (stage checkpoints + artifact links)
-- **Interactive articles:** ✅ 14 with live demos + a figure per topic
+- **Learning paths:** 33 — ✅ (stage checkpoints, artifact links, capstones 33/33)
+- **Interactive articles:** ✅ 14 with live demos, a figure per topic, and a kernel question each
 - **Blog:** ✅ 4 engineering posts + RSS
 - **Light mode:** ✅ Working
 - **Dark mode:** ✅ Working
-- **Pyodide execution:** ✅ Working
+- **Pyodide execution:** ✅ Working (Web Worker by default with a main-thread fallback)
 - **Contests:** ✅ 12 timed contests
-- **Leaderboard:** ✅ Flame Score + streaks + username; global when signed in
-- **Projects:** ✅ 5 multi-step projects · 36 steps
+- **Leaderboard:** ✅ Flame Score + streaks + username + weekly mode; global when signed in
+- **Projects:** ✅ 5 multi-step projects · 36 steps · detail pages
 - **Labs:** ✅ 8 scored benchmarks
 - **Discuss:** ✅ Paginated threads + live updates + per-problem comments; server-backed when signed in
-- **Study assistant:** ✅ Zero: catalogue-grounded, code-aware
+- **Study assistant:** ✅ Zero: 8 intents, mounted on every route, hide-to-dot, prompt chips
 - **Collections:** ✅ 24 premade + user sets + shareable URLs
-- **Interview prep:** ✅ 13 timed tracks
+- **Interview prep:** ✅ 13 timed tracks + agentic round
 - **Pen-and-paper:** ✅ 60 no-code problems
-- **Review & today:** ✅ Spaced review queue + `/today` session
-- **Habit mechanics:** ✅ Streak shields, reminders, readiness projection
-- **Certificates:** ✅ SHA-256 code + public `/verify`
+- **Review & today:** ✅ Spaced review queue + `/today` v2 (lab re-runs, math concepts with inline grading, placement plan, stage-checkpoint row, "Do this next" ranker)
+- **Habit mechanics:** ✅ One solve streak + shields, reminders, tiered hints, readiness projection, review health + weekly digest
+- **Gamification:** ✅ Bug hunts (synced) with bug-slayer/exterminator/flawless badges; speedrunner/speed-demon badges; heatmap counts bug hunts + speedruns
+- **Certificates:** ✅ Path/collection/category/lab/project/interview kinds, SHA-256 code + public `/verify`
 - **Avatars:** ✅ 12 character presets, two art styles (Illustrated + Pixel)
-- **Tests:** ✅ 672+ unit tests + 142 e2e smoke checks (CI)
-- **PWA:** ✅ Offline route fallback + update prompt
-- **SEO:** ✅ Metadata, manifest, robots, sitemap
+- **Tests:** ✅ 1,082 unit tests + 148 e2e smoke checks (CI)
+- **PWA:** ✅ Offline v4 per-route fallback (route-inventory test) + update prompt
+- **Search & shortcuts:** ✅ Palette search over problems, paths, articles, and blog + quick actions; g-sequences + `?` overlay
+- **Backup:** ✅ Full local export/import with an audited key inventory
+- **SEO:** ✅ Metadata, manifest, robots, sitemap (lastModified derived, `/today` listed)
 
 **Next priority:** push the Supabase hardening migration to project `klogjcspyiygnggmugjy` (see docs/SETUP-SUPABASE.md), configure Auth redirect URLs, then deploy per [`docs/next-wave-plan.md`](./docs/next-wave-plan.md) (U-1..U-5) and start certificate signing (phase 2). Sync code is shipped and env-gated: the app stays 100% local until `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set and a user signs in.
