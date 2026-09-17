@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { PaperProject } from "@/data/papers/types";
 import { LABS } from "@/data/labs";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
+import { slugify } from "@/lib/paths";
 import { cn } from "@/lib/utils";
+import { PaperProjectRunner } from "./PaperProjectRunner";
 import {
   PROJECT_DIFFICULTY_BADGE,
   PROJECT_DIFFICULTY_LABELS,
@@ -62,13 +64,22 @@ function RelatedGroup({
 }
 
 /**
- * The "Build it yourself" body on a paper page. Server-rendered and fully
- * static: milestones, read-only starter code, a self-graded checklist, and
- * the related lab/problem links. The page owns the section heading.
+ * The "Build it yourself" body on a paper page. Milestones, a runnable
+ * starter-code editor (executed in-browser through Pyodide), a self-graded
+ * checklist, and the related lab/problem links. The page owns the section
+ * heading.
  */
-export function PaperProjectSection({ project }: { project: PaperProject }) {
+export function PaperProjectSection({
+  project,
+  slug,
+}: {
+  project: PaperProject;
+  /** Paper slug from the route; falls back to a slugified project title. */
+  slug?: string;
+}) {
   const labs = resolveLabs(project.relatedLabIds);
   const problems = resolveProblems(project.relatedProblemIds);
+  const runnerSlug = slug?.trim() || slugify(project.title);
 
   return (
     <div className="flex flex-col gap-5">
@@ -120,12 +131,14 @@ export function PaperProjectSection({ project }: { project: PaperProject }) {
             Starter code
           </figcaption>
           <span className="shrink-0 font-mono text-[10px] text-mute">
-            python · read-only
+            python · editable
           </span>
         </div>
-        <pre className="df-code-editor df-scroll overflow-x-auto whitespace-pre p-4 text-body">
-          <code>{project.starterCode}</code>
-        </pre>
+        <PaperProjectRunner
+          key={runnerSlug}
+          code={project.starterCode}
+          slug={runnerSlug}
+        />
       </figure>
 
       <div>

@@ -415,7 +415,7 @@ export default async function PaperPage({
         {paper.project && (
           <section aria-labelledby="project" className="flex flex-col gap-4">
             <FlowHeading id="project" index={4} title="Build it yourself" />
-            <PaperProjectSection project={paper.project} />
+            <PaperProjectSection project={paper.project} slug={paper.slug} />
           </section>
         )}
 
