@@ -51,7 +51,11 @@ beforeEach(() => {
   stub = createStorageStub();
   globalScope.window = {
     localStorage: stub,
-    location: { origin: "http://localhost:3001", href: "http://localhost:3001/" },
+    location: {
+      origin: "http://localhost:3001",
+      pathname: "/",
+      href: "http://localhost:3001/",
+    },
     dispatchEvent: () => true,
   };
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
@@ -141,7 +145,7 @@ describe("signInWithGoogle", () => {
     expect(isGoogleEnabled()).toBe(false);
   });
 
-  test("starts the Google provider flow with the origin redirect", async () => {
+  test("starts the Google provider flow with the origin + path redirect", async () => {
     const { client, auth } = makeFakeClient();
     setRemoteClient(client);
 
@@ -149,7 +153,7 @@ describe("signInWithGoogle", () => {
 
     expect(result.error).toBeNull();
     expect(auth.lastOAuth?.provider).toBe("google");
-    expect(auth.lastOAuth?.options?.redirectTo).toBe("http://localhost:3001");
+    expect(auth.lastOAuth?.options?.redirectTo).toBe("http://localhost:3001/");
     expect(isGoogleEnabled()).toBe(true);
   });
 
@@ -177,7 +181,7 @@ describe("signInWithGoogle", () => {
 /* ───────────────────────── existing auth surface ────────────────────────── */
 
 describe("existing auth surface", () => {
-  test("signInWithEmail still sends an OTP with the origin redirect", async () => {
+  test("signInWithEmail still sends an OTP with the origin + path redirect", async () => {
     const { client, auth } = makeFakeClient();
     setRemoteClient(client);
 
@@ -186,7 +190,7 @@ describe("existing auth surface", () => {
     expect(result.error).toBeNull();
     expect(auth.calls).toContain("signInWithOtp");
     expect(auth.lastOtp?.email).toBe("ada@example.com");
-    expect(auth.lastOtp?.options?.emailRedirectTo).toBe("http://localhost:3001");
+    expect(auth.lastOtp?.options?.emailRedirectTo).toBe("http://localhost:3001/");
     expect(auth.lastOAuth).toBeNull();
   });
 

@@ -73,7 +73,11 @@ beforeEach(() => {
   const windowListeners = new Map<string, Set<(event: Event) => void>>();
   globalScope.window = {
     localStorage: stub,
-    location: { origin: "http://localhost:3001", href: "http://localhost:3001/" },
+    location: {
+      origin: "http://localhost:3001",
+      pathname: "/",
+      href: "http://localhost:3001/",
+    },
     addEventListener: (type: string, listener: (event: Event) => void) => {
       const set = windowListeners.get(type) ?? new Set();
       set.add(listener);
@@ -1179,7 +1183,7 @@ describe("auth", () => {
     expect(getAuthEmail()).toBe("ada@example.com");
   });
 
-  test("signInWithEmail sends an OTP with the origin redirect", async () => {
+  test("signInWithEmail sends an OTP with the origin + path redirect", async () => {
     const { client, auth } = makeFakeClient(null);
     setRemoteClient(client);
 
@@ -1187,7 +1191,7 @@ describe("auth", () => {
 
     expect(result.error).toBeNull();
     expect(auth.lastOtp?.email).toBe("ada@example.com");
-    expect(auth.lastOtp?.options?.emailRedirectTo).toBe("http://localhost:3001");
+    expect(auth.lastOtp?.options?.emailRedirectTo).toBe("http://localhost:3001/");
   });
 
   test("signInWithEmail is safe when unconfigured", async () => {

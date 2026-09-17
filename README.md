@@ -65,7 +65,7 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Spot the bug** — find and explain a seeded mutation of a verified solution, test-checked before it is shown; rounds are tracked across devices with bug-slayer, exterminator, and flawless badges plus a daily quest
 - **Sims** — optimizer race, neural-net trainer with decision boundary, Dijkstra step-through — each with a deterministic intuition check
 - **Articles** — 14 interactive lessons with live demos (softmax temperature, eigenvectors, gradient descent, k-means, attention, BPE tokenization, embeddings, quantization, KV cache & FlashAttention, RAG chunk retrieval, post-training RLHF/DPO/GRPO, PCA/SVD projection, calibration & uncertainty, LoRA rank), a figure for every topic, and a "predict the readout" kernel question per lesson
-- **Papers** — Understanding Papers: 35 DeepSeek papers across 4 eras, from DeepSeek LLM (Jan 2024) to V4.1 Flash, taught theory-first (visuals, formulas, Python) with lineage, a reading guide per paper, and self-graded implementation checks
+- **Papers** — Understanding Papers: 35 DeepSeek papers across 4 eras, from DeepSeek LLM (Jan 2024) to V4.1 Flash, taught theory-first (visuals, formulas, Python) with lineage, a reading guide, self-graded implementation checks, and a runnable build-it-yourself project per paper
 - **Blog** — 4 engineering write-ups with SVG diagrams and RSS at `/blog`
 - **Discuss** — paginated forum with threads, replies, upvotes, problem references, and live updates; server-backed when signed in
 - **Problem comments** — per-problem discussion with upvotes, load-more pagination, and live updates on the problem page

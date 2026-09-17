@@ -33,7 +33,9 @@ export async function signInWithEmail(
     const client = await remote.getRemoteClient();
     if (!client) return { error: "Sync is not configured." };
     const redirect =
-      typeof window !== "undefined" ? window.location.origin : undefined;
+      typeof window !== "undefined"
+        ? `${window.location.origin}${window.location.pathname || "/"}`
+        : undefined;
     const { error } = await client.auth.signInWithOtp({
       email: address,
       options: { emailRedirectTo: redirect },
@@ -71,8 +73,13 @@ export async function signInWithGoogle(): Promise<{ error: string | null }> {
     const client = await remote.getRemoteClient();
     if (!client) return { error: "Sync is not configured." };
     const auth = client.auth as typeof client.auth & GoogleAuthSurface;
+    // Return to the page that started the flow. Supabase only honours this
+    // when the origin is in Auth -> URL Configuration -> Redirect URLs;
+    // otherwise it falls back to the project's Site URL (often localhost).
     const redirect =
-      typeof window !== "undefined" ? window.location.origin : undefined;
+      typeof window !== "undefined"
+        ? `${window.location.origin}${window.location.pathname || "/"}`
+        : undefined;
     const { error } = await auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: redirect },
