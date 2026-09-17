@@ -13,15 +13,21 @@ import type { CategoryMeta, Problem } from "@/types/problem";
 import { SECTIONS_BY_ID, categorySlug, type SectionId } from "@/lib/sections";
 import { problemHref } from "@/lib/problemLinks";
 import { cn, difficultyClasses } from "@/lib/utils";
+import type {
+  GlobalSearchGroup,
+  GlobalSearchItem,
+} from "@/lib/globalSearch";
 
 type Row =
   | { key: string; kind: "problem"; problem: Problem }
   | { key: string; kind: "category"; name: string }
-  | { key: string; kind: "page"; label: string; section: SectionId };
+  | { key: string; kind: "page"; label: string; section: SectionId }
+  | { key: string; kind: "global"; group: GlobalSearchGroup; item: GlobalSearchItem };
 
-const MAX_RESULTS = 12;
+const MAX_RESULTS = 18;
 const MAX_PROBLEM_RESULTS = 8;
 const MAX_CATEGORY_RESULTS = 3;
+const MAX_GLOBAL_GROUP_RESULTS = 4;
 
 const PAGES: { label: string; section: SectionId }[] = [
   { label: "Problems", section: "problems" },
@@ -49,11 +55,19 @@ const PAGES: { label: string; section: SectionId }[] = [
   { label: "About", section: "about" },
 ];
 
-const GROUP_LABELS: Record<Row["kind"], string> = {
+const GROUP_LABELS: Record<Exclude<Row["kind"], "global">, string> = {
   problem: "Problems",
   category: "Categories",
   page: "Pages",
 };
+
+function rowGroupKey(row: Row): string {
+  return row.kind === "global" ? `global:${row.group}` : row.kind;
+}
+
+function rowGroupLabel(row: Row): string {
+  return row.kind === "global" ? row.group : GROUP_LABELS[row.kind];
+}
 
 export function CommandPalette() {
   const router = useRouter();
@@ -67,6 +81,12 @@ export function CommandPalette() {
     problems: Problem[];
     categories: CategoryMeta[];
   } | null>(null);
+  // Paths, collections, interview tracks, blog posts and categories live in a
+  // separate lazy module for the same reason the problem bank does: keep the
+  // global client graph (and the first-load budgets) untouched.
+  const [globalApi, setGlobalApi] = useState<
+    typeof import("@/lib/globalSearch") | null
+  >(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -84,6 +104,17 @@ export function CommandPalette() {
       alive = false;
     };
   }, [open, catalog]);
+
+  useEffect(() => {
+    if (!open || globalApi) return;
+    let alive = true;
+    void import("@/lib/globalSearch").then((mod) => {
+      if (alive) setGlobalApi(mod);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, globalApi]);
 
   const rows = useMemo<Row[]>(() => {
     const q = query.trim().toLowerCase();
@@ -113,15 +144,30 @@ export function CommandPalette() {
       }
     }
 
-    for (const c of categories) {
-      if (categoryCount >= MAX_CATEGORY_RESULTS) break;
-      if (c.name.toLowerCase().includes(q)) {
-        out.push({
-          key: `category:${c.name}`,
-          kind: "category",
-          name: c.name,
-        });
-        categoryCount += 1;
+    if (globalApi) {
+      // The global index already covers categories, so its Categories group
+      // replaces the palette's own category scan once it has loaded.
+      for (const result of globalApi.searchGlobal(q, MAX_GLOBAL_GROUP_RESULTS)) {
+        for (const item of result.items) {
+          out.push({
+            key: `global:${result.group}:${item.id}`,
+            kind: "global",
+            group: result.group,
+            item,
+          });
+        }
+      }
+    } else {
+      for (const c of categories) {
+        if (categoryCount >= MAX_CATEGORY_RESULTS) break;
+        if (c.name.toLowerCase().includes(q)) {
+          out.push({
+            key: `category:${c.name}`,
+            kind: "category",
+            name: c.name,
+          });
+          categoryCount += 1;
+        }
       }
     }
 
@@ -138,7 +184,7 @@ export function CommandPalette() {
     }
 
     return out.slice(0, MAX_RESULTS);
-  }, [query, catalog]);
+  }, [query, catalog, globalApi]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -162,6 +208,10 @@ export function CommandPalette() {
       }
       if (row.kind === "category") {
         router.push(`/problems?category=${categorySlug(row.name)}`);
+        return;
+      }
+      if (row.kind === "global") {
+        router.push(row.item.href);
         return;
       }
       router.push(SECTIONS_BY_ID[row.section].href);
@@ -273,6 +323,18 @@ export function CommandPalette() {
         </span>
       );
     }
+    if (row.kind === "global") {
+      return (
+        <>
+          <span className="min-w-0 flex-1 truncate">{row.item.title}</span>
+          {row.item.subtitle && (
+            <span className="shrink-0 text-xs text-body-mid">
+              {row.item.subtitle}
+            </span>
+          )}
+        </>
+      );
+    }
     return (
       <>
         <span className="min-w-0 flex-1 truncate">{row.label}</span>
@@ -339,8 +401,8 @@ export function CommandPalette() {
                   setQuery(e.target.value);
                   setActiveIndex(0);
                 }}
-                placeholder="Search problems, categories, pages…"
-                aria-label="Search problems, categories, and pages"
+                placeholder="Search problems, paths, collections…"
+                aria-label="Search problems, paths, collections, and pages"
                 role="combobox"
                 aria-expanded={rows.length > 0}
                 aria-controls="command-palette-listbox"
@@ -378,12 +440,13 @@ export function CommandPalette() {
               ) : (
                 rows.map((row, i) => (
                   <Fragment key={row.key}>
-                    {(i === 0 || rows[i - 1].kind !== row.kind) && (
+                    {(i === 0 ||
+                      rowGroupKey(rows[i - 1]) !== rowGroupKey(row)) && (
                       <div
                         role="presentation"
                         className="px-3 pb-1 pt-2 text-xs text-mute"
                       >
-                        {GROUP_LABELS[row.kind]}
+                        {rowGroupLabel(row)}
                       </div>
                     )}
                     <button
