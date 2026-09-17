@@ -135,6 +135,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
           priority: 0.5,
         })),
     ),
+    ...PROJECTS.map((project) => ({
+      url: `${siteUrl}/projects/${project.id}`,
+      lastModified: LAST_MODIFIED,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     ...POST_ROUTES,
   ];
 }
