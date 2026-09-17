@@ -381,10 +381,14 @@ record("research: index links to detail pages", researchLinks >= 5, researchInde
 line(researchLinks >= 5, `GET /research  detail-links=${researchLinks}`);
 const researchDetail = await get("/research/tabular-classification-showdown");
 const researchOk = researchDetail.status === 200 && !isErrorPage(researchDetail.body);
-const researchTheory = has(researchDetail.body, "Research notes");
+const researchTheory = has(researchDetail.body, "Method &amp; theory") || has(researchDetail.body, "Research notes");
+const researchSolution = has(researchDetail.body, "Show solution");
 record("research: detail 200 + theory", researchOk && researchTheory, researchDetail.url,
   `status=${researchDetail.status} theory=${researchTheory}`);
 line(researchOk && researchTheory, `GET /research/tabular-classification-showdown  status=${researchDetail.status} theory=${researchTheory ? "yes" : "NO"}`);
+record("research: solution reveal", researchSolution, researchDetail.url,
+  '"Show solution" reveal missing');
+line(researchSolution, `GET /research/tabular-classification-showdown  solution-reveal=${researchSolution ? "yes" : "NO"}`);
 const labsIndex = await get("/labs");
 const labLinks = count(labsIndex.body, /href="\/labs\/lab-\d+"/g);
 record("labs: index links to detail pages", labLinks >= 8, labsIndex.url,
@@ -396,6 +400,10 @@ const labRules = has(labDetail.body, "Rules of the run");
 record("labs: detail 200 + rules", labDetailOk && labRules, labDetail.url,
   `status=${labDetail.status} rules=${labRules}`);
 line(labDetailOk && labRules, `GET /labs/lab-01  status=${labDetail.status} rules=${labRules ? "yes" : "NO"}`);
+const labSolution = has(labDetail.body, "Show solution");
+record("labs: solution reveal", labSolution, labDetail.url,
+  '"Show solution" reveal missing');
+line(labSolution, `GET /labs/lab-01  solution-reveal=${labSolution ? "yes" : "NO"}`);
 const trails = await get("/labs/trails");
 const trailsOk = trails.status === 200 && has(trails.body, "labs passed");
 record("labs: trails page", trailsOk, trails.url,
