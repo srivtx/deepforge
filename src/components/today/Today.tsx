@@ -31,12 +31,15 @@ import {
   type LabReviewItem,
 } from "@/lib/labReviews";
 import {
+  getNextPaperAction,
   getNextResearchAction,
   getTopAction,
   type Action,
+  type PaperAction,
   type ResearchAction,
 } from "@/lib/nextBestAction";
 import { readPlacement, type PlacementRecord } from "@/lib/onboarding";
+import { PAPERS_CHANGE_EVENT } from "@/lib/papers";
 import {
   evaluateStageCheckpoint,
   readCheckpointAttempts,
@@ -97,6 +100,7 @@ interface SessionView {
   nextAction: Action | null;
   researchNext: ResearchAction | null;
   researchBeaten: number;
+  paperNext: PaperAction | null;
 }
 
 const CARD_CLASSES = "rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5";
@@ -274,6 +278,7 @@ export function TodayScreen() {
       researchBeaten: RESEARCH_CHALLENGES.filter(
         (challenge) => researchState[challenge.id]?.beatenBaseline === true,
       ).length,
+      paperNext: getNextPaperAction(),
     });
   }, []);
 
@@ -286,6 +291,7 @@ export function TodayScreen() {
     window.addEventListener(CONCEPTS_CHANGE_EVENT, apply);
     window.addEventListener(LAB_REVIEWS_CHANGE_EVENT, apply);
     window.addEventListener(RESEARCH_CHANGE_EVENT, apply);
+    window.addEventListener(PAPERS_CHANGE_EVENT, apply);
     window.addEventListener("storage", apply);
     return () => {
       window.removeEventListener(REVIEWS_CHANGE_EVENT, apply);
@@ -294,6 +300,7 @@ export function TodayScreen() {
       window.removeEventListener(CONCEPTS_CHANGE_EVENT, apply);
       window.removeEventListener(LAB_REVIEWS_CHANGE_EVENT, apply);
       window.removeEventListener(RESEARCH_CHANGE_EVENT, apply);
+      window.removeEventListener(PAPERS_CHANGE_EVENT, apply);
       window.removeEventListener("storage", apply);
     };
   }, [refresh]);
@@ -803,6 +810,53 @@ export function TodayScreen() {
               <div className="mt-auto pt-4">
                 <Link href="/research" className={SECONDARY_LINK_CLASSES}>
                   Open Research
+                </Link>
+              </div>
+            </section>
+          </Reveal>
+        )}
+
+        {view.paperNext && (
+          <Reveal delay={480} className="h-full">
+            <section
+              aria-labelledby="today-papers"
+              className={cn(CARD_CLASSES, "flex h-full flex-col")}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <SectionHeading id="today-papers">
+                  Continue the papers
+                </SectionHeading>
+                <p className="font-mono text-[11px] text-mute">
+                  {view.paperNext.read} of {view.paperNext.total} read
+                </p>
+              </div>
+              <ul className="mt-3 divide-y divide-hairline">
+                <li>
+                  <Link
+                    href={view.paperNext.href}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-ink">
+                        {view.paperNext.title}
+                      </span>
+                      <span className="block text-xs text-body-mid">
+                        {view.paperNext.reason}
+                      </span>
+                    </span>
+                    <span aria-hidden className="shrink-0 text-mute">
+                      →
+                    </span>
+                  </Link>
+                </li>
+              </ul>
+              <p className="mt-3 text-xs text-body-mid">
+                Next in reading order — theory first, then the implementation
+                questions.
+              </p>
+              <div className="mt-auto pt-4">
+                <Link href="/papers" className={SECONDARY_LINK_CLASSES}>
+                  Open Papers
                 </Link>
               </div>
             </section>

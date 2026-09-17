@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { LABS } from "@/data/labs";
+import { ERA_LABELS, PAPERS } from "@/data/papers";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { RESEARCH_CHALLENGES } from "@/data/research";
@@ -7,6 +8,7 @@ import { getDailyProblem } from "@/lib/dailyProblem";
 import {
   ACTION_LIMIT,
   getNextBestActions,
+  getNextPaperAction,
   getNextResearchAction,
   getTopAction,
 } from "@/lib/nextBestAction";
@@ -111,6 +113,7 @@ const ATTEMPTS_KEY = "deepforge:checkpoint-attempts:v1";
 const DAILY_KEY = "deepforge:daily:v1";
 const PENPAPER_KEY = "deepforge:penpaper:v1";
 const RESEARCH_KEY = "deepforge:research:v1";
+const PAPERS_KEY = "deepforge:papers:v1";
 
 function checkpointFixture(): {
   path: ReturnType<typeof getAllPaths>[number];
@@ -461,6 +464,65 @@ describe("research row", () => {
     storage().setItem(RESEARCH_KEY, "{not json");
     const row = getNextResearchAction();
     expect(row?.id).toBe(`research:${RESEARCH_CHALLENGES[0].id}`);
+  });
+});
+
+describe("papers row", () => {
+  function markPapersRead(ids: string[]): void {
+    const read: Record<string, string> = {};
+    for (const id of ids) read[id] = isoAt(TODAY);
+    write(PAPERS_KEY, { read });
+  }
+
+  test("a fresh profile with nothing read gets no row", () => {
+    expect(PAPERS).toHaveLength(35);
+    expect(getNextPaperAction()).toBeNull();
+  });
+
+  test("one read of 35 surfaces the next paper in reading order", () => {
+    markPapersRead([PAPERS[0].id]);
+
+    const row = getNextPaperAction();
+    expect(row).not.toBeNull();
+    expect(row?.id).toBe(`paper:${PAPERS[1].id}`);
+    expect(row?.title).toBe(PAPERS[1].title);
+    expect(row?.href).toBe(`/papers/${PAPERS[1].slug}`);
+    expect(row?.order).toBe(2);
+    expect(row?.total).toBe(35);
+    expect(row?.read).toBe(1);
+    expect(row?.reason).toBe(`${ERA_LABELS[PAPERS[1].era]} · paper 2 of 35`);
+  });
+
+  test("the last unread paper becomes the row", () => {
+    markPapersRead(PAPERS.slice(0, -1).map((paper) => paper.id));
+    const last = PAPERS[PAPERS.length - 1];
+
+    const row = getNextPaperAction();
+    expect(row?.id).toBe(`paper:${last.id}`);
+    expect(row?.title).toBe(last.title);
+    expect(row?.href).toBe(`/papers/${last.slug}`);
+    expect(row?.order).toBe(35);
+    expect(row?.read).toBe(34);
+  });
+
+  test("a finished curriculum hides the row", () => {
+    markPapersRead(PAPERS.map((paper) => paper.id));
+    expect(getNextPaperAction()).toBeNull();
+  });
+
+  test("malformed or stale read marks fail soft", () => {
+    storage().setItem(PAPERS_KEY, "{not json");
+    expect(getNextPaperAction()).toBeNull();
+
+    write(PAPERS_KEY, {
+      read: { [PAPERS[0].id]: "not-a-date", "not-a-paper": isoAt(TODAY) },
+    });
+    expect(getNextPaperAction()).toBeNull();
+
+    write(PAPERS_KEY, {
+      read: { [PAPERS[0].id]: isoAt(TODAY), "not-a-paper": "junk" },
+    });
+    expect(getNextPaperAction()?.id).toBe(`paper:${PAPERS[1].id}`);
   });
 });
 

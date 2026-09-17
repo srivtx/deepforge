@@ -31,12 +31,15 @@
  * something, so the "do this next" row can stay hidden without guessing.
  * `getTopAction` is the single highest-ranked action, or null.
  *
- * `getNextResearchAction` sits outside the ranking: research challenges are
- * evergreen, so the best unbeaten one — a weak or unseen metric family
- * first, then catalogue order — gets its own Today row instead of a score.
+ * `getNextResearchAction` and `getNextPaperAction` sit outside the ranking:
+ * research challenges are evergreen, so the best unbeaten one — a weak or
+ * unseen metric family first, then catalogue order — gets its own Today row
+ * instead of a score, and the papers row is a continuation prompt that only
+ * appears between the first and the last read mark.
  */
 
 import { formatScore, metricLabel } from "@/components/research/format";
+import { ERA_LABELS, PAPERS } from "@/data/papers";
 import { LABS } from "@/data/labs";
 import { RESEARCH_CHALLENGES } from "@/data/research";
 import { CATEGORIES } from "@/data/problems/meta";
@@ -53,6 +56,7 @@ import {
   type CheckpointAttemptMap,
 } from "@/lib/pathCheckpoints";
 import { getAllPaths, slugify } from "@/lib/paths";
+import { getPapersState } from "@/lib/papers";
 import { problemHref } from "@/lib/problemLinks";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { getResearchState } from "@/lib/research";
@@ -439,5 +443,43 @@ export function getNextResearchAction(): ResearchAction | null {
     )} (${challenge.baselineName})`,
     points: challenge.points,
     href: `/research/${challenge.id}`,
+  };
+}
+
+/* ─────────────────────────── papers row ─────────────────────────── */
+
+/**
+ * The next unread paper once the learner is mid-curriculum: at least one
+ * paper read and at least one still open. Read marks for ids that are not in
+ * the catalogue are ignored, so a stale backup cannot mark the curriculum
+ * finished. Null for a fresh profile (nothing read yet) and for a finished
+ * one, which keeps the Today row hidden at both ends.
+ */
+export interface PaperAction {
+  id: string;
+  title: string;
+  /** Era plus position in reading order, e.g. "Founding · paper 2 of 35". */
+  reason: string;
+  order: number;
+  total: number;
+  read: number;
+  href: string;
+}
+
+export function getNextPaperAction(): PaperAction | null {
+  const { read } = getPapersState();
+  const readCount = PAPERS.filter((paper) => Boolean(read[paper.id])).length;
+  if (readCount === 0) return null;
+  const index = PAPERS.findIndex((paper) => !read[paper.id]);
+  if (index < 0) return null;
+  const paper = PAPERS[index];
+  return {
+    id: `paper:${paper.id}`,
+    title: paper.title,
+    reason: `${ERA_LABELS[paper.era]} · paper ${index + 1} of ${PAPERS.length}`,
+    order: index + 1,
+    total: PAPERS.length,
+    read: readCount,
+    href: `/papers/${paper.slug}`,
   };
 }
