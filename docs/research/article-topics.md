@@ -1,53 +1,55 @@
 # Article Topics — Modernizing and Growing the Interactive Library
 
-**Date:** 2026-09-13
+**Date:** 2026-09-13 · **Truth pass:** 2026-09-17 (NW-12) — "where the library is now" refreshed and shipped picks marked. Current totals: 14 articles / 14 demos / 15 figures; catalogue 5,730 problems (5,050 when this was written).
 **Author:** research agent (read-only; no code or data modified)
-**Scope:** inventory the 5 shipped articles against what modern ML practice needs in 2026; score 25 candidate articles by learner value, interactive-demo + SVG fit, and coverage in the 5,050-problem catalogue; pick the next 6 to build with dependencies; audit the existing articles for 2026 additions; map reusable demo/figure components.
-**Method:** (a) read `src/data/articles.ts` (5 articles, 5 demos, 6 figures), `src/data/problems/problem-meta.ts` (all 5,050 entries), `src/lib/articles-demos.ts`, `src/components/articles/*`, `src/app/articles/[slug]/ArticleDetail.tsx`, `docs/next-wave-plan.md`; (b) ran web searches on 22 modern topics and collected 39 dated sources (Section 7); (c) verified every problem id recommended here against `problem-meta.ts` — 160 distinct ids checked, 0 missing; (d) scored candidates with a 3-criteria rubric (Section 3.1). All URLs accessed 2026-09-13 unless noted.
+**Scope:** inventory the 5 shipped articles against what modern ML practice needs in 2026; score 25 candidate articles by learner value, interactive-demo + SVG fit, and coverage in the catalogue (5,050 problems at the time; 5,730 today); pick the next 6 to build with dependencies; audit the existing articles for 2026 additions; map reusable demo/figure components.
+**Method:** (a) read `src/data/articles.ts` (5 articles, 5 demos, 6 figures at the time), `src/data/problems/problem-meta.ts` (all 5,050 entries then), `src/lib/articles-demos.ts`, `src/components/articles/*`, `src/app/articles/[slug]/ArticleDetail.tsx`, `docs/next-wave-plan.md`; (b) ran web searches on 22 modern topics and collected 39 dated sources (Section 7); (c) verified every problem id recommended here against `problem-meta.ts` — 160 distinct ids checked, 0 missing; (d) scored candidates with a 3-criteria rubric (Section 3.1). All URLs accessed 2026-09-13 unless noted.
 
 ---
 
 ## TL;DR
 
-1. **The library covers 5 concepts**: softmax temperature, eigenvectors, gradient descent (MSE→logistic), k-means, attention. Each has prose + one live demo + one SVG figure + a practice footer driven by real problem ids (`ArticleDetail.tsx:108-130`). The content is strong but the map has holes: of 26 modern topics surveyed, **17 are missing entirely and 9 are partial** (Section 1).
-2. **Biggest gaps cluster in LLM systems** (tokenization, embeddings, RAG, quantization, KV cache, post-training) — exactly the topics that turn a problem-practice site into a 2026-relevant one.
-3. **Top 6 to build next, in order:** (1) Tokenization: BPE, (2) Embeddings & Cosine Similarity, (3) Quantization: INT8→FP8, (4) KV Cache & FlashAttention, (5) RAG: From Chunks to Citations, (6) Post-Training: RLHF→DPO→GRPO. Rationale and the dependency chain are in Section 4.
-4. **The chain matters:** tokenization → embeddings → RAG (each is a prerequisite for the next); quantization → KV cache (dtype savings) and quantization → post-training/QLoRA; KV cache needs `attention-is-a-heatmap` to exist first (it does).
-5. **One deliberate override:** Eval Metrics (precision/recall/ROC/AUC) ties at 14/15 on score but is deferred to the first alternate; its demo reuses existing chart primitives, while RAG and post-training are the two largest 2026 practice shifts. The doc says so explicitly rather than hiding it.
-6. **Catalogue coverage is deep enough for most picks**: tokenization has 6+ direct ids, embeddings 6+, quantization 20+, KV cache 15+, RAG 8+, post-training 10+ (all verified). The thinnest spot is data leakage/contamination (3 ids).
-7. **All 5 existing articles have a concrete 2026 addition** (Section 5): sampling stacks for softmax, LoRA/SVD for eigenvectors, AdamW for gradient descent, IVF/PQ for k-means, RoPE/GQA/KV for attention.
-8. **Reuse is the effort hack:** the 5 demos and 6 figures are 2,940 LOC of primitives (log-slider bars, draggable-vector canvas, click-to-fit canvas, stepped loop, token heatmap, pipeline SVG). At least 14 of the 25 candidates can be built by re-skinning 1 existing demo + 1 existing figure pattern (Section 6).
-9. **Registry cost is trivial**: adding an article means one entry in `ARTICLES`, one `DemoKind` + one `FigureKind`, and 4 registry lines (`articles.ts:45-52`, `articles-demos.ts:73-79`); `ArticleDetail` renders everything generically.
+1. **The library covered 5 concepts at the time** (softmax temperature, eigenvectors, gradient descent, k-means, attention); it now ships **14** — the 5 originals plus tokenization BPE, embeddings, quantization, KV cache & FlashAttention, RAG, post-training, PCA/SVD, calibration, and LoRA. Each is prose + live demo + SVG figure + a practice footer driven by real problem ids. The map still has holes: of the 26 modern topics surveyed, 9 now ship as full articles, 5 are partial, and 12 are missing (Section 1.2).
+2. **Biggest gaps clustered in LLM systems** (tokenization, embeddings, RAG, quantization, KV cache, post-training). All six shipped; the remaining LLM-systems gaps are MoE, distillation, and agent loops.
+3. **Top 6 to build next, in order — all shipped:** (1) Tokenization: BPE, (2) Embeddings & Cosine Similarity, (3) Quantization: INT8→FP8, (4) KV Cache & FlashAttention, (5) RAG: From Chunks to Citations, (6) Post-Training: RLHF→DPO→GRPO. Slugs and landing notes are in Section 4.
+4. **The chain held:** tokenization → embeddings → RAG; quantization → KV cache and QLoRA; KV cache extended the existing attention article. Build order is recorded in Section 4.
+5. **One deliberate override:** Eval Metrics (precision/recall/ROC/AUC) scored 14/15 but was deferred to the first alternate — and is still the highest-value unshipped candidate. RAG and post-training were picked instead and both shipped.
+6. **Catalogue coverage was deep enough for every shipped pick** (quantization 20+ ids, KV cache 15+, post-training 10+, RAG 8+, tokenization/embeddings 6+ — all verified) and remains so against the 5,730-problem bank. The thinnest spot is still data leakage/contamination (3 ids).
+7. **Modernization:** only partly done in place. The low-rank story shipped as a standalone PCA/SVD article rather than an edit to the eigenvector piece; the other four in-place additions (sampling stack, AdamW, IVF/PQ, RoPE/GQA) were not made — see Section 5.
+8. **Reuse was the effort hack, and it worked:** the original 5 demos and 6 figures were 2,940 LOC of primitives; the library is now 14 demos + 15 figures at ~9,800 LOC, built largely by re-skinning those primitives (Section 6).
+9. **Registry cost is trivial**: adding an article means one entry in `ARTICLES` (`src/data/articles.ts:101`), one `DemoKind`/`FigureKind`, and one registry line each in `src/lib/articles-demos.ts:82` (`DEMOS`) and `src/data/articles.ts:72` (`FIGURES`); `ArticleDetail` renders everything generically.
 10. **Recommended cadence:** one S/M article per wave slot; never more than one L in flight (L = multi-stage animation or simulator, e.g., KV cache or diffusion).
 
 ---
 
 ## 1. Where the library is now
 
-### 1.1 The five shipped articles
+### 1.1 The original five articles (all still shipped)
 
 | Article | Category | Demo | Figure | Practice footer | Modernization gap (Section 5) |
 |---|---|---|---|---|---|
-| Why Softmax Needs Temperature | Deep Learning | log-slider + probability bars + Gumbel flip marks | temperature curve | dl-021, ml-065, nlp-075, dl-003, la-149 | top-p/min-p/DRY sampling stack; reasoning models sample differently |
-| Eigenvectors You Can See | Linear Algebra | draggable vector + matrix warp canvas | warped grid | la-040, la-083, la-084, la-050, la-174 | low-rank in practice: SVD, LoRA, Matryoshka embedding truncation |
-| Gradient Descent from MSE to Logistic | Optimization | click-to-add points + refit + loss curve | contour path | ml-103, ml-012, op-001, ml-083, ml-002 | momentum/AdamW and LR schedules (warmup-cosine) missing |
-| K-Means: Assignment to Convergence | ML Fundamentals | stepped loop + inertia status | loop diagram | ml-003, ml-032, ml-033, ml-034, ml-145 | k-means is the index inside every vector DB: IVF + product quantization |
-| Attention Is a Heatmap | Deep Learning | Q/K/V matrix + row softmax | pipeline + heatmap | dl-034, dl-035, dl-036, nlp-050, nlp-072 | RoPE, GQA/MQA/MLA, attention sinks, KV cache, FlashAttention |
+| Why Softmax Needs Temperature | Deep Learning | log-slider + probability bars + Gumbel flip marks | temperature curve | dl-021, ml-065, nlp-075, dl-003, la-149 | top-p/min-p/DRY sampling stack — **open** |
+| Eigenvectors You Can See | Linear Algebra | draggable vector + matrix warp canvas | warped grid | la-040, la-083, la-084, la-050, la-174 | low-rank in practice — **shipped** as the separate `pca-and-svd-in-practice` article |
+| Gradient Descent from MSE to Logistic | Optimization | click-to-add points + refit + loss curve | contour path | ml-103, ml-012, op-001, ml-083, ml-002 | momentum/AdamW + schedules — **open** |
+| K-Means: Assignment to Convergence | ML Fundamentals | stepped loop + inertia status | loop diagram | ml-003, ml-032, ml-033, ml-034, ml-145 | IVF + product quantization — **open** |
+| Attention Is a Heatmap | Deep Learning | Q/K/V matrix + row softmax | pipeline + heatmap | dl-034, dl-035, dl-036, nlp-050, nlp-072 | GQA/MQA/MLA, FP8 KV, FlashAttention — **shipped** in the separate `kv-cache-and-flashattention` article; RoPE itself is still uncovered |
+
+Nine articles were added after this audit (all in `src/data/articles.ts`): `tokenization-byte-pair-encoding`, `embeddings-and-cosine-similarity`, `quantization-int8-to-fp8`, `kv-cache-and-flashattention`, `rag-from-chunks-to-citations`, `post-training-rlhf-dpo-grpo`, `pca-and-svd-in-practice`, `calibration-and-uncertainty`, `lora-low-rank-fine-tuning` — the top 6 from Section 4 plus three Wave-2 picks.
 
 ### 1.2 Coverage inventory vs 2026 practice
 
-Status legend: **C** covered, **P** partial (touched in prose by an existing article), **M** missing. "Catalogue" = number of direct matching problem ids in `problem-meta.ts` (search-verified; not exhaustive).
+Status legend: **C** covered, **P** partial (touched in prose by an existing article), **M** missing. Statuses and catalogue notes were verified against the 5,050-problem snapshot on 2026-09-13 and refreshed on 2026-09-17 (the bank is now 5,730; category totals are in `README.md`). "Catalogue" = number of direct matching problem ids in `problem-meta.ts` (search-verified; not exhaustive).
 
 | # | Modern topic | Status | Why it matters in 2026 | Catalogue | Sources |
 |---|---|---|---|---|---|
-| 1 | Tokenization / BPE | M | Tokenizer quality is a cost and fairness issue: fertility predicts accuracy, and a letters-only pre-tokenizer hard-caps abugida scripts; ACL 2026 has active parity-BPE work | `nlp` 320 total; 6+ direct | S20–S23 |
-| 2 | Embeddings & similarity | P (dot products in attention; distances in k-means) | Every RAG/agent stack runs on embeddings; Matryoshka truncation + int8 give 12–48× storage cuts; MTEB v2 standardizes dynamic dims | `la`/`ml`/`nlp`; 6+ direct | S27, S28 |
-| 3 | LoRA / PEFT | M | Default adaptation path; 2026 guidance moved to all-linear target modules + LoftQ init; adapter merge/serving economics | `dl` 455 total; 6+ direct | S05–S08 |
-| 4 | Quantization | M | Production default: FP8 on Hopper/Blackwell (<0.5pt MMLU-Pro loss), INT4 weight-only for decode, NF4 for budget training; format must match silicon | 20+ direct ids | S24–S26 |
+| 1 | Tokenization / BPE | C (`tokenization-byte-pair-encoding`) | Tokenizer quality is a cost and fairness issue: fertility predicts accuracy, and a letters-only pre-tokenizer hard-caps abugida scripts; ACL 2026 has active parity-BPE work | `nlp` 420 total; 6+ direct | S20–S23 |
+| 2 | Embeddings & similarity | C (`embeddings-and-cosine-similarity`) | Every RAG/agent stack runs on embeddings; Matryoshka truncation + int8 give 12–48× storage cuts; MTEB v2 standardizes dynamic dims | `la`/`ml`/`nlp`; 6+ direct | S27, S28 |
+| 3 | LoRA / PEFT | C (`lora-low-rank-fine-tuning`) | Default adaptation path; 2026 guidance moved to all-linear target modules + LoftQ init; adapter merge/serving economics | `dl` 455 total; 6+ direct | S05–S08 |
+| 4 | Quantization | C (`quantization-int8-to-fp8`) | Production default: FP8 on Hopper/Blackwell (<0.5pt MMLU-Pro loss), INT4 weight-only for decode, NF4 for budget training; format must match silicon | 20+ direct ids | S24–S26 |
 | 5 | Distillation | P (one softmax sentence) | Still the standard compression/transfer lever (teacher soft targets, feature distillation, sequence-level KL) | 4+ direct | S24, S35 |
-| 6 | RAG pipeline | M | Dominant applied pattern: hybrid BM25+dense → RRF → cross-encoder → cited generation; contextual retrieval + rerank cuts failures 49–67% | 8+ direct | S15–S17, S38 |
-| 7 | RLHF vs DPO vs GRPO | M | Post-training stack changed: RLHF→GRPO/DAPO/RLVR for reasoning; DPO the stable default; rankings invert across scale | 10+ direct | S01–S04, S36 |
-| 8 | KV cache / FlashAttention | P (attention ends at n² cost) | At 128k+, KV cache dominates GPU memory; FP8 KV is now the default start; GQA/MLA give 4–14× compression | 15+ direct | S11–S14, S37 |
+| 6 | RAG pipeline | C (`rag-from-chunks-to-citations`) | Dominant applied pattern: hybrid BM25+dense → RRF → cross-encoder → cited generation; contextual retrieval + rerank cuts failures 49–67% | 8+ direct | S15–S17, S38 |
+| 7 | RLHF vs DPO vs GRPO | C (`post-training-rlhf-dpo-grpo`) | Post-training stack changed: RLHF→GRPO/DAPO/RLVR for reasoning; DPO the stable default; rankings invert across scale | 10+ direct | S01–S04, S36 |
+| 8 | KV cache / FlashAttention | C (`kv-cache-and-flashattention`) | At 128k+, KV cache dominates GPU memory; FP8 KV is now the default start; GQA/MLA give 4–14× compression | 15+ direct | S11–S14, S37 |
 | 9 | Mixture-of-experts | M | Frontier open-weight models are MoE (DeepSeek-V3: 671B total / 37B active); routing skew and all-to-all are new systems literacy | 5 direct | S09, S10 |
 | 10 | Diffusion | M | Flow matching / rectified flow is the mainstream (SD3; CVPR 2026 FreqFlow), not classic DDPM | 6+ direct | S29, S30 |
 | 11 | Contrastive learning (CLIP) | M | The default multimodal embedding layer; MTEB now multimodal; late-interaction variants compete with rerankers | 6 direct | S27, S28 |
@@ -58,9 +60,9 @@ Status legend: **C** covered, **P** partial (touched in prose by an existing art
 | 16 | Regularization | P (one L2 sentence) | Dropout, weight decay, early stopping, group lasso — still the practical overfitting toolkit | 6+ direct | evergreen |
 | 17 | Bayesian inference | M | Conjugate updating + credible intervals; tabular foundation models now approximate Bayesian posterior predictive in one forward pass | 6+ direct | S34, S35 |
 | 18 | MCMC | M | The sampler behind Bayesian workflows; diffusion sampling is Langevin-adjacent — a strong 2026 bridge | 5 direct | S29 |
-| 19 | PCA / SVD in practice | P (covariance eigenvectors) | Low-rank everywhere: embeddings, LoRA, compression; randomized SVD is the workhorse | 6+ direct | S27 |
+| 19 | PCA / SVD in practice | C (`pca-and-svd-in-practice`) | Low-rank everywhere: embeddings, LoRA, compression; randomized SVD is the workhorse | 6+ direct | S27 |
 | 20 | Gradient boosting | M | Challenged by tabular foundation models (TabPFN-3 beats tuned GBDTs on TabArena) — the contrast is the lesson | 6 direct | S34, S35 |
-| 21 | Calibration | P (temperature scaling paragraph) | RAG needs refusal thresholds, agents need monitored confidence, judges must be calibrated before eval automation | 6 direct | S16, S18 |
+| 21 | Calibration | C (`calibration-and-uncertainty`) | RAG needs refusal thresholds, agents need monitored confidence, judges must be calibrated before eval automation | 6 direct | S16, S18 |
 | 22 | Eval metrics (P/R/AUC) | P (words only, no article) | Agent/RAG evaluation is trajectory-level, but thresholds still turn on precision/recall/AUC under imbalance | 10+ direct | S18, S31–S33 |
 | 23 | Data leakage | M | Benchmark contamination inflates scores by a measured 6–40%; a four-tier taxonomy now exists; leakage hygiene is an interview staple | 3 direct (thin) | S31–S33 |
 | 24 | Scaling laws | M | The scaling story moved from pretraining to post-training and test-time compute (thinking modes, best-of-N) | 6 direct | S01, S35 |
@@ -71,7 +73,7 @@ Status legend: **C** covered, **P** partial (touched in prose by an existing art
 
 ## 2. Scoring method
 
-**Rubric (1–5 each, total /15).** (a) *Learner value*: how much a self-taught practitioner is blocked or misled without it. (b) *Demo + SVG fit*: can one manipulation produce a visible, non-obvious insight, and does a static figure add a takeaway? (c) *Catalogue fit*: count and depth of matching practice problems (verified ids). Effort: **S** ≈ 0.5–1 day, **M** ≈ 1–2 days, **L** ≈ 3+ days of agent work, benchmarked against the existing demos (276–430 LOC) and figures (155–241 LOC).
+**Rubric (1–5 each, total /15).** (a) *Learner value*: how much a self-taught practitioner is blocked or misled without it. (b) *Demo + SVG fit*: can one manipulation produce a visible, non-obvious insight, and does a static figure add a takeaway? (c) *Catalogue fit*: count and depth of matching practice problems (verified ids). Effort: **S** ≈ 0.5–1 day, **M** ≈ 1–2 days, **L** ≈ 3+ days of agent work, benchmarked against the demos (276–430 LOC at the time; 330–867 today) and figures (155–241; 155–248 today).
 
 Scores are a guide; two explicit overrides are documented in Section 4.1.
 
@@ -81,33 +83,33 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 
 ### 3.1 Scores and ranking
 
-| Rank | Candidate | (a) | (b) | (c) | Total | Effort | Chosen |
-|---|---|---|---|---|---|---|---|
-| 1 | Tokenization: Byte-Pair Encoding | 5 | 5 | 5 | 15 | S | **Yes** |
-| 2 | Embeddings: Meaning as Geometry | 5 | 5 | 5 | 15 | M | **Yes** |
-| 3 | Quantization: INT8, INT4, FP8 | 5 | 4 | 5 | 14 | M | **Yes** |
-| 4 | KV Cache & FlashAttention | 5 | 4 | 5 | 14 | L | **Yes** |
-| 5 | Eval Metrics: Precision, Recall, ROC, AUC | 5 | 4 | 5 | 14 | M | Alternate #1 |
-| 6 | RAG: From Chunks to Citations | 5 | 4 | 4 | 13 | M | **Yes** |
-| 7 | Post-Training: RLHF → DPO → GRPO | 5 | 4 | 4 | 13 | L | **Yes** |
-| 8 | PCA / SVD in Practice | 4 | 5 | 4 | 13 | M | Wave 2 |
-| 9 | Calibration & Uncertainty | 4 | 4 | 4 | 12 | S | Wave 2 |
-| 10 | Diffusion & Flow Matching | 4 | 4 | 4 | 12 | L | Wave 2 |
-| 11 | LoRA / PEFT: Low-Rank Fine-Tuning | 4 | 4 | 4 | 12 | M | Wave 2 |
-| 12 | CLIP & Contrastive Learning | 4 | 4 | 4 | 12 | M | Wave 2 |
-| 13 | Normalization: BatchNorm → RMSNorm | 4 | 3 | 4 | 11 | M | Wave 3 |
-| 14 | Gradient Boosting vs Tabular Foundation Models | 4 | 4 | 3 | 11 | M | Wave 3 |
-| 15 | Inference Serving: Batching & Speculative Decoding | 4 | 3 | 4 | 11 | M | Wave 3 |
-| 16 | Agent Loops & Tool Use | 4 | 4 | 3 | 11 | M | Wave 3 |
-| 17 | Mixture-of-Experts | 4 | 4 | 3 | 11 | M | Wave 3 |
-| 18 | MCMC: Sampling When Integrals Fail | 3 | 5 | 3 | 11 | M | Wave 3 |
-| 19 | Cross-Validation & Model Selection | 4 | 3 | 3 | 10 | S | Wave 3 |
-| 20 | Regularization: Dropout, Weight Decay, Early Stopping | 4 | 3 | 3 | 10 | S | Wave 3 |
-| 21 | Bayesian Inference: Priors to Posteriors | 3 | 4 | 3 | 10 | S | Wave 3 |
-| 22 | Data Leakage & Benchmark Contamination | 4 | 3 | 2 | 9 | S | Wave 3 |
-| 23 | Scaling Laws & Test-Time Compute | 3 | 3 | 3 | 9 | S | Wave 3 |
-| 24 | Initialization: Xavier, He, Signal Preservation | 3 | 3 | 3 | 9 | S | Wave 3 |
-| 25 | Bias–Variance in the Deep Learning Era | 3 | 3 | 3 | 9 | S | Wave 3 |
+| Rank | Candidate | (a) | (b) | (c) | Total | Effort | Chosen | Status |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Tokenization: Byte-Pair Encoding | 5 | 5 | 5 | 15 | S | **Yes** | **shipped** |
+| 2 | Embeddings: Meaning as Geometry | 5 | 5 | 5 | 15 | M | **Yes** | **shipped** |
+| 3 | Quantization: INT8, INT4, FP8 | 5 | 4 | 5 | 14 | M | **Yes** | **shipped** |
+| 4 | KV Cache & FlashAttention | 5 | 4 | 5 | 14 | L | **Yes** | **shipped** |
+| 5 | Eval Metrics: Precision, Recall, ROC, AUC | 5 | 4 | 5 | 14 | M | Alternate #1 | open — the top unshipped pick |
+| 6 | RAG: From Chunks to Citations | 5 | 4 | 4 | 13 | M | **Yes** | **shipped** |
+| 7 | Post-Training: RLHF → DPO → GRPO | 5 | 4 | 4 | 13 | L | **Yes** | **shipped** |
+| 8 | PCA / SVD in Practice | 4 | 5 | 4 | 13 | M | Wave 2 | **shipped** |
+| 9 | Calibration & Uncertainty | 4 | 4 | 4 | 12 | S | Wave 2 | **shipped** |
+| 10 | Diffusion & Flow Matching | 4 | 4 | 4 | 12 | L | Wave 2 | open |
+| 11 | LoRA / PEFT: Low-Rank Fine-Tuning | 4 | 4 | 4 | 12 | M | Wave 2 | **shipped** |
+| 12 | CLIP & Contrastive Learning | 4 | 4 | 4 | 12 | M | Wave 2 | open |
+| 13 | Normalization: BatchNorm → RMSNorm | 4 | 3 | 4 | 11 | M | Wave 3 | open |
+| 14 | Gradient Boosting vs Tabular Foundation Models | 4 | 4 | 3 | 11 | M | Wave 3 | open |
+| 15 | Inference Serving: Batching & Speculative Decoding | 4 | 3 | 4 | 11 | M | Wave 3 | open |
+| 16 | Agent Loops & Tool Use | 4 | 4 | 3 | 11 | M | Wave 3 | open |
+| 17 | Mixture-of-Experts | 4 | 4 | 3 | 11 | M | Wave 3 | open |
+| 18 | MCMC: Sampling When Integrals Fail | 3 | 5 | 3 | 11 | M | Wave 3 | open |
+| 19 | Cross-Validation & Model Selection | 4 | 3 | 3 | 10 | S | Wave 3 | open |
+| 20 | Regularization: Dropout, Weight Decay, Early Stopping | 4 | 3 | 3 | 10 | S | Wave 3 | open |
+| 21 | Bayesian Inference: Priors to Posteriors | 3 | 4 | 3 | 10 | S | Wave 3 | open |
+| 22 | Data Leakage & Benchmark Contamination | 4 | 3 | 2 | 9 | S | Wave 3 | open |
+| 23 | Scaling Laws & Test-Time Compute | 3 | 3 | 3 | 9 | S | Wave 3 | open |
+| 24 | Initialization: Xavier, He, Signal Preservation | 3 | 3 | 3 | 9 | S | Wave 3 | open |
+| 25 | Bias–Variance in the Deep Learning Era | 3 | 3 | 3 | 9 | S | Wave 3 | open |
 
 ### 3.2 Candidate sheets
 
@@ -118,6 +120,7 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 - **Figure:** SVG merge cascade — `lowest → low + est`, with merge rank beside each edge and a fertility readout ("1 word → 2 tokens").
 - **Practice:** `nlp-001` Tokenization · `nlp-022` WordPiece Longest-Match Tokenizer · `nlp-096` Byte-Level BPE Token Count · `nlp-099` Tokenizer Fertility Ratio · `nlp-235` Unigram Tokenization Report · `nlp-238` Average Characters per Token
 - **Build note:** no canvas needed; the existing bar/slider primitives in `DemoSoftmaxTemperature` cover most interaction.
+- **Shipped:** `tokenization-byte-pair-encoding` — demo `DemoBpeMerge`, figure `BpeMergeCascade`.
 
 #### 2. Embeddings: Meaning as Geometry — `NLP` · Effort M
 - **Dek:** A good embedding puts "dog" near "puppy" and far from "semiconductor". Cosine similarity is how that claim gets measured.
@@ -126,6 +129,7 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 - **Figure:** SVG unit sphere with the angle-as-cosine geometry plus the algebra `dot(a,b)/(|a||b|)`.
 - **Practice:** `la-025` Cosine Similarity of Vectors · `la-130` Cosine Similarity Matrix · `ml-046` Cosine Similarity of Feature Vectors · `nlp-005` Cosine Similarity of Token Vectors · `nlp-067` Top-k Embedding Cosine Ranking · `nlp-247` Dense Embedding Cosine Rank
 - **Build note:** `DemoEigenvector` is 80% of the canvas machinery.
+- **Shipped:** `embeddings-and-cosine-similarity` — demo `DemoEmbeddingCosine`, figure `EmbeddingGeometry`.
 
 #### 3. Quantization: INT8, INT4, FP8 — `Deep Learning` · Effort M
 - **Dek:** Halving the bits roughly halves memory and doubles decode throughput — the price is a rounding error you can steer.
@@ -134,6 +138,7 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 - **Figure:** SVG number line comparing uniformly spaced INT8 levels with exponentially spaced FP8 levels, with an activation outlier arrow explaining why FP8 absorbs it.
 - **Practice:** `dl-058` Int8 Quantization Scale · `dl-059` Quantize Int8 · `dl-060` Dequantize Int8 · `dl-077` Per-Channel Quant Scale · `dl-195` Weight-Only Quant Memory · `dl-451` Int4 Vs Int8 Memory Reduction
 - **Note:** distillation is the same "student learns from richer signal" story; fold `ml-168` Distillation Loss and `dl-082` Distillation KL into one section, not a separate article.
+- **Shipped:** `quantization-int8-to-fp8` — demo `DemoQuantizationScale`, figure `QuantizationNumberLine` (distillation was not folded in).
 
 #### 4. KV Cache & FlashAttention — `Deep Learning` · Effort L
 - **Dek:** Attention is O(n²) compute and O(n) memory that never shrinks. The KV cache is why long context costs what it costs — and FlashAttention is why it fits.
@@ -142,6 +147,7 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 - **Figure:** SVG stacked area of memory (weights + KV at 4k/32k/128k) plus a tiling diagram of HBM ↔ SRAM blocks that never materializes the n×n matrix.
 - **Practice:** `dl-075` KV Cache Size · `dl-124` Flash Attention Block Count · `dl-186` KV Cache Append Step · `dl-211` Online Softmax Rescale Step · `dl-370` GQA Cache Savings Fraction · `dl-401` KV Cache Bytes Per Token
 - **Deps:** the attention article exists; the quantization article should land first so the FP8/INT8 KV section can link to it.
+- **Shipped:** `kv-cache-and-flashattention` — demo `DemoKvCache`, figure `KvMemoryTiling`.
 
 #### 5. RAG: From Chunks to Citations — `NLP` · Effort M
 - **Dek:** Retrieval-augmented generation is a pipeline, not a prompt. Most failures happen before the model reads a single token.
@@ -150,6 +156,7 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 - **Figure:** SVG pipeline — parse → chunk → contextualize → index → hybrid retrieve → RRF → rerank → context pack → generate with citations — annotated with the 49–67% failure-reduction numbers.
 - **Practice:** `nlp-141` RAG Retrieval Top-k · `nlp-148` Reciprocal Rank Fusion · `nlp-184` Retrieval Precision at k · `nlp-185` Recall at k · `nlp-242` Chunk Overlap Coverage · `nlp-252` Mean Reciprocal Rank for Retrieval
 - **Deps:** embeddings article first (the dense half of hybrid retrieval); quantization optional (vector compression).
+- **Shipped:** `rag-from-chunks-to-citations` — demo `DemoRagRetrieval`, figure `RagPipeline`.
 
 #### 6. Post-Training: RLHF → DPO → GRPO — `Reinforcement Learning` · Effort L
 - **Dek:** Pretraining teaches the model language; post-training teaches it behavior. The 2026 stack replaced human preference labels with verifiable rewards for reasoning.
@@ -158,6 +165,7 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 - **Figure:** SVG pipeline SFT → preference optimization → RLVR, with the critic crossed out of GRPO, plus the Bradley–Terry preference curve.
 - **Practice:** `dl-180` DPO Loss · `dl-182` PPO Clipped Objective · `rl-204` Reward Model Training Loss · `rl-205` Bradley-Terry Likelihood · `rl-274` DPO Loss Value · `rl-275` DPO Implicit Reward Gap
 - **Deps:** softmax/temperature + attention articles (log-probs and the transformer context); quantization recommended for the QLoRA-on-one-GPU aside.
+- **Shipped:** `post-training-rlhf-dpo-grpo` — demo `DemoPostTraining`, figure `PostTrainingPipeline`.
 
 #### 7. Eval Metrics: Precision, Recall, ROC, AUC — `ML Fundamentals` · Effort M (first alternate)
 - **Dek:** Accuracy is a trap. Threshold, prevalence, and the metric you picked decide what "good" means.
@@ -174,6 +182,7 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 - **Figure:** SVG covariance ellipse with principal axes + scree bars and the Eckart–Young truncation error.
 - **Practice:** `ml-041` PCA Mean Centering · `la-139` Rank-1 Approximation · `la-249` SVD Power Iteration for Singular Vectors · `la-250` Eckart-Young Rank-r Reconstruction · `la-251` Pseudoinverse via SVD Formula · `la-089` Singular Values 2x2
 - **Deps:** eigenvectors article is the natural predecessor.
+- **Shipped:** `pca-and-svd-in-practice` — demo `DemoPcaProjection`, figure `PcaEllipseScree`.
 
 #### 9. Calibration & Uncertainty — `ML Fundamentals` · Effort S
 - **Dek:** A model that says 90% should be right 90% of the time. Modern nets are not.
@@ -182,6 +191,7 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 - **Figure:** SVG reliability diagram plus the temperature-scaling formula and before/after ECE.
 - **Practice:** `ml-065` Temperature Scaling · `ml-072` Calibration Bins · `ml-101` Expected Calibration Error by Probability Bins · `ml-337` Calibration Gap by Equal-Frequency Bins · `dl-086` Expected Calibration Error for Confidence Scores · `ml-291` Uplift Calibration Error
 - **Deps:** softmax article already introduces temperature scaling — this deepens it.
+- **Shipped:** `calibration-and-uncertainty` — demo `DemoCalibrationUncertainty`, figure `CalibrationReliability`.
 
 #### 10. Diffusion & Flow Matching — `Deep Learning` · Effort L
 - **Dek:** Start from noise and integrate backwards. Diffusion and flow matching are one family with two schedules.
@@ -198,6 +208,7 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 - **Figure:** SVG of frozen `W` plus the low-rank elbow `B·A`, with the parameter formula `r(d_in+d_out)` vs `d_in·d_out`.
 - **Practice:** `dl-151` LoRA Parameter Count · `dl-152` Adapter Bottleneck Params · `dl-153` Prompt Tuning Params · `dl-154` QLoRA Memory · `dl-219` LoRA Merge Weights · `dl-220` Prompt Cache Hit Ratio
 - **Deps:** PCA/SVD article is a nice prerequisite; quantization article covers the QLoRA base.
+- **Shipped:** `lora-low-rank-fine-tuning` — demo `DemoLoraRank`, figure `LoraAdapterDiagram`.
 
 #### 12. CLIP & Contrastive Learning — `Computer Vision` · Effort M
 - **Dek:** Align images and text in one space, then classify with a sentence instead of a head.
@@ -313,14 +324,16 @@ Scores are a guide; two explicit overrides are documented in Section 4.1.
 
 ---
 
-## 4. Top 6 to build next
+## 4. Top 6 to build next — all six shipped
+
+All six picks landed in `src/data/articles.ts` (2026-09-17): tokenization, embeddings, quantization, KV cache, RAG, and post-training, in the planned order. The table below is retained as the build record; each row's demo and figure now exist under `src/components/articles/`.
 
 ### 4.1 Selection and overrides
 
 By rubric score: tokenization (15), embeddings (15), quantization (14), KV cache (14), eval metrics (14), then a tie at 13 between RAG and post-training. Two judgment calls, stated openly:
 
-- **Eval Metrics (14) is deferred to alternate #1.** It is the highest-value candidate not picked, but its interaction is a threshold sweep over two standard charts — the smallest new capability of the top group — and contamination is covered by the Data Leakage candidate. Build it first if the priority is evaluation literacy over systems + alignment.
-- **Post-Training (13) is taken over Eval Metrics** because the 2026 post-training shift is the largest change in practice this library does not touch, the catalogue support is deep (`dl-170/171/180/182`, `rl-204/205/206/274/275/281`), and the preference-logprob demo reuses the softmax demo's probability primitives.
+- **Eval Metrics (14) is deferred to alternate #1.** It is the highest-value candidate not picked, but its interaction is a threshold sweep over two standard charts — the smallest new capability of the top group — and contamination is covered by the Data Leakage candidate. Build it first if the priority is evaluation literacy over systems + alignment. **Still open — the top unshipped candidate.**
+- **Post-Training (13) is taken over Eval Metrics** because the 2026 post-training shift is the largest change in practice this library does not touch, the catalogue support is deep (`dl-170/171/180/182`, `rl-204/205/206/274/275/281`), and the preference-logprob demo reuses the softmax demo's probability primitives. **Shipped** as `post-training-rlhf-dpo-grpo`.
 
 ### 4.2 The six
 
@@ -333,41 +346,45 @@ By rubric score: tokenization (15), embeddings (15), quantization (14), KV cache
 | 5 | RAG: From Chunks to Citations | NLP | M | 1, 2 (3 optional for vector compression) | hybrid retrieval + RRF + rerank playground ending in cited context or refusal | full pipeline SVG with failure-reduction annotations | nlp-141, nlp-148, nlp-184, nlp-185, nlp-242, nlp-252 |
 | 6 | Post-Training: RLHF → DPO → GRPO | Reinforcement Learning | L | softmax (exists), attention (exists), 3 optional (QLoRA) | preference log-prob lab, DPO margin, SFT/DPO/GRPO update toggle | SFT→preference→RLVR pipeline with critic crossed out | dl-180, dl-182, rl-204, rl-205, rl-274, rl-275 |
 
-### 4.3 Build order and dependencies (one paragraph)
+### 4.3 Build order and dependencies
 
-Build **tokenization first** because it is the cheapest article (S) and it defines the unit every later article counts in — token counts are the cost/context currency for embeddings, RAG, KV cache, and quantization; nothing depends on it, but it unblocks the NLP spine. **Embeddings second**, directly on top of tokenization: it is the single most reused concept in the library and it is the hard prerequisite for RAG and CLIP; its canvas work can start while tokenization ships. **Quantization third** runs in parallel with embeddings (no hard dependency) and should land before KV cache because the KV article's dtype section assumes the reader knows what FP8 buys; it also pays off the 20+ existing `dl-*` quantization problems and sets up the QLoRA aside in post-training. **KV cache fourth** is the direct sequel to the existing attention article (it references the n²-cost prose at `articles.ts:312`) and depends on quantization for the FP8/INT8 KV material; it is the only L in the first four, so schedule it alone. **RAG fifth** depends on tokenization and embeddings (chunking and dense retrieval), not on KV cache, but it ships after so the library has a coherent "text becomes retrieval" arc; quantization is optional for the vector-compression section. **Post-training sixth** depends only on the existing softmax and attention articles and can be developed in parallel with KV cache/RAG by a second lane; quantization is a recommended read for the single-node QLoRA context. Hard constraints to honor: embeddings before RAG, attention before KV cache, quantization before KV cache's dtype section, and tokenization before everything that counts tokens. Fear not the tie: if a second agent lane is free after step 2, post-training can jump the queue with zero blocking dependencies.
+The order held exactly as planned: tokenization first (the unit every later article counts in), embeddings second, quantization third (before KV cache's dtype section), KV cache fourth, RAG fifth (dependent on tokenization + embeddings), post-training sixth (the only L besides KV cache, developed in parallel). The hard constraints — embeddings before RAG, attention before KV cache, quantization before KV cache's dtype section, tokenization before everything that counts tokens — are visible in the shipped cross-links (`embeddings-and-cosine-similarity` ↔ `rag-from-chunks-to-citations`, `attention-is-a-heatmap` ↔ `kv-cache-and-flashattention`, `quantization-int8-to-fp8` ↔ `kv-cache-and-flashattention` and `post-training-rlhf-dpo-grpo`).
 
 ---
 
 ## 5. Modernize the five existing articles
 
-- **Softmax / temperature** — add a "temperature is one knob in 2026" section: top-p, min-p, and repetition/DRY penalties truncate the tail that temperature alone just flattens; reasoning models are typically sampled greedily or at low temperature, while creative workloads use temp ~1 with top-p <1; point to `dl-078` Top-P Nucleus Filter, `nlp-079` Top-p (Nucleus) Filtering, `nlp-292` Nucleus Cutoff Index, and tie test-time diversity to the post-training article [S02, S03]. The existing calibration paragraph stays; it is already current.
-- **Eigenvectors** — add "low-rank everything": SVD powers PCA (already noted), LoRA's `ΔW = BA`, and Matryoshka embedding truncation; show that rank-r reconstruction is the Eckart–Young optimum and that LoRA parameter count scales as `r(d_in+d_out)`; practice `la-139`, `la-250`, `dl-151`, `dl-219` [S05, S27].
-- **Gradient descent** — add "SGD is not the optimizer you ship": momentum, RMSProp, Adam/AdamW (decoupled weight decay), plus warmup + cosine schedules; the existing demo already has an update-rule toggle, so add an optimizer selector and a schedule chart rather than a new demo; practice `ml-131` Momentum Update Step, `ml-132` Adam Optimizer Step, `op-015` Cosine Annealing Learning Rate, `op-127` LAMB Layerwise Scaling.
-- **K-means** — add "the k-means inside your vector database": IVF is k-means partitioning plus inverted lists, product quantization compresses the residuals, and the recall/latency curve is the deployment dial; spherical k-means/cosine is the NLP default; practice `nlp-256` IVF Recall Estimate, `nlp-247` Dense Embedding Cosine Rank, `ml-219` Item-Based Cosine Predict, `ml-145` K-Means++ Init (already in the article) [S27].
-- **Attention** — add a short "what changed since 2017" bridge to the future KV-cache article: RoPE replaced learned positional embeddings, GQA/MQA/MLA compress the KV cache, attention sinks explain why the first tokens always get weight, sliding-window masks bound long-context cost, and FlashAttention never materializes the n×n matrix; practice `dl-209` Rotary Embedding Apply 2D, `dl-370` GQA Cache Savings Fraction, `dl-382` Attention Sink Weights, `dl-393` Tiled Attention Row Output [S11, S12, S13].
+Status: the eigenvectors/low-rank topic shipped as the stand-alone `pca-and-svd-in-practice` article and the attention additions partly landed in `kv-cache-and-flashattention`; the other in-place edits were not made. Re-check the articles before treating any bullet as a spec.
+
+- **Softmax / temperature — open.** Add a "temperature is one knob in 2026" section: top-p, min-p, and repetition/DRY penalties truncate the tail that temperature alone just flattens; reasoning models are typically sampled greedily or at low temperature, while creative workloads use temp ~1 with top-p <1; point to `dl-078` Top-P Nucleus Filter, `nlp-079` Top-p (Nucleus) Filtering, `nlp-292` Nucleus Cutoff Index, and tie test-time diversity to the post-training article [S02, S03]. The existing calibration paragraph stays; it is already current.
+- **Eigenvectors — shipped as a separate article.** The "low-rank everything" content landed as `pca-and-svd-in-practice` (SVD → PCA, LoRA's `ΔW = BA`, Matryoshka truncation, Eckart–Young) rather than as an edit to `eigenvectors-you-can-see`; the original article is unchanged [S05, S27].
+- **Gradient descent — open.** No "SGD is not the optimizer you ship" section: momentum, RMSProp, Adam/AdamW, warmup + cosine schedules, and an optimizer selector in the existing demo are all still missing.
+- **K-means — open.** No "the k-means inside your vector database" section (IVF, product quantization, recall/latency dial, spherical k-means); `nlp-256`, `nlp-247`, `ml-219` are not linked from the article [S27].
+- **Attention — partly shipped via the KV-cache article.** GQA/MQA/MLA, FP8 KV, FlashAttention tiling, and sliding-window cost now ship in `kv-cache-and-flashattention`; RoPE and attention sinks are still not covered anywhere, and the attention article itself was not edited [S11, S12, S13].
 
 ---
 
 ## 6. Reuse map — which existing components carry the new articles
 
+LOC refreshed 2026-09-17 (original values in the plan were 276/407/430/344/336/155/219/204/170/158/241/79/191).
+
 | Existing component (LOC) | Primitive it provides | New articles it can serve (direct reuse or light reskin) |
 |---|---|---|
-| `DemoSoftmaxTemperature.tsx` (276) | log/slider control + probability bars + threshold marker ticks + softmax math | tokenization (merge/compression bars), embeddings (similarity ranking bars), quantization (bit-level sliders + histograms), calibration (bin bars), eval metrics (threshold marks), post-training (preference probability bars) |
+| `DemoSoftmaxTemperature.tsx` (330) | log/slider control + probability bars + threshold marker ticks + softmax math | tokenization (merge/compression bars), embeddings (similarity ranking bars), quantization (bit-level sliders + histograms), calibration (bin bars), eval metrics (threshold marks), post-training (preference probability bars) |
 | `DemoEigenvector.tsx` (407) | draggable-vector canvas + matrix transform + live readouts + theme-aware palette | embeddings (vector space), PCA/SVD (projection axis), LoRA (ΔW rank approximation), initialization (signal path could reuse the readout pattern) |
-| `DemoGradientDescent.tsx` (430) | click-to-add points + iterative refit + loss curve + update-rule toggle | regularization (penalty/dropout toggles), optimizers modernize note (optimizer selector), calibration? no — leave charting to figures |
-| `DemoKMeans.tsx` (344) | stepped/play loop + status metric + point/centroid canvas | diffusion/flow (step denoising), MCMC (chain stepping + trace), gradient boosting (stump-by-stump), RAG (step through pipeline stages), agents (step through loop) |
+| `DemoGradientDescent.tsx` (409) | click-to-add points + iterative refit + loss curve + update-rule toggle | regularization (penalty/dropout toggles), optimizers modernize note (optimizer selector), calibration? no — leave charting to figures |
+| `DemoKMeans.tsx` (340) | stepped/play loop + status metric + point/centroid canvas | diffusion/flow (step denoising), MCMC (chain stepping + trace), gradient boosting (stump-by-stump), RAG (step through pipeline stages), agents (step through loop) |
 | `DemoAttention.tsx` (336) | token×token heatmap + row-normalized weights + mask toggle | CLIP (similarity matrix), RAG (rerank scores), eval metrics (confusion/score matrices), MoE (routing matrix) |
 | `figures/AttentionPipeline.tsx` (155) | horizontal stage-flow SVG | RAG pipeline, post-training pipeline, quantization pipeline, agent loop, serving timeline |
 | `figures/AttentionHeatmap.tsx` (219) | matrix heatmap SVG with causal mask | CLIP similarity matrix, confusion matrix, calibration bins, MoE routing |
 | `figures/DescentContours.tsx` (204) | contour/landscape SVG with path | DPO loss landscape, bias–variance, scaling-law loss curves |
-| `figures/SoftmaxTemperatureCurve.tsx` (170) | curve/bar chart with annotated axis | calibration reliability curve, ROC/PR curves, scaling laws, tokenizer fertility |
+| `figures/SoftmaxTemperatureCurve.tsx` (179) | curve/bar chart with annotated axis | calibration reliability curve, ROC/PR curves, scaling laws, tokenizer fertility |
 | `figures/KMeansLoop.tsx` (158) | two-step cycle diagram | EM/MCMC iterations, diffusion forward/reverse loop, boosting residual loop |
 | `figures/EigenvectorGrid.tsx` (241) | grid-warp vector field | PCA projection, low-rank transform, whitening |
-| `src/lib/articles-demos.ts` (79) | `DemoProps`, `clamp`, `getCanvasPalette`, `prefersReducedMotion` | every new demo — already the shared contract |
-| `ArticleDetail.tsx` (191) | generic renderer for prose/demo/figure + problem-id practice footer | no changes needed; new articles are data + demo + figure + 4 registry lines |
+| `src/lib/articles-demos.ts` (97) | `DemoProps`, `clamp`, `getCanvasPalette`, `prefersReducedMotion` | every new demo — already the shared contract |
+| `ArticleDetail.tsx` (194) | generic renderer for prose/demo/figure + problem-id practice footer | no changes needed; new articles are data + demo + figure + registry lines |
 
-**Reuse rule of thumb:** if a candidate's demo is "a distribution/ranking that responds to one or two sliders," start from `DemoSoftmaxTemperature`; if it is "a geometric object you drag," start from `DemoEigenvector`; if it is "a process you step through," start from `DemoKMeans`; if it is "a matrix you read," start from `DemoAttention`. That classification covers 14 of the 25 candidates with zero new interaction machinery.
+**Reuse rule of thumb:** if a candidate's demo is "a distribution/ranking that responds to one or two sliders," start from `DemoSoftmaxTemperature`; if it is "a geometric object you drag," start from `DemoEigenvector`; if it is "a process you step through," start from `DemoKMeans`; if it is "a matrix you read," start from `DemoAttention`. That classification covers 14 of the 25 candidates with zero new interaction machinery — and the shipped articles leaned on these patterns (the KV-cache demo is the one that outgrew the pattern at 867 LOC).
 
 ---
 
