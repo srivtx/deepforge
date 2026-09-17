@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/PageShell";
 import { PaperQuestions } from "@/components/papers/PaperQuestions";
+import { PaperReadBadge } from "@/components/papers/PaperReadBadge";
 import { PaperSections } from "@/components/papers/PaperSections";
 import { ARTICLES } from "@/data/articles";
 import { CONCEPTS } from "@/data/concepts";
@@ -37,6 +39,14 @@ const RESEARCH_TITLES = new Map(
   RESEARCH_CHALLENGES.map((challenge) => [challenge.id, challenge.title]),
 );
 const PROBLEM_TITLES = new Map(PROBLEM_META.map((problem) => [problem.id, problem.title]));
+
+/** The four numbered flow sections, in the order they render on the page. */
+const FLOW_LINKS = [
+  { id: "theory", index: 1, label: "Theory" },
+  { id: "inside-paper", index: 2, label: "Inside the paper" },
+  { id: "implementation", index: 3, label: "Implementation check" },
+  { id: "keep-going", index: 4, label: "Keep going" },
+] as const;
 const ARTICLE_LINKS = new Map<string, { title: string; href: string }>();
 for (const article of ARTICLES) {
   const link = { title: article.title, href: `/articles/${article.slug}` };
@@ -209,11 +219,11 @@ export default async function PaperPage({
           >
             Papers
           </Link>
-          <span aria-hidden className="text-mute">
-            /
-          </span>
-          <span className="min-w-0 max-w-full truncate text-body">
-            {paper.title}
+          <span className="flex min-w-0 max-w-full items-center gap-1.5">
+            <span aria-hidden className="text-mute">
+              /
+            </span>
+            <span className="min-w-0 truncate text-body">{paper.title}</span>
           </span>
         </nav>
 
@@ -242,6 +252,7 @@ export default async function PaperPage({
             <span className="font-mono text-xs text-mute">
               ~{paper.theoryMinutes} min theory
             </span>
+            <PaperReadBadge paperId={paper.id} />
           </div>
           <h1 className="break-words text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
             {paper.title}
@@ -268,6 +279,21 @@ export default async function PaperPage({
           </a>
         </header>
 
+        <nav aria-label="Paper flow" className="flex flex-wrap gap-2">
+          {FLOW_LINKS.map((step) => (
+            <a
+              key={step.id}
+              href={`#${step.id}`}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-hairline bg-canvas-card px-3 text-xs text-body-mid transition-colors hover:border-accent/40 hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-8"
+            >
+              <span aria-hidden className="font-mono text-[10px] text-accent">
+                {step.index}
+              </span>
+              {step.label}
+            </a>
+          ))}
+        </nav>
+
         <section
           aria-labelledby="where-this-sits"
           className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
@@ -275,42 +301,40 @@ export default async function PaperPage({
           <h2 id="where-this-sits" className="text-sm font-medium text-body-mid">
             Where this sits
           </h2>
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <div className="mt-2 break-words text-sm leading-relaxed">
             {fromPaper && (
               <>
                 <Link
                   href={`/papers/${fromPaper.slug}`}
-                  className="min-w-0 break-words text-body-mid transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                  className="text-body-mid transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                 >
                   {fromPaper.title}
                 </Link>
                 <span aria-hidden className="text-mute">
-                  →
+                  {"\u00A0→ "}
                 </span>
               </>
             )}
-            <span className="min-w-0 break-words font-medium text-ink">
-              {paper.title}
-            </span>
+            <span className="font-medium text-ink">{paper.title}</span>
             {toPapers.length > 0 && (
               <>
                 <span aria-hidden className="text-mute">
-                  →
+                  {"\u00A0→ "}
                 </span>
                 {toPapers.map((candidate, index) => (
-                  <span key={candidate.id} className="flex items-center gap-2">
-                    {index > 0 && (
-                      <span aria-hidden className="text-mute">
-                        ·
-                      </span>
-                    )}
+                  <Fragment key={candidate.id}>
                     <Link
                       href={`/papers/${candidate.slug}`}
-                      className="min-w-0 break-words text-body-mid transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                      className="text-body-mid transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                     >
                       {candidate.title}
                     </Link>
-                  </span>
+                    {index < toPapers.length - 1 && (
+                      <span aria-hidden className="text-mute">
+                        {"\u00A0· "}
+                      </span>
+                    )}
+                  </Fragment>
                 ))}
               </>
             )}

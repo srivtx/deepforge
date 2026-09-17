@@ -27,7 +27,7 @@ export function PaperFigure({
   const render = FIGURES[visual];
   return (
     <figure className={cn("m-0", className)}>
-      <div className="h-[200px] w-full rounded-md border border-hairline bg-canvas p-2">
+      <div className="aspect-[18/10] w-full rounded-md border border-hairline bg-canvas p-2">
         {render ? (
           render()
         ) : (

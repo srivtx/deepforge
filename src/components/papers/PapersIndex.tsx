@@ -65,9 +65,11 @@ function paperProgressHint(
 function PaperCard({
   entry,
   answers,
+  read,
 }: {
   entry: PaperCardEntry;
   answers: PaperAnswerMap;
+  read: boolean;
 }) {
   const total = entry.questionIds.length;
   const { answered, correct, done } = paperProgressHint(entry, answers);
@@ -79,8 +81,30 @@ function PaperCard({
       className="df-lift group flex h-full flex-col rounded-lg border border-hairline bg-canvas-card p-4 transition duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/40 hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[11px] text-mute">
-          {String(entry.order).padStart(2, "0")}
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="font-mono text-[11px] text-mute">
+            {String(entry.order).padStart(2, "0")}
+          </span>
+          {read && (
+            <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-medium text-accent">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 12 12"
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d="M2 6.4 4.7 9 10 3.2"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Read
+            </span>
+          )}
         </span>
         <span className="flex flex-wrap items-center justify-end gap-1.5">
           <span className="rounded-full border border-hairline bg-canvas-soft px-2 py-0.5 text-[10px] font-medium text-body-mid">
@@ -148,6 +172,8 @@ export function PapersIndex({
       entry.questionIds.length > 0 &&
       entry.questionIds.every((id) => Boolean(answers[id])),
   ).length;
+  const readCount = papers.filter((entry) => Boolean(state.read[entry.id]))
+    .length;
   const sections = eras
     .map((era) => ({
       era,
@@ -168,7 +194,8 @@ export function PapersIndex({
             {papers.length === 1 ? "paper" : "papers"} complete
           </p>
           <p className="mt-0.5 text-xs leading-relaxed text-body-mid">
-            A paper counts as complete when every question is answered.
+            Complete = every question answered · {readCount}{" "}
+            {readCount === 1 ? "paper" : "papers"} read
           </p>
         </div>
         {first && (
@@ -225,7 +252,11 @@ export function PapersIndex({
                 <ul className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {section.papers.map((entry) => (
                     <li key={entry.id} className="h-full">
-                      <PaperCard entry={entry} answers={answers} />
+                      <PaperCard
+                        entry={entry}
+                        answers={answers}
+                        read={Boolean(state.read[entry.id])}
+                      />
                     </li>
                   ))}
                 </ul>
