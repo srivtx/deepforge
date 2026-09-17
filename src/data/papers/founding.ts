@@ -23,10 +23,10 @@ export const FOUNDING_PAPERS: Paper[] = [
     tagline:
       "The 7B and 67B base models that opened the DeepSeek line, configured by scaling laws the authors re-measured from scratch.",
     whatItIs:
-      "DeepSeek's first public language model family: two dense decoder-only Transformers, 7B and 67B parameters, trained from scratch on a 2 trillion token corpus of mostly English and Chinese text. The paper's real subject is budgeting: it re-measures scaling laws for batch size, learning rate, and the model/data split, then spends its compute budget according to those curves. Supervised fine-tuning and DPO turn the base models into chat models that beat LLaMA-2 70B on many benchmarks and GPT-3.5 on open-ended comparisons.",
+      "DeepSeek's first public language model family: two dense decoder-only Transformers, 7B and 67B parameters, trained from scratch on a 2 trillion token corpus of mostly English and Chinese text. The paper's real subject is budgeting: it re-measures scaling laws for batch size, learning rate, and the model/data split, then spends its compute budget according to those curves. Supervised fine-tuning and DPO (direct preference optimization) turn the base models into chat models that beat LLaMA-2 70B on many benchmarks and GPT-3.5 on open-ended comparisons.",
     theoryMinutes: 15,
     lineage: {
-      to: ["deepseek-moe", "deepseek-coder", "deepseek-vl"],
+      to: ["deepseek-moe", "deepseek-v2", "deepseek-coder", "deepseek-vl"],
       context:
         "This is the root of the whole curriculum. Every later DeepSeek model inherits its trunk, its tokenizer, and its multi-step learning rate schedule.",
       improved: [
@@ -98,7 +98,7 @@ for s in (0, 1000, 2000, 7000, 8500, 9500):
       {
         kind: "prose",
         heading: "The recipe around the math",
-        text: "The micro design follows LLaMA: pre-norm with RMSNorm, SwiGLU feed-forward layers, rotary position embeddings, and a 100K-token byte-level BPE tokenizer padded to 102400 entries. The macro design differs: 30 layers for 7B, 95 for 67B, depth instead of extra width, and grouped-query attention with 8 key-value heads only in the 67B model. Training ran in bf16 with fp32 gradient accumulation, FlashAttention, ZeRO-1, and pipeline parallelism. Alignment used about 1.5 million instruction instances (1.2M helpful, 300K safety) for SFT, then DPO. The 7B model was fine-tuned for 4 epochs and the 67B for 2, because the larger model overfit quickly. One side effect worth knowing: adding math SFT data increased the rate at which chat responses looped, and DPO reduced it.",
+        text: "The micro design follows LLaMA: pre-norm with RMSNorm, SwiGLU feed-forward layers, rotary position embeddings, and a 100K-token byte-level BPE (byte-pair encoding) tokenizer padded to 102400 entries. The macro design differs: 30 layers for 7B, 95 for 67B, depth instead of extra width, and grouped-query attention with 8 key-value heads only in the 67B model. Training ran in bf16 with fp32 gradient accumulation, FlashAttention, ZeRO-1, and pipeline parallelism. Alignment used about 1.5 million instruction instances (1.2M helpful, 300K safety) for SFT (supervised fine-tuning), then DPO. The 7B model was fine-tuned for 4 epochs and the 67B for 2, because the larger model overfit quickly. One side effect worth knowing: adding math SFT data increased the rate at which chat responses looped, and DPO reduced it.",
       },
       {
         kind: "prose",
@@ -146,7 +146,7 @@ for s in (0, 1000, 2000, 7000, 8500, 9500):
         ],
         answer: 1,
         explanation:
-          "6N1 omits attention cost; 6N2 also counts the vocabulary projection, which adds parameters but little capacity. The paper's Table 3 shows these miss the true compute by up to 50% at small scale, which corrupts the IsoFLOP fit. M fixes both ends.",
+          "6N1 measures model scale by non-embedding parameters and 6N2 by all parameters; neither counts attention cost, and 6N2 also counts the vocabulary projection, which adds parameters but little capacity. The paper's Table 3 shows these miss the true compute by up to 50% at small scale, which corrupts the IsoFLOP fit. M fixes both ends.",
       },
       {
         id: "q-llm-split-math",
@@ -242,11 +242,11 @@ for s in (0, 1000, 2000, 7000, 8500, 9500):
     tagline:
       "Split every expert into smaller pieces and pin a few experts as always-on, so parameters grow without compute growth and each expert stays specialized.",
     whatItIs:
-      "An architecture paper about mixture-of-experts language models. Instead of routing a token to one or two large feed-forward experts, DeepSeekMoE chops each expert into m finer experts and routes to mK of them, giving the router a much richer menu. A small set of shared experts is always active to absorb knowledge every token needs. Validation runs at 2B, 16B, and a preliminary 145B scale show the design matching dense models of comparable quality with a fraction of the compute.",
+      "An architecture paper about mixture-of-experts (MoE) language models. Instead of routing a token to one or two large feed-forward experts, DeepSeekMoE chops each expert into m finer experts and routes to mK of them, giving the router a much richer menu. A small set of shared experts is always active to absorb knowledge every token needs. Validation runs at 2B, 16B, and a preliminary 145B scale show the design matching dense models of comparable quality with a fraction of the compute.",
     theoryMinutes: 14,
     lineage: {
       from: "deepseek-llm",
-      to: ["deepseek-v2"],
+      to: ["deepseek-v2", "aux-loss-free"],
       context:
         "Second paper of the founding era. DeepSeek LLM showed how to train a good dense trunk; this paper asks how to grow that trunk's capacity without growing its bill, an idea the efficiency era then scales into DeepSeek-V2.",
       improved: [
@@ -473,7 +473,7 @@ def moe_layer(u, centroids, experts, k):
         kind: "formula",
         label: "Fill-in-the-middle in PSM order",
         expression: "<fim_start> f_pre <fim_hole> f_suf <fim_end> f_mid",
-        why: "A document is cut into prefix, middle, and suffix. In PSM order the prefix comes first, then the suffix behind a hole sentinel, then the middle behind an end sentinel. Loss is computed on f_mid only, so the model learns to generate the missing span from the prefix and the suffix together. SPM is the same idea with suffix and prefix swapped; the paper chooses PSM.",
+        why: "A document is cut into prefix, middle, and suffix. In PSM (prefix-suffix-middle) order the prefix comes first, then the suffix behind a hole sentinel, then the middle behind an end sentinel. Loss is computed on f_mid only, so the model learns to generate the missing span from the prefix and the suffix together. SPM (suffix-prefix-middle) is the same idea with suffix and prefix swapped; the paper chooses PSM.",
       },
       {
         kind: "code",
@@ -539,7 +539,7 @@ def build_fim(doc, rate=0.5, rng=None):
       {
         kind: "prose",
         heading: "Evidence",
-        text: "Base 33B reached 56.1% pass@1 on HumanEval Python and 66.0% on MBPP, with a multilingual average of 50.3% against CodeLlama 34B's 41.0%. Base 6.7B matched CodeLlama 34B overall. Instruct 33B reached 79.3% on HumanEval Python, above GPT-3.5-Turbo's 76.2%, and was the only open model to beat GPT-3.5-Turbo on the LeetCode contest set (27.8% versus 23.3%). On the single-line infilling benchmark, the 7B model averaged 80.7% against StarCoder's 69.7%. A v1.5 model was later produced by continuing from a DeepSeek LLM 7B checkpoint on 2B mixed tokens, improving natural language without losing code skill.",
+        text: "Base 33B reached 56.1% pass@1 (the fraction of problems solved by one generated program) on HumanEval Python and 66.0% on MBPP, with a multilingual average of 50.3% against CodeLlama 34B's 41.0%. Base 6.7B matched CodeLlama 34B overall. Instruct 33B reached 79.3% on HumanEval Python, above GPT-3.5-Turbo's 76.2%, and was the only open model to beat GPT-3.5-Turbo on the LeetCode contest set (27.8% versus 23.3%). On the single-line infilling benchmark, the 7B model averaged 80.7% against StarCoder's 69.7%. A v1.5 model was later produced by continuing from a DeepSeek LLM 7B checkpoint on 2B mixed tokens, improving natural language without losing code skill.",
       },
       {
         kind: "prose",
@@ -643,20 +643,20 @@ def build_fim(doc, rate=0.5, rng=None):
     era: "founding",
     tier: "core",
     tagline:
-      "A 7B math model built on web data, plus GRPO: the critic-free RL method that later powered DeepSeek's reasoning era.",
+      "A 7B math model built on web data, plus GRPO (Group Relative Policy Optimization): the critic-free RL method that later powered DeepSeek's reasoning era.",
     whatItIs:
       "Two contributions in one paper. Starting from DeepSeek-Coder-Base-v1.5 7B, the authors continue pretraining on 120B math tokens filtered out of Common Crawl and reach 36.2% on the MATH benchmark as a base model, then 46.8% after instruction tuning. Reinforcement learning with GRPO lifts that to 51.7%, close to Gemini Ultra and GPT-4 at the time. GRPO itself is the lasting idea: instead of training a value network to estimate advantages, it samples a group of answers to the same question and scores each answer relative to the mean and standard deviation of its group.",
     theoryMinutes: 16,
     lineage: {
       from: "deepseek-coder",
-      to: ["deepseek-r1"],
+      to: ["deepseek-r1", "deepseek-prover"],
       context:
         "Fourth paper of the founding era. It shows that code training transfers to mathematical reasoning and introduces GRPO, the algorithm the reasoning era builds on.",
       improved: [
         "A web-scale math corpus: 120.2B tokens and 35.5M web pages selected from Common Crawl by an iteratively retrained fastText classifier, roughly 7 times the math web pages Minerva used.",
         "Evidence that code pretraining improves mathematical reasoning, with and without tools, and that arXiv papers, contrary to common practice, brought no notable benchmark gains.",
         "GRPO, a PPO variant that drops the critic and estimates the baseline from group rewards, cutting the memory cost of RL fine-tuning.",
-        "A unified account of SFT, rejection sampling, DPO, PPO, and GRPO as direct or simplified forms of one objective, distinguished by their gradient coefficients.",
+        "A unified account of SFT (supervised fine-tuning), rejection sampling, DPO (direct preference optimization), PPO (proximal policy optimization), and GRPO as direct or simplified forms of one objective, distinguished by their gradient coefficients.",
         "Strong results on a 7B budget: 51.7% on MATH with chain-of-thought and no voting, 60.9% with self-consistency over 64 samples, and out-of-domain gains such as CMATH 84.6% to 88.8%.",
       ],
     },
@@ -669,7 +669,7 @@ def build_fim(doc, rate=0.5, rng=None):
       {
         kind: "prose",
         heading: "The data pipeline, in plain language",
-        text: "Seed the loop with OpenWebMath, a small high-quality collection. Train a fastText classifier on 500K positive pages from the seed and 500K random Common Crawl negatives. Score the web, keep the top pages, then look at which domains contributed heavily (over 10% of a domain's pages collected marks it as math-related), have humans annotate more URLs inside those domains, and retrain. Four iterations produced 35.5M pages and 120.2B tokens; the fourth pass recovered almost nothing new, so collection stopped. Deduplication by URL and near-duplicates shrank the raw crawl to 40B HTML pages before scoring, and a 10-gram filter removes benchmark questions and answers.",
+        text: "Seed the loop with OpenWebMath, a small high-quality collection. Train a fastText classifier (a lightweight text-classification library) on 500K positive pages from the seed and 500K random Common Crawl negatives. Score the web, keep the top pages, then look at which domains contributed heavily (over 10% of a domain's pages collected marks it as math-related), have humans annotate more URLs inside those domains, and retrain. Four iterations produced 35.5M pages and 120.2B tokens; the fourth pass recovered almost nothing new, so collection stopped. Deduplication by URL and near-duplicates shrank the raw crawl to 40B HTML pages before scoring, and a 10-gram filter removes benchmark questions and answers.",
       },
       {
         kind: "formula",
@@ -715,7 +715,7 @@ def clipped_objective(ratios, advantages, eps=0.2):
       {
         kind: "prose",
         heading: "What GRPO removes, and why it matters",
-        text: "PPO, the standard RL method for language models, trains a value network alongside the policy to estimate advantages, which roughly doubles the memory and adds a moving target to debug. GRPO replaces that value network with the group mean: the baseline for an answer is simply how its siblings scored. The KL penalty also moves: PPO shapes per-token rewards with a reference-model term, while GRPO adds the KL divergence between policy and reference directly to the objective, using an unbiased estimator that stays positive. In the paper's runs the KL coefficient is 0.04, the policy learning rate 1e-6, and each question samples 64 outputs, so a group is large enough for the mean and standard deviation to mean something.",
+        text: "PPO, the standard RL method for language models, trains a value network alongside the policy to estimate advantages, which roughly doubles the memory and adds a moving target to debug. GRPO replaces that value network with the group mean: the baseline for an answer is simply how its siblings scored. The KL (Kullback-Leibler) penalty also moves: PPO shapes per-token rewards with a reference-model term, while GRPO adds the KL divergence between policy and reference directly to the objective, using an unbiased estimator that stays positive. In the paper's runs the KL coefficient is 0.04, the policy learning rate 1e-6, and each question samples 64 outputs, so a group is large enough for the mean and standard deviation to mean something.",
       },
       {
         kind: "formula",
@@ -733,7 +733,7 @@ def clipped_objective(ratios, advantages, eps=0.2):
       {
         kind: "prose",
         heading: "What the RL runs showed",
-        text: "RL ran on 144K chain-of-thought questions drawn only from GSM8K and MATH, starting from DeepSeekMath-Instruct 7B. Both benchmarks improved despite the training data being a subset of what instruction tuning already used, and out-of-domain benchmarks improved too, which is the interesting part: the model did not merely memorize the two training distributions, it got better at math in general. Self-consistency over 64 samples reaches 60.9% on MATH, showing the tuned model's answer distribution contains more correct solutions than a single greedy decode reveals. The paper also reports iterative GRPO, where the reference model is reset to the current policy and the reward model continues training on replayed and fresh data; the details are in Algorithm 1 and worth reading alongside the code above.",
+        text: "RL ran on 144K chain-of-thought questions drawn only from GSM8K and MATH, starting from DeepSeekMath-Instruct 7B. Both benchmarks improved despite the training data being a subset of what instruction tuning already used, and out-of-domain benchmarks improved too, which is the interesting part: the model did not merely memorize the two training distributions, it got better at math in general. Self-consistency over 64 samples (sample 64 answers and take the majority) reaches 60.9% on MATH, showing the tuned model's answer distribution contains more correct solutions than a single greedy decode reveals. The paper also reports iterative GRPO, where the reference model is reset to the current policy and the reward model continues training on replayed and fresh data; the details are in Algorithm 1 and worth reading alongside the code above.",
       },
       {
         kind: "prose",
@@ -882,7 +882,7 @@ def clipped_objective(ratios, advantages, eps=0.2):
         "Last paper of the founding era. It applies the DeepSeek LLM trunk to a second modality and sets the pattern (hybrid encoder, joint training, taxonomy-driven fine-tuning) that later multimodal work reuses.",
       improved: [
         "High-resolution visual input inside a fixed token budget: 1024 x 1024 pixels compressed to 576 visual tokens, where comparable open models worked at 336 or 448 pixels.",
-        "A hybrid encoder that pairs SigLIP-L for semantics with SAM-B for low-level detail, aimed at dense OCR, charts, and tiny objects where a single CLIP-family encoder struggles.",
+        "A hybrid encoder that pairs SigLIP-L for semantics with SAM-B for low-level detail, aimed at dense OCR (optical character recognition), charts, and tiny objects where a single CLIP-family encoder struggles.",
         "Joint vision-and-language pretraining with a roughly 7:3 language-to-multimodal mix plus modality warm-up, which preserves language benchmark scores that pure multimodal training degrades.",
         "Instruction data organized by a use-case taxonomy built from real GPT-4V and Gemini test cases, instead of an unweighted pile of academic datasets.",
         "Open weights at two scales with strong small-model results: DeepSeek-VL-1.3B scores 64.6 on MMBench and 87.6 on POPE.",

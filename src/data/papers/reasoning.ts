@@ -71,7 +71,7 @@ export const REASONING_PAPERS: Paper[] = [
       {
         kind: "prose",
         heading: "Iteration and data scoring",
-        text: "The paper ablates two choices that matter. First, proofs are graded by quality before training, and training only on the higher-scoring classes beats training on everything (42.6% versus 38.1% on miniF2F-test at pass@128 in the reported ablation). Second, repeating the synthesis loop with the improved model beats a single round, because the model that generates round two data is stronger than the one that generated round one. Both findings are the same lesson in different clothes: in a verifier-rich domain, data quality and data quantity can be manufactured on purpose.",
+        text: "The paper ablates two choices that matter. First, the autoformalized statements are graded by quality before proofs are generated, and training only on the proofs for the higher-scoring classes beats training on everything (42.6% versus 38.1% on miniF2F-test at pass@128 in the reported ablation). Second, repeating the synthesis loop with the improved model beats a single round, because the model that generates round two data is stronger than the one that generated round one. Both findings are the same lesson in different clothes: in a verifier-rich domain, data quality and data quantity can be manufactured on purpose.",
       },
       {
         kind: "prose",
@@ -152,16 +152,16 @@ export const REASONING_PAPERS: Paper[] = [
       {
         id: "prover-q4",
         prompt:
-          "The ablation 'excellent/good/above-average proofs only' beats training on all proof classes. What is the lesson?",
+          "The ablation 'excellent/good/above-average statements only' beats training on all quality classes. What is the lesson?",
         options: [
           "Smaller datasets always generalize better",
-          "Model-graded proof quality correlates with training value, so data curation is part of the algorithm",
+          "Model-graded statement quality correlates with training value, so data curation is part of the algorithm",
           "Lean proofs are too long to train on in full",
           "Low-quality proofs must be deleted for copyright reasons",
         ],
         answer: 1,
         explanation:
-          "The score classes come from the model's own judgments, and filtering by them improved pass@128 on miniF2F-test. The takeaway is that generation and curation are two halves of the same loop, not a fixed-size-data argument.",
+          "The score classes come from an LLM's judgments of the autoformalized statements, and filtering by them improved pass@128 on miniF2F-test. The takeaway is that generation and curation are two halves of the same loop, not a fixed-size-data argument.",
       },
       {
         id: "prover-q5",
@@ -195,7 +195,7 @@ export const REASONING_PAPERS: Paper[] = [
     tagline:
       "Stop throwing away the compiler's complaints. Truncate a failed proof at its first error, resume from there, and use the Lean verifier as the reward signal for both GRPO and tree search.",
     whatItIs:
-      "Prover-V1.5 upgrades the whole-proof approach in two ways. It trains the model with reinforcement learning where the reward is simply whether Lean accepts the proof, and it adds RMaxTS, a Monte-Carlo tree search that treats the tactic state after each successful tactic as a tree node. Failed attempts are chopped at the first error and reused as prefixes, so every verification message becomes useful information instead of a discarded sample.",
+      "Prover-V1.5 upgrades the whole-proof approach in two ways. It trains the model with reinforcement learning where the reward is simply whether Lean accepts the proof, and it adds RMaxTS, a Monte-Carlo tree search (MCTS) that treats the tactic state after each successful tactic as a tree node. Failed attempts are chopped at the first error and reused as prefixes, so every verification message becomes useful information instead of a discarded sample.",
     theoryMinutes: 16,
     lineage: {
       from: "deepseek-prover",
@@ -237,7 +237,7 @@ export const REASONING_PAPERS: Paper[] = [
         label: "Intrinsic reward and discounted UCB",
         expression:
           "R_intrinsic(tau) = 1[at least one new node is added to the search tree]\nQ_DUCB(s, a) = W_gamma(s, a) / N_gamma(s, a) + sqrt( 2 * ln( sum_{a'} N_gamma(s, a') ) / N_gamma(s, a) )",
-        why: "The extrinsic reward is 1 only for a finished proof, which makes deep trees hopeless to explore by value alone. R_intrinsic pays the search for reaching a tactic state it has not seen, and Q_DUCB is the selection rule: the first term exploits (discounted wins over visits), the second explores (a bonus that shrinks as a state-action pair is reused). The discount gamma = 0.99 keeps old feedback from dominating, because the intrinsic reward naturally fades as the tree fills up and the signal is non-stationary.",
+        why: "The extrinsic reward is 1 only for a finished proof, which makes deep trees hopeless to explore by value alone. R_intrinsic pays the search for reaching a tactic state it has not seen, and Q_DUCB is the selection rule for a state s and tactic a: the first term exploits (discounted wins, W_gamma, over discounted visits, N_gamma), the second explores (a bonus that shrinks as a state-action pair is reused). The discount gamma = 0.99 keeps old feedback from dominating, because the intrinsic reward naturally fades as the tree fills up and the signal is non-stationary.",
       },
       {
         kind: "code",
@@ -247,16 +247,14 @@ export const REASONING_PAPERS: Paper[] = [
 
 GAMMA = 0.99
 
-def d_ucb(visits, rewards):
-    # visits: total times this edge was chosen; rewards: list of R(tau) values
-    discounted_w = 0.0
-    for t, r in enumerate(rewards):
-        discounted_w += (GAMMA ** (len(rewards) - 1 - t)) * r
+def d_ucb(rewards, visits, parent_visits):
+    # rewards: past R(tau) values for this edge; visits: times it was chosen
+    discounted_w = sum(GAMMA ** (len(rewards) - 1 - t) * r
+                       for t, r in enumerate(rewards))
     discounted_n = sum(GAMMA ** t for t in range(visits))
     if discounted_n == 0:
-        return float("inf")
+        return float("inf")          # unseen edge: try it first
     exploit = discounted_w / discounted_n
-    parent_visits = sum(visits for visits in [visits])
     explore = math.sqrt(2.0 * math.log(parent_visits) / discounted_n)
     return exploit + explore
 
@@ -264,7 +262,7 @@ def intrinsic_reward(new_nodes_added):
     return 1.0 if new_nodes_added > 0 else 0.0`,
         notes: [
           "Unseen edges get an infinite score so the search tries them first.",
-          "The loop shows the discounting idea; a real implementation tracks parent visit counts across the whole sibling set.",
+          "The caller supplies parent_visits from the sibling set, which is what the exploration bonus is measured against.",
           "The intrinsic reward is deliberately binary: any new node counts once, no matter how many were added.",
         ],
       },
@@ -621,7 +619,7 @@ print(group_advantages([1.0, 1.0, 1.0, 1.0]))`,
         kind: "visual",
         visual: "code-pipeline",
         caption:
-          "CodeI/O construction: raw code is cleaned into executable functions with a main entrypoint and an input generator, inputs are sampled and executed to get outputs, DeepSeek-V2.5 synthesizes natural-language prediction CoTs, and re-execution verifies every prediction.",
+          "CodeI/O construction: raw code is cleaned into executable functions with a main entrypoint and an input generator, inputs are sampled and executed to get outputs, DeepSeek-V2.5 synthesizes natural-language prediction chains of thought (CoTs), and re-execution verifies every prediction.",
       },
       {
         kind: "prose",
@@ -791,7 +789,7 @@ print(group_advantages([1.0, 1.0, 1.0, 1.0]))`,
         "A research satellite on the reward side of the pipeline. R1 showed that verifiable rewards can drive reasoning; this paper asks how to get reliable rewards for the general case, which is the open problem R1's own limitations section leaves behind. Its 'from' edge is left out because it was not built on a specific earlier curriculum paper.",
       improved: [
         "Proposes pointwise generative reward modeling, where the model writes principles and critiques and then scores, instead of acting as a fixed classifier or judge prompt.",
-        "Introduces SPCT (Self-Principled Critique Tuning), an RFT plus rule-based online RL schedule that makes reward generation scale with inference compute.",
+        "Introduces SPCT (Self-Principled Critique Tuning), an RFT (rejective fine-tuning) plus rule-based online RL schedule that makes reward generation scale with inference compute.",
         "Shows parallel sampling with voting improves the same 27B model monotonically: RewardBench 86.0 at one sample, 87.7 at 8, 88.5 at 32, and 90.4 with meta-RM filtering.",
         "Adds a meta reward model that predicts whether a judgment is correct and filters bad judgments before voting, improving scaling beyond plain voting.",
         "Demonstrates that inference-time scaling of a 27B reward model beats training-time scaling to 671B, closing a gap that used to require the bigger model.",
@@ -811,7 +809,7 @@ print(group_advantages([1.0, 1.0, 1.0, 1.0]))`,
       {
         kind: "prose",
         heading: "SPCT: how the model learns to judge",
-        text: "SPCT has two stages. In the first, rejective fine-tuning, the model samples judgments on RM data and keeps the ones that agree with the ground-truth preference, with an optional hint about the correct label attached to some samples. In the second, rule-based online RL sharpens the behavior: reward is computed by comparing the model-generated reward with the known correct ordering, so the training signal stays exact and needs no learned critic of its own. The resulting DeepSeek-GRM-27B is based on Gemma-2-27B. The paper also trains a meta RM, a small classifier over (query, response, judgment) that predicts whether a sampled judgment is correct, and this is what guides voting at inference.",
+        text: "SPCT has two stages. In the first, rejective fine-tuning, the model samples judgments on reward-model (RM) data and keeps the ones that agree with the ground-truth preference, with an optional hint about the correct label attached to some samples. In the second, rule-based online RL sharpens the behavior: reward is computed by comparing the model-generated reward with the known correct ordering, so the training signal stays exact and needs no learned critic of its own. The resulting DeepSeek-GRM-27B is based on Gemma-2-27B. The paper also trains a meta RM, a small classifier over (query, response, judgment) that predicts whether a sampled judgment is correct, and this is what guides voting at inference.",
       },
       {
         kind: "visual",
@@ -1192,7 +1190,7 @@ print(plurality_vote(samples))  # A wins two of three judgments`,
       {
         kind: "prose",
         heading: "Behavioral fixes beyond reasoning",
-        text: "The release note bundles several product-level changes: a reduced hallucination rate, JSON output, function calling, better front-end code generation, and a supported system prompt (users no longer need to prepend a special token to force thinking). The card reports tool-use numbers that R1 did not publish, BFCL_v3_MultiTurn at 37.0 accuracy and Tau-bench at 53.5 (Airline) and 63.9 (Retail). For engine, the changelog shows large deltas too (Aider 57.0 to 71.6). One entry in the evaluation table moves the other way: SimpleQA correctness slips from 30.1 to 27.8, a reminder that a single release optimizes a mix of objectives rather than dominating every axis.",
+        text: "The release note bundles several product-level changes: a reduced hallucination rate, JSON output, function calling, better front-end code generation, and a supported system prompt (users no longer need to prepend a special token to force thinking). The card reports tool-use numbers that R1 did not publish, BFCL_v3_MultiTurn at 37.0 accuracy and Tau-bench at 53.5 (Airline) and 63.9 (Retail). The changelog shows large coding-agent deltas too (Aider-Polyglot 53.3 to 71.6). One entry in the evaluation table moves the other way: SimpleQA correctness slips from 30.1 to 27.8, a reminder that a single release optimizes a mix of objectives rather than dominating every axis.",
       },
       {
         kind: "prose",
@@ -1337,7 +1335,7 @@ print(plurality_vote(samples))  # A wins two of three judgments`,
         label: "The generator's reward",
         expression:
           "R = R_format(Y, Z) * (alpha * R_Y + beta * R_Z)\nR_Z = R_score(s', s) * R_meta(Z)\nalpha = 0.76,  beta = 0.24",
-        why: "Y is the proof and Z is the generator's self-analysis. R_Y is the verifier's score for the proof; R_Z pays for self-assessment that is both accurate (s' close to s) and faithfully argued (meta-verification passes). The format term gates everything, so the model cannot earn reward by dropping the analysis. The weighting makes the proof the main objective while keeping honest self-checking worth a quarter of the reward, which is what creates the incentive to find and fix issues before finalizing.",
+        why: "Y is the proof and Z is the generator's self-analysis. R_Y is the verifier's score for the proof; s is the verifier's score for the whole proof, s' is the score the generator predicts for its own proof, and R_Z pays for self-assessment that is both accurate (s' close to s) and faithfully argued (meta-verification passes). The format term gates everything, so the model cannot earn reward by dropping the analysis. The weighting makes the proof the main objective while keeping honest self-checking worth a quarter of the reward, which is what creates the incentive to find and fix issues before finalizing.",
       },
       {
         kind: "visual",

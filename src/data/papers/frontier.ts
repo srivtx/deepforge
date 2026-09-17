@@ -59,7 +59,7 @@ export const FRONTIER_PAPERS: Paper[] = [
       {
         kind: "prose",
         heading: "When each mode wins",
-        text: "Thinking is not free: reasoning tokens are output tokens, billed and serialized like the answer. So the honest decision rule is about the value of deliberation per token. Non-Think wins for short factual replies, extraction, classification, formatting, and high-QPS serving where p99 latency is the product. Think wins when the task has many dependent steps - math, code repair, multi-hop search, tool orchestration - because one correct final answer is worth many cheap wrong ones. DeepSeek's own framing in the release is efficiency: V3.1-Think is compared against R1-0528 on time-to-answer, not just accuracy, which is an admission that the previous reasoner overthought. The right mental model is a dial on deliberation, and the work is in learning where to set it.",
+        text: "Thinking is not free: reasoning tokens are output tokens, billed and serialized like the answer. So the honest decision rule is about the value of deliberation per token. Non-Think wins for short factual replies, extraction, classification, formatting, and high-QPS serving (many queries per second) where tail latency (p99, the 99th percentile) is the product. Think wins when the task has many dependent steps - math, code repair, multi-hop search, tool orchestration - because one correct final answer is worth many cheap wrong ones. DeepSeek's own framing in the release is efficiency: V3.1-Think is compared against R1-0528 on time-to-answer, not just accuracy, which is an admission that the previous reasoner overthought. The right mental model is a dial on deliberation, and the work is in learning where to set it.",
       },
       {
         kind: "formula",
@@ -259,7 +259,7 @@ export const FRONTIER_PAPERS: Paper[] = [
       {
         kind: "prose",
         heading: "The lightning indexer",
-        text: "For each query token, the indexer computes a score against every preceding token: a sum over a small number of indexer heads of a learned per-head weight times a ReLU of the indexer query-key dot product. ReLU is chosen for throughput - it needs no softmax normalization and runs well in low precision - and the whole module is small enough to execute in FP8. The top 2048 scoring entries are kept for that query, and crucially the selection is shared across all query heads, which allows a single gather of KV entries instead of one per head. The design is a purpose-built approximation of the question 'which keys would dense attention have cared about?', answered cheaply enough to run everywhere.",
+        text: "For each query token, the indexer computes a score against every preceding token: a sum over a small number of indexer heads of a learned per-head weight times a ReLU (a rectifying activation that zeroes negative values) of the indexer query-key dot product. ReLU is chosen for throughput - it needs no softmax normalization and runs well in low precision - and the whole module is small enough to execute in FP8. The top 2048 scoring entries are kept for that query, and crucially the selection is shared across all query heads, which allows a single gather of KV entries instead of one per head. The design is a purpose-built approximation of the question 'which keys would dense attention have cared about?', answered cheaply enough to run everywhere.",
       },
       {
         kind: "prose",
@@ -269,7 +269,7 @@ export const FRONTIER_PAPERS: Paper[] = [
       {
         kind: "prose",
         heading: "Sparsity that survives contact with kernels",
-        text: "A sparse pattern that ignores GPU memory hierarchies loses its theoretical win. Two decisions make DSA's sparsity real: the selection happens at entry granularity over the MLA latent, which is shared across query heads (the MQA mode of MLA), so one gather serves many queries; and the released kernels - indexer logits in DeepGEMM, sparse attention in FlashMLA, with TileLang versions for research - are built for that shared-entry pattern. DeepSeek also notes a subtle numerical trap found later: the indexer's RoPE needs a non-interleaved layout while MLA's RoPE uses an interleaved one, and the original demo code mixed them up, degrading performance until a November 17, 2025 fix. That is worth remembering: in sparse attention, the selector is part of the model, and a bug in the selector is a quality bug, not just an efficiency bug.",
+        text: "A sparse pattern that ignores GPU memory hierarchies loses its theoretical win. Two decisions make DSA's sparsity real: the selection happens at entry granularity over the MLA latent, which is shared across query heads (the MQA, multi-query attention, mode of MLA), so one gather serves many queries; and the released kernels - indexer logits in DeepGEMM, sparse attention in FlashMLA, with TileLang versions for research - are built for that shared-entry pattern. DeepSeek also notes a subtle numerical trap found later: the indexer's RoPE (rotary position embedding) needs a non-interleaved layout while MLA's RoPE uses an interleaved one, and the original demo code mixed them up, degrading performance until a November 17, 2025 fix. That is worth remembering: in sparse attention, the selector is part of the model, and a bug in the selector is a quality bug, not just an efficiency bug.",
       },
       {
         kind: "code",
@@ -440,7 +440,7 @@ def topk_mask(scores, k=2048):
     tagline:
       "Make sparsity part of training, not a mask applied after: three attention branches, a learned gate, and kernels that read memory the way the hardware wants.",
     whatItIs:
-      "NSA is the DeepSeek-AI research paper that asks what sparse attention would look like if it were designed into training and into the GPU from the start. Each query reads three paths: compressed coarse blocks that summarize global context, top-n selected fine-grained blocks, and a sliding window for local detail, combined by learned scalar gates. All components are trainable, so there is no auxiliary loss and no train/inference mismatch. The paper pretrains a 27B-parameter GQA+MoE model (3B activated) on 270B tokens at 8K length with NSA throughout, then continues at 32K with YaRN, and reports parity or better against a full-attention baseline on general, long-context, and reasoning evaluations, with up to 9.0x forward, 6.0x backward, and 11.6x decoding speedups at 64K context in Triton kernels on A100 GPUs. DSA in DeepSeek-V3.2 is the production descendant of this line.",
+      "NSA is the DeepSeek-AI research paper that asks what sparse attention would look like if it were designed into training and into the GPU from the start. Each query reads three paths: compressed coarse blocks that summarize global context, top-n selected fine-grained blocks, and a sliding window for local detail, combined by learned scalar gates. All components are trainable, so there is no auxiliary loss and no train/inference mismatch. The paper pretrains a 27B-parameter GQA (grouped-query attention) plus MoE model (3B activated) on 270B tokens at 8K length with NSA throughout, then continues at 32K with YaRN, and reports parity or better against a full-attention baseline on general, long-context, and reasoning evaluations, with up to 9.0x forward, 6.0x backward, and 11.6x decoding speedups at 64K context in Triton kernels on A100 GPUs. DSA in DeepSeek-V3.2 is the production descendant of this line.",
     theoryMinutes: 16,
     lineage: {
       from: "deepseek-v3",
@@ -656,10 +656,9 @@ def topk_mask(scores, k=2048):
       from: "deepseek-v3-2",
       to: ["deepseek-v4-1-flash"],
       context:
-        "V3.2-Exp proved that sparse attention could be attached to a production backbone with parity; V4 asks the next question. If the goal is a million tokens, top-k selection over a full-resolution cache is not enough - the cache itself must shrink - so the attention story becomes compression plus sparsity, and the residual stream gets rebuilt for stability at depth.",
+        "V3.2-Exp proved that sparse attention could be attached to a production backbone with parity; the V3.2 report then spent the year's remaining budget on RL and agentic data over that architecture. V4 asks the next question: if the goal is a million tokens, top-k selection over a full-resolution cache is not enough - the cache itself must shrink - so the attention story becomes compression plus sparsity, and the residual stream gets rebuilt for stability at depth.",
       improved: [
-        "Raises supported context to one million tokens for both models, making million-token context a default of the series rather than an experiment.",
-        "Cuts single-token inference cost at 1M context to 27% of the FLOPs and 10% of the KV cache versus V3.2 for V4-Pro, and to 10% / 7% for V4-Flash.",
+        "Raises supported context to one million tokens for both models and cuts single-token inference cost at 1M context to 27% of the FLOPs and 10% of the KV cache versus V3.2 for V4-Pro, and to 10% / 7% for V4-Flash.",
         "Replaces plain attention with hybrid CSA plus HCA layers, where CSA compresses then selects and HCA keeps a heavily compressed dense view of the whole context.",
         "Introduces mHC, widening the residual stream into parallel streams mixed by a doubly stochastic matrix so signal propagation stays non-expansive across deep stacks.",
         "Switches the optimizer to Muon for faster convergence and stability, and moves routed expert weights to FP4 in the instruct checkpoints.",
@@ -887,8 +886,7 @@ def topk_mask(scores, k=2048):
       improved: [
         "Splits the stack into a causal encoder and decoder so prefill activates 8B parameters per token and decode 16B, making input-heavy agent workloads cheap.",
         "Introduces CSA2 with three static layer modes (Full, Reindex, Reuse) that share main KV and indexer keys across layers and reuse top-k indices, cutting indexer work.",
-        "Adds SWA bounded replay, which reconstructs sliding-window KV by replaying recent tokens instead of persisting it, reducing the persistent cache to about 1/8 of V4-Flash's.",
-        "Reduces the global KV cache to 890 bytes per token with FP4 caching, roughly a quarter of V4-Flash's footprint.",
+        "Reduces the global KV cache to 890 bytes per token with FP4 caching - roughly a quarter of V4-Flash's - and, with sliding-window-attention (SWA) bounded replay, cuts the persistent footprint to about an eighth.",
         "Adds native visual understanding, a 196B-parameter Engram conditional memory, and DSpark speculative decoding in one release.",
         "Exposes reasoning effort as a continuous setting from 1 to 100 and cuts API prices, positioning a Flash-tier model against the previous flagship.",
       ],
@@ -1099,7 +1097,7 @@ def topk_mask(scores, k=2048):
     tagline:
       "Understanding wants semantic features, generation wants discrete tokens. Use two visual encoders, two adaptors, and keep one transformer in the middle.",
     whatItIs:
-      "Janus is DeepSeek's answer to a structural problem in unified multimodal models: a single visual encoder cannot serve both understanding and generation well. Chameleon-style models tokenize images with one VQ encoder for both, which starves understanding of semantic features. Janus decouples the paths: images for understanding go through a SigLIP-Large-Patch16-384 encoder, images for generation through a VQ tokenizer with a 16,384-entry codebook and 16x downsampling, each followed by its own two-layer MLP adaptor into a shared autoregressive transformer (DeepSeek-LLM, 1.3B). Text uses the LLM's built-in head; images use a separately initialized prediction head over codebook IDs. The ablation is the argument: with one VQ encoder for both tasks, MMBench sits at 35.0 and POPE at 60.1; with decoupled encoders the 1.3B model reaches MMBench 69.4, POPE 87.0, SEED-Bench 63.7, and a GenEval score of 61% with COCO FID 8.53.",
+      "Janus is DeepSeek's answer to a structural problem in unified multimodal models: a single visual encoder cannot serve both understanding and generation well. Chameleon-style models tokenize images with one VQ (vector-quantized) encoder for both, which starves understanding of semantic features. Janus decouples the paths: images for understanding go through a SigLIP-Large-Patch16-384 encoder, images for generation through a VQ tokenizer with a 16,384-entry codebook and 16x downsampling, each followed by its own two-layer MLP adaptor into a shared autoregressive transformer (DeepSeek-LLM, 1.3B). Text uses the LLM's built-in head; images use a separately initialized prediction head over codebook IDs. The ablation is the argument: with one VQ encoder for both tasks, MMBench sits at 35.0 and POPE at 60.1; with decoupled encoders the 1.3B model reaches MMBench 69.4, POPE 87.0, SEED-Bench 63.7, and a GenEval score of 61% with COCO FID (Frechet inception distance) 8.53.",
     theoryMinutes: 14,
     lineage: {
       from: "deepseek-llm",
@@ -1293,7 +1291,7 @@ def topk_mask(scores, k=2048):
     lineage: {
       from: "janus",
       context:
-        "Janus validated the decoupled design at a single 1.3B scale and left two open problems: unstable generation and understanding below specialist models. Janus-Pro is the follow-up that asks whether those were architecture problems or resource problems, and answers them by changing everything except the architecture.",
+        "Janus validated the decoupled design at a single 1.3B scale and left two open problems: unstable generation and understanding below specialist models. Janus-Pro is the follow-up that asks whether those were architecture problems or resource problems, and answers them by changing everything except the architecture. It is the last entry of the Janus line for now; after it, the frontier era returns to the language backbone with the sparse-attention and V3.1 work.",
       improved: [
         "Scales the LLM backbone from 1.5B to 7B while keeping the decoupled design, showing the architecture scales rather than only working at small size.",
         "Reworks the three-stage recipe: longer Stage I training on ImageNet with the LLM frozen, no ImageNet in Stage II, and a rebalanced SFT mix (5:1:4 versus 7:3:10).",
@@ -1478,9 +1476,9 @@ def topk_mask(scores, k=2048):
     era: "frontier",
     tier: "advanced",
     tagline:
-      "Keep Janus's two doors, swap the generation door from discrete tokens to rectified flow: the same transformer predicts text autoregressively and image velocity vectors for an ODE solver.",
+      "Keep Janus's two doors, swap the generation door from discrete tokens to rectified flow: the same transformer predicts text autoregressively and image velocity vectors for an ODE (ordinary differential equation) solver.",
     whatItIs:
-      "JanusFlow is the sibling of Janus that asks what happens if image generation is a continuous flow instead of a sequence of codebook tokens. The architecture stays deliberately minimal: a 1.3B DeepSeek-LLM backbone, a SigLIP-Large-Patch/16 encoder for understanding, and a small ConvNeXt encoder-decoder pair, initialized from scratch, that adapts the language model for rectified flow in an SDXL-VAE latent space. The language model's output at the image positions is read as a velocity field, and an Euler solver integrates it from noise to image. Two ideas make it work: decoupled encoders for the two tasks, and a representation-alignment loss that pulls generation features toward the understanding encoder's semantics during unified training. It reaches GenEval 0.63, DPG-Bench 80.09, and MJHQ FID-30k 9.51 for generation, and MMBench 74.9, SEED-Bench 70.5, and GQA 60.3 for understanding, all from a 1.3B backbone. Published at CVPR 2025.",
+      "JanusFlow is the sibling of Janus that asks what happens if image generation is a continuous flow instead of a sequence of codebook tokens. The architecture stays deliberately minimal: a 1.3B DeepSeek-LLM backbone, a SigLIP-Large-Patch/16 encoder for understanding, and a small ConvNeXt encoder-decoder pair, initialized from scratch, that adapts the language model for rectified flow in the latent space of a pretrained variational autoencoder (SDXL-VAE). The language model's output at the image positions is read as a velocity field, and an Euler solver integrates it from noise to image. Two ideas make it work: decoupled encoders for the two tasks, and a representation-alignment loss that pulls generation features toward the understanding encoder's semantics during unified training. It reaches GenEval 0.63, DPG-Bench 80.09, and MJHQ FID-30k 9.51 for generation, and MMBench 74.9, SEED-Bench 70.5, and GQA 60.3 for understanding, all from a 1.3B backbone. Published at CVPR 2025.",
     theoryMinutes: 14,
     lineage: {
       from: "janus",
@@ -1681,6 +1679,7 @@ def topk_mask(scores, k=2048):
     theoryMinutes: 13,
     lineage: {
       from: "deepseek-vl2",
+      to: ["deepseek-ocr-2"],
       context:
         "The multimodal line's most utilitarian branch. Where VL2 and Janus aim at general understanding or generation, DeepSeek-OCR uses the same ingredients - a window-attention perception encoder, a global-attention semantic encoder, a small MoE decoder - to attack the cost of long text, and it is the first DeepSeek release whose subject is context compression rather than a capability benchmark.",
       improved: [
@@ -2145,7 +2144,7 @@ print([round(sum(B[i][j] for i in range(4)), 6) for j in range(4)])`,
       {
         kind: "prose",
         heading: "Making it fast enough to use",
-        text: "A constraint that doubles training time is not a fix. The paper's systems half is what makes mHC practical: kernel fusion that merges the RMSNorm, the mixing, and the complete Sinkhorn iteration into unified kernels; mixed-precision implementations written with TileLang; selective recomputation to cut the memory footprint of the intermediate activations; and communication overlapped inside the DualPipe schedule borrowed from the V3 stack. With all of it, expansion rate n = 4 costs 6.7 percent additional training time, and the paper reports the scaling behavior across 3B, 9B, and 27B models so the overhead is not a single measurement.",
+        text: "A constraint that doubles training time is not a fix. The paper's systems half is what makes mHC practical: kernel fusion that merges the RMSNorm (the normalization layer), the mixing, and the complete Sinkhorn iteration into unified kernels; mixed-precision implementations written with TileLang; selective recomputation to cut the memory footprint of the intermediate activations; and communication overlapped inside the DualPipe schedule borrowed from the V3 stack. With all of it, expansion rate n = 4 costs 6.7 percent additional training time, and the paper reports the scaling behavior across 3B, 9B, and 27B models so the overhead is not a single measurement.",
       },
       {
         kind: "visual",
@@ -2327,7 +2326,9 @@ print([round(sum(B[i][j] for i in range(4)), 6) for j in range(4)])`,
     for start in range(max(0, len(tokens) - n), len(tokens)):
         suffix = tokens[start:]
         for h in range(heads):
-            hsh = hash((h, tuple(suffix))) % table_size
+            hsh = h + 1                      # seed each head differently
+            for token in suffix:
+                hsh = (hsh * 31 + token) % table_size
             keys.append((h, hsh))
     return keys
 
@@ -2340,6 +2341,7 @@ def engram_read(embedding_table, keys, gate):
 # table_size can be very large: the memory is the point, and static addressing
 # means it can live off the GPU with prefetching.`,
         notes: [
+          "The rolling hash is written out on purpose: Python's built-in hash() is randomized per process, so it would break the promise that the same suffix always maps to the same row.",
           "Multi-head hashing is a collision mitigation: several independent hashes make it unlikely that all heads collide for the same N-gram.",
           "Tokenizer compression groups suffixes that decode to the same text, so the table is not wasted on byte-level variants.",
           "The paper instantiates Engram at selected layers (2 and 15 in the 27B model) with N-gram order up to 3, 8 heads, and dimension 1280.",

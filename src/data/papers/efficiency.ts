@@ -35,7 +35,7 @@ export const EFFICIENCY_PAPERS: Paper[] = [
         "DeepSeekMoE uses 160 fine-grained routed experts (6 activated per token) plus 2 always-on shared experts, so total parameters grow without per-token compute growing with them.",
         "Training cost drops 42.5% versus the dense DeepSeek 67B: 172.8K versus 300.6K H800 GPU-hours per trillion tokens.",
         "KV cache falls 93.3% and maximum generation throughput rises to 5.76x (over 50K tokens per second on a single 8-GPU H800 node).",
-        "Device-limited routing plus expert, device, and communication balance losses keep expert-parallel training efficient, and YaRN extends the context window from 4K to 128K.",
+        "Device-limited routing plus expert, device, and communication balance losses keep expert-parallel training efficient, and YaRN (a position-encoding extension method) extends the context window from 4K to 128K.",
       ],
     },
     theory: [
@@ -47,7 +47,7 @@ export const EFFICIENCY_PAPERS: Paper[] = [
       {
         kind: "prose",
         heading: "Store a latent, rebuild the keys and values",
-        text: "MLA never stores keys and values. It stores one small latent vector per token per layer, produced by a down-projection: c_t = W_DKV * h_t, with dimension 512 instead of 2 * 128 * 128 = 32768. Keys and values are reconstructed by two up-projections, k = W_UK * c and v = W_UV * c. Because those projections are linear, W_UK can be folded into the query projection and W_UV into the output projection at inference, a trick the paper calls absorption, so attention can run against the compressed vectors directly. Positions are the one thing that cannot survive compression: RoPE would sit between the projections and break absorption. MLA therefore keeps a separate 64-dimensional key that carries RoPE. Total cached per token per layer: 512 + 64 = 576 numbers, the same as GQA with only 2.25 groups, but with quality above standard MHA.",
+        text: "MLA never stores keys and values. It stores one small latent vector per token per layer, produced by a down-projection: c_t = W_DKV * h_t, with dimension 512 instead of 2 * 128 * 128 = 32768. Keys and values are reconstructed by two up-projections, k = W_UK * c and v = W_UV * c. Because those projections are linear, W_UK can be folded into the query projection and W_UV into the output projection at inference, a trick the paper calls absorption, so attention can run against the compressed vectors directly. Positions are the one thing that cannot survive compression: RoPE would sit between the projections and break absorption. MLA therefore keeps a separate 64-dimensional key that carries RoPE. Total cached per token per layer: 512 + 64 = 576 numbers, the same as grouped-query attention (GQA) with only 2.25 groups, but with quality above standard multi-head attention (MHA).",
       },
       {
         kind: "visual",
@@ -65,7 +65,7 @@ export const EFFICIENCY_PAPERS: Paper[] = [
       {
         kind: "prose",
         heading: "Make the feed-forward layer sparse",
-        text: "Attention is only half the compute. The other half is the feed-forward network, normally one wide MLP applied to every token. A mixture of experts replaces it with N smaller expert MLPs plus a router: score every expert for each token, keep the top K, and add their outputs weighted by the scores. Total parameters grow with N; per-token FLOPs grow only with K. DeepSeekMoE adds two choices. First, finer granularity: 160 small routed experts with 6 activated, so a token's computation is assembled from many small pieces and each expert can specialize. Second, shared experts: 2 experts that every token uses, absorbing common patterns so the routed experts do not all relearn them. DeepSeek-V2 replaces every FFN except the first with an MoE layer.",
+        text: "Attention is only half the compute. The other half is the feed-forward network, normally one wide MLP applied to every token. A mixture-of-experts layer replaces it with N smaller expert MLPs plus a router: score every expert for each token, keep the top K, and add their outputs weighted by the scores. Total parameters grow with N; per-token FLOPs grow only with K. DeepSeekMoE adds two choices. First, finer granularity: 160 small routed experts with 6 activated, so a token's computation is assembled from many small pieces and each expert can specialize. Second, shared experts: 2 experts that every token uses, absorbing common patterns so the routed experts do not all relearn them. DeepSeek-V2 replaces every FFN except the first with an MoE layer.",
       },
       {
         kind: "formula",
@@ -302,7 +302,7 @@ print(mix["code"])  # 3.6T code tokens`,
       {
         kind: "prose",
         heading: "What the specialization buys, and what it costs",
-        text: "The instruct model scores 90.2% on HumanEval, 76.2% on MBPP+, 43.4% on LiveCodeBench, and 75.7% on MATH, and solves 4 of 30 AIME 2024 problems (5 of 30 with maj@64). On the Aider editing benchmark it reaches 73.7%, above GPT-4o's 72.9%, and its 12.7% on SWE-bench is the first open-source result above 10%. Two honest notes from the paper: the reasoning gap on CRUXEval is attributed to having only 21B active parameters, and the run suffered gradient spikes that the authors traced to exponential normalization and fixed by returning to conventional normalization.",
+        text: "The instruct model scores 90.2% on HumanEval, 76.2% on MBPP+, 43.4% on LiveCodeBench, and 75.7% on MATH, and solves 4 of 30 AIME 2024 problems (5 of 30 with maj@64, a majority vote over 64 samples). On the Aider editing benchmark it reaches 73.7%, above GPT-4o's 72.9%, and its 12.7% on SWE-bench is the first open-source result above 10%. Two honest notes from the paper: the reasoning gap on CRUXEval is attributed to having only 21B active parameters, and the run suffered gradient spikes that the authors traced to exponential normalization and fixed by returning to conventional normalization.",
       },
     ],
     paper: [
@@ -430,7 +430,7 @@ print(mix["code"])  # 3.6T code tokens`,
       improved: [
         "Replaces the auxiliary balance loss with a per-expert bias used only in the top-K selection, so no interference gradient is added to the training objective.",
         "Updates the bias by a fixed step in the sign of the load error, b_i <- b_i + u * sign(e_i), with u = 0.001 the best setting in the sweep.",
-        "Improves both sides of the trade-off at once: on a 1B model, validation perplexity 9.50 versus 9.56 and MaxVio 0.04 versus 0.72; on 3B, 7.92 versus 7.97 and 0.04 versus 0.52.",
+        "Improves both sides of the trade-off at once: on a 1B model, validation perplexity 9.50 versus 9.56 and MaxVio (the worst-case expert-load deviation from even, lower is better) 0.04 versus 0.72; on 3B, 7.92 versus 7.97 and 0.04 versus 0.52.",
         "Scales with expert parallelism: imbalance keeps shrinking as the computation batch grows, while auxiliary-loss training plateaus.",
         "Stays causal, unlike Expert Choice routing, because the bias update uses only the previous batch's loads and never lets future tokens influence earlier assignments.",
       ],
@@ -624,11 +624,11 @@ print(update_bias(bias, [40, 10, 10, 10]))  # expert 0 is nudged down`,
       context:
         "The ground layer of the efficiency era. The model papers above it (MLA, DeepSeekMoE, FP8) are algorithmic answers to cost; this is the systems answer. Its patterns, integration of storage and compute on one fabric, overlapping communication with computation, and squeezing cheap PCIe interconnects with software, recur in the training stacks of the later frontier runs.",
       improved: [
-        "10,000 PCIe A100 GPUs deliver about 83% of DGX-A100 GEMM throughput at roughly 60% of node cost and power, which the abstract rounds to half the cost and 40% less energy.",
+        "10,000 PCIe A100 GPUs deliver about 83% of DGX-A100 GEMM (dense matrix multiply) throughput at roughly 60% of node cost and power, which the abstract rounds to half the cost and 40% less energy.",
         "A two-zone, two-layer fat-tree needs 122 switches where a DGX-style three-layer fabric needs 1,320, cutting networking cost about 40% versus an equivalent three-layer design.",
-        "HFReduce reduces gradients inside each node on the CPU before the network and launches no GPU kernel: 6.3-8.1 GB/s inter-node at 186 MiB versus NCCL's 1.6-4.8 GB/s, and over 10 GB/s once NVLink bridges are added.",
+        "HFReduce reduces gradients inside each node on the CPU before the network and launches no GPU kernel: 6.3-8.1 GB/s inter-node at 186 MiB versus NCCL's 1.6-4.8 GB/s, and over 10 GB/s once NVLink (NVIDIA's GPU-to-GPU link) bridges are added.",
         "The software stack, HaiScale for parallelism, 3FS for storage traffic, and the open-sourced HAI-Platform scheduler, keeps computation and communication overlapped across 10,000 GPUs.",
-        "The paper publishes a year of production failure data (Xid errors, network flash cuts) alongside the checkpoint and validation machinery that keeps month-long runs alive.",
+        "The paper publishes a year of production failure data (Xid errors, the driver's GPU error reports, and network flash cuts) alongside the checkpoint and validation machinery that keeps month-long runs alive.",
       ],
     },
     theory: [
@@ -640,7 +640,7 @@ print(update_bias(bias, [40, 10, 10, 10]))  # expert 0 is nudged down`,
       {
         kind: "prose",
         heading: "The interconnect decides the design",
-        text: "Training is a loop of matrix multiplications plus a gradient synchronization. The allreduce at the end of each step moves every gradient across the network, so the ratio of computation to communication sets the ceiling on how many GPUs can be used efficiently. NVIDIA's SXM and DGX systems attack this with fast NVLink and many NICs per node. The Fire-Flyer bet is that cheaper PCIe A100 nodes with a single 200Gbps NIC can reach a similar place if software does more, which requires raising work per byte: larger batches, gradient accumulation, and MoE layers that keep most computation local.",
+        text: "Training is a loop of matrix multiplications plus a gradient synchronization. The allreduce at the end of each step (a collective that sums every worker's gradients) moves every gradient across the network, so the ratio of computation to communication sets the ceiling on how many GPUs can be used efficiently. NVIDIA's SXM and DGX systems attack this with fast NVLink and many NICs (network interface cards) per node. The Fire-Flyer bet is that cheaper PCIe A100 nodes with a single 200Gbps NIC can reach a similar place if software does more, which requires raising work per byte: larger batches, gradient accumulation, and MoE layers that keep most computation local.",
       },
       {
         kind: "visual",
@@ -651,7 +651,7 @@ print(update_bias(bias, [40, 10, 10, 10]))  # expert 0 is nudged down`,
       {
         kind: "prose",
         heading: "HFReduce: reduce on the CPU, not the GPU",
-        text: "In a ring allreduce each unit of data passes through the ring, and on a PCIe node every hop competes for the same bus, while NCCL also launches GPU kernels that steal cycles from compute. HFReduce splits the work differently. First, gradients are copied from the node's 8 GPUs into CPU memory and reduced there with SIMD instructions, supporting FP32, FP16, BF16, and FP8. Second, the cross-node allreduce runs on CPUs over RDMA using a double binary tree. Third, results are copied back to the GPUs. One transfer down and one up, and because the copies use the GPU's copy engine, no compute kernel is launched.",
+        text: "In a ring allreduce each unit of data passes through the ring, and on a PCIe node every hop competes for the same bus, while NCCL also launches GPU kernels that steal cycles from compute. HFReduce splits the work differently. First, gradients are copied from the node's 8 GPUs into CPU memory and reduced there with SIMD instructions (wide vector math on the CPU), supporting FP32, FP16, BF16, and FP8. Second, the cross-node allreduce runs on CPUs over RDMA (remote direct memory access, network transfers that bypass the CPU's involvement per byte) using a double binary tree. Third, results are copied back to the GPUs. One transfer down and one up, and because the copies use the GPU's copy engine, no compute kernel is launched.",
       },
       {
         kind: "formula",
@@ -811,12 +811,13 @@ for gpus in (16, 128, 1440):
     theoryMinutes: 20,
     lineage: {
       from: "deepseek-v2",
+      to: ["deepseek-r1", "deepseek-v3-1"],
       context:
-        "The era's capstone. It keeps V2's MLA and DeepSeekMoE, adopts the auxiliary-loss-free router from the methods paper that precedes it in this era, and adds FP8 training plus multi-token prediction. The training-cost table, not a benchmark score, is the headline.",
+        "The era's capstone, and a return to the text main line after the VL2 vision detour. It keeps V2's MLA and DeepSeekMoE, adopts the auxiliary-loss-free router from the methods paper that precedes it in this era, and adds FP8 training plus multi-token prediction. The training-cost table, not a benchmark score, is the headline.",
       improved: [
         "Load balancing drops the auxiliary loss: a per-expert bias steers top-K selection, with a complementary sequence-wise loss at a tiny weight only to bound per-sequence extremes, and no token is dropped.",
         "FP8 mixed precision is validated at 671B scale for the first time: 1x128 activation tiles and 128x128 weight blocks with FP32 promotion every 128 products, keeping GEMM error under 0.25% relative.",
-        "Multi-token prediction with one extra token densifies the training signal and doubles as a speculative-decoding draft: 85-90% acceptance and 1.8x tokens per second at inference.",
+        "Multi-token prediction (MTP) with one extra token densifies the training signal and doubles as a speculative-decoding draft: 85-90% acceptance and 1.8x tokens per second at inference.",
         "Training economics: 14.8T tokens for 2.664M H800 GPU-hours of pretraining (180K GPU-hours per trillion tokens, 3.7 days on 2048 H800s), plus 119K for context extension and 5K for post-training.",
         "Infrastructure co-design: DualPipe overlap, no tensor parallelism needed, 16-way pipeline and 64-way expert parallelism over 8 nodes, and a run with no irrecoverable loss spikes and no rollbacks.",
       ],
@@ -909,7 +910,7 @@ print(quantize_tile([0.004, -0.011, 2.5, 0.008]))`,
       {
         kind: "prose",
         heading: "Key idea",
-        text: "Layer the fixes. MLA plus DeepSeekMoE at 671B total and 37B active; a bias-only router with a tiny sequence-wise complement and no token dropping; an FP8 mixed-precision framework with fine-grained scaling, online scales, and FP32 promotion; and a one-token MTP objective that also accelerates inference. Everything is trained with the DualPipe framework on 2048 H800s, with no tensor parallelism.",
+        text: "Layer the fixes. MLA plus DeepSeekMoE at 671B total and 37B active; a bias-only router with a tiny sequence-wise complement and no token dropping; an FP8 mixed-precision framework with fine-grained scaling, online scales, and FP32 promotion; and a one-token MTP objective that also accelerates inference. Everything is trained with the DualPipe framework (a pipeline schedule that overlaps communication with computation) on 2048 H800s, with no tensor parallelism.",
       },
       {
         kind: "prose",
@@ -1034,11 +1035,12 @@ print(quantize_tile([0.004, -0.011, 2.5, 0.008]))`,
     theoryMinutes: 14,
     lineage: {
       from: "deepseek-vl",
+      to: ["deepseek-ocr"],
       context:
         "The vision-language line's second step. DeepSeek-VL fused a semantic encoder with a segmentation encoder at a fixed 1024 x 1024; VL2 keeps one encoder but changes what it is shown, and swaps the dense trunk for the V2 architecture so multimodal serving inherits MLA's small cache and the MoE's low activated compute.",
       improved: [
         "Dynamic tiling replaces the fixed-resolution view: candidate grids up to 3 x 3 tiles are scored by padding area, and the best grid plus a global thumbnail is what the encoder sees.",
-        "One shared SigLIP-SO400M-384 encoder serves every tile, producing 27 x 27 = 729 embeddings per tile that a pixel shuffle compresses to 14 x 14 = 196 tokens.",
+        "One shared SigLIP-SO400M-384 encoder serves every tile, producing 27 x 27 = 729 embeddings per tile that a pixel shuffle (a space-to-depth fold of 2 x 2 patches into one position) compresses to 14 x 14 = 196 tokens.",
         "The language model is DeepSeekMoE with MLA at three scales (3B/16B/27B total, 1.0B/2.8B/4.5B activated), so the family inherits V2's inference economics.",
         "Document and chart understanding jump well beyond DeepSeek-VL: DocVQA 93.3, ChartQA 86.0, InfoVQA 78.1, and OCRBench 811, against 456 on OCRBench for the 7B predecessor.",
         "A three-stage recipe (adaptor alignment on 2B tokens, about 800B image-text tokens of joint training, then SFT) with expert bias correction enabled in stage 2.",
@@ -1243,7 +1245,7 @@ print(210 + 1 + 3 * 14 * (2 * 14 + 1))  # 1429 visual tokens for that grid`,
       improved: [
         "Measures expert dispersion: routing for one task is highly concentrated, while the experts that different tasks activate differ significantly, so specialization is real and per-task.",
         "Proposes ESFT: score expert relevance with average gate score or token selection ratio, tune only the top-scoring experts, and freeze all other experts and modules.",
-        "Matches full fine-tuning on the custom task average (50.2 versus 51.0) while beating LoRA (44.9), and preserves general-task performance better than full fine-tuning.",
+        "Matches full fine-tuning on the custom task average (50.2 versus 51.0) while beating LoRA (low-rank adaptation, 44.9), and preserves general-task performance better than full fine-tuning.",
         "Reports 75% to 95% fewer trainable parameters per task (2 to 15 experts out of 66 per layer), up to 90% less storage, and up to 30% less training time than full fine-tuning.",
         "Shows the method depends on fine-grained segmentation: grouping experts into coarser units lowers ESFT quality below full fine-tuning while raising its cost.",
       ],
@@ -1445,7 +1447,7 @@ def select_experts(avg_gate, ratio, per_layer=8):
     tagline:
       "The V3 report told you what was built. This one tells you which hardware limits forced it: a 4:1 scale-up to scale-out bandwidth gap, 20 SMs lost to networking, and a two-layer fabric that had to carry storage too.",
     whatItIs:
-      "This is the industry reflection paper that DeepSeek published after V3: a detailed account of the hardware bottlenecks hit while training on 2,048 H800 GPUs and the co-design decisions made in response. It quantifies the H800's reduced NVLink bandwidth, the 4:1 ratio between intra-node and inter-node communication, the SM cycles consumed by network handling, the node-limited routing rule that follows from the ratio, the multi-plane fat-tree that replaced a three-layer topology, and the case for future chips with precise low-precision units and converged scale-up and scale-out fabrics. It is the systems companion to the V3 technical report and was presented at ISCA 2025.",
+      "This is the industry reflection paper that DeepSeek published after V3: a detailed account of the hardware bottlenecks hit while training on 2,048 H800 GPUs and the co-design decisions made in response. It quantifies the H800's reduced NVLink bandwidth, the 4:1 ratio between intra-node and inter-node communication, the streaming-multiprocessor (SM) cycles consumed by network handling, the node-limited routing rule that follows from the ratio, the multi-plane fat-tree that replaced a three-layer topology, and the case for future chips with precise low-precision units and converged scale-up and scale-out fabrics. It is the systems companion to the V3 technical report and was presented at ISCA 2025.",
     theoryMinutes: 13,
     lineage: {
       from: "deepseek-v3",
@@ -1485,7 +1487,7 @@ def select_experts(avg_gate, ratio, per_layer=8):
       {
         kind: "prose",
         heading: "Multi-plane networking and the storage plane",
-        text: "The cluster fabric is a two-layer multi-plane fat-tree. Each node has 8 GPUs and 8 InfiniBand NICs, and each GPU-NIC pair is assigned to its own network plane, so a node spreads its traffic across eight independent paths instead of contending for one. A separate 400G RoCE NIC connects each node to a storage plane that carries 3FS traffic, keeping checkpoint and data loading off the compute fabric. With 64-port 400G switches, the topology can address up to 16,384 GPUs while keeping the cost and latency of two layers; the deployed cluster was just over two thousand GPUs. The paper is candid that the deployed fabric does not fully realize the design, because the ConnectX-7 NICs of the time expose separate ports rather than one bonded logical interface, so packets from one queue pair cannot be sprayed across planes.",
+        text: "The cluster fabric is a two-layer multi-plane fat-tree. Each node has 8 GPUs and 8 InfiniBand NICs, and each GPU-NIC pair is assigned to its own network plane, so a node spreads its traffic across eight independent paths instead of contending for one. A separate 400G RoCE (RDMA over Converged Ethernet) NIC connects each node to a storage plane that carries 3FS traffic, keeping checkpoint and data loading off the compute fabric. With 64-port 400G switches, the topology can address up to 16,384 GPUs while keeping the cost and latency of two layers; the deployed cluster was just over two thousand GPUs. The paper is candid that the deployed fabric does not fully realize the design, because the ConnectX-7 NICs of the time expose separate ports rather than one bonded logical interface, so packets from one queue pair cannot be sprayed across planes.",
       },
       {
         kind: "visual",
@@ -1630,7 +1632,7 @@ def select_experts(avg_gate, ratio, per_layer=8):
     tagline:
       "In agentic serving the KV cache comes from disk, and the prefill nodes' storage NICs saturate while the decode nodes' NICs sit idle. Pool them: let decode engines read the cache and hand it over.",
     whatItIs:
-      "DualPath is an inference-systems paper about the storage side of agentic workloads: multi-turn sessions with long contexts and heavy cache reuse, where the model repeatedly reloads a KV cache that no longer fits in HBM. In a prefill-decode disaggregated cluster, the conventional path is storage to prefill engine, which saturates the prefill nodes' storage NICs while decode nodes' NICs go unused. DualPath adds a second path - load the cache into a decode engine, then forward it to the prefill engine over RDMA on the compute network - and a global scheduler that picks between the two paths per request. On production agentic traffic it reports up to 1.87x offline throughput and an average 1.96x online serving throughput without violating latency SLOs.",
+      "DualPath is an inference-systems paper about the storage side of agentic workloads: multi-turn sessions with long contexts and heavy cache reuse, where the model repeatedly reloads a KV cache that no longer fits in HBM. In a prefill-decode disaggregated cluster, the conventional path is storage to prefill engine, which saturates the prefill nodes' storage NICs while decode nodes' NICs go unused. DualPath adds a second path - load the cache into a decode engine, then forward it to the prefill engine over RDMA (remote direct memory access) on the compute network - and a global scheduler that picks between the two paths per request. On production agentic traffic it reports up to 1.87x offline throughput and an average 1.96x online serving throughput without violating latency SLOs (service-level objectives).",
     theoryMinutes: 13,
     lineage: {
       from: "deepseek-v3",
@@ -1641,7 +1643,7 @@ def select_experts(avg_gate, ratio, per_layer=8):
         "Pools the storage bandwidth of all engines instead of only the prefill side, removing the asymmetry where prefill NICs saturate while decode NICs idle.",
         "Adds NIC-centric traffic management that isolates cache traffic from latency-critical model-execution communication, so the extra path does not interfere with collectives.",
         "Schedules requests across both paths with a global policy that balances computation and network load jointly across prefill and decode engines.",
-        "Reports up to 1.87x offline and 1.96x average online throughput, with an ablation attributing the gains: layerwise prefill -17.21% JCT, dual-path loading -38.19%, scheduling -45.62% versus the baseline.",
+        "Reports up to 1.87x offline and 1.96x average online throughput, with an ablation attributing the gains: layerwise prefill -17.21% JCT (joint completion time), dual-path loading -38.19%, scheduling -45.62% versus the baseline.",
       ],
     },
     theory: [
@@ -1701,7 +1703,7 @@ def select_experts(avg_gate, ratio, per_layer=8):
       {
         kind: "prose",
         heading: "What the evaluation shows",
-        text: "The evaluation runs three models - a 660B DeepSeek model, a 27B DeepSeek model, and Qwen 32B - on production agentic traces with long contexts and high cache reuse, across prefill-decode ratios of 1P1D, 2P1D, and 1P2D. DualPath reports up to 1.87x offline throughput and an average 1.96x online serving throughput without SLO violations, and an average 1.64x across all P/D configurations, peaking at 2.46x. The ablation separates the contributions: layerwise prefill accounts for 17.21% of the joint-completion-time reduction, dual-path loading for 38.19%, and the scheduling policy for 45.62%, all relative to the baseline stack. The small model shows the design's boundary: with limited storage bandwidth in a 1P1D layout, DualPath still trails an oracle that never waits on storage by 1.09x to 1.85x.",
+        text: "The evaluation runs three models - a 660B DeepSeek model, a 27B DeepSeek model, and Qwen 32B - on production agentic traces with long contexts and high cache reuse, across prefill-to-decode engine ratios (1P1D means one prefill engine per decode engine; 2P1D, 1P2D scale those counts). DualPath reports up to 1.87x offline throughput and an average 1.96x online serving throughput without SLO violations, and an average 1.64x across all P/D configurations, peaking at 2.46x. The ablation separates the contributions: layerwise prefill accounts for 17.21% of the joint-completion-time reduction, dual-path loading for 38.19%, and the scheduling policy for 45.62%, all relative to the baseline stack. The small model shows the design's boundary: with limited storage bandwidth in a 1P1D layout, DualPath still trails an oracle that never waits on storage by 1.09x to 1.85x.",
       },
       {
         kind: "prose",
