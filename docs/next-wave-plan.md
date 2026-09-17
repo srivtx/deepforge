@@ -11,8 +11,8 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 | # | Area | Status | Notes |
 |---|------|--------|-------|
 | 1 | Problem bank | Done | 5,730 across 15 categories · 2,058 Easy / 2,553 Medium / 1,119 Hard |
-| 2 | Quality gates | Done, in CI | `verify-problems.ts` (real Python) + `verify-paths.ts` (capstones 33/33) + `verify-paths-content.ts`; 1,253 `bun test` greens (66 files); GitHub Actions (`.github/workflows/ci.yml`) runs every gate, the build, and the 165-check e2e smoke |
-| 3 | Routes | Done | 29 user-facing destinations incl. `/today`, `/verify`, `/concepts`, and `/papers`; lab/research detail pages + `/labs/trails`; projects have detail pages at `/projects/[id]`; section modals retired; home is a short landing |
+| 2 | Quality gates | Done, in CI | `verify-problems.ts` (real Python) + `verify-paths.ts` (capstones 33/33) + `verify-paths-content.ts`; 1,307 `bun test` greens (71 files); GitHub Actions (`.github/workflows/ci.yml`) runs every gate, the build, and the 172-check e2e smoke |
+| 3 | Routes | Done | 30 user-facing destinations incl. `/today`, `/review`, `/verify`, `/concepts`, and `/papers`; lab/research detail pages + `/labs/trails`; projects have detail pages at `/projects/[id]`; section modals retired; home is a short landing |
 | 4 | Learning paths | Done | 33 curated paths with stages, checkpoints, resolved prerequisites, artifacts, hours, and a verified capstone each (33/33) |
 | 5 | Supabase schema | Live | Project `klogjcspyiygnggmugjy`; 3 migrations incl. hardening (indexes, posting rate limit, RLS tightening) |
 | 6 | Sync engine | Done | Local-first adapters + remote merge (`src/lib/sync/*`), SyncPanel, offline-safe env gating; concept, agentic-attempt, and bug-hunt stores merge per their own rules (later due/at wins, sanitized) |
@@ -21,9 +21,9 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 | 9 | Discuss / comments | Done | Forum pagination + realtime, plus a per-problem comments UI (`src/components/ProblemComments.tsx`) |
 | 10 | Social scale | Done | `postgres_changes` subscriptions with teardown + cursor pagination in `src/lib/sync/social.ts`; local-first study groups with join codes and buddy nudges (Supabase-backed when signed in) |
 | 11 | Performance | Done | Light problem index, per-route picks (daily problem, leaderboard scoring), a lazy Zero mount, and fully prerendered problem pages served edge-static; home 276.6 KB gzip (from 1,553 KB); gzip budgets enforced by `scripts/measure-bundle.ts --check` (4/4 PASS); Vercel history bounded by `bun run prune:vercel` |
-| 12 | Deploy | Open | No Vercel project; `NEXT_PUBLIC_SITE_URL` still falls back to `deepforge.app` |
+| 12 | Deploy | Live | Vercel project `deepforge` deploys from `main`; deployment history bounded by `bun run prune:vercel`; remaining: set `NEXT_PUBLIC_SITE_URL` so canonicals/OG leave the `deepforge.app` fallback |
 | 13 | SEO | Done | `layout.tsx` and `manifest.ts` derive the count from the generated index; `sitemap.ts` derives `lastModified` (blog posts use publish dates, the rest the build date) and lists `/today`, `/labs/trails`, `/concepts`, all 13 lab/research detail URLs, and all 35 paper URLs; OG kinds `research` and `lab`; deploy-time origin check rides with NW-01 |
-| 14 | PWA / offline | Done | SW v6: per-route offline fallback verified by a route-inventory test (`tests/offline.test.ts`, which now models nested static routes) + “update available” prompt (`PwaManager.tsx`); `/labs/trails`, `/concepts`, and `/papers` are precached and `/labs/`, `/research/`, `/papers/` have navigation fallbacks |
+| 14 | PWA / offline | Done | SW v7: per-route offline fallback verified by a route-inventory test (`tests/offline.test.ts`, which now models nested static routes) + “update available” prompt (`PwaManager.tsx`); `/labs/trails`, `/concepts`, `/papers`, and `/review` are precached and `/labs/`, `/research/`, `/papers/` have navigation fallbacks |
 | 15 | Accessibility | Done | Keyboard/focus pass shipped across dialogs, menus, palette, and threads; full screen-reader + contrast sweep remains |
 | 16 | Certificates | Phase 1 shipped | Printable/PNG certificates (path, collection, category, lab, project, interview) + SHA-256 code + `/verify/<code>`; server-signed credentials are the follow-up |
 | 17 | Habit layer | Done | Review queue, `/today` v2 (lab re-runs + math concepts due with inline grading, placement plan, stage-checkpoint row, "Do this next" ranker), one solve streak, streak shields, opt-in reminders, tiered hint budget, review health + weekly digest, bug hunts with badges, self-explanation gate, spot-the-bug |
@@ -32,9 +32,10 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 | 20 | Pyodide execution | Done | Web Worker by default with a main-thread fallback (`deepforge:pyodide-worker=off` opts out); lazy loader + SW cache retained |
 | 21 | Content polish | Done | Sim intuition checks, article "predict the readout" kernels, full local backup inventory with audited exclusions, speedrun misses drill playlist |
 | 22 | Research & labs UX | Done | `/research` and `/labs` are link grids with live record badges; `/research/[id]` (5) and `/labs/[id]` (8) are static (`dynamicParams = false`) detail pages with theory notes (`researchTheory.ts`, `labTheory.ts`), deterministic SVG data previews (`src/lib/researchViz.ts` + `src/components/viz/*`), hints, and scored workspaces (hidden-test submit + last-5 attempts; timed runner with best score and reset); `/labs/trails` wraps the eight labs in four guided arcs with live per-trail progress |
-| 23 | Concepts browser | Done | `/concepts` browses every math checkpoint grouped by category with mastery bars, due/locked status, prerequisite reasoning, worked steps, practice and code links, and the same self-grading as Today |
+| 23 | Concepts browser | Done | `/concepts` browses every math checkpoint grouped by category with mastery bars, due/locked status, prerequisite reasoning, worked steps, practice and code links, and the same self-grading as Today; a Map view layers the 21 checkpoints by prerequisite depth with pan/zoom, mastery shading, and a route planner (`src/lib/conceptGraph.ts`) |
 | 24 | Papers curriculum | Done | "Understanding Papers": 35 DeepSeek papers across 4 eras (founding, efficiency, reasoning, frontier), DeepSeek LLM (Jan 2024) to V4.1 Flash; theory-first sections (visuals/formulas/Python), per-paper reading guide, lineage edges, and self-graded implementation MCQs; `/papers` + `/papers/<slug>` (statically generated); 18 deterministic SVG figure kinds (`src/components/papers/figures/*`); local store `deepforge:papers:v1` wired into sync + backup; sitemap lists all 35 URLs |
 | 25 | Onboarding layout | Done | `/start` moved onto one shared column system (flow `max-w-2xl` / result `max-w-5xl` in `src/components/onboarding/layout.ts`), progress header, equal-height answer rows, and an aligned stat grid; no logic changes |
+| 26 | Retention & navigation (wave 39) | Done | `/review` hub (14-day forecast, leech triage, interleaved drill, honest retention; `src/lib/reviewPlan.ts`); `/concepts` Map view + route planner; all 35 paper projects run in the browser through the existing lazy Pyodide worker; two new routes wired through nav, palette, sitemap, SW v7, offline registry, and smoke |
 
 ---
 
@@ -105,6 +106,9 @@ Detail and sourcing live in [`docs/research/feature-gaps-2026.md`](./research/fe
 | Server push reminders (subscriptions table + cron) | L | U-4; local reminder phase shipped |
 | Server-side export/delete + privacy page | M | EU/public launch |
 | Spoken mock interviews (agentic round shipped) | L | mutation + agentic libraries shipped |
+| Overdue-risk ordering in the due queue (evidence: [`learning-science-review.md`](./research/learning-science-review.md) H1) | S | none |
+| Interval-scaled exponential decay for readiness (same doc, H2) | S | none |
+| Leech policy: flag at 8 lapses, cap interval until two spaced clean passes (H4) | M | review hub shipped |
 
 ---
 

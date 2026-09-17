@@ -145,7 +145,7 @@ deepforge/
 │   │   ├── certificates.ts · credentials.ts · labs.ts · pyodide.ts · paths.ts
 │   │   └── ...
 │   └── types/problem.ts
-├── tests/                      # 1,253 bun tests
+├── tests/                      # 1,307 bun tests
 ├── scripts/                    # verify-problems, verify-paths(-content), e2e-smoke, measure-bundle
 ├── supabase/migrations/        # init, avatars, hardening
 ├── docs/                       # DESIGN-SYSTEM, SETUP-SUPABASE, next-wave-plan, research/
@@ -254,15 +254,16 @@ bun run build                                 # production build
 - ✅ Bundle split: light problem index, per-route picks (daily problem, leaderboard scoring), and a lazy Zero mount; home 276.6 KB gzip (from 1,553 KB)
 - ✅ Mobile audits at 375px across new views
 - ✅ Keyboard/focus pass across dialogs, menus, command palette, and social threads; 🔲 full screen-reader + contrast sweep
-- ✅ PWA offline: route fallback chain + “update available” prompt (SW v6) with per-route fallback verified by a route-inventory test
-- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 165-check smoke
+- ✅ PWA offline: route fallback chain + “update available” prompt (SW v7) with per-route fallback verified by a route-inventory test
+- ✅ Wave 39: `/review` hub (forecast, leeches, drill), `/concepts` Map view with route planner, runnable paper starters (lazy Pyodide)
+- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 172-check smoke
 
 ### Next steps (sensible order)
 1. **Path curation, continued** — 33 paths shipped with stage checkpoints, artifact links, resolved prerequisites, and a verified capstone each; still open from [`docs/research/path-curation.md`](./docs/research/path-curation.md): mixed-kind steps (problems + labs + math + projects).
 2. **Content growth** — 5,730 problems shipped; keep rebalancing the thinnest categories (Linear Algebra at 320; Data Structures at 355) and the level mix.
 3. **Production hardening** — Vercel deploy, custom SMTP for magic links, two-account RLS spot check.
 4. **Social scale** — realtime subscriptions, pagination, and the per-problem comments UI shipped; remaining: global-leaderboard polish.
-5. **E2E in CI** — shipped: the 165-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
+5. **E2E in CI** — shipped: the 172-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
 6. **Deploy & credentials** — work the human items in [`docs/next-wave-plan.md`](./docs/next-wave-plan.md), then certificate signing (phase 2).
 
 ---
@@ -334,15 +335,17 @@ If you are an AI agent working on DeepForge:
 - **Collections:** ✅ 24 premade + user sets + shareable URLs
 - **Interview prep:** ✅ 13 timed tracks + agentic round
 - **Pen-and-paper:** ✅ 60 no-code problems + `/concepts` browser with mastery bars, due/locked status, worked steps, and self-grading
-- **Review & today:** ✅ Spaced review queue + `/today` v2 (lab re-runs, math concepts with inline grading, placement plan, stage-checkpoint row, "Do this next" ranker)
+- **Review & today:** ✅ Spaced review queue + `/today` v2 (lab re-runs, math concepts with inline grading, placement plan, stage-checkpoint row, "Do this next" ranker); `/review` hub adds a 14-day forecast, leech triage, an interleaved catch-up drill, and honest retention math
+- **Concept map:** ✅ `/concepts` Map view layers all 21 checkpoints by prerequisite depth with pan/zoom, mastery shading, and a From → To route planner (deterministic layout, unit-tested)
+- **Runnable paper starters:** ✅ all 35 build-it-yourself projects execute in the browser through the existing Pyodide worker (editable starter, Reset, lazy ~10 MB load on first Run)
 - **Habit mechanics:** ✅ One solve streak + shields, reminders, tiered hints, readiness projection, review health + weekly digest
 - **Gamification:** ✅ Bug hunts (synced) with bug-slayer/exterminator/flawless badges; speedrunner/speed-demon badges; heatmap counts bug hunts + speedruns
 - **Certificates:** ✅ Path/collection/category/lab/project/interview kinds, SHA-256 code + public `/verify`
 - **Avatars:** ✅ 12 character presets, two art styles (Illustrated + Pixel)
-- **Tests:** ✅ 1,253 unit tests (66 files) + 165 e2e smoke checks (CI)
+- **Tests:** ✅ 1,307 unit tests (71 files) + 172 e2e smoke checks (CI)
 - **Solutions on rails:** ✅ every lab and research challenge carries a Python-verified reference solution (Show solution reveal); certificates gain a research kind (5/5 baselines); stats and Today surface labs/research progress
 - **Deploys:** ✅ the full problem bank is prerendered so every page is edge-static (~1 GB of build output per deploy); all 5,730 deployment history is bounded by `bun run prune:vercel` (`scripts/vercel-prune.mjs`, keeps newest prod + preview). One bad day of auto-deploys had accumulated 56 GB; 95 deployments were pruned to 2
-- **PWA:** ✅ Offline v6 per-route fallback (route-inventory test, nested static routes modeled) + update prompt
+- **PWA:** ✅ Offline v7 per-route fallback (route-inventory test, nested static routes modeled) + update prompt
 - **Search & shortcuts:** ✅ Palette search over problems, paths, articles, blog, research challenges, papers, and labs + quick actions (labs, trails, research); g-sequences + `?` overlay
 - **Backup:** ✅ Full local export/import with an audited key inventory
 - **SEO:** ✅ Metadata, manifest, robots, sitemap (lastModified derived; lists `/today`, `/labs/trails`, `/concepts`, all 13 lab/research detail URLs, and all 35 paper URLs); OG image kinds `research` and `lab`

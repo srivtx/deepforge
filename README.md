@@ -59,13 +59,14 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Playlists** — build, reorder, share, and fork problem playlists via compact `?playlist=` codes
 - **Interview Prep** — 13 company tracks with paced practice, timed mocks, and an agentic round (instruct, review the plan, verify, diagnose the fix) against a deterministic copilot
 - **Pen & Paper Math** — 60 no-code problems (multiple choice + numeric) with SM-2 mastery review
-- **Concepts** — browse every math checkpoint grouped by category with mastery bars, due/locked status, prerequisite reasoning, worked steps, practice and code links, and the same self-grading as Today
+- **Review hub** — `/review` shows the whole spaced queue: a 14-day forecast, trouble spots (repeated lapses), a deterministic interleaved catch-up drill, and an honest retention figure from the same local store Today uses
+- **Concepts** — browse every math checkpoint grouped by category with mastery bars, due/locked status, prerequisite reasoning, worked steps, practice and code links, and the same self-grading as Today; a Map view layers all 21 checkpoints by prerequisite depth with pan/zoom, mastery shading, and a From → To route planner
 - **Notebook mode** — per-cell Python execution with run-all and test validation, persisted per problem
 - **Self-explanation** — after a solve, explain the key step in your own words before moving on; graded deterministically, no model or network
 - **Spot the bug** — find and explain a seeded mutation of a verified solution, test-checked before it is shown; rounds are tracked across devices with bug-slayer, exterminator, and flawless badges plus a daily quest
 - **Sims** — optimizer race, neural-net trainer with decision boundary, Dijkstra step-through — each with a deterministic intuition check
 - **Articles** — 14 interactive lessons with live demos (softmax temperature, eigenvectors, gradient descent, k-means, attention, BPE tokenization, embeddings, quantization, KV cache & FlashAttention, RAG chunk retrieval, post-training RLHF/DPO/GRPO, PCA/SVD projection, calibration & uncertainty, LoRA rank), a figure for every topic, and a "predict the readout" kernel question per lesson
-- **Papers** — Understanding Papers: 35 DeepSeek papers across 4 eras, from DeepSeek LLM (Jan 2024) to V4.1 Flash, taught theory-first (visuals, formulas, Python) with lineage, a reading guide, self-graded implementation checks, and a runnable build-it-yourself project per paper
+- **Papers** — Understanding Papers: 35 DeepSeek papers across 4 eras, from DeepSeek LLM (Jan 2024) to V4.1 Flash, taught theory-first (visuals, formulas, Python) with lineage, a reading guide, self-graded implementation checks, and a build-it-yourself project per paper that runs in the browser (editable starter, Pyodide on demand)
 - **Blog** — 4 engineering write-ups with SVG diagrams and RSS at `/blog`
 - **Discuss** — paginated forum with threads, replies, upvotes, problem references, and live updates; server-backed when signed in
 - **Problem comments** — per-problem discussion with upvotes, load-more pagination, and live updates on the problem page
@@ -148,10 +149,10 @@ bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 1,253 unit tests (66 files)
+bun test                                  # 1,307 unit tests (71 files)
 bun run build
 bunx next start -p 3099 &                 # production server the smoke suite expects
-bun run scripts/e2e-smoke.mjs             # 165-check end-to-end smoke against :3099
+bun run scripts/e2e-smoke.mjs             # 172-check end-to-end smoke against :3099
 ```
 
 ## Quick Start
