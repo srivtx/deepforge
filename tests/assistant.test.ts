@@ -24,6 +24,13 @@ import { RESEARCH_CHALLENGES } from "@/data/research";
 import { getResearchTheory } from "@/data/researchTheory";
 import { LABS } from "@/data/labs";
 import { getLabTheory } from "@/data/labTheory";
+import {
+  ERA_LABELS,
+  PAPERS,
+  getPaper,
+  getPaperById,
+  paperNeighbours,
+} from "@/data/papers";
 
 const CLASSIFY_CASES: Array<[string, Intent]> = [
   ["what should I solve next?", "next"],
@@ -56,6 +63,8 @@ const CLASSIFY_CASES: Array<[string, Intent]> = [
   ["practice lab", "labs"],
   ["hands-on lab", "labs"],
   ["find me a lab", "labs"],
+  ["show me the papers", "papers"],
+  ["what does the arxiv paper say", "papers"],
 ];
 
 describe("classify", () => {
@@ -72,6 +81,7 @@ describe("classify", () => {
       "ready",
       "research",
       "labs",
+      "papers",
     ] as Intent[]) {
       expect(covered.has(intent), intent).toBe(true);
     }
@@ -734,6 +744,138 @@ describe("lab route context", () => {
         expect(first.text, `${entry.id}: ${chip}`).toBe(second.text);
         expect(first.text.length, `${entry.id}: ${chip}`).toBeGreaterThan(0);
         expect(first.citations ?? [], `${entry.id}: ${chip}`).toEqual([]);
+      }
+    }
+  });
+});
+
+describe("papers intent", () => {
+  test("paper phrasings answer with the papers link", () => {
+    for (const phrase of ["show me the papers", "what does the arxiv paper say"]) {
+      const first = respond(phrase);
+      const second = respond(phrase);
+      expect(first.intent, phrase).toBe("papers");
+      expect(first.text.length, phrase).toBeGreaterThan(0);
+      expect(first.text, phrase).toBe(second.text);
+      expect(first.citations ?? [], phrase).toEqual([]);
+      expect(first.actions, phrase).toEqual([
+        { label: "Open Papers", href: "/papers" },
+      ]);
+    }
+  });
+});
+
+describe("paper route context", () => {
+  const paper = getPaper("deepseek-r1")!;
+  const paperCtx: Ctx = { paperSlug: paper.slug };
+
+  test("routeContext attaches slugs on /papers/<slug> and ignores everything else", () => {
+    expect(routeContext(`/papers/${paper.slug}`)).toEqual({
+      paperSlug: paper.slug,
+    });
+    expect(routeContext(`/papers/${paper.slug}/`)).toEqual({
+      paperSlug: paper.slug,
+    });
+    expect(routeContext("/papers")).toEqual({});
+    expect(routeContext("/papers/one/two")).toEqual({});
+    expect(routeContext("/problems/deepseek-r1")).toEqual({});
+    expect(routeContext("/concepts/deepseek-r1")).toEqual({});
+  });
+
+  test("unknown slugs fall back to the generic chips", () => {
+    expect(contextPrompts({ paperSlug: "nope" })).toEqual(contextPrompts());
+    expect(contextPrompts({ paperSlug: "nope" })).toHaveLength(6);
+    const fallback = respond("What is this paper about?", {
+      paperSlug: "nope",
+    });
+    expect(fallback.text.length).toBeGreaterThan(0);
+  });
+
+  test("paper chips are ordered and stable", () => {
+    const chips = contextPrompts(paperCtx);
+    expect(chips).toEqual([
+      "What is this paper about?",
+      "What came before it?",
+      "What did it improve?",
+      "Give me a study order",
+    ]);
+    expect(contextPrompts(paperCtx)).toEqual(chips);
+    expect(suggestedPrompts(paperCtx)).toEqual(chips);
+  });
+
+  test("paper context outranks a stale problem context", () => {
+    const attached = PROBLEM_META[0];
+    const both: Ctx = {
+      paperSlug: paper.slug,
+      problem: {
+        id: attached.id,
+        title: attached.title,
+        category: attached.category,
+        difficulty: attached.difficulty,
+      },
+    };
+    expect(contextPrompts(both)[0]).toBe("What is this paper about?");
+  });
+
+  test("about answer carries whatItIs and the era", () => {
+    const msg = respond("What is this paper about?", paperCtx);
+    expect(msg.intent).toBe("papers");
+    expect(msg.text).toContain(paper.whatItIs);
+    expect(msg.text).toContain(ERA_LABELS[paper.era]);
+    expect(msg.text).toContain(paper.short);
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("before answer names the lineage predecessor and its context", () => {
+    expect(paper.lineage.from).toBe("deepseek-v3");
+    const from = getPaperById(paper.lineage.from!)!;
+    const msg = respond("What came before it?", paperCtx);
+    expect(msg.intent).toBe("papers");
+    expect(msg.text).toContain(from.short);
+    expect(msg.text).toContain("GRPO");
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("improved answer lists every recorded delta over the predecessor", () => {
+    const from = getPaperById(paper.lineage.from!)!;
+    const msg = respond("What did it improve?", paperCtx);
+    expect(msg.intent).toBe("papers");
+    expect(paper.lineage.improved.length).toBeGreaterThan(0);
+    for (const item of paper.lineage.improved) {
+      expect(msg.text).toContain(item);
+    }
+    expect(msg.text).toContain(from.short);
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("study order places the paper in its era and the reading order", () => {
+    const index = PAPERS.findIndex((entry) => entry.id === paper.id);
+    const { prev, next } = paperNeighbours(paper.id);
+    expect(index).toBeGreaterThanOrEqual(0);
+    expect(prev).not.toBeNull();
+    expect(next).not.toBeNull();
+
+    const msg = respond("Give me a study order", paperCtx);
+    expect(msg.intent).toBe("papers");
+    expect(msg.text).toContain(`#${index + 1} of ${PAPERS.length}`);
+    expect(msg.text).toContain(ERA_LABELS[paper.era]);
+    expect(msg.text).toContain(prev!.short);
+    expect(msg.text).toContain(next!.short);
+    expect(msg.citations ?? []).toEqual([]);
+  });
+
+  test("every paper chip round-trips deterministically", () => {
+    for (const entry of PAPERS) {
+      const ctx: Ctx = { paperSlug: entry.slug };
+      const chips = contextPrompts(ctx);
+      expect(chips.length, entry.slug).toBe(4);
+      for (const chip of chips) {
+        const first = respond(chip, ctx);
+        const second = respond(chip, ctx);
+        expect(first.intent, `${entry.slug}: ${chip}`).toBe("papers");
+        expect(first.text, `${entry.slug}: ${chip}`).toBe(second.text);
+        expect(first.text.length, `${entry.slug}: ${chip}`).toBeGreaterThan(0);
+        expect(first.citations ?? [], `${entry.slug}: ${chip}`).toEqual([]);
       }
     }
   });

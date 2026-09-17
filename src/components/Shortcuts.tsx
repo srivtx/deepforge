@@ -24,6 +24,7 @@ export interface ShortcutRoute {
  */
 export const SHORTCUT_ROUTES: readonly ShortcutRoute[] = [
   { keys: "g p", sequence: ["g", "p"], href: "/problems", label: "Problems" },
+  { keys: "g r", sequence: ["g", "r"], href: "/papers", label: "Papers" },
   { keys: "g t", sequence: ["g", "t"], href: "/today", label: "Today" },
   {
     keys: "g l",

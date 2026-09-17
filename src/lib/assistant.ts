@@ -33,6 +33,15 @@ import {
   type ResearchMetric,
 } from "@/data/research";
 import { getResearchTheory } from "@/data/researchTheory";
+import {
+  ERA_LABELS,
+  PAPERS,
+  PAPER_ERAS,
+  getPaper,
+  getPaperById,
+  paperNeighbours,
+} from "@/data/papers";
+import type { Paper } from "@/data/papers/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lazy problem bank
@@ -137,7 +146,8 @@ export type Intent =
   | "due"
   | "ready"
   | "research"
-  | "labs";
+  | "labs"
+  | "papers";
 
 /** In-app deep link attached to an answer (e.g. /today, /stats). */
 export interface MsgAction {
@@ -172,6 +182,8 @@ export interface Ctx {
   researchId?: string;
   /** Attached lab id, set from /labs/<id>. */
   labId?: string;
+  /** Attached paper slug, set from /papers/<slug>. */
+  paperSlug?: string;
 }
 
 interface Answer {
@@ -265,6 +277,9 @@ const INTENT_RULES: IntentRule[] = [
   // LABS — hands-on, dataset-driven practice
   { intent: "labs", weight: 6, pattern: /\blabs?\b/ },
   { intent: "labs", weight: 3, pattern: /\bhands?-on\b/ },
+
+  // PAPERS — the Understanding Papers curriculum
+  { intent: "papers", weight: 7, pattern: /\bpapers\b|\barxiv\b/ },
 ];
 
 /** Ties resolve in this order so classification stays deterministic. */
@@ -278,6 +293,7 @@ const INTENT_PRIORITY: Intent[] = [
   "ready",
   "research",
   "labs",
+  "papers",
   "explain",
 ];
 
@@ -1112,6 +1128,7 @@ const TODAY_ACTION: MsgAction = { label: "Open Today", href: "/today" };
 const STATS_ACTION: MsgAction = { label: "Open Stats", href: "/stats" };
 const RESEARCH_ACTION: MsgAction = { label: "Open Research", href: "/research" };
 const LABS_ACTION: MsgAction = { label: "Open Labs", href: "/labs" };
+const PAPERS_ACTION: MsgAction = { label: "Open Papers", href: "/papers" };
 
 function answerDue(): Answer {
   const now = new Date();
@@ -1237,6 +1254,20 @@ function answerLabs(): Answer {
       "Open Labs to start one — guided lab trails live there too.",
     citations: [],
     actions: [LABS_ACTION],
+  };
+}
+
+function answerPapers(): Answer {
+  const eras = PAPER_ERAS.map((era) => era.label).join(", ");
+  return {
+    text:
+      `Understanding Papers is a reading curriculum: ${PAPERS.length} papers across ` +
+      `${PAPER_ERAS.length} eras (${eras}). Each paper page teaches the theory from ` +
+      "first principles before the paper itself, then checks your understanding.\n\n" +
+      "Open Papers to start at the founding era — and on any paper page, Zero answers " +
+      "what it is, what came before it, what it improved, and where it sits in the study order.",
+    citations: [],
+    actions: [PAPERS_ACTION],
   };
 }
 
@@ -1405,6 +1436,105 @@ function answerLabTime(lab: Lab): Answer {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Paper context answers
+//
+// `routeContext` attaches /papers/<slug>; these builders answer the chips
+// generated for that surface from the stored paper record — what it is, what
+// came before it (the lineage `from` edge, or the reading-order neighbour),
+// what it improved, and where it sits in the era/reading order. Paper slugs
+// are not catalogue ids, so these answers never cite.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function findPaper(slug?: string): Paper | null {
+  return slug ? getPaper(slug) ?? null : null;
+}
+
+function answerPaperAbout(paper: Paper): Answer {
+  return {
+    text:
+      `${paper.short} — ${paper.year}, ${ERA_LABELS[paper.era]} era, ` +
+      `~${paper.theoryMinutes} min of theory.\n\n${paper.whatItIs}`,
+    citations: [],
+  };
+}
+
+function answerPaperBefore(paper: Paper): Answer {
+  const from = paper.lineage.from
+    ? getPaperById(paper.lineage.from) ?? null
+    : null;
+  const { prev } = paperNeighbours(paper.id);
+  const lines: string[] = [];
+  if (from) {
+    lines.push(
+      `${paper.short} builds directly on ${from.short} (${from.year}, ` +
+        `${ERA_LABELS[from.era]} era):`,
+      "",
+      clipLine(from.whatItIs, 260),
+    );
+  } else if (prev) {
+    lines.push(
+      `No direct lineage edge is recorded, so the previous paper in the ` +
+        `reading order is ${prev.short} (${prev.year}):`,
+      "",
+      clipLine(prev.whatItIs, 260),
+    );
+  } else {
+    lines.push(
+      `${paper.short} opens the curriculum — nothing comes before it in the ` +
+        "reading order.",
+    );
+  }
+  lines.push("", paper.lineage.context);
+  return { text: lines.join("\n"), citations: [] };
+}
+
+function answerPaperImproved(paper: Paper): Answer {
+  const from = paper.lineage.from
+    ? getPaperById(paper.lineage.from) ?? null
+    : null;
+  const improved = paper.lineage.improved;
+  if (improved.length === 0) {
+    return {
+      text:
+        `${paper.short} records no lineage deltas yet — start with the theory ` +
+        "sections on this page.",
+      citations: [],
+    };
+  }
+  const lines = [
+    from
+      ? `${paper.short} — what it introduced or improved over ${from.short}:`
+      : `${paper.short} — what it introduced:`,
+    "",
+    ...improved.map((item, index) => `${index + 1}. ${item}`),
+  ];
+  return { text: lines.join("\n"), citations: [] };
+}
+
+function answerPaperStudyOrder(paper: Paper): Answer {
+  const index = PAPERS.findIndex((entry) => entry.id === paper.id);
+  const eraIndex = PAPERS.slice(0, index + 1).filter(
+    (entry) => entry.era === paper.era,
+  ).length;
+  const eraTotal = PAPERS.filter((entry) => entry.era === paper.era).length;
+  const { prev, next } = paperNeighbours(paper.id);
+  const lines = [
+    `${paper.short} is #${index + 1} of ${PAPERS.length} in the reading order — ` +
+      `${ERA_LABELS[paper.era]} era, #${eraIndex} of ${eraTotal} in that era.`,
+    "",
+    prev
+      ? `Read before it: ${prev.short}.`
+      : "Nothing comes before it — it opens the curriculum.",
+    next
+      ? `Read after it: ${next.short}.`
+      : "Nothing comes after it — it is the latest paper in the curriculum.",
+    "",
+    "The /papers index lists every era in reading order, and each page keeps its lineage edges.",
+  ];
+  return { text: lines.join("\n"), citations: [] };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Contextual prompt answers
 //
 // Chips generated by `contextPrompts` must answer from the attached context
@@ -1432,6 +1562,10 @@ const PROMPT_RESEARCH_DATA = normalizePromptText("What does the data look like?"
 const PROMPT_LAB_TARGET = normalizePromptText("What's the target?");
 const PROMPT_LAB_TEACH = normalizePromptText("What does this lab teach?");
 const PROMPT_LAB_TIME = normalizePromptText("How long is the run?");
+const PROMPT_PAPER_ABOUT = normalizePromptText("What is this paper about?");
+const PROMPT_PAPER_BEFORE = normalizePromptText("What came before it?");
+const PROMPT_PAPER_IMPROVED = normalizePromptText("What did it improve?");
+const PROMPT_PAPER_ORDER = normalizePromptText("Give me a study order");
 const PROMPT_HINT = normalizePromptText("Give me a hint");
 
 /** Cite the attached problem only when the id is a real catalogue entry. */
@@ -1602,6 +1736,7 @@ function contextualAnswer(q: string, ctx: Ctx): ContextualAnswer | null {
 
   const research = findResearchChallenge(ctx.researchId);
   const lab = findLab(ctx.labId);
+  const paper = findPaper(ctx.paperSlug);
 
   if (research) {
     if (text === PROMPT_RESEARCH_BASELINE) {
@@ -1624,6 +1759,21 @@ function contextualAnswer(q: string, ctx: Ctx): ContextualAnswer | null {
     }
     if (text === PROMPT_LAB_TIME) {
       return { intent: "labs", answer: answerLabTime(lab) };
+    }
+  }
+
+  if (paper) {
+    if (text === PROMPT_PAPER_ABOUT) {
+      return { intent: "papers", answer: answerPaperAbout(paper) };
+    }
+    if (text === PROMPT_PAPER_BEFORE) {
+      return { intent: "papers", answer: answerPaperBefore(paper) };
+    }
+    if (text === PROMPT_PAPER_IMPROVED) {
+      return { intent: "papers", answer: answerPaperImproved(paper) };
+    }
+    if (text === PROMPT_PAPER_ORDER) {
+      return { intent: "papers", answer: answerPaperStudyOrder(paper) };
     }
   }
 
@@ -1697,6 +1847,9 @@ export function respond(q: string, ctx: Ctx = {}): Msg {
       break;
     case "labs":
       answer = answerLabs();
+      break;
+    case "papers":
+      answer = answerPapers();
       break;
     default:
       warmProblemBank();
@@ -1839,10 +1992,11 @@ const DEFAULT_CONTEXT_PROMPTS: readonly string[] = [
 ];
 
 /**
- * Route-attached context for the /research/<id> and /labs/<id> surfaces.
- * Pure — parses the pathname only, reads no store. The id is attached even
- * when it is not a known challenge/lab; `contextPrompts` and the answer
- * router validate it and fall back to the generic state.
+ * Route-attached context for the /research/<id>, /labs/<id>, and
+ * /papers/<slug> surfaces. Pure — parses the pathname only, reads no store.
+ * The id is attached even when it is not a known challenge/lab/paper;
+ * `contextPrompts` and the answer router validate it and fall back to the
+ * generic state.
  */
 export function routeContext(pathname?: string | null): Ctx {
   const [section, id, ...rest] = (pathname ?? "")
@@ -1852,6 +2006,7 @@ export function routeContext(pathname?: string | null): Ctx {
   if (rest.length > 0 || !id) return {};
   if (section === "research") return { researchId: id };
   if (section === "labs") return { labId: id };
+  if (section === "papers") return { paperSlug: id };
   return {};
 }
 
@@ -1861,6 +2016,7 @@ export function routeContext(pathname?: string | null): Ctx {
  *
  * - research challenge → four challenge-focused prompts (metric-aware)
  * - lab → four lab-focused prompts
+ * - paper → four paper-focused prompts (about / lineage / study order)
  * - no problem → the six existing default prompts (unchanged)
  * - problem, no code → four problem-focused prompts, title-aware
  * - problem + code → four code-focused prompts (still title-aware); the debug
@@ -1885,6 +2041,16 @@ export function contextPrompts(ctx: Ctx = {}): string[] {
       "What does this lab teach?",
       "Give me a hint",
       "How long is the run?",
+    ];
+  }
+
+  const paper = findPaper(ctx.paperSlug);
+  if (paper) {
+    return [
+      "What is this paper about?",
+      "What came before it?",
+      "What did it improve?",
+      "Give me a study order",
     ];
   }
 

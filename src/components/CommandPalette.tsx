@@ -46,6 +46,7 @@ const PAGES: { label: string; section: SectionId }[] = [
   { label: "Labs", section: "labs" },
   { label: "Research", section: "research" },
   { label: "Articles", section: "articles" },
+  { label: "Papers", section: "papers" },
   { label: "Sims", section: "sims" },
   { label: "Speedrun", section: "speedrun" },
   { label: "Playlists", section: "playlists" },

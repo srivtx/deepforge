@@ -192,16 +192,24 @@ export function ZeroAssistant() {
 
   const pathname = usePathname();
   const routeCtx = useMemo(() => routeContext(pathname), [pathname]);
-  // A research/lab detail route owns the assistant context; a problem context
-  // left over from a previous page must not leak its chips onto those screens.
+  // A research/lab/paper detail route owns the assistant context; a problem
+  // context left over from a previous page must not leak its chips onto those
+  // screens.
   const activeCtx = useMemo<Ctx>(() => {
-    if (routeCtx.researchId !== undefined || routeCtx.labId !== undefined) {
+    if (
+      routeCtx.researchId !== undefined ||
+      routeCtx.labId !== undefined ||
+      routeCtx.paperSlug !== undefined
+    ) {
       return routeCtx;
     }
     return ctx;
   }, [ctx, routeCtx]);
   const attachedId =
-    activeCtx.problem?.id ?? activeCtx.researchId ?? activeCtx.labId;
+    activeCtx.problem?.id ??
+    activeCtx.researchId ??
+    activeCtx.labId ??
+    activeCtx.paperSlug;
 
   const fabRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
