@@ -143,7 +143,7 @@ deepforge/
 │   │   ├── certificates.ts · credentials.ts · labs.ts · pyodide.ts · paths.ts
 │   │   └── ...
 │   └── types/problem.ts
-├── tests/                      # 1,129 bun tests
+├── tests/                      # 1,174 bun tests
 ├── scripts/                    # verify-problems, verify-paths(-content), e2e-smoke, measure-bundle
 ├── supabase/migrations/        # init, avatars, hardening
 ├── docs/                       # DESIGN-SYSTEM, SETUP-SUPABASE, next-wave-plan, research/
@@ -252,14 +252,14 @@ bun run build                                 # production build
 - ✅ Mobile audits at 375px across new views
 - ✅ Keyboard/focus pass across dialogs, menus, command palette, and social threads; 🔲 full screen-reader + contrast sweep
 - ✅ PWA offline: route fallback chain + “update available” prompt (SW v5) with per-route fallback verified by a route-inventory test
-- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 159-check smoke
+- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 161-check smoke
 
 ### Next steps (sensible order)
 1. **Path curation, continued** — 33 paths shipped with stage checkpoints, artifact links, resolved prerequisites, and a verified capstone each; still open from [`docs/research/path-curation.md`](./docs/research/path-curation.md): mixed-kind steps (problems + labs + math + projects).
 2. **Content growth** — 5,730 problems shipped; keep rebalancing the thinnest categories (Linear Algebra at 320; Data Structures at 355) and the level mix.
 3. **Production hardening** — Vercel deploy, custom SMTP for magic links, two-account RLS spot check.
 4. **Social scale** — realtime subscriptions, pagination, and the per-problem comments UI shipped; remaining: global-leaderboard polish.
-5. **E2E in CI** — shipped: the 159-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
+5. **E2E in CI** — shipped: the 161-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
 6. **Deploy & credentials** — work the human items in [`docs/next-wave-plan.md`](./docs/next-wave-plan.md), then certificate signing (phase 2).
 
 ---
@@ -335,7 +335,8 @@ If you are an AI agent working on DeepForge:
 - **Gamification:** ✅ Bug hunts (synced) with bug-slayer/exterminator/flawless badges; speedrunner/speed-demon badges; heatmap counts bug hunts + speedruns
 - **Certificates:** ✅ Path/collection/category/lab/project/interview kinds, SHA-256 code + public `/verify`
 - **Avatars:** ✅ 12 character presets, two art styles (Illustrated + Pixel)
-- **Tests:** ✅ 1,129 unit tests (62 files) + 159 e2e smoke checks (CI)
+- **Tests:** ✅ 1,174 unit tests (62 files) + 161 e2e smoke checks (CI)
+- **Solutions on rails:** ✅ every lab and research challenge carries a Python-verified reference solution (Show solution reveal); certificates gain a research kind (5/5 baselines); stats and Today surface labs/research progress
 - **PWA:** ✅ Offline v5 per-route fallback (route-inventory test, nested static routes modeled) + update prompt
 - **Search & shortcuts:** ✅ Palette search over problems, paths, articles, blog, research challenges, and labs + quick actions (labs, trails, research); g-sequences + `?` overlay
 - **Backup:** ✅ Full local export/import with an audited key inventory

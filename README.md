@@ -49,9 +49,9 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Today & review queue** — one zero-decision daily session: spaced repetition for code you have solved (SM-2 style, due/learning/new buckets), lab re-runs and math concepts that come due with inline grading, a weak-area pick, the daily problem, a placement plan, a stage-checkpoint-ready row, and a transparent "Do this next" pick
 - **Onboarding** — a three-minute diagnostic at `/start` that recommends paths, a first problem set, and a daily target
 - **Projects** — 5 multi-step builds: GPT from scratch, neural network framework, search engine, recommender, CNN — each with a detail page
-- **Labs** — 8 dataset-driven challenges with metrics, baselines, and time limits, scored in-browser; each has a detail page with theory, rules, a deterministic data preview, and a timed runner
+- **Labs** — 8 dataset-driven challenges with metrics, baselines, and time limits, scored in-browser; each has a detail page with theory, rules, a deterministic data preview, a timed runner, and a Python-verified reference solution behind a Show solution reveal
 - **Lab trails** — four guided arcs over the eight labs with live per-trail progress and per-lab pass/best rows
-- **Research** — 5 beat-the-baseline benchmarks against hidden test sets, best submissions saved locally; each has a detail page with research notes, a data preview, and a last-5-attempts workspace
+- **Research** — 5 beat-the-baseline benchmarks against hidden test sets, best submissions saved locally; each has a detail page with course-note theory, a data preview, a verified reference solution, and a last-5-attempts workspace
 - **Dataset previews** — deterministic SSR-safe SVG previews on every lab and research page (scatter with legend, correlation bars that accent the signal columns, a 4×4 next-token matrix, noisy windows against the clean wave)
 - **Contests** — 12 timed sets (10–60 min) with countdown, difficulty-weighted scoring, and local results
 - **Speedrun** — seeded timed solve-a-thons with shareable run codes, ghost races, and a one-click drill playlist built from your misses
@@ -109,10 +109,10 @@ Measured with `bun run scripts/measure-bundle.ts --check` (gzip first-load JS; a
 
 | Route | Before light index | Now |
 |---|---:|---:|
-| `/` | 1,553 KB | **276.4 KB** |
+| `/` | 1,553 KB | **276.5 KB** |
 | `/problems` | 1,499 KB | **319.1 KB** |
 | `/about` | 1,497 KB | **243.3 KB** |
-| `/stats` | 1,572 KB | **403.9 KB** |
+| `/stats` | 1,572 KB | **407.6 KB** |
 
 The 5 MB problem bank is a lazy chunk; pages use a generated light index
 (`src/data/problems/problem-meta.ts`) and load full problem payloads on demand.
@@ -147,10 +147,10 @@ bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 1,129 unit tests (62 files)
+bun test                                  # 1,174 unit tests (62 files)
 bun run build
 bunx next start -p 3099 &                 # production server the smoke suite expects
-bun run scripts/e2e-smoke.mjs             # 159-check end-to-end smoke against :3099
+bun run scripts/e2e-smoke.mjs             # 161-check end-to-end smoke against :3099
 ```
 
 ## Quick Start

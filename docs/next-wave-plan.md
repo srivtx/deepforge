@@ -11,7 +11,7 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 | # | Area | Status | Notes |
 |---|------|--------|-------|
 | 1 | Problem bank | Done | 5,730 across 15 categories · 2,058 Easy / 2,553 Medium / 1,119 Hard |
-| 2 | Quality gates | Done, in CI | `verify-problems.ts` (real Python) + `verify-paths.ts` (capstones 33/33) + `verify-paths-content.ts`; 1,129 `bun test` greens (62 files); GitHub Actions (`.github/workflows/ci.yml`) runs every gate, the build, and the 159-check e2e smoke |
+| 2 | Quality gates | Done, in CI | `verify-problems.ts` (real Python) + `verify-paths.ts` (capstones 33/33) + `verify-paths-content.ts`; 1,174 `bun test` greens (62 files); GitHub Actions (`.github/workflows/ci.yml`) runs every gate, the build, and the 161-check e2e smoke |
 | 3 | Routes | Done | 28 user-facing destinations incl. `/today`, `/verify`, and `/concepts`; lab/research detail pages + `/labs/trails`; projects have detail pages at `/projects/[id]`; section modals retired; home is a short landing |
 | 4 | Learning paths | Done | 33 curated paths with stages, checkpoints, resolved prerequisites, artifacts, hours, and a verified capstone each (33/33) |
 | 5 | Supabase schema | Live | Project `klogjcspyiygnggmugjy`; 3 migrations incl. hardening (indexes, posting rate limit, RLS tightening) |
@@ -20,7 +20,7 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 | 8 | Leaderboard | Live | Reads the live `leaderboard` view when signed in; weekly mode (Monday-local week, bots rotate each week); local bots remain the offline fallback |
 | 9 | Discuss / comments | Done | Forum pagination + realtime, plus a per-problem comments UI (`src/components/ProblemComments.tsx`) |
 | 10 | Social scale | Done | `postgres_changes` subscriptions with teardown + cursor pagination in `src/lib/sync/social.ts`; local-first study groups with join codes and buddy nudges (Supabase-backed when signed in) |
-| 11 | Performance | Done | Light problem index, per-route picks (daily problem, leaderboard scoring), and a lazy Zero mount; home 276.4 KB gzip (from 1,553 KB); gzip budgets enforced by `scripts/measure-bundle.ts --check` (4/4 PASS) |
+| 11 | Performance | Done | Light problem index, per-route picks (daily problem, leaderboard scoring), and a lazy Zero mount; home 276.5 KB gzip (from 1,553 KB); gzip budgets enforced by `scripts/measure-bundle.ts --check` (4/4 PASS) |
 | 12 | Deploy | Open | No Vercel project; `NEXT_PUBLIC_SITE_URL` still falls back to `deepforge.app` |
 | 13 | SEO | Done | `layout.tsx` and `manifest.ts` derive the count from the generated index; `sitemap.ts` derives `lastModified` (blog posts use publish dates, the rest the build date) and lists `/today`, `/labs/trails`, `/concepts`, and all 13 lab/research detail URLs; OG kinds `research` and `lab`; deploy-time origin check rides with NW-01 |
 | 14 | PWA / offline | Done | SW v5: per-route offline fallback verified by a route-inventory test (`tests/offline.test.ts`, which now models nested static routes) + “update available” prompt (`PwaManager.tsx`); `/labs/trails` and `/concepts` are precached and `/labs/`, `/research/` have navigation fallbacks |
@@ -74,7 +74,7 @@ This is a working plan: shipped work is folded into the snapshot and is not repe
 - Why: nothing is public yet; deploy is the gate for live SEO/auth verification.
 - Files: new `docs/DEPLOY-VERCEL.md`, `.env.example` comment, `README.md` (deploy section), optional `vercel.json`.
 - Accept: `bun run build` clean with and without Supabase env; preview serves `/`, `/problems/[id]`, `/paths/[slug]`, `/discuss`, `/verify`; smoke checklist signed off; built HTML contains no `deepforge.app` fallback origin.
-- Gate: build + 159-check smoke against the preview + `curl -sI` 200s.
+- Gate: build + 161-check smoke against the preview + `curl -sI` 200s.
 
 **NW-09R · Two-account RLS verification** · `S` · deps: U-2, U-3, NW-01
 - Why: the hardening migration is written, but no second account has ever exercised the policies.
