@@ -59,7 +59,8 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Playlists** — build, reorder, share, and fork problem playlists via compact `?playlist=` codes
 - **Interview Prep** — 13 company tracks with paced practice, timed mocks, and an agentic round (instruct, review the plan, verify, diagnose the fix) against a deterministic copilot
 - **Pen & Paper Math** — 60 no-code problems (multiple choice + numeric) with SM-2 mastery review
-- **Review hub** — `/review` shows the whole spaced queue: a 14-day forecast, trouble spots (repeated lapses), a deterministic interleaved catch-up drill, and an honest retention figure from the same local store Today uses
+- **Review hub** — `/review` shows the whole spaced queue ordered by predicted recall: a 14-day forecast, trouble spots (repeated lapses), a deterministic interleaved catch-up drill, and an honest retention figure. Scheduling is Ladder-Graded Spacing, a house scheduler (see Inventions) that keeps the execution ladder — failed runs, hint tier, resets — as graded evidence
+- **Inventions** — `/inventions` publishes the platform's own research papers as full pages (abstract, method, tables, SVG figures, numbered references) with a real generated PDF per paper (`/inventions/<slug>/paper.pdf`, hand-rolled zero-dependency renderer) and a stable citation block
 - **Concepts** — browse every math checkpoint grouped by category with mastery bars, due/locked status, prerequisite reasoning, worked steps, practice and code links, and the same self-grading as Today; a Map view layers all 21 checkpoints by prerequisite depth with pan/zoom, mastery shading, and a From → To route planner
 - **Notebook mode** — per-cell Python execution with run-all and test validation, persisted per problem
 - **Self-explanation** — after a solve, explain the key step in your own words before moving on; graded deterministically, no model or network
@@ -149,10 +150,10 @@ bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 1,307 unit tests (71 files)
+bun test                                  # 1,417 unit tests (74 files)
 bun run build
 bunx next start -p 3099 &                 # production server the smoke suite expects
-bun run scripts/e2e-smoke.mjs             # 172-check end-to-end smoke against :3099
+bun run scripts/e2e-smoke.mjs             # 179-check end-to-end smoke against :3099
 ```
 
 ## Quick Start
