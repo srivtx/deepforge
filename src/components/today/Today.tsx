@@ -28,6 +28,7 @@ import {
   labReviewDue,
   type LabReviewItem,
 } from "@/lib/labReviews";
+import { getTopAction, type Action } from "@/lib/nextBestAction";
 import { readPlacement, type PlacementRecord } from "@/lib/onboarding";
 import {
   evaluateStageCheckpoint,
@@ -82,6 +83,7 @@ interface SessionView {
   placement: PlacementRecord | null;
   solvedToday: number;
   checkpoint: PlanCheckpoint | null;
+  nextAction: Action | null;
 }
 
 const CARD_CLASSES = "rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5";
@@ -253,6 +255,7 @@ export function TodayScreen() {
       checkpoint: placement
         ? findReadyCheckpoint(placement, progress, reviews, now)
         : null,
+      nextAction: getTopAction(now),
     });
   }, []);
 
@@ -385,6 +388,34 @@ export function TodayScreen() {
           </dl>
         </section>
       </Reveal>
+
+      {view.nextAction && (
+        <Reveal delay={20} className="mt-6">
+          <section aria-labelledby="today-next" className={CARD_CLASSES}>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <h2
+                id="today-next"
+                className="text-xs font-medium text-body-mid"
+              >
+                Do this next
+              </h2>
+              <p className="min-w-0 flex-1 text-sm text-body-mid">
+                <span className="font-medium text-ink">
+                  {view.nextAction.title}
+                </span>
+                <span className="mx-1.5 text-mute">·</span>
+                {view.nextAction.reason}
+              </p>
+              <Link
+                href={view.nextAction.href}
+                className={SECONDARY_LINK_CLASSES}
+              >
+                Open
+              </Link>
+            </div>
+          </section>
+        </Reveal>
+      )}
 
       {view.placement && (
         <Reveal delay={30} className="mt-6">
