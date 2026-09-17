@@ -31,6 +31,15 @@ import {
 import { INTERVIEW_CHANGE_EVENT } from "@/lib/interview";
 import { LAB_CHANGE_EVENT } from "@/lib/labs";
 import { RESEARCH_CHANGE_EVENT } from "@/lib/research";
+import {
+  BADGE,
+  CARD_GRID,
+  IssuedBadge,
+  KindBadge,
+  PAGE_CONTAINER,
+  SECTION_GAP,
+  SectionHeader,
+} from "@/components/certificates/layout";
 
 /* ──────────────────────────────── chrome ────────────────────────────────── */
 
@@ -45,17 +54,6 @@ const DANGER_BUTTON =
 
 const DANGER_CONFIRM_BUTTON =
   "inline-flex min-h-11 items-center justify-center rounded-lg border border-error/60 bg-error/10 px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error/20 focus:outline-none focus-visible:ring-1 focus-visible:ring-error/40 sm:min-h-0";
-
-const KIND_LABELS: Record<CertificateKind, string> = {
-  path: "Path",
-  collection: "Collection",
-  category: "Category",
-  lab: "Lab",
-  project: "Project",
-  interview: "Interview",
-  research: "Research",
-  track: "Track",
-};
 
 const LEVEL_LABELS: Record<CertTrack["level"], string> = {
   foundation: "Foundation",
@@ -618,7 +616,7 @@ function CertificateCode({
   const fingerprint = code ? fingerprintFromCode(code) : null;
   if (!code || !fingerprint) {
     return (
-      <span aria-hidden className={cn(CODE_TEXT, "text-[#6b6355]")}>
+      <span aria-hidden className={cn(CODE_TEXT, "shrink-0 text-[#6b6355]")}>
         ····-····-····-····
       </span>
     );
@@ -630,13 +628,15 @@ function CertificateCode({
       aria-label={`Verify the certificate for ${cert.title}`}
       className={cn(
         CODE_TEXT,
-        "rounded-sm text-[#3f7354] underline-offset-2 transition-colors hover:text-[#2f7d4f] hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-[#2f7d4f]/50",
+        "shrink-0 whitespace-nowrap rounded-sm text-[#3f7354] underline-offset-2 transition-colors hover:text-[#2f7d4f] hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-[#2f7d4f]/50",
       )}
     >
       {formatFingerprint(fingerprint)}
     </Link>
   );
 }
+
+/* ───────────────────────────── layout system ────────────────────────────── */
 
 interface CertificateCardProps {
   cert: Certificate;
@@ -660,10 +660,10 @@ function CertificateCard({
   onRevoke,
 }: CertificateCardProps) {
   return (
-    <li className="flex flex-col">
+    <li className="flex">
       <article
         aria-label={`Certificate of completion: ${cert.title}, awarded to ${cert.recipient}`}
-        className="shadow-sm"
+        className="flex h-full w-full flex-col"
       >
         <div
           className="flex aspect-[8/5] flex-col bg-[#fbfaf7] px-5 py-4 text-[#1c1c1c] sm:px-9 sm:py-7"
@@ -701,69 +701,72 @@ function CertificateCard({
           </div>
 
           <div className="flex items-end justify-between gap-3">
-            <span className="text-[8px] text-[#6b6355] sm:text-[10px]">
+            <span className="min-w-0 truncate text-[8px] text-[#6b6355] sm:text-[10px]">
               Issued {formatCertificateDate(cert.issuedAt)}
             </span>
             <CertificateCode cert={cert} code={code} />
           </div>
         </div>
-      </article>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={() => onPrint(cert)}
-          aria-label={`Print certificate for ${cert.title}`}
-          className={SECONDARY_BUTTON}
-        >
-          Print
-        </button>
-        <button
-          type="button"
-          onClick={() => onCopy(cert)}
-          aria-label={`Copy certificate text for ${cert.title}`}
-          className={SECONDARY_BUTTON}
-        >
-          Copy text
-        </button>
-        {code && (
-          <Link
-            href={verifyUrl(code)}
-            aria-label={`Open the verification page for ${cert.title}`}
-            className={SECONDARY_BUTTON}
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => onPrint(cert)}
+            aria-label={`Print certificate for ${cert.title}`}
+            className={cn(SECONDARY_BUTTON, "w-full")}
           >
-            Verify
-          </Link>
-        )}
-        <button
-          type="button"
-          onClick={() => onCopyLink(cert)}
-          aria-label={`Copy the verification link for ${cert.title}`}
-          className={SECONDARY_BUTTON}
-        >
-          Copy link
-        </button>
-        <button
-          type="button"
-          onClick={() => onDownload(cert)}
-          aria-label={`Download certificate for ${cert.title} as a PNG`}
-          className={SECONDARY_BUTTON}
-        >
-          Download PNG
-        </button>
-        <button
-          type="button"
-          onClick={() => onRevoke(cert)}
-          aria-label={
-            confirming
-              ? `Confirm revoking the certificate for ${cert.title}`
-              : `Revoke the certificate for ${cert.title}`
-          }
-          className={confirming ? DANGER_CONFIRM_BUTTON : DANGER_BUTTON}
-        >
-          {confirming ? "Confirm revoke" : "Revoke"}
-        </button>
-      </div>
+            Print
+          </button>
+          <button
+            type="button"
+            onClick={() => onCopy(cert)}
+            aria-label={`Copy certificate text for ${cert.title}`}
+            className={cn(SECONDARY_BUTTON, "w-full")}
+          >
+            Copy text
+          </button>
+          {code && (
+            <Link
+              href={verifyUrl(code)}
+              aria-label={`Open the verification page for ${cert.title}`}
+              className={cn(SECONDARY_BUTTON, "w-full")}
+            >
+              Verify
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={() => onCopyLink(cert)}
+            aria-label={`Copy the verification link for ${cert.title}`}
+            className={cn(SECONDARY_BUTTON, "w-full")}
+          >
+            Copy link
+          </button>
+          <button
+            type="button"
+            onClick={() => onDownload(cert)}
+            aria-label={`Download certificate for ${cert.title} as a PNG`}
+            className={cn(SECONDARY_BUTTON, "w-full")}
+          >
+            Download PNG
+          </button>
+          <button
+            type="button"
+            onClick={() => onRevoke(cert)}
+            aria-label={
+              confirming
+                ? `Confirm revoking the certificate for ${cert.title}`
+                : `Revoke the certificate for ${cert.title}`
+            }
+            className={cn(
+              confirming ? DANGER_CONFIRM_BUTTON : DANGER_BUTTON,
+              "w-full",
+            )}
+          >
+            {confirming ? "Confirm revoke" : "Revoke"}
+          </button>
+        </div>
+      </article>
     </li>
   );
 }
@@ -792,7 +795,7 @@ function ProgressBar({ value, label }: { value: number; label: string }) {
 
 function LevelBadge({ level }: { level: CertTrack["level"] }) {
   return (
-    <span className="rounded-full border border-hairline bg-canvas-soft px-2 py-0.5 text-[11px] text-body-mid">
+    <span className={cn(BADGE, "border-hairline bg-canvas-soft text-body-mid")}>
       {LEVEL_LABELS[level]}
     </span>
   );
@@ -816,33 +819,32 @@ function TrackCard({
   const firstUndone = progress.steps.findIndex((step) => !step.done);
   const next = firstUndone === -1 ? null : progress.steps[firstUndone];
   return (
-    <article className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-center gap-2">
+    <article className="flex h-full w-full flex-col rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-2">
         <LevelBadge level={track.level} />
-        {issued && (
-          <span className="rounded-full border border-accent/40 bg-accent/5 px-2 py-0.5 text-[11px] font-medium text-accent">
-            Claimed
-          </span>
-        )}
+        {issued && <IssuedBadge label="Claimed" />}
       </div>
 
-      <div>
-        <h4 className="text-sm font-medium text-ink">{track.title}</h4>
-        <p className="mt-1 text-xs leading-relaxed text-body-mid">
-          {track.blurb}
-        </p>
-        <p className="mt-1.5 text-xs leading-relaxed text-body-mid">
-          <span className="text-mute">Outcome: </span>
-          {track.outcome}
-        </p>
-      </div>
+      <h4
+        className="mt-3 truncate text-sm font-medium text-ink"
+        title={track.title}
+      >
+        {track.title}
+      </h4>
+      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-body-mid">
+        {track.blurb}
+      </p>
+      <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-body-mid">
+        <span className="text-mute">Outcome: </span>
+        {track.outcome}
+      </p>
 
-      <ol className="space-y-1.5">
+      <ol className="mt-3 space-y-1.5">
         {progress.steps.map((step, index) => (
           <li
             key={`${step.step.kind}:${step.step.id}`}
             className={cn(
-              "flex flex-col gap-1 rounded-md border px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3",
+              "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md border px-2.5 py-2",
               step.done
                 ? "border-hairline bg-canvas-soft/60"
                 : index === firstUndone
@@ -858,11 +860,11 @@ function TrackCard({
                   step.done ? "bg-accent" : "bg-hairline",
                 )}
               />
-              <Link href={step.href} className={STEP_LINK}>
+              <Link href={step.href} title={step.label} className={STEP_LINK}>
                 {step.label}
               </Link>
             </span>
-            <span className="shrink-0 font-mono text-[11px] text-body-mid">
+            <span className="shrink-0 whitespace-nowrap text-right font-mono text-[11px] text-body-mid">
               {step.progress}
             </span>
           </li>
@@ -870,37 +872,44 @@ function TrackCard({
       </ol>
 
       {next && (
-        <p className="text-xs leading-relaxed text-body-mid">
+        <p
+          className="mt-3 truncate text-xs leading-relaxed text-body-mid"
+          title={`Next: ${next.label} — ${next.progress}.`}
+        >
           Next: <span className="text-ink">{next.label}</span>
           {" — "}
           {next.progress}.
         </p>
       )}
 
-      <div className="mt-auto flex flex-wrap items-center gap-3">
-        <div className="min-w-[8rem] flex-1">
-          <ProgressBar
-            value={progress.total === 0 ? 0 : progress.done / progress.total}
-            label={`${track.title} progress`}
-          />
-        </div>
-        <span className="font-mono text-xs text-body-mid">
+      <div className="mt-auto grid grid-cols-[minmax(0,1fr)_2.5rem_4.5rem] items-center gap-2 pt-4 sm:gap-3">
+        <ProgressBar
+          value={progress.total === 0 ? 0 : progress.done / progress.total}
+          label={`${track.title} progress`}
+        />
+        <span className="text-right font-mono text-xs text-body-mid">
           {progress.done}/{progress.total}
         </span>
-        {progress.complete && entry && !issued && (
-          <button
-            type="button"
-            onClick={() => onClaim(entry)}
-            aria-label={`Claim the ${track.title} certificate`}
-            className={PRIMARY_BUTTON}
-          >
-            Claim
-          </button>
-        )}
+        <span className="flex justify-end">
+          {progress.complete && entry && !issued && (
+            <button
+              type="button"
+              onClick={() => onClaim(entry)}
+              aria-label={`Claim the ${track.title} certificate`}
+              className={cn(PRIMARY_BUTTON, "w-full px-2")}
+            >
+              Claim
+            </button>
+          )}
+        </span>
       </div>
     </article>
   );
 }
+
+/** One catalog row template shared by every kind: info, progress, value, action. */
+const CATALOG_ROW =
+  "grid grid-cols-[minmax(0,1fr)_5.5rem_6.5rem] items-center gap-x-3 gap-y-1.5 border-t border-hairline px-3 py-2.5 transition-colors hover:bg-canvas-soft focus-within:bg-canvas-soft sm:grid-cols-[minmax(0,1fr)_7rem_5.5rem_6.5rem] sm:px-4";
 
 function CandidateRow({
   candidate,
@@ -914,20 +923,26 @@ function CandidateRow({
   const href = candidateHref(candidate);
   const value = candidateValue(candidate);
   return (
-    <li className="flex flex-col gap-2 rounded-lg border border-hairline bg-canvas-card px-3 py-2.5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <Link href={href} className={STEP_LINK}>
-            {candidate.title}
-          </Link>
-          <p className="mt-0.5 text-xs leading-relaxed text-body-mid">
-            {candidate.requirement}
-          </p>
-        </div>
+    <li className={CATALOG_ROW}>
+      <div className="col-span-2 row-start-1 min-w-0 sm:col-span-1 sm:col-start-1">
+        <Link
+          href={href}
+          title={candidate.title}
+          className={cn(STEP_LINK, "block text-sm")}
+        >
+          {candidate.title}
+        </Link>
+        <p
+          className="mt-0.5 truncate text-xs leading-relaxed text-body-mid"
+          title={candidate.requirement}
+        >
+          {candidate.requirement}
+        </p>
+      </div>
+
+      <div className="col-start-3 row-start-1 flex h-11 items-center justify-end sm:col-start-4 sm:h-8">
         {issued ? (
-          <span className="shrink-0 rounded-full border border-accent/40 bg-accent/5 px-2 py-0.5 text-[11px] font-medium text-accent">
-            Issued
-          </span>
+          <IssuedBadge />
         ) : candidate.eligible ? (
           <button
             type="button"
@@ -938,24 +953,22 @@ function CandidateRow({
             Claim
           </button>
         ) : (
-          <span className="shrink-0 rounded-full border border-hairline px-2 py-0.5 text-[11px] text-mute">
-            {KIND_LABELS[candidate.kind]}
-          </span>
+          <KindBadge kind={candidate.kind} />
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <ProgressBar
-            value={candidate.progress}
-            label={`${candidate.title} progress`}
-          />
-        </div>
-        {value && (
-          <span className="shrink-0 font-mono text-[11px] text-body-mid">
-            {value}
-          </span>
-        )}
+
+      <div className="col-span-2 row-start-2 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+        <ProgressBar
+          value={candidate.progress}
+          label={`${candidate.title} progress`}
+        />
       </div>
+      <span
+        className="col-start-3 row-start-2 truncate text-right font-mono text-[11px] text-body-mid sm:col-start-3 sm:row-start-1"
+        title={value || undefined}
+      >
+        {value || "—"}
+      </span>
     </li>
   );
 }
@@ -1093,120 +1106,139 @@ export function Certificates() {
     setStatus(ok ? "Certificate revoked." : "Certificate was already removed.");
   };
 
+  const tracksComplete = state.tracks.filter(
+    (progress) => progress.complete,
+  ).length;
+
   return (
     <section
       id="certificates"
-      className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-8 sm:px-6 sm:py-12"
+      className={cn(PAGE_CONTAINER, "scroll-mt-16")}
     >
-      <div className="mb-6">
-        <h2 className="text-sm font-medium text-body-mid">
-          {claimable.length} ready to claim · {state.candidates.length} to work
-          toward · {state.issued.length} issued
-        </h2>
-      </div>
+      {/* One deliberate header block: stats and the nearest unfinished work. */}
+      <header className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h2 className="text-sm font-medium text-ink">Overview</h2>
+          <span className="font-mono text-[11px] text-mute">
+            {state.candidates.length} certificates
+          </span>
+        </div>
+
+        <dl className="mt-3 grid grid-cols-3 overflow-hidden rounded-lg border border-hairline">
+          <div className="min-w-0 border-l border-hairline px-3 py-2.5 first:border-l-0">
+            <dt className="text-[11px] leading-tight text-mute">
+              Ready to claim
+            </dt>
+            <dd
+              className={cn(
+                "mt-1 font-mono text-sm",
+                claimable.length > 0 ? "text-accent" : "text-ink",
+              )}
+            >
+              {claimable.length}
+            </dd>
+          </div>
+          <div className="min-w-0 border-l border-hairline px-3 py-2.5">
+            <dt className="text-[11px] leading-tight text-mute">
+              Tracks complete
+            </dt>
+            <dd className="mt-1 font-mono text-sm text-ink">
+              {tracksComplete}/{state.tracks.length}
+            </dd>
+          </div>
+          <div className="min-w-0 border-l border-hairline px-3 py-2.5">
+            <dt className="text-[11px] leading-tight text-mute">Issued</dt>
+            <dd className="mt-1 font-mono text-sm text-ink">
+              {state.issued.length}
+            </dd>
+          </div>
+        </dl>
+
+        {closest.length > 0 ? (
+          <div className="mt-3 border-t border-hairline pt-3">
+            <p className="text-[11px] text-mute">Closest to done</p>
+            <ul className="mt-2 space-y-1.5">
+              {closest.map((candidate) => (
+                <li
+                  key={`${candidate.kind}:${candidate.refId}`}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <Link
+                    href={candidateHref(candidate)}
+                    title={candidate.title}
+                    className={STEP_LINK}
+                  >
+                    {candidate.title}
+                  </Link>
+                  <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-body-mid">
+                    {candidate.requirement} ·{" "}
+                    {Math.round(candidate.progress * 100)}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : claimable.length === 0 ? (
+          <p className="mt-3 border-t border-hairline pt-3 text-xs leading-relaxed text-body-mid">
+            Certificates are earned by completing curated work — every problem
+            in a path or collection, 80% of a category, a lab at its target,
+            every project step, 80% on an interview mock, or every research
+            baseline. Start with a certification track below, then open a path
+            or collection and solve your first problem.
+          </p>
+        ) : null}
+      </header>
 
       <p
         role="status"
         aria-live="polite"
-        className="mb-4 min-h-4 text-xs text-body-mid"
+        className="mt-2 min-h-4 text-xs text-body-mid"
       >
         {status}
       </p>
 
-      {loaded && state.eligible.length === 0 && (
-        <div className="mb-8 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
-          <h3 className="text-sm font-medium text-ink">
-            Nothing ready to claim yet
-          </h3>
-          {closest.length > 0 ? (
-            <>
-              <p className="mt-1 text-xs leading-relaxed text-body-mid">
-                Certificates are earned by completing curated work. These are
-                closest to done:
-              </p>
-              <ul className="mt-3 space-y-2">
-                {closest.map((candidate) => (
-                  <li
-                    key={`${candidate.kind}:${candidate.refId}`}
-                    className="flex flex-wrap items-center justify-between gap-2"
-                  >
-                    <Link
-                      href={candidateHref(candidate)}
-                      className={STEP_LINK}
-                    >
-                      {candidate.title}
-                    </Link>
-                    <span className="font-mono text-[11px] text-body-mid">
-                      {candidate.requirement} ·{" "}
-                      {Math.round(candidate.progress * 100)}%
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="mt-1 text-xs leading-relaxed text-body-mid">
-              Certificates are earned by completing curated work — every
-              problem in a path or collection, 80% of a category, a lab at its
-              target, every project step, 80% on an interview mock, or every
-              research baseline. Start with a certification track below, then
-              open a path or collection and solve your first problem.
-            </p>
-          )}
-        </div>
-      )}
-
       {/* Certification tracks */}
-      <div>
-        <div className="mb-4">
-          <h3 className="text-base font-semibold text-ink">
-            Certification tracks
-          </h3>
-          <p className="mt-0.5 text-xs leading-relaxed text-body-mid">
-            Curated routes from first principles to applied work. Complete every
-            step to claim the track certificate.
-          </p>
-        </div>
+      <section className={SECTION_GAP} aria-labelledby="certification-tracks">
+        <SectionHeader
+          id="certification-tracks"
+          title="Certification tracks"
+          description="Curated routes from first principles to applied work. Complete every step to claim the track certificate."
+          meta={`${tracksComplete}/${state.tracks.length} complete`}
+        />
         {state.tracks.length === 0 ? (
           loaded && (
-            <div className="rounded-lg border border-hairline bg-canvas-card p-4 text-center text-sm text-body-mid sm:p-5">
+            <div className="mt-4 rounded-lg border border-hairline bg-canvas-card p-4 text-center text-sm text-body-mid sm:p-5">
               Track progress is unavailable in this browser.
             </div>
           )
         ) : (
-          <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <ul className={CARD_GRID}>
             {state.tracks.map((progress) => {
               const entry = trackCandidates.get(progress.track.id);
               return (
                 <li key={progress.track.id} className="flex">
-                  <div className="flex w-full flex-col">
-                    <TrackCard
-                      progress={progress}
-                      entry={entry}
-                      issued={issuedKeys.has(
-                        `track:${progress.track.id}`,
-                      )}
-                      onClaim={handleClaim}
-                    />
-                  </div>
+                  <TrackCard
+                    progress={progress}
+                    entry={entry}
+                    issued={issuedKeys.has(`track:${progress.track.id}`)}
+                    onClaim={handleClaim}
+                  />
                 </li>
               );
             })}
           </ul>
         )}
-      </div>
+      </section>
 
       {/* Catalog */}
-      <div className="mt-10">
-        <div className="mb-4">
-          <h3 className="text-base font-semibold text-ink">
-            Certificate catalog
-          </h3>
-          <p className="mt-0.5 text-xs leading-relaxed text-body-mid">
-            Everything you can earn, with live progress and what each one needs.
-          </p>
-        </div>
-        <div className="space-y-3">
+      <section className={SECTION_GAP} aria-labelledby="certificate-catalog">
+        <SectionHeader
+          id="certificate-catalog"
+          title="Certificate catalog"
+          description="Everything you can earn, with live progress and what each one needs."
+          meta={`${state.candidates.length} total`}
+        />
+        <div className="mt-4 space-y-3">
           {CATALOG_GROUPS.map((group) => {
             const entries = state.candidates.filter(
               (candidate) => candidate.kind === group.kind,
@@ -1230,20 +1262,36 @@ export function Certificates() {
                 onToggle={(event) =>
                   handleGroupToggle(group.kind, event.currentTarget.open)
                 }
-                className="rounded-lg border border-hairline bg-canvas-card"
+                className="group overflow-hidden rounded-lg border border-hairline bg-canvas-card"
               >
-                <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40">
-                  <span className="min-w-0">
-                    {group.title}
-                    <span className="ml-2 text-xs font-normal text-body-mid">
+                <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 [&::-webkit-details-marker]:hidden">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-ink">
+                      {group.title}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs font-normal text-body-mid">
                       {group.blurb}
                     </span>
                   </span>
-                  <span className="font-mono text-[11px] text-body-mid">
+                  <span className="shrink-0 font-mono text-[11px] text-body-mid">
                     {earned}/{entries.length}
                   </span>
+                  <svg
+                    aria-hidden
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    className="h-3 w-3 shrink-0 text-mute transition-transform group-open:rotate-90"
+                  >
+                    <path
+                      d="M4.5 2.5 8 6l-3.5 3.5"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </summary>
-                <ul className="grid grid-cols-1 gap-2 border-t border-hairline p-3 sm:grid-cols-2 xl:grid-cols-3">
+                <ul>
                   {entries.map((candidate) => (
                     <CandidateRow
                       key={`${candidate.kind}:${candidate.refId}`}
@@ -1259,26 +1307,24 @@ export function Certificates() {
             );
           })}
         </div>
-      </div>
+      </section>
 
       {/* Issued certificates */}
-      <div className="mt-10">
-        <div className="mb-4">
-          <h3 className="text-base font-semibold text-ink">
-            Your certificates
-          </h3>
-          <p className="mt-0.5 text-xs text-body-mid">
-            {state.issued.length} earned
-          </p>
-        </div>
+      <section className={SECTION_GAP} aria-labelledby="your-certificates">
+        <SectionHeader
+          id="your-certificates"
+          title="Your certificates"
+          description="Print, copy, or download each one as a PNG."
+          meta={`${state.issued.length} earned`}
+        />
         {state.issued.length === 0 ? (
           loaded && (
-            <div className="rounded-lg border border-hairline bg-canvas-card p-4 text-center text-sm text-body-mid sm:p-5">
+            <div className="mt-4 rounded-lg border border-hairline bg-canvas-card p-4 text-center text-sm text-body-mid sm:p-5">
               No certificates yet. Claim one above when a milestone is ready.
             </div>
           )
         ) : (
-          <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <ul className={CARD_GRID}>
             {state.issued.map((cert) => (
               <CertificateCard
                 key={cert.id}
@@ -1294,9 +1340,9 @@ export function Certificates() {
             ))}
           </ul>
         )}
-      </div>
+      </section>
 
-      <p className={cn("mt-6 text-[11px] text-mute")}>
+      <p className={cn(SECTION_GAP, "text-[11px] leading-relaxed text-mute")}>
         Certificate codes are SHA-256 fingerprints of the printed fields,
         computed in your browser. Anyone can re-check one on its verification
         page — no account and no server secret. Codes are self-attested: they
