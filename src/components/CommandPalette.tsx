@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import type { CategoryMeta, Problem } from "@/types/problem";
 import { SECTIONS_BY_ID, categorySlug, type SectionId } from "@/lib/sections";
 import { problemHref } from "@/lib/problemLinks";
@@ -17,17 +18,20 @@ import type {
   GlobalSearchGroup,
   GlobalSearchItem,
 } from "@/lib/globalSearch";
+import type { QuickAction } from "@/lib/quickActions";
 
 type Row =
   | { key: string; kind: "problem"; problem: Problem }
   | { key: string; kind: "category"; name: string }
   | { key: string; kind: "page"; label: string; section: SectionId }
+  | { key: string; kind: "action"; action: QuickAction }
   | { key: string; kind: "global"; group: GlobalSearchGroup; item: GlobalSearchItem };
 
 const MAX_RESULTS = 18;
 const MAX_PROBLEM_RESULTS = 8;
 const MAX_CATEGORY_RESULTS = 3;
 const MAX_GLOBAL_GROUP_RESULTS = 4;
+const MAX_ACTION_RESULTS = 4;
 
 const PAGES: { label: string; section: SectionId }[] = [
   { label: "Problems", section: "problems" },
@@ -56,6 +60,7 @@ const PAGES: { label: string; section: SectionId }[] = [
 ];
 
 const GROUP_LABELS: Record<Exclude<Row["kind"], "global">, string> = {
+  action: "Actions",
   problem: "Problems",
   category: "Categories",
   page: "Pages",
@@ -72,6 +77,9 @@ function rowGroupLabel(row: Row): string {
 export function CommandPalette() {
   const router = useRouter();
   const pathname = usePathname();
+  // next-themes owns the theme; action descriptors receive these through
+  // their run context instead of importing the hook themselves.
+  const { resolvedTheme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -86,6 +94,12 @@ export function CommandPalette() {
   // global client graph (and the first-load budgets) untouched.
   const [globalApi, setGlobalApi] = useState<
     typeof import("@/lib/globalSearch") | null
+  >(null);
+  // Action descriptors pull the assistant preference store (and its
+  // supporting libs), so they ride the same open-time lazy import instead of
+  // entering the shell's first-load graph.
+  const [actionsApi, setActionsApi] = useState<
+    typeof import("@/lib/quickActions") | null
   >(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -116,6 +130,17 @@ export function CommandPalette() {
     };
   }, [open, globalApi]);
 
+  useEffect(() => {
+    if (!open || actionsApi) return;
+    let alive = true;
+    void import("@/lib/quickActions").then((mod) => {
+      if (alive) setActionsApi(mod);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, actionsApi]);
+
   const rows = useMemo<Row[]>(() => {
     const q = query.trim().toLowerCase();
     if (!q) {
@@ -129,7 +154,19 @@ export function CommandPalette() {
 
     const problems = catalog?.problems ?? [];
     const categories = catalog?.categories ?? [];
-    const out: Row[] = [];
+    // Actions lead the list: they are the verbs a query matches (start the
+    // daily challenge, toggle the theme) and never appear while the query is
+    // empty. Problem, global, and page ordering below is untouched.
+    const out: Row[] = actionsApi
+      ? actionsApi
+          .matchQuickActions(q)
+          .slice(0, MAX_ACTION_RESULTS)
+          .map((action) => ({
+            key: `action:${action.id}`,
+            kind: "action" as const,
+            action,
+          }))
+      : [];
     let problemCount = 0;
     let categoryCount = 0;
 
@@ -184,7 +221,7 @@ export function CommandPalette() {
     }
 
     return out.slice(0, MAX_RESULTS);
-  }, [query, catalog, globalApi]);
+  }, [query, catalog, globalApi, actionsApi]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -198,10 +235,23 @@ export function CommandPalette() {
     setActiveIndex(0);
   }, []);
 
+  // Every row — action or navigation — dismisses the palette before it
+  // executes, the theme toggle included. One dismissal rule keeps the palette
+  // predictable (one Enter, one visible outcome) and the toggle still
+  // repaints immediately behind the closing overlay.
   const choose = useCallback(
     (row: Row | undefined) => {
       if (!row) return;
       close();
+      if (row.kind === "action") {
+        const { action } = row;
+        if (action.kind === "navigate" && action.href) {
+          router.push(action.href);
+          return;
+        }
+        action.run?.({ setTheme, resolvedTheme });
+        return;
+      }
       if (row.kind === "problem") {
         router.push(problemHref(row.problem.id, pathname));
         return;
@@ -216,7 +266,7 @@ export function CommandPalette() {
       }
       router.push(SECTIONS_BY_ID[row.section].href);
     },
-    [close, router, pathname],
+    [close, router, pathname, setTheme, resolvedTheme],
   );
 
   const move = useCallback(
@@ -321,6 +371,16 @@ export function CommandPalette() {
           <span className="text-body">Category: {row.name}</span>
           <span className="text-mute"> — jump to problems</span>
         </span>
+      );
+    }
+    if (row.kind === "action") {
+      return (
+        <>
+          <span className="min-w-0 flex-1 truncate">{row.action.label}</span>
+          <span className="shrink-0 font-mono text-[11px] text-mute">
+            {row.action.kind === "navigate" ? row.action.href : "toggle"}
+          </span>
+        </>
       );
     }
     if (row.kind === "global") {
