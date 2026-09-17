@@ -409,6 +409,13 @@ const trailsOk = trails.status === 200 && has(trails.body, "labs passed");
 record("labs: trails page", trailsOk, trails.url,
   `status=${trails.status}`);
 line(trailsOk, `GET /labs/trails  status=${trails.status}`);
+const certificates = await get("/certificates");
+const certTracks = has(certificates.body, "Certification tracks");
+const certCatalog = has(certificates.body, "Certificate catalog");
+record("certificates: tracks + catalog", certificates.status === 200 && certTracks && certCatalog, certificates.url,
+  `status=${certificates.status} tracks=${certTracks} catalog=${certCatalog}`);
+line(certificates.status === 200 && certTracks && certCatalog,
+  `GET /certificates  tracks=${certTracks ? "yes" : "NO"} catalog=${certCatalog ? "yes" : "NO"}`);
 const papersIndex = await get("/papers");
 const paperLinks = count(papersIndex.body, /href="\/papers\/[a-z0-9-]+"/g);
 record("papers: index links to papers", paperLinks >= 30, papersIndex.url,
