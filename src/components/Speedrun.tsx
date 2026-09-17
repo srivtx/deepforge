@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES } from "@/data/problems/meta";
 import {
@@ -8,6 +10,8 @@ import {
 } from "@/data/problems/problem-meta";
 import { cn, difficultyClasses } from "@/lib/utils";
 import { getProgress } from "@/lib/progress";
+import { createPlaylist } from "@/lib/playlists";
+import { problemHref } from "@/lib/problemLinks";
 import {
   RUNS_CHANGE_EVENT,
   compareRuns,
@@ -17,6 +21,7 @@ import {
   formatClock,
   getActiveRun,
   getRunHistory,
+  getRunMisses,
   parSeconds,
   recordSolve,
   solveScore,
@@ -28,6 +33,7 @@ import {
 
 const PROGRESS_CHANGE_EVENT = "deepforge:progress-change";
 const RUNS_STORAGE_KEY = "deepforge:runs:v1";
+const MISS_PREVIEW_LIMIT = 8;
 
 const PROBLEM_COUNTS = [5, 10, 15];
 const DURATIONS = [5, 10, 20];
@@ -265,11 +271,14 @@ export function Speedrun() {
   const [importError, setImportError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const router = useRouter();
+
   const runRef = useRef<RunState | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
   const copyTimerRef = useRef<number | null>(null);
+  const drillGuardRef = useRef(false);
 
   const problemMap = useMemo(
     () => new Map(PROBLEM_META.map((p) => [p.id, p])),
@@ -489,8 +498,25 @@ export function Speedrun() {
     );
   };
 
+  const buildDrillPlaylist = (state: RunState, missedIds: string[]) => {
+    if (drillGuardRef.current || missedIds.length === 0) return;
+    drillGuardRef.current = true;
+    const date =
+      state.startedAt > 0
+        ? new Date(state.startedAt).toLocaleDateString()
+        : new Date().toLocaleDateString();
+    createPlaylist(
+      `Speedrun misses — ${date}`,
+      missedIds,
+      `${missedIds.length} problems missed on seed ${state.seed}.`,
+    );
+    router.push("/playlists");
+  };
+
   const remainingMs = run ? Math.max(0, run.endsAt - nowMs) : 0;
   const activeRun = run && run.status === "active" ? run : null;
+  const misses: string[] =
+    run && run.status !== "active" ? getRunMisses(run) : [];
   const parTotalMs = run
     ? run.problemIds.reduce((sum, id) => {
         const problem = problemMap.get(id);
@@ -1203,6 +1229,68 @@ export function Speedrun() {
                       </p>
                     </div>
                   </div>
+
+                  {misses.length > 0 && (
+                    <div className="rounded-lg border border-hairline bg-canvas-card p-5">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <h4 className="text-sm font-semibold text-ink">
+                          Missed problems
+                        </h4>
+                        <span className="font-mono text-xs text-body-mid">
+                          {misses.length} unsolved
+                        </span>
+                      </div>
+                      <ul className="mt-3 space-y-1.5">
+                        {misses.slice(0, MISS_PREVIEW_LIMIT).map((id) => {
+                          const problem = problemMap.get(id);
+                          if (!problem) return null;
+                          return (
+                            <li key={id}>
+                              <Link
+                                href={problemHref(id, "/speedrun")}
+                                className="flex items-center gap-3 rounded-lg border border-hairline bg-canvas px-3 py-2 transition-colors hover:bg-canvas-soft"
+                              >
+                                <span className="font-mono text-[11px] text-mute">
+                                  {problem.id}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                                  {problem.title}
+                                </span>
+                                <span
+                                  className={cn(
+                                    "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+                                    difficultyClasses(problem.difficulty),
+                                  )}
+                                >
+                                  {problem.difficulty}
+                                </span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {misses.length > MISS_PREVIEW_LIMIT && (
+                        <p className="mt-2 text-[11px] text-mute">
+                          +{misses.length - MISS_PREVIEW_LIMIT} more in the
+                          per-problem breakdown below.
+                        </p>
+                      )}
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => buildDrillPlaylist(run, misses)}
+                          className="rounded-lg bg-accent px-3.5 py-2 text-xs font-medium text-canvas transition-opacity hover:opacity-90"
+                        >
+                          Build a drill playlist
+                        </button>
+                        <p className="text-[11px] text-body-mid">
+                          Saves the {misses.length} missed{" "}
+                          {misses.length === 1 ? "problem" : "problems"} as an
+                          ordered playlist and opens Playlists.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {ghostComparison && (
                     <div className="rounded-lg border border-hairline bg-canvas-card p-5">

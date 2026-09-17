@@ -410,6 +410,46 @@ export function resetRun(): void {
   writeStore(emptyStore());
 }
 
+/* ── Misses ── */
+
+export interface RunMisses {
+  run: RunState;
+  misses: string[];
+}
+
+/**
+ * Unsolved problem ids from a run, in the run's seeded order. Solved and
+ * duplicate entries are dropped, and ids missing from the catalogue are
+ * skipped, so every returned id can be opened or drilled. Pure: it reads
+ * only the stored run fields.
+ */
+export function getRunMisses(
+  run: Pick<RunState, "problemIds" | "solvedIds">,
+): string[] {
+  const solved = new Set(run.solvedIds);
+  const seen = new Set<string>();
+  const misses: string[] = [];
+  for (const id of run.problemIds) {
+    if (typeof id !== "string" || seen.has(id) || solved.has(id)) continue;
+    if (!META_BY_ID.has(id)) continue;
+    seen.add(id);
+    misses.push(id);
+  }
+  return misses;
+}
+
+/**
+ * The newest run in the local history that still has misses, paired with
+ * those misses in seeded order. Null when every stored run is clean.
+ */
+export function getLatestRunWithMisses(): RunMisses | null {
+  for (const run of getRunHistory()) {
+    const misses = getRunMisses(run);
+    if (misses.length > 0) return { run, misses };
+  }
+  return null;
+}
+
 /* ── Run codes ── */
 
 interface RunCodePayload {

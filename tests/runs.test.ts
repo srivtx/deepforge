@@ -4,7 +4,9 @@ import {
   decodeRun,
   encodeRun,
   finishRun,
+  getLatestRunWithMisses,
   getRunHistory,
+  getRunMisses,
   parSeconds,
   recordSolve,
   seededRunProblems,
@@ -12,6 +14,7 @@ import {
   startRun,
   type RunState,
 } from "@/lib/runs";
+import { createPlaylist, getPlaylists } from "@/lib/playlists";
 import { PROBLEMS } from "@/data/problems";
 import type { Difficulty } from "@/types/problem";
 
@@ -268,5 +271,92 @@ describe("run codes", () => {
     const decoded = decodeRun(encodeRun(withGhost));
     expect(decoded).not.toBeNull();
     expect(decoded!.solvedIds).toEqual([state.problemIds[0]]);
+  });
+});
+
+describe("run misses", () => {
+  const [a, b, c] = PROBLEMS;
+
+  function fixture(overrides: Partial<RunState> = {}): RunState {
+    return {
+      id: "run-fixture",
+      seed: "fixture",
+      startedAt: 1_700_000_000_000,
+      endsAt: 1_700_000_600_000,
+      problemIds: [a.id, b.id, c.id],
+      solvedIds: [],
+      solvedAt: {},
+      score: 0,
+      status: "finished",
+      ...overrides,
+    };
+  }
+
+  test("returns unsolved ids in the run's seeded order", () => {
+    expect(getRunMisses(fixture())).toEqual([a.id, b.id, c.id]);
+    expect(
+      getRunMisses(fixture({ solvedIds: [b.id], solvedAt: { [b.id]: 5_000 } })),
+    ).toEqual([a.id, c.id]);
+  });
+
+  test("returns an empty list when every problem is solved", () => {
+    expect(getRunMisses(fixture({ solvedIds: [a.id, b.id, c.id] }))).toEqual([]);
+    expect(getRunMisses(fixture({ problemIds: [], solvedIds: [] }))).toEqual([]);
+  });
+
+  test("skips unknown ids and collapses duplicates", () => {
+    const run = fixture({
+      problemIds: [a.id, "ghost-999", a.id, b.id, "not-a-problem", c.id],
+      solvedIds: [c.id],
+    });
+    expect(getRunMisses(run)).toEqual([a.id, b.id]);
+  });
+
+  test("getLatestRunWithMisses picks the newest run that has misses", () => {
+    expect(getLatestRunWithMisses()).toBeNull();
+
+    const clean = startRun({
+      seed: "clean",
+      problemCount: 1,
+      durationSeconds: 60,
+    });
+    const solved = recordSolve(clean, clean.problemIds[0], 1_000);
+    finishRun(solved, "finished");
+    expect(getLatestRunWithMisses()).toBeNull();
+
+    const messy = startRun({
+      seed: "messy",
+      problemCount: 3,
+      durationSeconds: 60,
+    });
+    const partly = recordSolve(messy, messy.problemIds[1], 2_000);
+    const done = finishRun(partly, "finished");
+
+    const latest = getLatestRunWithMisses();
+    expect(latest).not.toBeNull();
+    expect(latest!.run.id).toBe(done.id);
+    expect(latest!.misses).toEqual(
+      messy.problemIds.filter((id) => id !== messy.problemIds[1]),
+    );
+  });
+
+  test("a miss list becomes a drill playlist in order without duplicates", () => {
+    const run = fixture({
+      problemIds: [a.id, b.id, c.id, b.id, "ghost-999"],
+      solvedIds: [b.id],
+    });
+    const misses = getRunMisses(run);
+    expect(misses).toEqual([a.id, c.id]);
+
+    const created = createPlaylist(
+      "Speedrun misses — fixture",
+      [...misses, misses[0], "ghost-999"],
+      "Drill the misses from a speedrun.",
+    );
+    const stored = getPlaylists().find((playlist) => playlist.id === created.id);
+    expect(stored).not.toBeNull();
+    expect(stored!.name).toBe("Speedrun misses — fixture");
+    expect(stored!.itemIds).toEqual(misses);
+    expect(new Set(stored!.itemIds).size).toBe(stored!.itemIds.length);
   });
 });
