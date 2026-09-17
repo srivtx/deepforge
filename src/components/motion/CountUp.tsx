@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { prefersReducedMotion, useReducedMotion } from "./useReducedMotion";
 
 interface CountUpProps {
   /** Final value. Rendered server-side, so hydration and no-JS match. */
@@ -23,6 +24,7 @@ export function CountUp({ value, duration = 800, className }: CountUpProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const runningRef = useRef(false);
   const valueRef = useRef(value);
+  const reduced = useReducedMotion();
   const finalText = formatter.format(value);
 
   useEffect(() => {
@@ -34,13 +36,13 @@ export function CountUp({ value, duration = 800, className }: CountUpProps) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (typeof IntersectionObserver === "undefined") return;
-    if (
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ) {
+
+    if (reduced || prefersReducedMotion()) {
+      runningRef.current = false;
+      el.textContent = formatter.format(valueRef.current);
       return;
     }
+    if (typeof IntersectionObserver === "undefined") return;
 
     let frame = 0;
     let cancelled = false;
@@ -81,7 +83,7 @@ export function CountUp({ value, duration = 800, className }: CountUpProps) {
       observer.disconnect();
       window.cancelAnimationFrame(frame);
     };
-  }, [duration]);
+  }, [duration, reduced]);
 
   return (
     <span className={className}>

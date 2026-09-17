@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { prefersReducedMotion, useReducedMotion } from "./useReducedMotion";
 
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -28,6 +29,7 @@ export function Reveal({ children, className, delay = 0 }: RevealProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [hidden, setHidden] = useState(false);
   const delayRef = useRef(delay);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     delayRef.current = delay;
@@ -37,12 +39,7 @@ export function Reveal({ children, className, delay = 0 }: RevealProps) {
     const el = ref.current;
     if (!el) return;
     if (typeof IntersectionObserver === "undefined") return;
-    if (
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ) {
-      return;
-    }
+    if (prefersReducedMotion()) return;
 
     let timer = 0;
     setHidden(true);
@@ -63,7 +60,7 @@ export function Reveal({ children, className, delay = 0 }: RevealProps) {
     };
   }, []);
 
-  const classes = `df-reveal${hidden ? " df-reveal-hidden" : ""}${
+  const classes = `df-reveal${hidden && !reduced ? " df-reveal-hidden" : ""}${
     className ? ` ${className}` : ""
   }`;
 

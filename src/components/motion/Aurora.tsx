@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "./useReducedMotion";
 
 interface AuroraProps {
   className?: string;
@@ -14,6 +15,7 @@ interface AuroraProps {
 export function Aurora({ className }: AuroraProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     const el = ref.current;
@@ -54,7 +56,7 @@ export function Aurora({ className }: AuroraProps) {
     <div
       ref={ref}
       aria-hidden
-      data-paused={paused ? "true" : undefined}
+      data-paused={paused || reduced ? "true" : undefined}
       className={`df-aurora absolute inset-0 -z-10${
         className ? ` ${className}` : ""
       }`}
