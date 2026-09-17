@@ -1,5 +1,6 @@
 "use client";
 
+import { applyEditorEdit } from "@/lib/editorInput";
 import { useRef, useState } from "react";
 import { loadPyodideOnce, runCode } from "@/lib/pyodide";
 import { cn } from "@/lib/utils";
@@ -238,15 +239,21 @@ export function Playground() {
   };
 
   const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key !== "Tab") return;
-    e.preventDefault();
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") return;
     const ta = e.currentTarget;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const next = code.slice(0, start) + "    " + code.slice(end);
-    setCode(next);
+    const edit = applyEditorEdit(
+      code,
+      ta.selectionStart,
+      ta.selectionEnd,
+      e.key,
+      e.shiftKey,
+    );
+    if (!edit) return;
+    e.preventDefault();
+    setCode(edit.value);
     requestAnimationFrame(() => {
-      ta.selectionStart = ta.selectionEnd = start + 4;
+      ta.selectionStart = edit.start;
+      ta.selectionEnd = edit.end;
     });
   };
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { applyEditorEdit } from "@/lib/editorInput";
 import { useEffect, useRef, useState } from "react";
 import { CATEGORIES } from "@/data/problems/meta";
 import {
@@ -469,20 +470,21 @@ export function SubmitProblem() {
               value={form.starterCode}
               onChange={(event) => update({ starterCode: event.target.value })}
               onKeyDown={(event) => {
-                if (event.key === "Tab") {
-                  event.preventDefault();
-                  const target = event.currentTarget;
-                  const start = target.selectionStart;
-                  const end = target.selectionEnd;
-                  const next =
-                    form.starterCode.slice(0, start) +
-                    "    " +
-                    form.starterCode.slice(end);
-                  update({ starterCode: next });
-                  requestAnimationFrame(() => {
-                    target.selectionStart = target.selectionEnd = start + 4;
-                  });
-                }
+                const target = event.currentTarget;
+                const edit = applyEditorEdit(
+                  form.starterCode,
+                  target.selectionStart,
+                  target.selectionEnd,
+                  event.key,
+                  event.shiftKey,
+                );
+                if (!edit) return;
+                event.preventDefault();
+                update({ starterCode: edit.value });
+                requestAnimationFrame(() => {
+                  target.selectionStart = edit.start;
+                  target.selectionEnd = edit.end;
+                });
               }}
               rows={6}
               spellCheck={false}
@@ -502,20 +504,21 @@ export function SubmitProblem() {
               value={form.solution}
               onChange={(event) => update({ solution: event.target.value })}
               onKeyDown={(event) => {
-                if (event.key === "Tab") {
-                  event.preventDefault();
-                  const target = event.currentTarget;
-                  const start = target.selectionStart;
-                  const end = target.selectionEnd;
-                  const next =
-                    form.solution.slice(0, start) +
-                    "    " +
-                    form.solution.slice(end);
-                  update({ solution: next });
-                  requestAnimationFrame(() => {
-                    target.selectionStart = target.selectionEnd = start + 4;
-                  });
-                }
+                const target = event.currentTarget;
+                const edit = applyEditorEdit(
+                  form.solution,
+                  target.selectionStart,
+                  target.selectionEnd,
+                  event.key,
+                  event.shiftKey,
+                );
+                if (!edit) return;
+                event.preventDefault();
+                update({ solution: edit.value });
+                requestAnimationFrame(() => {
+                  target.selectionStart = edit.start;
+                  target.selectionEnd = edit.end;
+                });
               }}
               rows={8}
               spellCheck={false}

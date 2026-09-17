@@ -1,5 +1,6 @@
 "use client";
 
+import { applyEditorEdit } from "@/lib/editorInput";
 import { useEffect, useRef, useState } from "react";
 import type { Lab } from "@/data/labs";
 import { cn } from "@/lib/utils";
@@ -82,16 +83,23 @@ export function LabWorkspace({ lab }: { lab: Lab }) {
   };
 
   const handleEditorKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Tab") {
-      e.preventDefault();
+    if (!((e.metaKey || e.ctrlKey) && e.key === "Enter")) {
       const ta = e.currentTarget;
-      const start = ta.selectionStart;
-      const end = ta.selectionEnd;
-      const next = code.slice(0, start) + "    " + code.slice(end);
-      setCode(next);
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = start + 4;
-      });
+      const edit = applyEditorEdit(
+        code,
+        ta.selectionStart,
+        ta.selectionEnd,
+        e.key,
+        e.shiftKey,
+      );
+      if (edit) {
+        e.preventDefault();
+        setCode(edit.value);
+        requestAnimationFrame(() => {
+          ta.selectionStart = edit.start;
+          ta.selectionEnd = edit.end;
+        });
+      }
     }
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();

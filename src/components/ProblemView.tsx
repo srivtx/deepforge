@@ -7,6 +7,7 @@ import type { Problem } from "@/types/problem";
 import { backTarget } from "@/lib/problemLinks";
 import { categorySlug } from "@/lib/sections";
 import { cn, clipRepr, difficultyClasses } from "@/lib/utils";
+import { applyEditorEdit } from "@/lib/editorInput";
 import {
   extractFuncName,
   loadPyodideOnce,
@@ -661,19 +662,27 @@ export function ProblemView({
   };
 
   const handleEditorKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Tab indents, but Shift+Tab and Escape always release the editor so it can
-    // never become a keyboard trap (WCAG 2.1.2).
-    if (e.key === "Tab" && !e.shiftKey) {
-      e.preventDefault();
+    // Tab indents, Enter auto-indents, brackets close themselves; Shift+Tab
+    // and Escape always release the editor so it can never become a keyboard
+    // trap (WCAG 2.1.2).
+    if (e.key !== "Escape" && !((e.metaKey || e.ctrlKey) && e.key === "Enter")) {
       const ta = e.currentTarget;
-      const start = ta.selectionStart;
-      const end = ta.selectionEnd;
-      const next = code.slice(0, start) + "    " + code.slice(end);
-      setCode(next);
-      if (!bugActive) saveCode(problem.id, next);
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = start + 4;
-      });
+      const edit = applyEditorEdit(
+        code,
+        ta.selectionStart,
+        ta.selectionEnd,
+        e.key,
+        e.shiftKey,
+      );
+      if (edit) {
+        e.preventDefault();
+        setCode(edit.value);
+        if (!bugActive) saveCode(problem.id, edit.value);
+        requestAnimationFrame(() => {
+          ta.selectionStart = edit.start;
+          ta.selectionEnd = edit.end;
+        });
+      }
     }
     if (e.key === "Escape") {
       e.currentTarget.blur();
@@ -835,19 +844,25 @@ export function ProblemView({
     e: React.KeyboardEvent<HTMLTextAreaElement>,
     cell: NotebookCell,
   ) => {
-    if (e.key === "Tab" && !e.shiftKey) {
-      e.preventDefault();
+    if (e.key !== "Escape" && !((e.metaKey || e.ctrlKey) && e.key === "Enter")) {
       const ta = e.currentTarget;
       const latest =
         (cellsRef.current ?? []).find((c) => c.id === cell.id) ?? cell;
-      const start = ta.selectionStart;
-      const end = ta.selectionEnd;
-      const next =
-        latest.source.slice(0, start) + "    " + latest.source.slice(end);
-      onCellCodeChange(cell.id, next);
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = start + 4;
-      });
+      const edit = applyEditorEdit(
+        latest.source,
+        ta.selectionStart,
+        ta.selectionEnd,
+        e.key,
+        e.shiftKey,
+      );
+      if (edit) {
+        e.preventDefault();
+        onCellCodeChange(cell.id, edit.value);
+        requestAnimationFrame(() => {
+          ta.selectionStart = edit.start;
+          ta.selectionEnd = edit.end;
+        });
+      }
     }
     if (e.key === "Escape") {
       e.currentTarget.blur();
