@@ -34,15 +34,29 @@ export const CREDENTIAL_LIMITS = {
   recipient: 80,
 } as const;
 
-/** Maximum accepted value for `solved` / `total`. */
+/** Maximum accepted value for `solved` / `total` / `stepsDone` / `stepsTotal`. */
 export const CREDENTIAL_MAX_COUNT = 1_000_000;
 
-export type CredentialKind = "path" | "collection" | "category";
+/** Maximum accepted magnitude for a numeric measure (`score` / `target`). */
+export const CREDENTIAL_MAX_MEASURE = 1_000_000_000_000;
+
+export type CredentialKind =
+  | "path"
+  | "collection"
+  | "category"
+  | "lab"
+  | "project"
+  | "interview";
 
 /**
  * Canonical evidence payload. Field names are deliberately stable: the
  * canonical serialization order is `v, kind, ref, title, recipient, solved,
- * total, issued` and any serializer change would break every issued code.
+ * total, issued, score, target, stepsDone, stepsTotal`, and any serializer
+ * change would break every issued code. Counts are required for the
+ * problem-based kinds (path, collection, category, interview); labs carry
+ * `score`/`target` and projects carry `stepsDone`/`stepsTotal`, appended
+ * after the fields that existed at the first release. All appended fields
+ * stay optional so every v1 code issued before them keeps verifying.
  */
 export interface CredentialPayload {
   v: typeof CREDENTIAL_VERSION;
@@ -50,9 +64,19 @@ export interface CredentialPayload {
   ref: string;
   title: string;
   recipient: string;
-  solved: number;
-  total: number;
+  /** Problems solved — path, collection, category, and interview mock totals. */
+  solved?: number;
+  /** Problems in scope — path, collection, category, and interview mock totals. */
+  total?: number;
   issued: string;
+  /** Lab metric value on the held-out set. */
+  score?: number;
+  /** Lab target the score was compared against. */
+  target?: number;
+  /** Project steps with solved progress at issue time. */
+  stepsDone?: number;
+  /** Project steps in total. */
+  stepsTotal?: number;
 }
 
 export type CredentialStatus = "valid" | "tampered" | "malformed";
@@ -177,8 +201,45 @@ function isCount(value: unknown): value is number {
   );
 }
 
-function isKind(value: unknown): value is CredentialKind {
-  return value === "path" || value === "collection" || value === "category";
+function isMeasure(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    Math.abs(value) <= CREDENTIAL_MAX_MEASURE
+  );
+}
+
+const CREDENTIAL_KINDS: readonly CredentialKind[] = [
+  "path",
+  "collection",
+  "category",
+  "lab",
+  "project",
+  "interview",
+];
+
+/** Public kind whitelist shared by the credential code and certificate stores. */
+export function isCredentialKind(value: unknown): value is CredentialKind {
+  return (
+    typeof value === "string" &&
+    (CREDENTIAL_KINDS as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * Evidence shape per kind: problem counts, a lab measure pair, or project
+ * step counts. Legacy kinds keep the original eight-field payload.
+ */
+type PayloadShape = "counts" | "measure" | "steps";
+
+function shapeFor(kind: CredentialKind): PayloadShape {
+  if (kind === "lab") return "measure";
+  if (kind === "project") return "steps";
+  return "counts";
+}
+
+function hasOwn(value: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -204,16 +265,18 @@ function readText(value: unknown, limit: number): string | null {
   return text === value ? text : null;
 }
 
-const PAYLOAD_KEYS = [
-  "v",
-  "kind",
-  "ref",
-  "title",
-  "recipient",
-  "solved",
-  "total",
-  "issued",
-] as const;
+const COMMON_KEYS = ["v", "kind", "ref", "title", "recipient", "issued"] as const;
+const COUNT_KEYS = ["solved", "total"] as const;
+const MEASURE_KEYS = ["score", "target"] as const;
+const STEP_KEYS = ["stepsDone", "stepsTotal"] as const;
+
+/** Exact key set a decoded payload must carry for its kind. */
+function payloadKeys(kind: CredentialKind): readonly string[] {
+  const shape = shapeFor(kind);
+  const evidence =
+    shape === "measure" ? MEASURE_KEYS : shape === "steps" ? STEP_KEYS : COUNT_KEYS;
+  return [...COMMON_KEYS, ...evidence];
+}
 
 /* ───────────────────────── canonical serialization ──────────────────────── */
 
@@ -225,16 +288,29 @@ export function normalizeCredential(input: CredentialPayload): CredentialPayload
   if (!isPlainObject(input) || input.v !== CREDENTIAL_VERSION) {
     throw new Error(`credential version must be ${CREDENTIAL_VERSION}`);
   }
-  if (!isKind(input.kind)) {
-    throw new Error("credential kind must be path, collection, or category");
+  if (!isCredentialKind(input.kind)) {
+    throw new Error(
+      "credential kind must be path, collection, category, lab, project, or interview",
+    );
   }
   if (!isIsoDate(input.issued)) {
     throw new Error("credential issued date must be YYYY-MM-DD");
   }
-  if (!isCount(input.solved) || !isCount(input.total)) {
-    throw new Error("credential counts must be non-negative integers");
+  const shape = shapeFor(input.kind);
+  const fields = input as unknown as Record<string, unknown>;
+  if (hasOwn(fields, "solved") !== (shape === "counts") ||
+      hasOwn(fields, "total") !== (shape === "counts")) {
+    throw new Error("credential counts must match the kind's evidence shape");
   }
-  return {
+  if (hasOwn(fields, "score") !== (shape === "measure") ||
+      hasOwn(fields, "target") !== (shape === "measure")) {
+    throw new Error("credential score and target are required for labs");
+  }
+  if (hasOwn(fields, "stepsDone") !== (shape === "steps") ||
+      hasOwn(fields, "stepsTotal") !== (shape === "steps")) {
+    throw new Error("credential steps are required for projects");
+  }
+  const payload: CredentialPayload = {
     v: CREDENTIAL_VERSION,
     kind: input.kind,
     ref: cleanText(input.ref, CREDENTIAL_LIMITS.ref, "ref"),
@@ -244,57 +320,102 @@ export function normalizeCredential(input: CredentialPayload): CredentialPayload
       CREDENTIAL_LIMITS.recipient,
       "recipient",
     ),
-    solved: input.solved,
-    total: input.total,
     issued: input.issued,
   };
+  if (shape === "counts") {
+    if (!isCount(input.solved) || !isCount(input.total)) {
+      throw new Error("credential counts must be non-negative integers");
+    }
+    payload.solved = input.solved;
+    payload.total = input.total;
+  } else if (shape === "measure") {
+    if (!isMeasure(input.score) || !isMeasure(input.target)) {
+      throw new Error("credential score and target must be finite numbers");
+    }
+    payload.score = input.score;
+    payload.target = input.target;
+  } else {
+    if (!isCount(input.stepsDone) || !isCount(input.stepsTotal)) {
+      throw new Error("credential steps must be non-negative integers");
+    }
+    payload.stepsDone = input.stepsDone;
+    payload.stepsTotal = input.stepsTotal;
+  }
+  return payload;
 }
 
 /**
  * Canonical JSON for a payload: fixed key order, no insignificant whitespace,
  * NFC-normalized and whitespace-collapsed strings. Two payloads that carry the
  * same evidence always serialize to identical bytes, so they hash identically.
+ * Fields absent from a payload are skipped without moving the ones that
+ * remain, so every code issued before the appended fields still hashes to the
+ * same bytes.
  */
 export function canonicalize(input: CredentialPayload): string {
   const payload = normalizeCredential(input);
-  return (
-    "{" +
-    `"v":${payload.v},` +
-    `"kind":${JSON.stringify(payload.kind)},` +
-    `"ref":${JSON.stringify(payload.ref)},` +
-    `"title":${JSON.stringify(payload.title)},` +
-    `"recipient":${JSON.stringify(payload.recipient)},` +
-    `"solved":${payload.solved},` +
-    `"total":${payload.total},` +
-    `"issued":${JSON.stringify(payload.issued)}` +
-    "}"
-  );
+  const parts = [
+    `"v":${payload.v}`,
+    `"kind":${JSON.stringify(payload.kind)}`,
+    `"ref":${JSON.stringify(payload.ref)}`,
+    `"title":${JSON.stringify(payload.title)}`,
+    `"recipient":${JSON.stringify(payload.recipient)}`,
+  ];
+  if (payload.solved !== undefined && payload.total !== undefined) {
+    parts.push(`"solved":${payload.solved}`);
+    parts.push(`"total":${payload.total}`);
+  }
+  parts.push(`"issued":${JSON.stringify(payload.issued)}`);
+  if (payload.score !== undefined && payload.target !== undefined) {
+    parts.push(`"score":${payload.score}`);
+    parts.push(`"target":${payload.target}`);
+  }
+  if (payload.stepsDone !== undefined && payload.stepsTotal !== undefined) {
+    parts.push(`"stepsDone":${payload.stepsDone}`);
+    parts.push(`"stepsTotal":${payload.stepsTotal}`);
+  }
+  return `{${parts.join(",")}}`;
 }
 
 function readPayload(value: unknown): CredentialPayload | null {
   if (!isPlainObject(value)) return null;
-  const keys = Object.keys(value);
-  if (keys.length !== PAYLOAD_KEYS.length) return null;
-  for (const key of keys) {
-    if (!(PAYLOAD_KEYS as readonly string[]).includes(key)) return null;
+  if (value.v !== CREDENTIAL_VERSION || !isCredentialKind(value.kind)) {
+    return null;
   }
-  if (value.v !== CREDENTIAL_VERSION || !isKind(value.kind)) return null;
-  if (!isCount(value.solved) || !isCount(value.total)) return null;
+  const expected = payloadKeys(value.kind);
+  const keys = Object.keys(value);
+  if (keys.length !== expected.length) return null;
+  for (const key of keys) {
+    if (!expected.includes(key)) return null;
+  }
   if (!isIsoDate(value.issued)) return null;
   const ref = readText(value.ref, CREDENTIAL_LIMITS.ref);
   const title = readText(value.title, CREDENTIAL_LIMITS.title);
   const recipient = readText(value.recipient, CREDENTIAL_LIMITS.recipient);
   if (!ref || !title || !recipient) return null;
-  return {
+  const payload: CredentialPayload = {
     v: CREDENTIAL_VERSION,
     kind: value.kind,
     ref,
     title,
     recipient,
-    solved: value.solved,
-    total: value.total,
     issued: value.issued,
   };
+  const shape = shapeFor(value.kind);
+  if (shape === "counts") {
+    if (!isCount(value.solved) || !isCount(value.total)) return null;
+    payload.solved = value.solved;
+    payload.total = value.total;
+  } else if (shape === "measure") {
+    if (!isMeasure(value.score) || !isMeasure(value.target)) return null;
+    payload.score = value.score;
+    payload.target = value.target;
+  } else {
+    if (!isCount(value.stepsDone) || !isCount(value.stepsTotal)) return null;
+    payload.stepsDone = value.stepsDone;
+    payload.stepsTotal = value.stepsTotal;
+  }
+  return payload;
 }
 
 /* ────────────────────────────── hashing ─────────────────────────────────── */

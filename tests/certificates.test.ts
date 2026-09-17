@@ -4,8 +4,10 @@ import {
   CATEGORY_MILESTONE_RATIO,
   FALLBACK_RECIPIENT,
   formatCertificateDate,
+  formatMeasure,
   getEligible,
   getIssued,
+  INTERVIEW_MOCK_RATIO,
   issueCertificate,
   revokeCertificate,
   verificationCode,
@@ -14,6 +16,10 @@ import {
 } from "@/lib/certificates";
 import { CATEGORIES, LEARNING_PATHS, PROBLEMS } from "@/data/problems";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
+import { INTERVIEW_TRACKS } from "@/data/interview";
+import { LABS } from "@/data/labs";
+import { PROJECTS } from "@/data/projects";
+import { setLabBest } from "@/lib/labs";
 import type { ProgressMap } from "@/lib/progress";
 
 function createStorageStub(): Storage {
@@ -63,6 +69,8 @@ afterEach(() => {
 const PROGRESS_KEY = "deepforge:progress:v1";
 const CERTIFICATES_KEY = "deepforge:certificates:v1";
 const USERNAME_KEY = "deepforge:username:v1";
+const LABS_KEY = "deepforge:labs";
+const INTERVIEW_KEY = "deepforge:interview:v1";
 
 function solvedProgress(ids: string[]): ProgressMap {
   const map: ProgressMap = {};
@@ -205,6 +213,115 @@ describe("eligibility", () => {
       ),
     ).toBe(false);
   });
+
+  test("a lab at its target is eligible and one step below is not", () => {
+    const lab = LABS.find((entry) => entry.higherIsBetter)!;
+    setLabBest(lab.id, lab.target);
+
+    const entry = getEligible().find(
+      (candidate) => candidate.kind === "lab" && candidate.refId === lab.id,
+    );
+    expect(entry).toBeTruthy();
+    expect(entry!.title).toBe(`Application — ${lab.title}`);
+    expect(entry!.score).toBe(lab.target);
+    expect(entry!.target).toBe(lab.target);
+    expect(entry!.metric).toBe(lab.metric);
+    expect(entry!.detail).toContain(
+      `target ${formatMeasure(lab.metric, lab.target)}`,
+    );
+  });
+
+  test("a higher-is-better lab below target is not eligible", () => {
+    const lab = LABS.find((entry) => entry.higherIsBetter)!;
+    setLabBest(lab.id, lab.target - 0.01);
+    expect(
+      getEligible().some(
+        (candidate) => candidate.kind === "lab" && candidate.refId === lab.id,
+      ),
+    ).toBe(false);
+  });
+
+  test("a lower-is-better lab is eligible at target and not above it", () => {
+    const lab = LABS.find((entry) => !entry.higherIsBetter)!;
+    setLabBest(lab.id, lab.target);
+    expect(
+      getEligible().some(
+        (candidate) => candidate.kind === "lab" && candidate.refId === lab.id,
+      ),
+    ).toBe(true);
+
+    stub.removeItem(LABS_KEY);
+    setLabBest(lab.id, lab.target + 0.01);
+    expect(
+      getEligible().some(
+        (candidate) => candidate.kind === "lab" && candidate.refId === lab.id,
+      ),
+    ).toBe(false);
+  });
+
+  test("a project with every step solved is eligible, one missing is not", () => {
+    const project = PROJECTS[0];
+    const ids = project.steps.map((step) => step.id);
+
+    seedSolved(ids);
+    const entry = getEligible().find(
+      (candidate) =>
+        candidate.kind === "project" && candidate.refId === project.id,
+    );
+    expect(entry).toBeTruthy();
+    expect(entry!.title).toBe(`Build — ${project.title}`);
+    expect(entry!.solved).toBe(ids.length);
+    expect(entry!.total).toBe(ids.length);
+    expect(entry!.detail).toContain(`${ids.length} of ${ids.length} steps`);
+
+    seedSolved(ids.slice(0, -1));
+    expect(
+      getEligible().some(
+        (candidate) =>
+          candidate.kind === "project" && candidate.refId === project.id,
+      ),
+    ).toBe(false);
+  });
+
+  test("an interview mock at 80% is eligible and one below is not", () => {
+    const track = INTERVIEW_TRACKS[0];
+    const total = track.mockProblemIds.length;
+    const threshold = Math.ceil(total * INTERVIEW_MOCK_RATIO);
+    expect(threshold).toBeGreaterThan(0);
+
+    const seed = (solved: number) => {
+      stub.setItem(
+        INTERVIEW_KEY,
+        JSON.stringify([
+          {
+            trackId: track.id,
+            solved,
+            total,
+            seconds: 600,
+            completedAt: "2026-01-14T12:00:00.000Z",
+          },
+        ]),
+      );
+    };
+
+    seed(threshold);
+    const entry = getEligible().find(
+      (candidate) =>
+        candidate.kind === "interview" && candidate.refId === track.id,
+    );
+    expect(entry).toBeTruthy();
+    expect(entry!.title).toBe(`Interview — ${track.title}`);
+    expect(entry!.solved).toBe(threshold);
+    expect(entry!.total).toBe(total);
+
+    seed(threshold - 1);
+    expect(
+      getEligible().some(
+        (candidate) =>
+          candidate.kind === "interview" && candidate.refId === track.id,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("issuing and revoking", () => {
@@ -224,6 +341,39 @@ describe("issuing and revoking", () => {
     stub.setItem(USERNAME_KEY, "  Ada Lovelace  ");
     const cert = issueCertificate({ ...demoEntry, refId: "named-path" });
     expect(cert.recipient).toBe("Ada Lovelace");
+  });
+
+  test("issuing a lab entry stores its score and target evidence", () => {
+    const lab = LABS[0];
+    const cert = issueCertificate({
+      kind: "lab",
+      refId: lab.id,
+      title: `Application — ${lab.title}`,
+      detail: `Accuracy ${lab.target} vs target ${lab.target} · ${lab.title} lab`,
+      score: lab.target,
+      target: lab.target,
+    });
+    expect(cert.score).toBe(lab.target);
+    expect(cert.target).toBe(lab.target);
+    expect(cert.solved).toBeUndefined();
+    expect(cert.total).toBeUndefined();
+    expect(getIssued()).toEqual([cert]);
+  });
+
+  test("issuing a project entry stores its step counts", () => {
+    const project = PROJECTS[0];
+    const total = project.steps.length;
+    const cert = issueCertificate({
+      kind: "project",
+      refId: project.id,
+      title: `Build — ${project.title}`,
+      detail: `${total} of ${total} steps · ${project.title} project`,
+      solved: total,
+      total,
+    });
+    expect(cert.solved).toBe(total);
+    expect(cert.total).toBe(total);
+    expect(getIssued()).toEqual([cert]);
   });
 
   test("revokeCertificate removes exactly once", () => {

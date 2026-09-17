@@ -3,7 +3,10 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/PageShell";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
+import { INTERVIEW_TRACKS } from "@/data/interview";
+import { LABS } from "@/data/labs";
 import { CATEGORIES } from "@/data/problems/meta";
+import { PROJECTS } from "@/data/projects";
 import {
   CREDENTIAL_PREFIX,
   formatFingerprint,
@@ -36,6 +39,9 @@ const KIND_LABELS: Record<CredentialKind, string> = {
   path: "Learning path",
   collection: "Collection",
   category: "Category milestone",
+  lab: "Scored lab",
+  project: "Project build",
+  interview: "Interview mock",
 };
 
 const LINK =
@@ -66,6 +72,20 @@ function targetFor(
         label: category.name,
       };
     }
+  }
+  if (payload.kind === "lab") {
+    const lab = LABS.find((entry) => entry.id === payload.ref);
+    if (lab) return { href: "/labs", label: lab.title };
+  }
+  if (payload.kind === "project") {
+    const project = PROJECTS.find((entry) => entry.id === payload.ref);
+    if (project) {
+      return { href: `/projects/${project.id}`, label: project.title };
+    }
+  }
+  if (payload.kind === "interview") {
+    const track = INTERVIEW_TRACKS.find((entry) => entry.id === payload.ref);
+    if (track) return { href: `/interview/${track.id}`, label: track.title };
   }
   return null;
 }
@@ -117,18 +137,46 @@ function StatusBadge({ status }: { status: CredentialStatus }) {
   );
 }
 
+function formatMeasure(payload: CredentialPayload, value: number): string {
+  if (payload.kind === "lab") {
+    const lab = LABS.find((entry) => entry.id === payload.ref);
+    if (lab) return lab.metric === "mse" ? value.toFixed(2) : value.toFixed(3);
+  }
+  return String(value);
+}
+
 function Summary({ payload }: { payload: CredentialPayload }) {
   const target = targetFor(payload);
   const rows: { label: string; value: ReactNode }[] = [
     { label: "Recipient", value: payload.recipient },
     { label: "Scope", value: KIND_LABELS[payload.kind] },
     { label: "Title", value: payload.title },
-    {
-      label: "Completed",
-      value: `${payload.solved} of ${payload.total} problems`,
-    },
-    { label: "Issued", value: payload.issued },
   ];
+
+  if (payload.score !== undefined && payload.target !== undefined) {
+    rows.push({ label: "Score", value: formatMeasure(payload, payload.score) });
+    rows.push({
+      label: "Target",
+      value: formatMeasure(payload, payload.target),
+    });
+  }
+  if (payload.stepsDone !== undefined && payload.stepsTotal !== undefined) {
+    rows.push({
+      label: "Steps",
+      value: `${payload.stepsDone} of ${payload.stepsTotal} steps`,
+    });
+  }
+  if (payload.solved !== undefined && payload.total !== undefined) {
+    rows.push({
+      label: payload.kind === "interview" ? "Mock" : "Completed",
+      value:
+        payload.kind === "interview"
+          ? `${payload.solved} of ${payload.total} mock problems`
+          : `${payload.solved} of ${payload.total} problems`,
+    });
+  }
+
+  rows.push({ label: "Issued", value: payload.issued });
   return (
     <div>
       <dl className="divide-y divide-hairline overflow-hidden rounded-lg border border-hairline">

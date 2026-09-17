@@ -1,8 +1,8 @@
 /**
  * Completion certificates: localStorage-backed records for finished learning
- * paths, curated collections, and category milestones. Certificates are
- * claimed explicitly by the user and can be printed, copied as text, or
- * exported as PNG.
+ * paths, curated collections, category milestones, passed labs, completed
+ * projects, and strong interview mocks. Certificates are claimed explicitly
+ * by the user and can be printed, copied as text, or exported as PNG.
  *
  * Shared certificates carry a self-verifying credential code built by
  * `src/lib/credentials.ts`: a canonical JSON evidence payload plus its
@@ -18,13 +18,25 @@ import { CATEGORIES } from "@/data/problems/meta";
 import { LEARNING_PATHS } from "@/data/problems/paths";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
+import { INTERVIEW_TRACKS } from "@/data/interview";
+import { LABS, type Lab } from "@/data/labs";
+import { PROJECTS } from "@/data/projects";
 import { getProgress, type ProgressMap } from "@/lib/progress";
 import { getUserName } from "@/lib/leaderboard";
+import {
+  getLabRecords,
+  meetsTarget,
+  metricLabel,
+} from "@/lib/labs";
+import { getBestInterviewResult } from "@/lib/interview";
+import { getProjectProgress, isProjectComplete } from "@/lib/projects";
 import {
   CREDENTIAL_VERSION,
   encodeCredential,
   fingerprintFromCode,
   formatFingerprint,
+  isCredentialKind,
+  type CredentialKind,
   type CredentialPayload,
 } from "@/lib/credentials";
 import type { Category } from "@/types/problem";
@@ -40,7 +52,10 @@ export const FALLBACK_RECIPIENT = "DeepForge Learner";
 /** Fraction of a category that unlocks its milestone certificate. */
 export const CATEGORY_MILESTONE_RATIO = 0.8;
 
-export type CertificateKind = "path" | "collection" | "category";
+/** Fraction of an interview mock that unlocks its certificate. */
+export const INTERVIEW_MOCK_RATIO = 0.8;
+
+export type CertificateKind = CredentialKind;
 
 export interface Certificate {
   id: string;
@@ -54,6 +69,10 @@ export interface Certificate {
   solved?: number;
   /** Problem count of the milestone when the record was issued after v2. */
   total?: number;
+  /** Lab metric value at issue time, for lab credentials. */
+  score?: number;
+  /** Lab target at issue time, for lab credentials. */
+  target?: number;
 }
 
 /** A claimable milestone as returned by `getEligible`. */
@@ -62,14 +81,21 @@ export interface CertificateEntry {
   refId: string;
   title: string;
   detail: string;
-  total: number;
-  solved: number;
+  /** Present for problem-based kinds (path, collection, category, interview). */
+  total?: number;
+  /** Present for problem-based kinds (path, collection, category, interview). */
+  solved?: number;
+  /** Present for lab credentials: the best score and the lab target. */
+  score?: number;
+  target?: number;
+  /** Lab metric, so the UI can format the score like the labs page does. */
+  metric?: Lab["metric"];
 }
 
 /* ────────────────────────────── storage ─────────────────────────────────── */
 
 function isCertificateKind(value: unknown): value is CertificateKind {
-  return value === "path" || value === "collection" || value === "category";
+  return isCredentialKind(value);
 }
 
 function isCertificate(value: unknown): value is Certificate {
@@ -78,6 +104,9 @@ function isCertificate(value: unknown): value is Certificate {
   const countsOk =
     (v.solved === undefined || typeof v.solved === "number") &&
     (v.total === undefined || typeof v.total === "number");
+  const measuresOk =
+    (v.score === undefined || typeof v.score === "number") &&
+    (v.target === undefined || typeof v.target === "number");
   return (
     typeof v.id === "string" &&
     isCertificateKind(v.kind) &&
@@ -86,7 +115,8 @@ function isCertificate(value: unknown): value is Certificate {
     typeof v.recipient === "string" &&
     typeof v.issuedAt === "string" &&
     typeof v.detail === "string" &&
-    countsOk
+    countsOk &&
+    measuresOk
   );
 }
 
@@ -155,6 +185,28 @@ function makeDetail(
   return `${solved} of ${total} problems · ${label} ${noun}`;
 }
 
+function makeLabDetail(
+  labTitle: string,
+  metric: Lab["metric"],
+  score: number,
+  target: number,
+): string {
+  return `${metricLabel(metric)} ${formatMeasure(metric, score)} vs target ${formatMeasure(metric, target)} · ${labTitle} lab`;
+}
+
+/** Matches the labs page: MSE shows two decimals, the rest three. */
+export function formatMeasure(metric: Lab["metric"], value: number): string {
+  return metric === "mse" ? value.toFixed(2) : value.toFixed(3);
+}
+
+function makeProjectDetail(projectTitle: string, done: number, total: number): string {
+  return `${done} of ${total} steps · ${projectTitle} project`;
+}
+
+function makeInterviewDetail(trackTitle: string, solved: number, total: number): string {
+  return `${solved} of ${total} mock problems · ${trackTitle} interview`;
+}
+
 const CATEGORY_TOTALS: ReadonlyMap<Category, number> = (() => {
   const totals = new Map<Category, number>();
   for (const problem of PROBLEM_META) {
@@ -168,7 +220,9 @@ const CATEGORY_TOTALS: ReadonlyMap<Category, number> = (() => {
 /**
  * Milestones the current progress has unlocked, newest catalog order:
  * every learning path with all problems solved, every curated collection
- * with all problems solved, and every category at or above 80% solved.
+ * with all problems solved, every category at or above 80% solved, every lab
+ * whose best score meets its target, every project with every step solved,
+ * and every interview mock at or above 80% of its problems solved.
  */
 export function getEligible(): CertificateEntry[] {
   try {
@@ -228,6 +282,56 @@ export function getEligible(): CertificateEntry[] {
       });
     }
 
+    const labRecords = getLabRecords();
+    for (const lab of LABS) {
+      const record = labRecords[lab.id];
+      if (!record || record.best === null) continue;
+      const score = record.best;
+      if (!meetsTarget(lab, score)) continue;
+      entries.push({
+        kind: "lab",
+        refId: lab.id,
+        title: `Application — ${lab.title}`,
+        detail: makeLabDetail(
+          lab.title,
+          lab.metric,
+          score,
+          lab.target,
+        ),
+        score,
+        target: lab.target,
+        metric: lab.metric,
+      });
+    }
+
+    for (const project of PROJECTS) {
+      const { solved, total } = getProjectProgress(project, progress);
+      if (total === 0 || !isProjectComplete(project, progress)) continue;
+      entries.push({
+        kind: "project",
+        refId: project.id,
+        title: `Build — ${project.title}`,
+        detail: makeProjectDetail(project.title, solved, total),
+        total,
+        solved,
+      });
+    }
+
+    for (const track of INTERVIEW_TRACKS) {
+      const best = getBestInterviewResult(track.id);
+      if (!best || best.total === 0) continue;
+      const threshold = Math.ceil(best.total * INTERVIEW_MOCK_RATIO);
+      if (best.solved < threshold) continue;
+      entries.push({
+        kind: "interview",
+        refId: track.id,
+        title: `Interview — ${track.title}`,
+        detail: makeInterviewDetail(track.title, best.solved, best.total),
+        total: best.total,
+        solved: best.solved,
+      });
+    }
+
     return entries;
   } catch {
     return [];
@@ -259,10 +363,12 @@ export function issueCertificate(entry: CertificateEntry): Certificate {
     title: entry.title,
     recipient: getRecipient(),
     issuedAt,
-    detail: entry.detail || `${entry.solved} of ${entry.total} problems`,
-    solved: entry.solved,
-    total: entry.total,
+    detail: entry.detail || fallbackDetail(entry),
   };
+  if (entry.solved !== undefined) fallback.solved = entry.solved;
+  if (entry.total !== undefined) fallback.total = entry.total;
+  if (entry.score !== undefined) fallback.score = entry.score;
+  if (entry.target !== undefined) fallback.target = entry.target;
   try {
     const existing = read().find(
       (cert) => cert.kind === entry.kind && cert.refId === entry.refId,
@@ -275,6 +381,17 @@ export function issueCertificate(entry: CertificateEntry): Certificate {
   } catch {
     return fallback;
   }
+}
+
+/** Last-resort detail line when an entry carries no human copy. */
+function fallbackDetail(entry: CertificateEntry): string {
+  if (entry.score !== undefined && entry.target !== undefined) {
+    return `Score ${entry.score} vs target ${entry.target}`;
+  }
+  if (entry.solved !== undefined && entry.total !== undefined) {
+    return `${entry.solved} of ${entry.total} problems`;
+  }
+  return entry.title;
 }
 
 /** Remove one of the user's certificates by id. Returns whether it existed. */
@@ -335,20 +452,35 @@ function parseDetailCounts(detail: string): { solved: number; total: number } {
 /**
  * Evidence payload for a certificate: the canonical fields `/verify`
  * re-checks. Records issued before counts were stored fall back to parsing
- * the human-readable `detail` line.
+ * the human-readable `detail` line. Lab certificates must carry their
+ * score/target, and project certificates map their stored step counts onto
+ * the `stepsDone`/`stepsTotal` evidence fields.
  */
 export function payloadFromCertificate(cert: Certificate): CredentialPayload {
   const parsed = parseDetailCounts(cert.detail);
-  return {
+  const base: Pick<
+    CredentialPayload,
+    "v" | "kind" | "ref" | "title" | "recipient" | "issued"
+  > = {
     v: CREDENTIAL_VERSION,
     kind: cert.kind,
     ref: cert.refId,
     title: cert.title,
     recipient: cert.recipient,
-    solved: typeof cert.solved === "number" ? cert.solved : parsed.solved,
-    total: typeof cert.total === "number" ? cert.total : parsed.total,
     issued: formatCertificateDate(cert.issuedAt),
   };
+  if (cert.kind === "lab") {
+    if (typeof cert.score !== "number" || typeof cert.target !== "number") {
+      throw new Error("lab certificate is missing its score or target");
+    }
+    return { ...base, score: cert.score, target: cert.target };
+  }
+  const solved = typeof cert.solved === "number" ? cert.solved : parsed.solved;
+  const total = typeof cert.total === "number" ? cert.total : parsed.total;
+  if (cert.kind === "project") {
+    return { ...base, stepsDone: solved, stepsTotal: total };
+  }
+  return { ...base, solved, total };
 }
 
 /** Self-verifying code for a certificate; rejects when its fields are invalid. */

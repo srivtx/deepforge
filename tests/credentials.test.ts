@@ -30,6 +30,49 @@ const BASE: CredentialPayload = {
   issued: "2026-09-14",
 };
 
+/**
+ * Frozen fixture captured from the first credential release. These bytes are
+ * load-bearing: every v1 code ever issued hashes exactly this payload, so the
+ * canonical form and the derived code must never change.
+ */
+const FROZEN_PATH_CANONICAL =
+  '{"v":1,"kind":"path","ref":"ml-from-scratch","title":"ML From Scratch","recipient":"Ada Lovelace","solved":12,"total":12,"issued":"2026-09-14"}';
+const FROZEN_PATH_CODE =
+  "dfc1.eyJ2IjoxLCJraW5kIjoicGF0aCIsInJlZiI6Im1sLWZyb20tc2NyYXRjaCIsInRpdGxlIjoiTUwgRnJvbSBTY3JhdGNoIiwicmVjaXBpZW50IjoiQWRhIExvdmVsYWNlIiwic29sdmVkIjoxMiwidG90YWwiOjEyLCJpc3N1ZWQiOiIyMDI2LTA5LTE0In0.45TRP8FAEW40HCVZ";
+
+const LAB_PAYLOAD: CredentialPayload = {
+  v: 1,
+  kind: "lab",
+  ref: "lab-01",
+  title: "Application — Logistic Regression, From Scratch",
+  recipient: "Ada Lovelace",
+  issued: "2026-09-14",
+  score: 0.92,
+  target: 0.85,
+};
+
+const PROJECT_PAYLOAD: CredentialPayload = {
+  v: 1,
+  kind: "project",
+  ref: "gpt",
+  title: "Build — Build a GPT from Scratch",
+  recipient: "Ada Lovelace",
+  issued: "2026-09-14",
+  stepsDone: 8,
+  stepsTotal: 8,
+};
+
+const INTERVIEW_PAYLOAD: CredentialPayload = {
+  v: 1,
+  kind: "interview",
+  ref: "anthropic",
+  title: "Interview — Anthropic · Machine Learning Engineer",
+  recipient: "Ada Lovelace",
+  solved: 5,
+  total: 6,
+  issued: "2026-09-14",
+};
+
 type MutablePayload = Record<string, unknown>;
 
 function encodePayload(payload: unknown): string {
@@ -100,6 +143,50 @@ describe("canonicalization", () => {
     });
     expect(canonical).toContain(
       '"title":"The \\"Hard\\" Part \\\\ 100%"',
+    );
+  });
+});
+
+describe("frozen v1 regression", () => {
+  test("path, collection, and category codes still verify byte-for-byte", async () => {
+    expect(canonicalize(BASE)).toBe(FROZEN_PATH_CANONICAL);
+    expect(await encodeCredential(BASE)).toBe(FROZEN_PATH_CODE);
+    expect(decodeCredential(FROZEN_PATH_CODE)).toEqual(BASE);
+
+    const result = await verifyCredential(FROZEN_PATH_CODE);
+    expect(result.status).toBe("valid");
+    expect(result.payload).toEqual(BASE);
+    expect(result.recomputed).toBe(result.fingerprint);
+  });
+
+  test("collection and category payloads keep their original eight-field order", () => {
+    expect(
+      canonicalize({
+        v: 1,
+        kind: "collection",
+        ref: "classics",
+        title: "The Classics",
+        recipient: "Ada Lovelace",
+        solved: 3,
+        total: 3,
+        issued: "2026-09-14",
+      }),
+    ).toBe(
+      '{"v":1,"kind":"collection","ref":"classics","title":"The Classics","recipient":"Ada Lovelace","solved":3,"total":3,"issued":"2026-09-14"}',
+    );
+    expect(
+      canonicalize({
+        v: 1,
+        kind: "category",
+        ref: "algorithms",
+        title: "Algorithms Milestone",
+        recipient: "Ada Lovelace",
+        solved: 316,
+        total: 395,
+        issued: "2026-09-14",
+      }),
+    ).toBe(
+      '{"v":1,"kind":"category","ref":"algorithms","title":"Algorithms Milestone","recipient":"Ada Lovelace","solved":316,"total":395,"issued":"2026-09-14"}',
     );
   });
 });
@@ -339,6 +426,103 @@ describe("tamper detection", () => {
   });
 });
 
+describe("lab, project, and interview kinds", () => {
+  test("appended evidence serializes after the original fields", () => {
+    expect(canonicalize(LAB_PAYLOAD)).toBe(
+      '{"v":1,"kind":"lab","ref":"lab-01","title":"Application — Logistic Regression, From Scratch","recipient":"Ada Lovelace","issued":"2026-09-14","score":0.92,"target":0.85}',
+    );
+    expect(canonicalize(PROJECT_PAYLOAD)).toBe(
+      '{"v":1,"kind":"project","ref":"gpt","title":"Build — Build a GPT from Scratch","recipient":"Ada Lovelace","issued":"2026-09-14","stepsDone":8,"stepsTotal":8}',
+    );
+    expect(canonicalize(INTERVIEW_PAYLOAD)).toBe(
+      '{"v":1,"kind":"interview","ref":"anthropic","title":"Interview — Anthropic · Machine Learning Engineer","recipient":"Ada Lovelace","solved":5,"total":6,"issued":"2026-09-14"}',
+    );
+  });
+
+  test("each new kind round-trips and verifies", async () => {
+    for (const payload of [LAB_PAYLOAD, PROJECT_PAYLOAD, INTERVIEW_PAYLOAD]) {
+      const code = await encodeCredential(payload);
+      expect(decodeCredential(code)).toEqual(payload);
+      const result = await verifyCredential(code);
+      expect(result.status).toBe("valid");
+      expect(result.payload).toEqual(payload);
+      expect(await encodeCredential({ ...payload })).toBe(code);
+    }
+  });
+
+  test("tampering with the appended evidence flips the verdict", async () => {
+    const labCode = await encodeCredential(LAB_PAYLOAD);
+    for (const mutate of [
+      (payload: MutablePayload) => {
+        payload.score = 0.7;
+      },
+      (payload: MutablePayload) => {
+        payload.target = 0.6;
+      },
+    ]) {
+      const result = await verifyCredential(tamper(labCode, mutate));
+      expect(result.status).toBe("tampered");
+      expect(result.fingerprint).not.toBe(result.recomputed);
+    }
+
+    const projectCode = await encodeCredential(PROJECT_PAYLOAD);
+    const steps = await verifyCredential(
+      tamper(projectCode, (payload) => {
+        payload.stepsDone = 7;
+      }),
+    );
+    expect(steps.status).toBe("tampered");
+    expect(steps.payload).not.toBeNull();
+  });
+
+  test("kind-specific fields must match the kind's evidence shape", async () => {
+    const labCode = await encodeCredential(LAB_PAYLOAD);
+    const projectCode = await encodeCredential(PROJECT_PAYLOAD);
+    const labWithCounts = tamper(labCode, (payload) => {
+      payload.solved = 1;
+      payload.total = 1;
+    });
+    const projectWithScore = tamper(projectCode, (payload) => {
+      payload.score = 0.9;
+    });
+    const missingTarget = tamper(labCode, (payload) => {
+      delete payload.target;
+    });
+    const missingSteps = tamper(projectCode, (payload) => {
+      delete payload.stepsTotal;
+    });
+    const extra = tamper(projectCode, (payload) => {
+      payload.note = "sneaky";
+    });
+    for (const candidate of [
+      labWithCounts,
+      projectWithScore,
+      missingTarget,
+      missingSteps,
+      extra,
+    ]) {
+      expect(decodeCredential(candidate)).toBeNull();
+      const result = await verifyCredential(candidate);
+      expect(result.status).toBe("malformed");
+      expect(result.payload).toBeNull();
+    }
+  });
+
+  test("out-of-range measures and steps are rejected at encode time", async () => {
+    const cases: CredentialPayload[] = [
+      { ...LAB_PAYLOAD, score: Number.NaN },
+      { ...LAB_PAYLOAD, target: Number.POSITIVE_INFINITY },
+      { ...LAB_PAYLOAD, score: 1_000_000_000_001 },
+      { ...PROJECT_PAYLOAD, stepsDone: -1 },
+      { ...PROJECT_PAYLOAD, stepsTotal: 1.5 },
+      { ...PROJECT_PAYLOAD, stepsTotal: 1_000_001 },
+    ];
+    for (const bad of cases) {
+      expect(await rejects(() => encodeCredential(bad))).toBe(true);
+    }
+  });
+});
+
 describe("display helpers", () => {
   test("formatFingerprint groups into fours", async () => {
     const code = await encodeCredential(BASE);
@@ -415,5 +599,92 @@ describe("certificate records", () => {
       `Verification code: ${formatFingerprint(fingerprint)}`,
     );
     expect(text).not.toContain(`Verification code: ${verificationCode(cert)}`);
+  });
+
+  test("a lab certificate maps its score and target onto the payload", async () => {
+    const labCert: Certificate = {
+      id: "lab:lab-01",
+      kind: "lab",
+      refId: "lab-01",
+      title: "Application — Logistic Regression, From Scratch",
+      recipient: "Ada Lovelace",
+      issuedAt: "2026-01-14T12:00:00.000Z",
+      detail: "Accuracy 0.92 vs target 0.85 · Logistic Regression lab",
+      score: 0.92,
+      target: 0.85,
+    };
+    expect(payloadFromCertificate(labCert)).toEqual({
+      v: CREDENTIAL_VERSION,
+      kind: "lab",
+      ref: "lab-01",
+      title: "Application — Logistic Regression, From Scratch",
+      recipient: "Ada Lovelace",
+      issued: "2026-01-14",
+      score: 0.92,
+      target: 0.85,
+    });
+    const result = await verifyCredential(
+      await certificateCredentialCode(labCert),
+    );
+    expect(result.status).toBe("valid");
+    expect(result.payload?.score).toBe(0.92);
+    expect(result.payload?.target).toBe(0.85);
+    expect(result.payload?.solved).toBeUndefined();
+  });
+
+  test("a lab certificate without evidence cannot produce a code", async () => {
+    const broken: Certificate = {
+      id: "lab:lab-01",
+      kind: "lab",
+      refId: "lab-01",
+      title: "Lab",
+      recipient: "Ada Lovelace",
+      issuedAt: "2026-01-14T12:00:00.000Z",
+      detail: "",
+    };
+    expect(await rejects(() => certificateCredentialCode(broken))).toBe(true);
+  });
+
+  test("project and interview certificates carry their step evidence", async () => {
+    const projectCert: Certificate = {
+      id: "project:gpt",
+      kind: "project",
+      refId: "gpt",
+      title: "Build — Build a GPT from Scratch",
+      recipient: "Ada Lovelace",
+      issuedAt: "2026-01-14T12:00:00.000Z",
+      detail: "8 of 8 steps · Build a GPT from Scratch project",
+      solved: 8,
+      total: 8,
+    };
+    const projectPayload = payloadFromCertificate(projectCert);
+    expect(projectPayload.stepsDone).toBe(8);
+    expect(projectPayload.stepsTotal).toBe(8);
+    expect(projectPayload.solved).toBeUndefined();
+    const projectResult = await verifyCredential(
+      await certificateCredentialCode(projectCert),
+    );
+    expect(projectResult.status).toBe("valid");
+    expect(projectResult.payload?.stepsDone).toBe(8);
+
+    const interviewCert: Certificate = {
+      id: "interview:anthropic",
+      kind: "interview",
+      refId: "anthropic",
+      title: "Interview — Anthropic · Machine Learning Engineer",
+      recipient: "Ada Lovelace",
+      issuedAt: "2026-01-14T12:00:00.000Z",
+      detail: "5 of 6 mock problems · Anthropic interview",
+      solved: 5,
+      total: 6,
+    };
+    const interviewPayload = payloadFromCertificate(interviewCert);
+    expect(interviewPayload.solved).toBe(5);
+    expect(interviewPayload.total).toBe(6);
+    const interviewResult = await verifyCredential(
+      await certificateCredentialCode(interviewCert),
+    );
+    expect(interviewResult.status).toBe("valid");
+    expect(interviewResult.payload?.kind).toBe("interview");
   });
 });

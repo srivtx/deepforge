@@ -22,6 +22,8 @@ import {
   formatFingerprint,
   verifyUrl,
 } from "@/lib/credentials";
+import { INTERVIEW_CHANGE_EVENT } from "@/lib/interview";
+import { LAB_CHANGE_EVENT } from "@/lib/labs";
 
 /* ──────────────────────────────── chrome ────────────────────────────────── */
 
@@ -41,14 +43,36 @@ const KIND_LABELS: Record<CertificateKind, string> = {
   path: "Path",
   collection: "Collection",
   category: "Category",
+  lab: "Lab",
+  project: "Project",
+  interview: "Interview",
 };
 
 const CHANGE_EVENTS = [
   "deepforge:progress-change",
   "deepforge:collections-change",
   "deepforge:username-change",
+  LAB_CHANGE_EVENT,
+  INTERVIEW_CHANGE_EVENT,
   CERTIFICATES_CHANGE_EVENT,
 ];
+
+/** One-line evidence shown on a claimable card, per kind. */
+function claimEvidence(entry: CertificateEntry): string {
+  if (entry.score !== undefined && entry.target !== undefined) {
+    const format = (value: number) =>
+      entry.metric === "mse" ? value.toFixed(2) : value.toFixed(3);
+    return `${format(entry.score)} / target ${format(entry.target)}`;
+  }
+  if (entry.solved !== undefined && entry.total !== undefined) {
+    if (entry.kind === "project") return `${entry.solved}/${entry.total} steps`;
+    if (entry.kind === "interview") {
+      return `${entry.solved}/${entry.total} mock`;
+    }
+    return `${entry.solved}/${entry.total}`;
+  }
+  return "";
+}
 
 /* ────────────────────────────── certificate art ─────────────────────────── */
 
@@ -786,8 +810,9 @@ export function Certificates() {
           loaded && (
             <div className="rounded-lg border border-hairline bg-canvas-card p-4 text-center text-sm text-body-mid sm:p-5">
               Nothing ready yet. Complete every problem in a learning path or a
-              curated collection, or solve 80% of any category to unlock a
-              certificate.
+              curated collection, solve 80% of any category, pass a lab at its
+              target, finish every step of a project, or score 80% on an
+              interview mock.
             </div>
           )
         ) : (
@@ -812,7 +837,7 @@ export function Certificates() {
                 </div>
                 <div className="mt-auto flex items-center justify-between gap-3">
                   <span className="font-mono text-xs text-body-mid">
-                    {entry.solved}/{entry.total}
+                    {claimEvidence(entry)}
                   </span>
                   <button
                     type="button"
