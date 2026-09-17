@@ -259,7 +259,7 @@ export default async function ResearchChallengePage({
             </details>
           </div>
 
-          <div className="df-scroll flex min-w-0 flex-col gap-6 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
+          <div className="df-scroll flex min-w-0 flex-col gap-6 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto df-hide-scrollbar">
             <ResearchWorkspace challenge={challenge} />
             <SolutionReveal challenge={challenge} />
           </div>

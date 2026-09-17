@@ -376,7 +376,7 @@ export default async function LabPage({
 
           <div
             id="run"
-            className="df-scroll min-w-0 scroll-mt-20 lg:sticky lg:top-16 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto"
+            className="df-scroll min-w-0 scroll-mt-20 lg:sticky lg:top-16 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto df-hide-scrollbar"
           >
             <LabWorkspace lab={lab} />
           </div>
