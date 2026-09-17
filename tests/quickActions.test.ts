@@ -74,6 +74,9 @@ describe("registry", () => {
       "daily-challenge",
       "review-queue",
       "stats",
+      "labs",
+      "lab-trails",
+      "research",
       "theme-toggle",
       "assistant-show",
       "assistant-hide",
@@ -84,6 +87,9 @@ describe("registry", () => {
     expect(actionById("review-queue").href).toBe("/today");
     expect(actionById("daily-challenge").href).toBe("/daily");
     expect(actionById("stats").href).toBe("/stats");
+    expect(actionById("labs").href).toBe("/labs");
+    expect(actionById("lab-trails").href).toBe("/labs/trails");
+    expect(actionById("research").href).toBe("/research");
   });
 });
 
@@ -124,10 +130,14 @@ describe("matching", () => {
       "assistant-hide",
       "daily-challenge",
     ]);
-    // Both "Open …" labels are 20 chars, so registry order decides.
+    // All "Open …" labels prefix-match; shorter labels first, then the two
+    // 20-char labels in registry order.
     expect(matchQuickActions("open").map((action) => action.id)).toEqual([
+      "lab-trails",
+      "labs",
       "today-session",
       "review-queue",
+      "research",
     ]);
     // Same prefix tier: the 15-char stats label beats the 23-char one.
     expect(matchQuickActions("show").map((action) => action.id)).toEqual([
@@ -148,6 +158,15 @@ describe("matching", () => {
     ]);
     expect(matchQuickActions("dismiss").map((action) => action.id)).toEqual([
       "assistant-hide",
+    ]);
+    expect(matchQuickActions("baseline").map((action) => action.id)).toEqual([
+      "research",
+    ]);
+    expect(matchQuickActions("hands-on").map((action) => action.id)).toEqual([
+      "labs",
+    ]);
+    expect(matchQuickActions("guided").map((action) => action.id)).toEqual([
+      "lab-trails",
     ]);
   });
 

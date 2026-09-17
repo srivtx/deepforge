@@ -59,6 +59,27 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
     href: "/stats",
   },
   {
+    id: "labs",
+    label: "Open hands-on labs",
+    keywords: ["labs", "lab", "hands-on", "datasets", "benchmark"],
+    kind: "navigate",
+    href: "/labs",
+  },
+  {
+    id: "lab-trails",
+    label: "Open lab trails",
+    keywords: ["trails", "trail", "lab", "guided", "sequence"],
+    kind: "navigate",
+    href: "/labs/trails",
+  },
+  {
+    id: "research",
+    label: "Open research challenges",
+    keywords: ["research", "challenge", "baseline", "sota", "experiments"],
+    kind: "navigate",
+    href: "/research",
+  },
+  {
     id: "theme-toggle",
     label: "Toggle theme",
     keywords: ["theme", "dark", "light", "appearance", "mode"],

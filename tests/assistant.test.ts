@@ -45,10 +45,16 @@ const CLASSIFY_CASES: Array<[string, Intent]> = [
   ["am i ready?", "ready"],
   ["how ready am i for interviews?", "ready"],
   ["show my readiness", "ready"],
+  ["show me a research challenge", "research"],
+  ["open the research challenges", "research"],
+  ["beat a baseline", "research"],
+  ["practice lab", "labs"],
+  ["hands-on lab", "labs"],
+  ["find me a lab", "labs"],
 ];
 
 describe("classify", () => {
-  test("routes phrases to all eight intents", () => {
+  test("routes phrases to every intent", () => {
     const covered = new Set(CLASSIFY_CASES.map(([, intent]) => intent));
     for (const intent of [
       "next",
@@ -59,6 +65,8 @@ describe("classify", () => {
       "plan",
       "due",
       "ready",
+      "research",
+      "labs",
     ] as Intent[]) {
       expect(covered.has(intent), intent).toBe(true);
     }
@@ -324,6 +332,34 @@ describe("ready intent", () => {
     expect(msg.intent).toBe("ready");
     expect(msg.text).toContain(`${score.value}/100`);
     expect(msg.actions).toEqual([{ label: "Open Stats", href: "/stats" }]);
+  });
+});
+
+describe("research and labs intents", () => {
+  test("research phrasings answer with the research link", () => {
+    for (const phrase of ["research challenge", "beat a baseline"]) {
+      const first = respond(phrase);
+      const second = respond(phrase);
+      expect(first.intent, phrase).toBe("research");
+      expect(first.text.length, phrase).toBeGreaterThan(0);
+      expect(first.text, phrase).toBe(second.text);
+      expect(first.citations ?? [], phrase).toEqual([]);
+      expect(first.actions, phrase).toEqual([
+        { label: "Open Research", href: "/research" },
+      ]);
+    }
+  });
+
+  test("lab phrasings answer with the labs link", () => {
+    for (const phrase of ["hands-on lab", "practice lab"]) {
+      const msg = respond(phrase);
+      expect(msg.intent, phrase).toBe("labs");
+      expect(msg.text.length, phrase).toBeGreaterThan(0);
+      expect(msg.citations ?? [], phrase).toEqual([]);
+      expect(msg.actions, phrase).toEqual([
+        { label: "Open Labs", href: "/labs" },
+      ]);
+    }
   });
 });
 

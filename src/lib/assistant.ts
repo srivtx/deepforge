@@ -127,7 +127,9 @@ export type Intent =
   | "quiz"
   | "plan"
   | "due"
-  | "ready";
+  | "ready"
+  | "research"
+  | "labs";
 
 /** In-app deep link attached to an answer (e.g. /today, /stats). */
 export interface MsgAction {
@@ -239,6 +241,18 @@ const INTENT_RULES: IntentRule[] = [
   // READY — interview readiness score and its weakest component
   { intent: "ready", weight: 9, pattern: /\bam i ready\b|\bhow ready am i\b/ },
   { intent: "ready", weight: 6, pattern: /\breadiness\b|\bready for\b|\bready to\b/ },
+
+  // RESEARCH — beat a baseline on a scored research challenge
+  { intent: "research", weight: 7, pattern: /\bresearch\b/ },
+  {
+    intent: "research",
+    weight: 5,
+    pattern: /\bbaselines?\b|\bbeat (?:a|the) baseline\b/,
+  },
+
+  // LABS — hands-on, dataset-driven practice
+  { intent: "labs", weight: 6, pattern: /\blabs?\b/ },
+  { intent: "labs", weight: 3, pattern: /\bhands?-on\b/ },
 ];
 
 /** Ties resolve in this order so classification stays deterministic. */
@@ -250,6 +264,8 @@ const INTENT_PRIORITY: Intent[] = [
   "plan",
   "due",
   "ready",
+  "research",
+  "labs",
   "explain",
 ];
 
@@ -1082,6 +1098,8 @@ function plural(n: number, one: string, many: string): string {
 
 const TODAY_ACTION: MsgAction = { label: "Open Today", href: "/today" };
 const STATS_ACTION: MsgAction = { label: "Open Stats", href: "/stats" };
+const RESEARCH_ACTION: MsgAction = { label: "Open Research", href: "/research" };
+const LABS_ACTION: MsgAction = { label: "Open Labs", href: "/labs" };
 
 function answerDue(): Answer {
   const now = new Date();
@@ -1183,6 +1201,30 @@ function answerReady(): Answer {
       `Weakest component: ${weakest.label} (${weakest.value}/100) — ${weakest.advice}.`,
     citations: [],
     actions: [STATS_ACTION],
+  };
+}
+
+function answerResearch(): Answer {
+  return {
+    text:
+      "Research challenges are scored, open-ended tasks: read the premise and " +
+      "dataset, beat the baseline on the held-out metric, and your run becomes " +
+      "the latest best result.\n\n" +
+      "Open Research to pick a challenge or hand in a submission.",
+    citations: [],
+    actions: [RESEARCH_ACTION],
+  };
+}
+
+function answerLabs(): Answer {
+  return {
+    text:
+      "Hands-on labs ship a dataset, a baseline, and a target: implement " +
+      "predict(train_X, train_y, test_X) in Python, respect the constraints, " +
+      "and score above the target on the held-out rows.\n\n" +
+      "Open Labs to start one — guided lab trails live there too.",
+    citations: [],
+    actions: [LABS_ACTION],
   };
 }
 
@@ -1431,6 +1473,12 @@ export function respond(q: string, ctx: Ctx = {}): Msg {
       break;
     case "ready":
       answer = answerReady();
+      break;
+    case "research":
+      answer = answerResearch();
+      break;
+    case "labs":
+      answer = answerLabs();
       break;
     default:
       warmProblemBank();

@@ -5,6 +5,8 @@ import { ARTICLE_INDEX } from "@/data/articleIndex";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
 import { POSTS } from "@/data/blog";
+import { LABS } from "@/data/labs";
+import { RESEARCH_CHALLENGES } from "@/data/research";
 import { getAllPaths } from "@/lib/paths";
 import { categorySlug } from "@/lib/sections";
 import {
@@ -231,5 +233,80 @@ describe("searchGlobal", () => {
       searchGlobal("softmax", 20).map((result) => result.group),
     );
     expect(groups.has("Articles")).toBe(true);
+  });
+
+  test("research challenges are searchable by title and href", () => {
+    expect(GLOBAL_SEARCH_GROUPS).toContain("Research");
+    expect(RESEARCH_CHALLENGES.length).toBeGreaterThan(0);
+    for (const challenge of RESEARCH_CHALLENGES) {
+      const item = itemById(
+        groupOf(searchGlobal(challenge.title, 100), "Research"),
+        challenge.id,
+      );
+      expect(item, challenge.id).not.toBeUndefined();
+      expect(item?.href).toBe(`/research/${challenge.id}`);
+    }
+  });
+
+  test("research challenges match metric and blurb keywords", () => {
+    const mse = groupOf(searchGlobal("mse", 100), "Research").map(
+      (item) => item.id,
+    );
+    expect(mse).toContain("nonlinear-regression-chase");
+    expect(mse).toContain("noisy-sensor-denoising");
+    const f1 = groupOf(searchGlobal("f1", 100), "Research").map(
+      (item) => item.id,
+    );
+    expect(f1).toContain("imbalanced-signal-hunt");
+    expect(
+      itemById(
+        groupOf(searchGlobal("markov", 100), "Research"),
+        "mini-language-model",
+      ),
+    ).not.toBeUndefined();
+    expect(
+      itemById(
+        groupOf(searchGlobal("blobs", 100), "Research"),
+        "tabular-classification-showdown",
+      ),
+    ).not.toBeUndefined();
+  });
+
+  test("labs are searchable by title and href", () => {
+    expect(GLOBAL_SEARCH_GROUPS).toContain("Labs");
+    expect(LABS.length).toBeGreaterThan(0);
+    for (const lab of LABS) {
+      const item = itemById(groupOf(searchGlobal(lab.title, 100), "Labs"), lab.id);
+      expect(item, lab.id).not.toBeUndefined();
+      expect(item?.href).toBe(`/labs/${lab.id}`);
+    }
+  });
+
+  test("labs match category and blurb keywords", () => {
+    const clustering = groupOf(searchGlobal("clustering", 100), "Labs").map(
+      (item) => item.id,
+    );
+    expect(clustering).toContain("lab-05");
+    const nlp = groupOf(searchGlobal("nlp", 100), "Labs").map(
+      (item) => item.id,
+    );
+    expect(nlp).toContain("lab-02");
+    expect(
+      itemById(groupOf(searchGlobal("outliers", 100), "Labs"), "lab-07"),
+    ).not.toBeUndefined();
+    expect(
+      itemById(groupOf(searchGlobal("r2", 100), "Labs"), "lab-04"),
+    ).not.toBeUndefined();
+  });
+
+  test("research and lab entries are duplicate-free within their groups", () => {
+    for (const query of ["classification", "regression", "sensor", "lab"]) {
+      for (const group of ["Research", "Labs"] as GlobalSearchGroup[]) {
+        const ids = groupOf(searchGlobal(query, 100), group).map(
+          (item) => item.id,
+        );
+        expect(new Set(ids).size).toBe(ids.length);
+      }
+    }
   });
 });

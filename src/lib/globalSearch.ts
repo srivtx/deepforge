@@ -15,7 +15,9 @@ import { CATEGORIES } from "@/data/problems/meta";
 import { ARTICLE_INDEX } from "@/data/articleIndex";
 import { PREMADE_COLLECTIONS } from "@/data/collections";
 import { INTERVIEW_TRACKS } from "@/data/interview";
+import { LABS } from "@/data/labs";
 import { POSTS } from "@/data/blog";
+import { RESEARCH_CHALLENGES } from "@/data/research";
 import { getAllPaths } from "@/lib/paths";
 import { categorySlug } from "@/lib/sections";
 
@@ -25,13 +27,20 @@ export type GlobalSearchGroup =
   | "Interview"
   | "Articles"
   | "Blog"
-  | "Categories";
+  | "Categories"
+  | "Research"
+  | "Labs";
 
 export interface GlobalSearchItem {
   id: string;
   title: string;
   subtitle?: string;
   href: string;
+  /**
+   * Extra palette-only search terms (metric, topic, a few blurb words).
+   * Matched and ranked exactly like the title, but never rendered.
+   */
+  keywords?: readonly string[];
 }
 
 export interface GlobalSearchResult {
@@ -47,6 +56,8 @@ export const GLOBAL_SEARCH_GROUPS: readonly GlobalSearchGroup[] = [
   "Articles",
   "Blog",
   "Categories",
+  "Research",
+  "Labs",
 ];
 
 /** Queries shorter than this return nothing; the palette handles defaults. */
@@ -97,6 +108,75 @@ const CATEGORY_ITEMS: GlobalSearchItem[] = CATEGORIES.map((category) => ({
   href: `/problems?category=${categorySlug(category.name)}`,
 }));
 
+/** Palette-only terms per research challenge: topic and blurb words. */
+const RESEARCH_KEYWORDS: Record<string, readonly string[]> = {
+  "tabular-classification-showdown": [
+    "classification",
+    "blobs",
+    "majority class",
+    "logistic regression",
+  ],
+  "nonlinear-regression-chase": [
+    "regression",
+    "parabola",
+    "quadratic",
+    "least squares",
+  ],
+  "imbalanced-signal-hunt": [
+    "classification",
+    "imbalanced",
+    "sparse signal",
+    "rare positives",
+  ],
+  "noisy-sensor-denoising": [
+    "sensor",
+    "denoising",
+    "moving average",
+    "time series",
+  ],
+  "mini-language-model": [
+    "language model",
+    "markov",
+    "next token",
+    "unigram",
+  ],
+};
+
+const RESEARCH_ITEMS: GlobalSearchItem[] = RESEARCH_CHALLENGES.map(
+  (challenge) => ({
+    id: challenge.id,
+    title: challenge.title,
+    subtitle: `${challenge.metric} · beat ${challenge.baselineName}`,
+    href: `/research/${challenge.id}`,
+    keywords: [challenge.metric, ...(RESEARCH_KEYWORDS[challenge.id] ?? [])],
+  }),
+);
+
+/** Palette-only terms per lab: topic and blurb words. */
+const LAB_KEYWORDS: Record<string, readonly string[]> = {
+  "lab-01": [
+    "classification",
+    "logistic regression",
+    "binary",
+    "gradient descent",
+  ],
+  "lab-02": ["nlp", "spam", "keyword counts", "classifier"],
+  "lab-03": ["regression", "house prices", "least squares", "normal equations"],
+  "lab-04": ["regression", "r-squared", "quadratic", "polynomial"],
+  "lab-05": ["clustering", "k-means", "unsupervised", "segmentation"],
+  "lab-06": ["classification", "credit", "default", "logistic regression"],
+  "lab-07": ["regression", "sensor", "outliers", "robust"],
+  "lab-08": ["classification", "xor", "interaction", "logistic regression"],
+};
+
+const LAB_ITEMS: GlobalSearchItem[] = LABS.map((lab) => ({
+  id: lab.id,
+  title: lab.title,
+  subtitle: `${lab.category} · ${lab.difficulty}`,
+  href: `/labs/${lab.id}`,
+  keywords: [lab.metric, lab.category, ...(LAB_KEYWORDS[lab.id] ?? [])],
+}));
+
 const INDEX: Record<GlobalSearchGroup, readonly GlobalSearchItem[]> = {
   Paths: PATH_ITEMS,
   Collections: COLLECTION_ITEMS,
@@ -104,6 +184,8 @@ const INDEX: Record<GlobalSearchGroup, readonly GlobalSearchItem[]> = {
   Articles: ARTICLE_ITEMS,
   Blog: BLOG_ITEMS,
   Categories: CATEGORY_ITEMS,
+  Research: RESEARCH_ITEMS,
+  Labs: LAB_ITEMS,
 };
 
 interface ScoredItem {
@@ -112,15 +194,25 @@ interface ScoredItem {
 }
 
 /**
- * 0 = title starts with the query, 1 = query starts a later word,
+ * 0 = text starts with the query, 1 = query starts a later word,
  * 2 = query appears inside a word, -1 = no match.
  */
-function scoreTitle(title: string, query: string): number {
-  const haystack = title.toLowerCase();
+function scoreText(text: string, query: string): number {
+  const haystack = text.toLowerCase();
   const at = haystack.indexOf(query);
   if (at < 0) return -1;
   if (at === 0) return 0;
   return /[^a-z0-9]/.test(haystack[at - 1]) ? 1 : 2;
+}
+
+/** Best score across an item's title and its palette-only keywords. */
+function scoreItem(item: GlobalSearchItem, query: string): number {
+  let best = scoreText(item.title, query);
+  for (const keyword of item.keywords ?? []) {
+    const score = scoreText(keyword, query);
+    if (score >= 0 && (best < 0 || score < best)) best = score;
+  }
+  return best;
 }
 
 /** Score, then shorter title, then id, then title: total and stable. */
@@ -154,7 +246,7 @@ export function searchGlobal(
   for (const group of GLOBAL_SEARCH_GROUPS) {
     const scored: ScoredItem[] = [];
     for (const item of INDEX[group]) {
-      const score = scoreTitle(item.title, q);
+      const score = scoreItem(item, q);
       if (score >= 0) scored.push({ item, score });
     }
     if (scored.length === 0) continue;
