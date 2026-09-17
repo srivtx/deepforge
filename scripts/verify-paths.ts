@@ -9,14 +9,23 @@
  *   - no duplicate problem ids, no unknown problem ids
  *   - no empty stages, no path under 6 problems
  *   - estimatedHours positive, title/description non-empty
+ *   - every path has a capstone whose kind/id resolves against the real
+ *     registries (projects, labs, contests, collections, pen-and-paper)
  *
  * Exits 1 on any error and prints `ALL GREEN` when the catalog is clean.
  */
 
 import { LEARNING_PATHS } from "../src/data/problems/paths";
+import type { CapstoneKind } from "../src/data/problems/paths";
 import { PROBLEMS } from "../src/data/problems";
+import { PREMADE_COLLECTIONS } from "../src/data/collections";
+import { CONTESTS } from "../src/data/contests";
+import { LABS } from "../src/data/labs";
+import { PENPAPER_PROBLEMS } from "../src/data/penpaper";
+import { PROJECTS } from "../src/data/projects";
 import {
   assignSlugs,
+  capstoneKindLabel,
   pathExtras,
   pathSlug,
 } from "../src/lib/paths";
@@ -24,6 +33,27 @@ import type { LearningPath } from "../src/types/problem";
 
 const URL_SAFE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MIN_PROBLEMS_PER_PATH = 6;
+
+const CAPSTONE_KINDS: readonly CapstoneKind[] = [
+  "project",
+  "lab",
+  "contest",
+  "collection",
+  "penpaper",
+];
+
+/** Real artifact titles per kind, so a dangling id fails with a clear name. */
+const CAPSTONE_TITLES: Record<CapstoneKind, Map<string, string>> = {
+  project: new Map(PROJECTS.map((project) => [project.id, project.title])),
+  lab: new Map(LABS.map((lab) => [lab.id, lab.title])),
+  contest: new Map(CONTESTS.map((contest) => [contest.id, contest.title])),
+  collection: new Map(
+    PREMADE_COLLECTIONS.map((collection) => [collection.id, collection.name]),
+  ),
+  penpaper: new Map(
+    PENPAPER_PROBLEMS.map((problem) => [problem.id, problem.question]),
+  ),
+};
 
 interface PathRow {
   slug: string;
@@ -67,6 +97,7 @@ function main() {
   const errors: string[] = [];
   const warnings: string[] = [];
   const rows: PathRow[] = [];
+  let capstoneCount = 0;
 
   const resolvedSlugs = assignSlugs(LEARNING_PATHS);
   const slugOwners = new Map<string, number[]>();
@@ -177,6 +208,55 @@ function main() {
       fail(`only ${seen.size} problems, need at least ${MIN_PROBLEMS_PER_PATH}`);
     }
 
+    // Capstone: exactly one per path, kind + id must resolve for real.
+    const capstone = (pathExtras(path) as { capstone?: unknown }).capstone;
+    if (Array.isArray(capstone)) {
+      fail("capstone must be a single object, not an array");
+    } else if (!capstone || typeof capstone !== "object") {
+      fail("missing capstone");
+    } else {
+      const value = capstone as Record<string, unknown>;
+      const kind = value.kind;
+      const id = typeof value.id === "string" ? value.id.trim() : "";
+      if (
+        typeof kind !== "string" ||
+        !(CAPSTONE_KINDS as readonly string[]).includes(kind)
+      ) {
+        fail(
+          `capstone kind ${JSON.stringify(kind)} is not one of ${CAPSTONE_KINDS.join(
+            ", ",
+          )}`,
+        );
+      } else if (!id) {
+        fail(`capstone (${kind}) is missing an id`);
+      } else {
+        const registryTitle = CAPSTONE_TITLES[kind as CapstoneKind].get(id);
+        if (registryTitle === undefined) {
+          fail(`${kind} capstone "${id}" does not exist in the ${kind} registry`);
+        } else {
+          capstoneCount += 1;
+          const authoredTitle =
+            typeof value.title === "string" ? value.title.trim() : "";
+          if (!authoredTitle) {
+            warn(
+              `capstone ${kind} "${id}" has no title (falls back to the registry title)`,
+            );
+          } else if (kind !== "penpaper" && authoredTitle !== registryTitle) {
+            fail(
+              `capstone title ${JSON.stringify(authoredTitle)} does not match the ${kind} title ${JSON.stringify(
+                registryTitle,
+              )}`,
+            );
+          }
+          if (value.note !== undefined) {
+            if (typeof value.note !== "string" || !value.note.trim()) {
+              fail(`capstone ${kind} "${id}" has an empty note`);
+            }
+          }
+        }
+      }
+    }
+
     if (pathErrors.length) errors.push(...pathErrors);
     if (pathWarnings.length) warnings.push(...pathWarnings);
 
@@ -225,7 +305,7 @@ function main() {
   }
 
   console.log(
-    `\nPaths: ${LEARNING_PATHS.length}   Errors: ${errors.length}   Warnings: ${warnings.length}`,
+    `\nPaths: ${LEARNING_PATHS.length}   Capstones: ${capstoneCount}/${LEARNING_PATHS.length}   Errors: ${errors.length}   Warnings: ${warnings.length}`,
   );
 
   if (errors.length) {

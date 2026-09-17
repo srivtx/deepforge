@@ -4,8 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Reveal } from "@/components/motion/Reveal";
 import type { ProblemMeta } from "@/data/problems/problem-meta";
-import type { PathLevel, PathStage, ResolvedLearningPath } from "@/lib/paths";
+import type {
+  PathLevel,
+  PathStage,
+  ResolvedCapstone,
+  ResolvedLearningPath,
+} from "@/lib/paths";
 import {
+  capstoneKindLabel,
   nextProblemInPath,
   pathProgress,
   resolvePrerequisites,
@@ -474,6 +480,43 @@ function StageSection({
   );
 }
 
+function CapstoneCard({ capstone }: { capstone: ResolvedCapstone }) {
+  return (
+    <section
+      aria-labelledby="path-capstone-heading"
+      className="flex flex-col gap-3 rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2
+          id="path-capstone-heading"
+          className="text-sm font-medium text-ink"
+        >
+          Capstone
+        </h2>
+        <span className="rounded-full border border-hairline bg-canvas-soft px-1.5 py-0.5 text-[10px] font-medium text-body-mid">
+          {capstoneKindLabel(capstone.kind)}
+        </span>
+      </div>
+      <p className="max-w-3xl text-xs leading-relaxed text-body-mid">
+        Close the path with one real artifact from the catalog.
+      </p>
+      <div className="min-w-0">
+        <Link
+          href={capstone.href}
+          className="rounded-sm text-sm font-medium text-ink transition-colors hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+        >
+          {capstone.title}
+        </Link>
+        {capstone.note && (
+          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-body">
+            {capstone.note}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
   const [progress, setProgress] = useState<ProgressMap>({});
   const [reviews, setReviews] = useState<ReviewMap>({});
@@ -696,6 +739,8 @@ export function PathDetail({ path, problems, prev, next }: PathDetailProps) {
           />
         )}
       </div>
+
+      {path.capstone && <CapstoneCard capstone={path.capstone} />}
 
       {(prev || next) && (
         <nav

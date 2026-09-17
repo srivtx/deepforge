@@ -2,9 +2,9 @@
  * Pure helpers for the learning-path experience.
  *
  * The path records in `src/data/problems/paths.ts` may carry extra optional
- * fields (slug, level, tags, stages, goals, prerequisites). This module reads
- * them defensively so it type-checks whether or not those fields exist yet,
- * and always falls back to a stable derivation:
+ * fields (slug, level, tags, stages, goals, prerequisites, capstone). This
+ * module reads them defensively so it type-checks whether or not those fields
+ * exist yet, and always falls back to a stable derivation:
  *
  *   - missing slug  -> slugify(title), deduped with a `-2`/`-3` suffix
  *   - missing stages -> a single implicit stage built from `problemIds`
@@ -14,9 +14,90 @@
  */
 
 import { LEARNING_PATHS } from "@/data/problems/paths";
+import type { CapstoneKind, PathCapstone } from "@/data/problems/paths";
 import type { LearningPath } from "@/types/problem";
 
 export type PathLevel = "Beginner" | "Intermediate" | "Advanced" | "Mixed";
+
+export type { CapstoneKind, PathCapstone } from "@/data/problems/paths";
+
+/**
+ * A path capstone: the one real artifact (project, lab, contest, collection,
+ * or pen-and-paper problem) that closes a path. Stored inline on the path
+ * record and read defensively, so paths without one keep resolving.
+ */
+export interface ResolvedCapstone {
+  kind: CapstoneKind;
+  id: string;
+  title: string;
+  note?: string;
+  href: string;
+}
+
+const CAPSTONE_KINDS: readonly CapstoneKind[] = [
+  "project",
+  "lab",
+  "contest",
+  "collection",
+  "penpaper",
+];
+
+const CAPSTONE_KIND_LABELS: Record<CapstoneKind, string> = {
+  project: "Project",
+  lab: "Lab",
+  contest: "Contest",
+  collection: "Collection",
+  penpaper: "Pen and paper",
+};
+
+/** Where a capstone of each kind lives. Ids only address collections. */
+export function capstoneHref(kind: CapstoneKind, id: string): string {
+  switch (kind) {
+    case "project":
+      return "/projects";
+    case "lab":
+      return "/labs";
+    case "contest":
+      return "/contests";
+    case "collection":
+      return `/collections/${id}`;
+    case "penpaper":
+      return "/math";
+  }
+}
+
+/** Best-effort label when the author did not supply a title. */
+export function capstoneKindLabel(kind: CapstoneKind): string {
+  return CAPSTONE_KIND_LABELS[kind];
+}
+
+function isCapstoneKind(value: unknown): value is CapstoneKind {
+  return (
+    typeof value === "string" &&
+    (CAPSTONE_KINDS as readonly string[]).includes(value)
+  );
+}
+
+/** Validate + normalize an authored capstone. Malformed values resolve to null. */
+export function cleanCapstone(value: unknown): ResolvedCapstone | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  if (!isCapstoneKind(raw.kind)) return null;
+  const id = typeof raw.id === "string" ? raw.id.trim() : "";
+  if (!id) return null;
+  const title =
+    typeof raw.title === "string" && raw.title.trim()
+      ? raw.title.trim()
+      : capstoneKindLabel(raw.kind);
+  const note = typeof raw.note === "string" ? raw.note.trim() : "";
+  return {
+    kind: raw.kind,
+    id,
+    title,
+    ...(note ? { note } : {}),
+    href: capstoneHref(raw.kind, id),
+  };
+}
 
 export interface PathStage {
   id: string;
@@ -33,6 +114,7 @@ export interface PathExtras {
   stages?: PathStage[];
   goals?: string[];
   prerequisites?: string[];
+  capstone?: PathCapstone;
 }
 
 export interface ResolvedLearningPath {
@@ -50,6 +132,12 @@ export interface ResolvedLearningPath {
   hasStages: boolean;
   /** Flattened, deduped problem ids in path order. */
   problemIds: string[];
+  /**
+   * Closing artifact, or null when the path does not author one. Optional so
+   * hand-built `ResolvedLearningPath` literals (tests, previews) stay valid;
+   * `resolvePath` always populates it.
+   */
+  capstone?: ResolvedCapstone | null;
 }
 
 export interface ProgressLike {
@@ -216,6 +304,7 @@ export function resolvePath(
     stages,
     hasStages,
     problemIds: stringList(stages.flatMap((stage) => stage.problemIds)),
+    capstone: cleanCapstone(extras.capstone),
   };
 }
 

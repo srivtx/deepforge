@@ -1,8 +1,37 @@
 import type { LearningPath } from "@/types/problem";
 
-export const LEARNING_PATHS: LearningPath[] = [
+/**
+ * Closing artifact for a path. `id` points at an existing record in one of the
+ * artifact registries (`src/data/projects.ts`, `labs.ts`, `contests.ts`,
+ * `collections.ts`, `penpaper.ts`) and is verified by `scripts/verify-paths.ts`.
+ */
+export type CapstoneKind =
+  | "project"
+  | "lab"
+  | "contest"
+  | "collection"
+  | "penpaper";
+
+export interface PathCapstone {
+  kind: CapstoneKind;
+  id: string;
+  /** Display title; defaults to the registry title when omitted. */
+  title?: string;
+  /** One sentence on why this artifact closes the path. */
+  note?: string;
+}
+
+export type AuthoredLearningPath = LearningPath & { capstone?: PathCapstone };
+
+export const LEARNING_PATHS: AuthoredLearningPath[] = [
   {
     id: "math-foundations",
+    capstone: {
+      kind: "collection",
+      id: "linear-algebra-crash-course",
+      title: "Linear Algebra Crash Course",
+      note: "Run the vector and matrix half of this path as one continuous set before moving on to models.",
+    },
     title: "Math Foundations",
     description:
       "Build the linear algebra, statistics, probability, and calculus intuition every ML algorithm assumes. You start with vectors and matrix products and finish by computing Jacobians and Hessians by hand. This is the path to take if you want the math to stop feeling like magic.",
@@ -52,6 +81,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "ml-from-scratch",
+    capstone: {
+      kind: "lab",
+      id: "lab-01",
+      title: "Logistic Regression, From Scratch",
+      note: "Take the classifier you wrote in the supervised stage onto held-out rows and beat the majority-class baseline.",
+    },
     title: "ML From Scratch",
     description:
       "Implement the classic machine learning toolkit with nothing but Python lists and loops. You will build regression, k-NN, k-means, decision trees, naive Bayes, PCA, and boosting, plus the metrics that tell you whether they work. Ideal for anyone who has called fit() and predict() but never written them.",
@@ -101,6 +136,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "deep-learning-essentials",
+    capstone: {
+      kind: "project",
+      id: "nn-framework",
+      title: "Build a Neural Network Framework",
+      note: "Turn the forward passes and gradients from this path into a working autograd engine.",
+    },
     title: "Deep Learning Essentials",
     description:
       "Activations, forward passes, and backprop, built one function at a time. You will go from ReLU and dense layers up through batch norm, attention, and a full transformer encoder block, with a little tokenization to feed the models. Perfect before you touch a framework, because you will recognize what every layer is doing.",
@@ -150,6 +191,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "optimization-mastery",
+    capstone: {
+      kind: "collection",
+      id: "optimizers-deep-dive",
+      title: "Optimizers Deep Dive",
+      note: "A focused set that revisits every update rule this path builds, from SGD to the adaptive methods.",
+    },
     title: "Optimization Mastery",
     description:
       "How models actually learn: gradients, momentum, adaptive methods, and the schedules that decide whether training converges. You will implement gradient descent, Adam, and learning rate policies, then reach the quasi-Newton methods used in serious solvers. Take it after ML From Scratch or Deep Learning Essentials.",
@@ -199,6 +246,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "linear-algebra-deep-dive",
+    capstone: {
+      kind: "collection",
+      id: "essence-of-linear-algebra",
+      title: "The Essence of Linear Algebra",
+      note: "Consolidate the factorizations and spectral ideas with one more pass over the matrix core.",
+    },
     title: "Linear Algebra Deep Dive",
     description:
       "A complete tour of the matrix machinery behind ML, from dot products to spectral decompositions. You will implement row reduction, LU, Cholesky, Gram-Schmidt, power iteration, and PageRank steps from scratch. Suited to learners who want to reason about rank, conditioning, and eigenvalues fluently.",
@@ -248,6 +301,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "calculus-for-ml",
+    capstone: {
+      kind: "penpaper",
+      id: "pp-021",
+      title: "Limit of (1 - cos x) / x^2 as x goes to 0",
+      note: "A handwritten final check: derive the classic limit with the small-angle approximation or L'Hopital's rule.",
+    },
     title: "Calculus for ML",
     description:
       "Derivatives, gradients, Jacobians, and Hessians, all computed numerically so you can verify any formula by hand. You will build finite differences, Newton and RK methods, Lagrange multipliers, and convolution integrals. Designed for learners who want optimization and backprop to rest on real calculus rather than hand-waving.",
@@ -297,6 +356,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "probability-foundations",
+    capstone: {
+      kind: "collection",
+      id: "probability-statistics-core",
+      title: "Probability & Statistics Core",
+      note: "Blend the counting, distribution, and Bayes work in this path with one compact mixed set.",
+    },
     title: "Probability Foundations",
     description:
       "The language of uncertainty, from counting and expectation to Markov chains and concentration bounds. You will implement Bayes rule, classic distributions, inclusion-exclusion, gambler's ruin, and a CLT simulation. A good fit for interviews and for anyone starting probabilistic ML.",
@@ -346,6 +411,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "statistics-mastery",
+    capstone: {
+      kind: "collection",
+      id: "statistics-for-ml-interviews",
+      title: "Statistics for ML Interviews",
+      note: "The hypothesis-testing and multiple-testing toolkit from this path, assembled as A/B-test practice.",
+    },
     title: "Statistics Mastery",
     description:
       "Turn data into decisions: descriptive statistics, sampling distributions, hypothesis tests, and robust methods. You will implement t-tests, confidence intervals, bootstrap resampling, rank correlations, and multiple-comparison corrections. Best for aspiring data scientists and analysts who need to defend their conclusions.",
@@ -395,6 +466,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "nlp-starter",
+    capstone: {
+      kind: "project",
+      id: "search-engine",
+      title: "Build a Search Engine",
+      note: "Take the tokenization and TF-IDF documents from this path all the way to ranked search.",
+    },
     title: "NLP Starter",
     description:
       "Text into numbers, from tokenization and n-grams to TF-IDF, edit distance, and attention. You will build the preprocessing pipeline behind search engines and language models with plain Python. Start here if you want to understand what happens before a model sees a sentence.",
@@ -444,6 +521,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "computer-vision-starter",
+    capstone: {
+      kind: "collection",
+      id: "computer-vision-starter",
+      title: "Computer Vision Starter",
+      note: "Revisit the pixels, filtering, and edges stages as one image-processing warm-up.",
+    },
     title: "Computer Vision Starter",
     description:
       "Images as grids of numbers, then as features a model can use. You will implement grayscale conversion, padding, convolution, pooling, Gaussian blur, edge detection, and Otsu thresholding from scratch. A hands-on introduction for anyone curious how CNNs see.",
@@ -493,6 +576,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "algorithms-interview-grind",
+    capstone: {
+      kind: "contest",
+      id: "hard-mode",
+      title: "Hard Mode",
+      note: "Sit the full hour of genuinely hard problems to prove the grind paid off.",
+    },
     title: "Algorithms Interview Grind",
     description:
       "The highest-yield coding interview patterns in one sequence: two pointers, sliding windows, dynamic programming, heaps, and graph search. You will solve the canonical problems that show up in FAANG screens, implemented in pure Python. Built for interview season, not for casual browsing.",
@@ -542,6 +631,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "data-structures-core",
+    capstone: {
+      kind: "collection",
+      id: "interview-prep-essentials",
+      title: "Interview Prep Essentials",
+      note: "Two pointers, heaps, and graphs: the patterns built on this path that show up in real screens.",
+    },
     title: "Data Structures Core",
     description:
       "The containers that make algorithms fast, implemented by hand. You will build stacks, queues, linked lists, heaps, tries, BSTs, union-find, and caches, then wire them into classic problems. Essential for interviews and for anyone who wants to know what a library really does.",
@@ -591,6 +686,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "reinforcement-learning-intro",
+    capstone: {
+      kind: "collection",
+      id: "reinforcement-learning-foundations",
+      title: "Reinforcement Learning: Foundations",
+      note: "Returns, TD, SARSA, and REINFORCE in one run over Markov decisions.",
+    },
     title: "Reinforcement Learning Intro",
     description:
       "Agents that learn by acting: MDPs, value iteration, Q-learning, and policy gradients. You will begin with policy evaluation and bandits, then implement TD updates, SARSA, and REINFORCE from scratch. A gentle on-ramp before tackling deep RL.",
@@ -640,6 +741,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "time-series-forecasting",
+    capstone: {
+      kind: "contest",
+      id: "forecast-lab",
+      title: "Forecast Lab",
+      note: "Differences, lags, and a Holt-Winters step against the clock.",
+    },
     title: "Time Series Forecasting",
     description:
       "Data that moves through time, modeled from first principles. You will build differencing, smoothing, autocorrelation, AR/MA simulation, Holt-Winters, and Yule-Walker solvers without a single library. Suited to analysts and ML engineers working with metrics, demand, or finance.",
@@ -689,6 +796,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "graph-algorithms",
+    capstone: {
+      kind: "contest",
+      id: "graph-gauntlet",
+      title: "Graph Gauntlet",
+      note: "Build, traverse, and hunt cycles in a timed pass over the graph core.",
+    },
     title: "Graph Algorithms",
     description:
       "Networks traversed properly: BFS, DFS, shortest paths, MSTs, PageRank, and max flow. You will implement Dijkstra, Kruskal, Kosaraju-style components, centrality measures, and matching from scratch. Great preparation for both interviews and data-centric engineering work.",
@@ -738,6 +851,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "information-theory",
+    capstone: {
+      kind: "penpaper",
+      id: "pp-060",
+      title: "Entropy of a Bernoulli(0.25)",
+      note: "Compute a Shannon entropy by hand: the move every bound in this path rests on.",
+    },
     title: "Information Theory",
     description:
       "How much does a message tell you? Build entropy and mutual information from scratch, compress with real source codes, and finish with KL divergence, channel capacity, and the limits of processing. You will implement Huffman and Shannon codes, Kraft's inequality, arithmetic coding, and the data-processing gap. Perfect for the mathematically curious.",
@@ -787,6 +906,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "deep-learning-advanced",
+    capstone: {
+      kind: "collection",
+      id: "quantization-basics",
+      title: "Quantization Basics",
+      note: "Take the quantization stage from scales and packing to serving-size memory savings.",
+    },
     title: "Deep Learning Advanced",
     description:
       "Beyond the basics: modern activations, normalization variants, efficient attention, and quantization. You will implement GELU, group norm, multi-query attention, int8 quantization, and BPTT by hand, then compute the memory and FLOPs budgets of real models. Take it once you are comfortable with backprop.",
@@ -836,6 +961,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "ml-engineer-track",
+    capstone: {
+      kind: "collection",
+      id: "numerical-stability-in-practice",
+      title: "Numerical Stability in Practice",
+      note: "Log-sum-exp, stable softmax, and clipping: the tricks behind training runs that do not blow up.",
+    },
     title: "ML Engineer Track",
     description:
       "The production-minded sequence: solid fundamentals, training dynamics, evaluation, and the systems math behind serving models. You will move from standard scalers and loss functions to backprop, model diagnostics, and memory accounting. Built for engineers who ship models, not just notebooks.",
@@ -885,6 +1016,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "data-scientist-track",
+    capstone: {
+      kind: "lab",
+      id: "lab-03",
+      title: "House Price Regression",
+      note: "Fit a model on real held-out rows and beat the training-mean baseline.",
+    },
     title: "Data Scientist Track",
     description:
       "From summary statistics to causal inference, the full analyst toolkit. You will compute robust descriptives, build and evaluate regression and classification baselines, measure relationships and run hypothesis tests, then finish with causal estimators and ranking curves. The right path if your job is turning messy data into defensible decisions.",
@@ -934,6 +1071,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "quant-interview-track",
+    capstone: {
+      kind: "collection",
+      id: "probability-brainteasers",
+      title: "Probability Brainteasers",
+      note: "Birthday problems, coupon collector, and expectation puzzles under interview rules.",
+    },
     title: "Quant Interview Track",
     description:
       "Probability brainteasers, statistics, and fast algorithms, sequenced the way trading interviews ask them. You will drill counting, Bayes, and distributions, then algorithmic classics, then gambler's ruin and the limit theorems, until they are automatic. Timed practice recommended once you finish.",
@@ -983,6 +1126,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "thirty-day-full-curriculum",
+    capstone: {
+      kind: "collection",
+      id: "thirty-day-challenge",
+      title: "30-Day Challenge",
+      note: "One easy problem a day for a month continues exactly the breadth this path samples.",
+    },
     title: "30-Day Full Curriculum",
     description:
       "A month-long sampler that touches nearly every category on the platform, roughly one sitting per day. You will meet vectors, derivatives, distributions, regressions, neural nets, algorithms, graphs, and information theory in a single sweep. Ideal if you are new and want to discover which track to commit to next.",
@@ -1038,6 +1187,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "fast-track-essentials",
+    capstone: {
+      kind: "contest",
+      id: "warm-up-sprint",
+      title: "Warm-up Sprint",
+      note: "Ten minutes, six easy openers: a check that the essentials stuck.",
+    },
     title: "Fast Track (Essentials)",
     description:
       "The shortest route to a working mental model of ML: eighteen problems that cover what the rest of the platform builds on. In a single evening you will implement scaling, matrix products, a derivative, expectation, linear regression, softmax, gradient descent, and one backprop pass. Perfect for a first taste of DeepForge.",
@@ -1079,6 +1234,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "generative-models-primer",
+    capstone: {
+      kind: "collection",
+      id: "modern-post-training",
+      title: "Modern Post-Training",
+      note: "DPO, GRPO, and PPO-RLHF: the alignment half of this path in one focused set.",
+    },
     title: "Generative Models Primer",
     description:
       "How models create text and images: start with language-model sampling and alignment, then diffusion, then VAEs, and finish with GANs and sample-quality metrics. You will implement reconstruction and KL losses, diffusion noise schedules, classifier-free guidance, and preference-optimization objectives. Best for learners who already know backprop and want the generative frontier.",
@@ -1128,6 +1289,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "ranking-recommendation-systems",
+    capstone: {
+      kind: "project",
+      id: "recommender",
+      title: "Build a Recommender System",
+      note: "Carry collaborative filtering and matrix factorization from this path into a working recommender.",
+    },
     title: "Ranking & Recommendation Systems",
     description:
       "Search relevance and recommender systems, built from the retrieval stage to the ranking metrics. You will implement TF-IDF, inverted indexes, BM25, collaborative filtering, and NDCG from scratch. A strong fit for ML engineers working on feeds, search, or personalization.",
@@ -1177,6 +1344,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "llm-engineering",
+    capstone: {
+      kind: "collection",
+      id: "modern-llm-pipeline",
+      title: "Modern LLM Pipeline",
+      note: "Tokenization through sampling as one end-to-end pass over the stack.",
+    },
     title: "LLM Engineering",
     description:
       "Build and operate language models end to end: tokenization, embeddings, transformer internals, decoding and serving, then retrieval-augmented generation and evaluation. Every stage is implemented in pure Python, from byte-level BPE counts to KV-cache sizing and nDCG. Take it after Deep Learning Essentials and NLP Starter.",
@@ -1234,6 +1407,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "math-for-machine-learning",
+    capstone: {
+      kind: "penpaper",
+      id: "pp-011",
+      title: "Norm of a vector projection",
+      note: "A handwritten final check on the projection arithmetic this path drills.",
+    },
     title: "Math for Machine Learning",
     description:
       "A single sequence for the mathematics ML actually uses: linear algebra first, then probability and statistics, then calculus, then eigen-decomposition. You implement every operation by hand, from dot products to Jacobians and t-statistics. Start here if you want one path that covers the whole mathematical toolkit.",
@@ -1283,6 +1462,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "time-series-and-forecasting",
+    capstone: {
+      kind: "collection",
+      id: "time-series-forecasting-arsenal",
+      title: "Time Series Forecasting Arsenal",
+      note: "Baselines, exponential smoothing, ARMA, and GARCH as one classical toolkit.",
+    },
     title: "Time Series & Forecasting",
     description:
       "The applied forecasting workflow, from raw timestamps to monitored production forecasts. You will engineer lag and rolling features, establish baselines, fit smoothing and seasonal models, then validate with rolling-origin backtests and decay monitoring. Complements Time Series Forecasting with a stronger machine-learning and ops flavour.",
@@ -1332,6 +1517,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "graph-machine-learning",
+    capstone: {
+      kind: "collection",
+      id: "graph-algorithms-toolkit",
+      title: "Graph Algorithms Toolkit",
+      note: "Revisit traversals, shortest paths, and connectivity before training on graphs.",
+    },
     title: "Graph Machine Learning",
     description:
       "Representation learning on graphs: message passing, pooling, and normalized adjacency first, then centrality and similarity for link prediction, then embeddings with random walks, LINE, and WL kernels. Finish by training GNN-style layers and finding communities spectrally. Take it after Graph Algorithms and Deep Learning Essentials.",
@@ -1388,6 +1579,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "computer-vision-deep-learning",
+    capstone: {
+      kind: "project",
+      id: "cnn",
+      title: "Build a CNN from Scratch",
+      note: "Assemble convolution, pooling, and softmax into a classifier you can trace end to end.",
+    },
     title: "Computer Vision Deep Learning",
     description:
       "The deep-learning side of vision, from convolution arithmetic to ViTs and depth. You will count the FLOPs and parameters of modern conv blocks, fold batch norm, schedule augmentations, match anchors, score detections and segmentations, and patchify images for transformers. Take it after the vision starter and the deep-learning essentials.",
@@ -1437,6 +1634,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "production-ml-serving-quantization-monitoring",
+    capstone: {
+      kind: "collection",
+      id: "cuda-and-gpu-performance",
+      title: "CUDA & GPU Performance",
+      note: "FLOPs, memory, and MFU: the systems math behind the serving budgets this path computes.",
+    },
     title: "Production ML: Serving, Quantization and Monitoring",
     description:
       "Everything between a trained model and a live endpoint: training-system budgets, quantization, batching, KV-cache capacity, and drift monitoring. You will estimate throughput and memory, quantize weights and caches, size continuous batching, and decide when to retrain. Take it after the ML engineer track or the deep-learning essentials.",
@@ -1493,6 +1696,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "data-pipelines-and-feature-engineering",
+    capstone: {
+      kind: "lab",
+      id: "lab-07",
+      title: "Robust Sensor Calibration",
+      note: "Real sensor data with outliers: build the pipeline and the model that survives them.",
+    },
     title: "Data Pipelines & Feature Engineering",
     description:
       "Turn raw tables and event streams into trustworthy model inputs. You will construct interactions, bins, and crossings, build lag and rolling features, split honestly without leakage, detect drift and duplicates, and sketch streams with HyperLogLog, Space-Saving, t-digest, and reservoir sampling. Take it after ML From Scratch and Statistics Mastery.",
@@ -1549,6 +1758,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "build-a-transformer-from-scratch",
+    capstone: {
+      kind: "project",
+      id: "gpt",
+      title: "Build a GPT from Scratch",
+      note: "The full decoder-only transformer, exactly the stack this path assembles piece by piece.",
+    },
     title: "Build a Transformer from Scratch",
     description:
       "The capstone: assemble a working transformer from first principles, one component at a time. Tokenization and embeddings feed scaled attention, attention assembles into a block, masks and a stable loss train it, and caches plus FLOPs let you decode and measure it. Several problems intentionally revisit Deep Learning Essentials and LLM Engineering; that repetition is spaced review, not filler, and it is how the pieces finally lock together. Take it after Deep Learning Essentials.",
@@ -1606,6 +1821,12 @@ export const LEARNING_PATHS: LearningPath[] = [
 
   {
     id: "causal-inference-and-uplift",
+    capstone: {
+      kind: "contest",
+      id: "statistics-speedrun",
+      title: "Statistics Speedrun",
+      note: "A timed pass over the descriptive core that the causal estimators build on.",
+    },
     title: "Causal Inference & Uplift",
     description:
       "Go beyond correlation to what actually changes outcomes. You will estimate propensity scores, weight and trim samples for average treatment effects, adjust with causal forests and quasi-experiments, build uplift models with trusted calibration, and test time-aware causality with Granger and cointegration tools. Take it after Statistics Mastery.",
