@@ -5,12 +5,14 @@ import { useState, useSyncExternalStore } from "react";
 import { CONCEPTS } from "@/data/concepts";
 import { LABS } from "@/data/labs";
 import { RESEARCH_CHALLENGES } from "@/data/research";
+import { BUG_HUNT_CHANGE_EVENT } from "@/lib/bugHunt";
 import { DAILY_CHANGE_EVENT } from "@/lib/daily";
 import { CONCEPTS_CHANGE_EVENT } from "@/lib/concepts";
 import { CONTEST_CHANGE_EVENT } from "@/lib/contestStore";
 import { LAB_CHANGE_EVENT } from "@/lib/labs";
 import { PENPAPER_CHANGE_EVENT } from "@/lib/penpaper";
 import { RESEARCH_CHANGE_EVENT } from "@/lib/research";
+import { RUNS_CHANGE_EVENT } from "@/lib/runs";
 import {
   EMPTY_READINESS_GOAL,
   EMPTY_READINESS_PROJECTION,
@@ -49,6 +51,12 @@ import {
   type TimeOfDayBucket,
   type TrendDay,
 } from "@/lib/stats";
+import {
+  emptyWeeklyDigest,
+  getWeeklyDigest,
+  isWeeklyDigestEmpty,
+  type WeeklyDigest,
+} from "@/lib/weeklyDigest";
 import { cn } from "@/lib/utils";
 import { FlameGlyph } from "@/components/SolvedBanner";
 import type { Difficulty } from "@/types/problem";
@@ -67,6 +75,7 @@ interface StatsData {
   readiness: ReadinessBreakdown;
   goal: ReadinessGoal;
   projection: ReadinessProjection;
+  weeklyDigest: WeeklyDigest;
 }
 
 const EMPTY_STATS: StatsData = {
@@ -104,6 +113,7 @@ const EMPTY_STATS: StatsData = {
   readiness: { value: 0, coverage: 0, retention: 0, balance: 0, consistency: 0, rehearsal: 0 },
   goal: EMPTY_READINESS_GOAL,
   projection: EMPTY_READINESS_PROJECTION,
+  weeklyDigest: emptyWeeklyDigest(),
 };
 
 const TREND_DAYS = 30;
@@ -120,6 +130,8 @@ const STATS_EVENTS = [
   PENPAPER_CHANGE_EVENT,
   READINESS_GOAL_CHANGE_EVENT,
   REVIEWS_CHANGE_EVENT,
+  BUG_HUNT_CHANGE_EVENT,
+  RUNS_CHANGE_EVENT,
 ];
 
 let cached: StatsData | null = null;
@@ -137,6 +149,7 @@ function buildStats(): StatsData {
     readiness: getReadinessScore(),
     goal: getReadinessGoal(),
     projection: getReadinessProjection(),
+    weeklyDigest: getWeeklyDigest(),
   };
 }
 
@@ -1226,6 +1239,95 @@ function ReviewHealthCard({ health }: { health: ReviewHealth }) {
   );
 }
 
+function DeltaBadge({ value }: { value: number }) {
+  return (
+    <span
+      className={cn(
+        "font-mono text-[10px]",
+        value > 0 ? "text-accent" : "text-body-mid",
+      )}
+    >
+      {value > 0 ? `+${value}` : `${value}`}
+    </span>
+  );
+}
+
+function DigestTile({
+  label,
+  value,
+  delta,
+}: {
+  label: string;
+  value: string;
+  delta?: number;
+}) {
+  return (
+    <div className="rounded-lg border border-hairline bg-canvas px-3 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] text-body-mid">{label}</span>
+        {delta !== undefined && <DeltaBadge value={delta} />}
+      </div>
+      <div className="mt-0.5 font-mono text-base text-ink">{value}</div>
+    </div>
+  );
+}
+
+function WeeklyDigestCard({ digest }: { digest: WeeklyDigest }) {
+  if (isWeeklyDigestEmpty(digest)) return null;
+
+  const start = formatDateKey(digest.windowStart);
+  const end = formatDateKey(digest.windowEnd);
+  const range = start && end ? `${start} – ${end}` : null;
+
+  return (
+    <div className="rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-medium text-ink">This week</h3>
+        {range && (
+          <span className="font-mono text-[10px] text-body-mid">{range}</span>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-body-mid">
+        The last 7 local days, compared with the week before.
+      </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <DigestTile
+          label="Solved"
+          value={`${digest.solved}`}
+          delta={digest.deltaVsPreviousWeek.solved}
+        />
+        <DigestTile
+          label="Points"
+          value={`${digest.points}`}
+          delta={digest.deltaVsPreviousWeek.points}
+        />
+        <DigestTile
+          label="Reviews"
+          value={`${digest.reviewsCompleted}`}
+          delta={digest.deltaVsPreviousWeek.reviewsCompleted}
+        />
+        <DigestTile label="Active days" value={`${digest.activeDays}/7`} />
+        <DigestTile label="Daily chain" value={`${digest.dailyChainDays}/7`} />
+        <DigestTile
+          label="Best day"
+          value={digest.bestDay ? `${digest.bestDay.solved} solved` : "—"}
+        />
+      </div>
+
+      <p className="mt-3 text-[10px] text-body-mid">
+        {digest.bestDay && (
+          <>Best day {formatDateKey(digest.bestDay.date)}. </>
+        )}
+        {digest.cleanBugHunts} clean{" "}
+        {digest.cleanBugHunts === 1 ? "bug hunt" : "bug hunts"} of{" "}
+        {digest.bugHunts} · {digest.speedrunsFinished} speedruns finished ·{" "}
+        {digest.labsPassed} labs passed
+      </p>
+    </div>
+  );
+}
+
 function PracticeMix({ overview }: { overview: Overview }) {
   const items = [
     {
@@ -1289,6 +1391,7 @@ export function StatsDashboard() {
     readiness,
     goal,
     projection,
+    weeklyDigest,
   } = stats;
 
   return (
@@ -1344,6 +1447,12 @@ export function StatsDashboard() {
           projection={projection}
         />
       </div>
+
+      {!isWeeklyDigestEmpty(weeklyDigest) && (
+        <div className="mt-3">
+          <WeeklyDigestCard digest={weeklyDigest} />
+        </div>
+      )}
 
       {hasReviewState(reviewHealth) && (
         <div className="mt-3">
