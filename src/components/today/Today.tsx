@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Concept } from "@/data/concepts";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
+import { RESEARCH_CHALLENGES } from "@/data/research";
 import { Reveal } from "@/components/motion/Reveal";
 import { getDailyQuests, type Quest } from "@/lib/badges";
 import {
@@ -29,7 +30,12 @@ import {
   labReviewDue,
   type LabReviewItem,
 } from "@/lib/labReviews";
-import { getTopAction, type Action } from "@/lib/nextBestAction";
+import {
+  getNextResearchAction,
+  getTopAction,
+  type Action,
+  type ResearchAction,
+} from "@/lib/nextBestAction";
 import { readPlacement, type PlacementRecord } from "@/lib/onboarding";
 import {
   evaluateStageCheckpoint,
@@ -43,6 +49,10 @@ import {
   type ProgressMap,
 } from "@/lib/progress";
 import { problemHref } from "@/lib/problemLinks";
+import {
+  RESEARCH_CHANGE_EVENT,
+  getResearchState,
+} from "@/lib/research";
 import {
   dueReviews,
   forgetReview,
@@ -85,6 +95,8 @@ interface SessionView {
   solvedToday: number;
   checkpoint: PlanCheckpoint | null;
   nextAction: Action | null;
+  researchNext: ResearchAction | null;
+  researchBeaten: number;
 }
 
 const CARD_CLASSES = "rounded-lg border border-hairline bg-canvas-card p-4 sm:p-5";
@@ -238,6 +250,7 @@ export function TodayScreen() {
     const progress = getProgress();
     const conceptStates = getConceptStates(now);
     const placement = readPlacement();
+    const researchState = getResearchState();
     setView({
       now,
       reviews,
@@ -257,6 +270,10 @@ export function TodayScreen() {
         ? findReadyCheckpoint(placement, progress, reviews, now)
         : null,
       nextAction: getTopAction(now),
+      researchNext: getNextResearchAction(),
+      researchBeaten: RESEARCH_CHALLENGES.filter(
+        (challenge) => researchState[challenge.id]?.beatenBaseline === true,
+      ).length,
     });
   }, []);
 
@@ -268,6 +285,7 @@ export function TodayScreen() {
     window.addEventListener(DAILY_CHANGE_EVENT, apply);
     window.addEventListener(CONCEPTS_CHANGE_EVENT, apply);
     window.addEventListener(LAB_REVIEWS_CHANGE_EVENT, apply);
+    window.addEventListener(RESEARCH_CHANGE_EVENT, apply);
     window.addEventListener("storage", apply);
     return () => {
       window.removeEventListener(REVIEWS_CHANGE_EVENT, apply);
@@ -275,6 +293,7 @@ export function TodayScreen() {
       window.removeEventListener(DAILY_CHANGE_EVENT, apply);
       window.removeEventListener(CONCEPTS_CHANGE_EVENT, apply);
       window.removeEventListener(LAB_REVIEWS_CHANGE_EVENT, apply);
+      window.removeEventListener(RESEARCH_CHANGE_EVENT, apply);
       window.removeEventListener("storage", apply);
     };
   }, [refresh]);
@@ -739,6 +758,51 @@ export function TodayScreen() {
               <div className="mt-auto pt-4">
                 <Link href="/math" className={SECONDARY_LINK_CLASSES}>
                   Open Pen &amp; Paper Math
+                </Link>
+              </div>
+            </section>
+          </Reveal>
+        )}
+
+        {view.researchNext && (
+          <Reveal delay={420} className="h-full">
+            <section
+              aria-labelledby="today-research"
+              className={cn(CARD_CLASSES, "flex h-full flex-col")}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <SectionHeading id="today-research">Research</SectionHeading>
+                <p className="font-mono text-[11px] text-mute">
+                  {view.researchBeaten}/{RESEARCH_CHALLENGES.length} baselines
+                  beaten
+                </p>
+              </div>
+              <ul className="mt-3 divide-y divide-hairline">
+                <li>
+                  <Link
+                    href={view.researchNext.href}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors hover:bg-canvas-soft focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-ink">
+                        {view.researchNext.title}
+                      </span>
+                      <span className="block text-xs text-body-mid">
+                        {view.researchNext.reason}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-mono text-xs text-mute">
+                      {view.researchNext.points} pts
+                    </span>
+                  </Link>
+                </li>
+              </ul>
+              <p className="mt-3 text-xs text-body-mid">
+                Beat the baseline with your own Python to clear it.
+              </p>
+              <div className="mt-auto pt-4">
+                <Link href="/research" className={SECONDARY_LINK_CLASSES}>
+                  Open Research
                 </Link>
               </div>
             </section>

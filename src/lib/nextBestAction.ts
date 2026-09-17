@@ -30,9 +30,15 @@
  * and coverage candidates are only offered once the learner has started
  * something, so the "do this next" row can stay hidden without guessing.
  * `getTopAction` is the single highest-ranked action, or null.
+ *
+ * `getNextResearchAction` sits outside the ranking: research challenges are
+ * evergreen, so the best unbeaten one — a weak or unseen metric family
+ * first, then catalogue order — gets its own Today row instead of a score.
  */
 
+import { formatScore, metricLabel } from "@/components/research/format";
 import { LABS } from "@/data/labs";
+import { RESEARCH_CHALLENGES } from "@/data/research";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
 import { getDueConcepts, getConceptStates } from "@/lib/concepts";
@@ -49,6 +55,7 @@ import {
 import { getAllPaths, slugify } from "@/lib/paths";
 import { problemHref } from "@/lib/problemLinks";
 import { getProgress, type ProgressMap } from "@/lib/progress";
+import { getResearchState } from "@/lib/research";
 import { dueReviews, getReviewMap, type ReviewMap } from "@/lib/reviewQueue";
 import type { Category } from "@/types/problem";
 
@@ -389,4 +396,48 @@ export function getNextBestActions(now: Date = new Date()): Action[] {
 /** The single best action, or null when nothing is worth surfacing. */
 export function getTopAction(now: Date = new Date()): Action | null {
   return getNextBestActions(now)[0] ?? null;
+}
+
+/* ───────────────────────────── research row ───────────────────────────── */
+
+/**
+ * The best unbeaten research challenge, shaped like the other Today rows:
+ * title, a metric + baseline line, the points on offer, and the workspace
+ * link. Challenges whose metric family has no passing lab yet — weak or
+ * untouched — are preferred; otherwise the first unbeaten challenge in
+ * catalogue order wins. Null once all five baselines are beaten.
+ */
+export interface ResearchAction {
+  id: string;
+  title: string;
+  reason: string;
+  points: number;
+  href: string;
+}
+
+export function getNextResearchAction(): ResearchAction | null {
+  const state = getResearchState();
+  const unbeaten = RESEARCH_CHALLENGES.filter(
+    (challenge) => state[challenge.id]?.beatenBaseline !== true,
+  );
+  if (unbeaten.length === 0) return null;
+
+  const labsById = new Map(LABS.map((lab) => [lab.id, lab]));
+  const passedMetrics = new Set<string>();
+  for (const [labId, record] of Object.entries(getLabRecords())) {
+    const lab = labsById.get(labId);
+    if (lab && record.passed) passedMetrics.add(lab.metric);
+  }
+  const challenge =
+    unbeaten.find((item) => !passedMetrics.has(item.metric)) ?? unbeaten[0];
+
+  return {
+    id: `research:${challenge.id}`,
+    title: challenge.title,
+    reason: `${metricLabel(challenge.metric)} · baseline ${formatScore(
+      challenge.baselineScore,
+    )} (${challenge.baselineName})`,
+    points: challenge.points,
+    href: `/research/${challenge.id}`,
+  };
 }

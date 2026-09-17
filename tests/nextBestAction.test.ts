@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { LABS } from "@/data/labs";
 import { CATEGORIES } from "@/data/problems/meta";
 import { PROBLEM_META } from "@/data/problems/problem-meta";
+import { RESEARCH_CHALLENGES } from "@/data/research";
 import { getDailyProblem } from "@/lib/dailyProblem";
 import {
   ACTION_LIMIT,
   getNextBestActions,
+  getNextResearchAction,
   getTopAction,
 } from "@/lib/nextBestAction";
 import { evaluateStageCheckpoint } from "@/lib/pathCheckpoints";
@@ -108,6 +110,7 @@ const PLACEMENT_KEY = "deepforge:placement:v1";
 const ATTEMPTS_KEY = "deepforge:checkpoint-attempts:v1";
 const DAILY_KEY = "deepforge:daily:v1";
 const PENPAPER_KEY = "deepforge:penpaper:v1";
+const RESEARCH_KEY = "deepforge:research:v1";
 
 function checkpointFixture(): {
   path: ReturnType<typeof getAllPaths>[number];
@@ -350,6 +353,114 @@ describe("ordering and determinism", () => {
     expect(wide).toBe(42);
     expect(narrow).toBeGreaterThanOrEqual(18);
     expect(wide).toBeGreaterThan(narrow);
+  });
+});
+
+describe("research row", () => {
+  test("an unbeaten catalogue surfaces the first challenge with its baseline", () => {
+    const first = RESEARCH_CHALLENGES[0];
+    const row = getNextResearchAction();
+    expect(row).not.toBeNull();
+    expect(row?.id).toBe(`research:${first.id}`);
+    expect(row?.title).toBe(first.title);
+    expect(row?.href).toBe(`/research/${first.id}`);
+    expect(row?.points).toBe(first.points);
+    expect(row?.reason).toBe("accuracy · baseline 0.6667 (Majority class)");
+  });
+
+  test("a metric family with no passing lab is preferred", () => {
+    const records: Record<string, unknown> = {};
+    for (const lab of LABS.filter((item) => item.metric === "accuracy")) {
+      records[lab.id] = {
+        best: lab.target,
+        attempts: 1,
+        passed: true,
+        lastScoredAt: isoAt("2026-01-15"),
+        recentPasses: [isoAt("2026-01-15")],
+      };
+    }
+    const mseLab = LABS.find((lab) => lab.metric === "mse")!;
+    records[mseLab.id] = { best: null, attempts: 2, passed: false };
+    write(LABS_KEY, records);
+
+    const row = getNextResearchAction();
+    expect(row?.id).toBe("research:nonlinear-regression-chase");
+    expect(row?.href).toBe("/research/nonlinear-regression-chase");
+    expect(row?.reason).toBe("MSE · baseline 0.4432 (Linear regression)");
+  });
+
+  test("with every metric family passed, catalogue order decides", () => {
+    const records: Record<string, unknown> = {};
+    const covered = new Set<string>();
+    for (const lab of LABS) {
+      if (covered.has(lab.metric)) continue;
+      covered.add(lab.metric);
+      records[lab.id] = { best: lab.target, attempts: 1, passed: true };
+    }
+    write(LABS_KEY, records);
+
+    const row = getNextResearchAction();
+    expect(row?.id).toBe(`research:${RESEARCH_CHALLENGES[0].id}`);
+  });
+
+  test("four beaten baselines still surface the remaining challenge", () => {
+    const state: Record<string, unknown> = {};
+    for (const challenge of RESEARCH_CHALLENGES.slice(0, 4)) {
+      state[challenge.id] = {
+        bestScore: challenge.baselineScore,
+        bestAt: isoAt(TODAY),
+        beatenBaseline: true,
+        attempts: [],
+      };
+    }
+    write(RESEARCH_KEY, state);
+
+    const row = getNextResearchAction();
+    expect(row?.id).toBe(`research:${RESEARCH_CHALLENGES[4].id}`);
+  });
+
+  test("all five baselines beaten hides the row", () => {
+    const state: Record<string, unknown> = {};
+    for (const challenge of RESEARCH_CHALLENGES) {
+      state[challenge.id] = {
+        bestScore: challenge.baselineScore,
+        bestAt: isoAt(TODAY),
+        beatenBaseline: true,
+        attempts: [],
+      };
+    }
+    write(RESEARCH_KEY, state);
+
+    expect(getNextResearchAction()).toBeNull();
+  });
+
+  test("research state never reorders the ranked actions", () => {
+    write(PROGRESS_KEY, { "la-001": solvedOn("2026-01-10") });
+    const unbeaten = getNextBestActions(NOW);
+    expect(getNextResearchAction()).not.toBeNull();
+
+    const state: Record<string, unknown> = {};
+    for (const challenge of RESEARCH_CHALLENGES) {
+      state[challenge.id] = {
+        bestScore: challenge.baselineScore,
+        bestAt: isoAt(TODAY),
+        beatenBaseline: true,
+        attempts: [],
+      };
+    }
+    write(RESEARCH_KEY, state);
+
+    expect(getNextResearchAction()).toBeNull();
+    expect(getNextBestActions(NOW)).toEqual(unbeaten);
+    expect(
+      unbeaten.some((action) => action.href.startsWith("/research/")),
+    ).toBe(false);
+  });
+
+  test("junk research payloads read as unbeaten without throwing", () => {
+    storage().setItem(RESEARCH_KEY, "{not json");
+    const row = getNextResearchAction();
+    expect(row?.id).toBe(`research:${RESEARCH_CHALLENGES[0].id}`);
   });
 });
 
