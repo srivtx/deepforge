@@ -106,7 +106,7 @@ See [`docs/SETUP-SUPABASE.md`](./docs/SETUP-SUPABASE.md) for schema, RLS, and au
 
 ## Performance
 
-Measured with `bun run scripts/measure-bundle.ts --check` (gzip first-load JS; all four routes within budget):
+Measured with `bun run scripts/measure-bundle.ts --check` (gzip first-load JS; all four routes within budget). The production build is ~136 MB: problem pages render on demand with 24 h ISR instead of prerendering the whole 5,730-problem bank at build time (which cost ~1 GB of HTML/RSC output per deployment):
 
 | Route | Before light index | Now |
 |---|---:|---:|
