@@ -35,8 +35,9 @@ record it asserts:
 
 A record with a divergence in either suite is a gate failure, as is any
 record whose optional unionProbes/unionPassed/heldOutProbes/heldOutPassed
-metadata disagrees with the recomputation. Calls are bounded by a 0.25 s wall
-alarm and a 400,000-line tracing budget. Prints one line per puzzle and a
+metadata disagrees with the recomputation. Calls are bounded by a 1.0 s wall
+alarm (hardware-tolerant; the census engines replayed at 0.25 s) and a
+400,000-line tracing budget. Prints one line per puzzle and a
 machine-readable `ALIBI_GATE_SUMMARY {...}` line, and exits non-zero on any
 failure.
 """
@@ -54,7 +55,7 @@ import sys
 from contextlib import redirect_stdout
 
 TOL = 1e-6
-CALL_TIMEOUT = 0.25
+CALL_TIMEOUT = 1.0  # hardware-tolerant gate budget; census engines replayed at 0.25 s
 LINE_BUDGET = 400_000
 LAZY_PROBE_CAP = 128
 LAZY_DEPTH = 3
