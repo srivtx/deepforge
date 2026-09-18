@@ -36,6 +36,7 @@ const STATIC_ROUTES: Record<string, string> = {
   discuss: "/discuss",
   interview: "/interview",
   inventions: "/inventions",
+  keyfuse: "/keyfuse",
   labs: "/labs",
   leaderboard: "/leaderboard",
   ledger: "/ledger",

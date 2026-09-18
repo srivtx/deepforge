@@ -11,6 +11,7 @@
     "verify": "bun run scripts/verify-problems.ts",
     "verify:alibis": "bun run scripts/verify-alibis.ts",
     "verify:bdl": "bun run scripts/verify-bdl.ts",
+    "verify:keyfuse": "bun run scripts/verify-keyfuse.ts",
     "prune:vercel": "node scripts/vercel-prune.mjs --execute",
     "prune:vercel:dry": "node scripts/vercel-prune.mjs"
   },

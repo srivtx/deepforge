@@ -29,7 +29,7 @@
  * schemes are ignored entirely.
  */
 
-const VERSION = "v9";
+const VERSION = "v10";
 
 const IS_LOCAL = ["localhost", "127.0.0.1", "0.0.0.0"].includes(
   self.location.hostname,
@@ -70,6 +70,7 @@ const PRECACHE_ROUTES = [
   "/discuss",
   "/interview",
   "/inventions",
+  "/keyfuse",
   "/labs",
   "/labs/trails",
   "/leaderboard",

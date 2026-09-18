@@ -58,6 +58,10 @@ jobs:
         timeout-minutes: 8
         run: bun run scripts/verify-bdl.ts
 
+      - name: Verify KeyFuse (probe + witness gate)
+        timeout-minutes: 6
+        run: bun run scripts/verify-keyfuse.ts
+
       - name: Build
         timeout-minutes: 15
         run: bun run build

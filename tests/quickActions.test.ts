@@ -143,6 +143,7 @@ describe("matching", () => {
       "today-session",
       "behavior-ledger",
       "research",
+      "open-keyfuse",
     ]);
     // Same prefix tier: the 15-char stats label beats the 23-char one.
     expect(matchQuickActions("show").map((action) => action.id)).toEqual([

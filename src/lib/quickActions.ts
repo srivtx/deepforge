@@ -66,6 +66,13 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
     href: "/ledger",
   },
   {
+    id: "open-keyfuse",
+    label: "Open KeyFuse cache-key auditor",
+    keywords: ["keyfuse", "cache", "key", "witness", "env", "audit", "collision"],
+    kind: "navigate",
+    href: "/keyfuse",
+  },
+  {
     id: "stats",
     label: "Show statistics",
     keywords: ["stats", "statistics", "dashboard", "progress", "mastery"],

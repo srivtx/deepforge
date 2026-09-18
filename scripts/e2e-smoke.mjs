@@ -543,6 +543,30 @@ record("inventions: alibi pdf", alibiPdfOk, `${BASE_URL}/inventions/alibi-distan
 line(alibiPdfOk, `GET /inventions/alibi-distance/paper.pdf  status=${alibiPdf?.status ?? 0}`);
 const sitemapAlibi = has(sitemap.body, "/alibi");
 record("sitemap: alibi route", sitemapAlibi, sitemap.url, '"/alibi" missing from sitemap');
+const keyfusePage = await get("/keyfuse");
+const keyfuseOk = keyfusePage.status === 200 && has(keyfusePage.body, "KeyFuse");
+record("keyfuse: auditor page", keyfuseOk, keyfusePage.url, `status=${keyfusePage.status}`);
+line(keyfuseOk, `GET /keyfuse  status=${keyfusePage.status}`);
+const sitemapKeyfuse = has(sitemap.body, "/keyfuse");
+record("sitemap: keyfuse route", sitemapKeyfuse, sitemap.url, '"/keyfuse" missing from sitemap');
+const keyfusePaper = await get("/inventions/keyfuse");
+const keyfusePaperOk = keyfusePaper.status === 200 && has(keyfusePaper.body, "Abstract");
+record("inventions: keyfuse paper", keyfusePaperOk, keyfusePaper.url, `status=${keyfusePaper.status}`);
+line(keyfusePaperOk, `GET /inventions/keyfuse  status=${keyfusePaper.status}`);
+const keyfusePdf = await fetch(`${BASE_URL}/inventions/keyfuse/paper.pdf`, {
+  signal: AbortSignal.timeout(20000),
+}).catch(() => null);
+const keyfusePdfType = keyfusePdf?.headers.get("content-type") ?? "";
+const keyfusePdfBody = keyfusePdf ? Buffer.from(await keyfusePdf.arrayBuffer()) : Buffer.alloc(0);
+const keyfusePdfMagic = keyfusePdfBody.subarray(0, 5).toString();
+const keyfusePdfOk =
+  Boolean(keyfusePdf) &&
+  keyfusePdf.status === 200 &&
+  keyfusePdfType.includes("application/pdf") &&
+  keyfusePdfMagic === "%PDF-";
+record("inventions: keyfuse pdf", keyfusePdfOk, `${BASE_URL}/inventions/keyfuse/paper.pdf`,
+  `status=${keyfusePdf?.status ?? 0} type=${keyfusePdfType} magic=${keyfusePdfMagic}`);
+line(keyfusePdfOk, `GET /inventions/keyfuse/paper.pdf  status=${keyfusePdf?.status ?? 0}`);
 line(sitemapAlibi, `GET /sitemap.xml  alibi=${sitemapAlibi ? "yes" : "NO"}`);
 
 // --- 17. Wave-42 surfaces (behavior ledger + paper #3) ------------------------

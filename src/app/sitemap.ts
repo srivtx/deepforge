@@ -49,6 +49,7 @@ const ROUTES = [
   { path: "/review", changeFrequency: "weekly", priority: 0.7 },
   { path: "/alibi", changeFrequency: "weekly", priority: 0.5 },
   { path: "/ledger", changeFrequency: "weekly", priority: 0.5 },
+  { path: "/keyfuse", changeFrequency: "weekly", priority: 0.5 },
   { path: "/articles", changeFrequency: "weekly", priority: 0.8 },
   { path: "/blog", changeFrequency: "weekly", priority: 0.7 },
   { path: "/sims", changeFrequency: "weekly", priority: 0.7 },
