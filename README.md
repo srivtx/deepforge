@@ -25,7 +25,7 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Local-first, sync optional** — no account needed; sign in with a magic link or Google only if you want cross-device progress, a global leaderboard, and shared discussions
 - **Real curriculum** — 33 learning paths with stages, goals, resolved prerequisites, adaptive per-stage checkpoints, a mini-project artifact per stage, a verified capstone (project, lab, contest, collection, or pen-and-paper set) per path, each with its own page
 - **Beyond problems** — labs, research benchmarks, timed contests, speedruns, sims, notebook mode, and spaced-repetition review across code and pen-and-paper math
-- **Fast by design** — a light problem index keeps the landing page at ~277 KB gzip; the full bank loads on demand
+- **Fast by design** — a light problem index keeps the landing page at ~278 KB gzip; the full bank loads on demand
 - **Discoverable** — 5,730 statically generated problem pages, 15 category hubs, 33 path pages, 35 paper pages, JSON-LD, OG images, sitemap, RSS
 - **Open source** — MIT, file-based content, verifiable and diffable
 
@@ -46,7 +46,10 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 
 - **Problems** — code editor, in-browser Pyodide execution, test cases, a tiered hint budget (approach after 1 failed run or 3 min; full solution after 2 or 6), saved code per problem
 - **Paths** — 33 curated learning paths with stages, goals, resolved prerequisites, adaptive per-stage checkpoints (boss sets that react to your last attempt), a mini-project artifact per stage, a capstone per path, and progress; every path has a detail page
-- **Today & review queue** — one zero-decision daily session: spaced repetition for code you have solved (SM-2 style, due/learning/new buckets), lab re-runs and math concepts that come due with inline grading, a weak-area pick, the daily problem, a placement plan, a stage-checkpoint-ready row, and a transparent "Do this next" pick
+- **Today & review queue** — one zero-decision daily session: spaced repetition for code you have solved (Ladder-Graded Spacing, due/learning/new buckets), lab re-runs and math concepts that come due with inline grading, a weak-area pick, the daily problem, a placement plan, a stage-checkpoint-ready row, and a transparent "Do this next" pick
+- **Silent Bug Hunt** — `/alibi`: a Python function that passes every shipped test but hides a one-line divergence; find an input that breaks it. Practice only — no grading, review, or certificates
+- **Behavior ledger** — `/ledger`: after you edit your code, see whether the change altered behavior on up to 24 hidden checks derived from the problem's own tests — as a count, never a grade, never "better/worse"
+- **Bionic reading + real PDFs** — every published invention defaults to bionic reading with a one-click switch to normal; each paper also ships a locally generated PDF with figures, tables, and formulas
 - **Onboarding** — a three-minute diagnostic at `/start` that recommends paths, a first problem set, and a daily target
 - **Projects** — 5 multi-step builds: GPT from scratch, neural network framework, search engine, recommender, CNN — each with a detail page
 - **Labs** — 8 dataset-driven challenges with metrics, baselines, and time limits, scored in-browser; each has a detail page with theory, rules, a deterministic data preview, a timed runner, and a Python-verified reference solution behind a Show solution reveal
@@ -150,10 +153,10 @@ bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 1,417 unit tests (74 files)
+bun test                                  # 1,582 unit tests (78 files)
 bun run build
 bunx next start -p 3099 &                 # production server the smoke suite expects
-bun run scripts/e2e-smoke.mjs             # 179-check end-to-end smoke against :3099
+bun run scripts/e2e-smoke.mjs             # 187-check end-to-end smoke against :3099
 ```
 
 ## Quick Start
