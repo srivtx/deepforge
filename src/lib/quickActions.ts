@@ -52,6 +52,20 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
     href: "/review",
   },
   {
+    id: "alibi-hunt",
+    label: "Hunt a silent bug",
+    keywords: ["silent", "bug", "alibi", "hunt", "divergence", "counterexample", "puzzle"],
+    kind: "navigate",
+    href: "/alibi",
+  },
+  {
+    id: "behavior-ledger",
+    label: "Open the behavior ledger",
+    keywords: ["ledger", "behavior", "delta", "no-op", "edit", "checks", "hidden"],
+    kind: "navigate",
+    href: "/ledger",
+  },
+  {
     id: "stats",
     label: "Show statistics",
     keywords: ["stats", "statistics", "dashboard", "progress", "mastery"],

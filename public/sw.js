@@ -29,7 +29,7 @@
  * schemes are ignored entirely.
  */
 
-const VERSION = "v8";
+const VERSION = "v9";
 
 const IS_LOCAL = ["localhost", "127.0.0.1", "0.0.0.0"].includes(
   self.location.hostname,
@@ -57,6 +57,7 @@ const FONT_PATTERN = /\.(?:woff2?|ttf|otf|eot)$/i;
 const PRECACHE_ROUTES = [
   "/",
   "/about",
+  "/alibi",
   "/articles",
   "/backup",
   "/badges",
@@ -72,6 +73,7 @@ const PRECACHE_ROUTES = [
   "/labs",
   "/labs/trails",
   "/leaderboard",
+  "/ledger",
   "/math",
   "/papers",
   "/paths",
@@ -102,6 +104,7 @@ const NAVIGATION_FALLBACKS = [
   { prefix: "/interview/", fallback: "/interview" },
   { prefix: "/inventions/", fallback: "/inventions" },
   { prefix: "/labs/", fallback: "/labs" },
+  { prefix: "/ledger/", fallback: "/ledger" },
   { prefix: "/papers/", fallback: "/papers" },
   { prefix: "/paths/", fallback: "/paths" },
   { prefix: "/problems/", fallback: "/problems" },

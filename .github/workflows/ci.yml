@@ -50,6 +50,14 @@ jobs:
       - name: Verify problem bank (Python 3 harness)
         run: bun run scripts/verify-problems.ts
 
+      - name: Verify alibi bank (Python 3 harness)
+        timeout-minutes: 12
+        run: bun run scripts/verify-alibis.ts
+
+      - name: Verify behavioral delta ledger (census + harness fixtures)
+        timeout-minutes: 8
+        run: bun run scripts/verify-bdl.ts
+
       - name: Build
         timeout-minutes: 15
         run: bun run build

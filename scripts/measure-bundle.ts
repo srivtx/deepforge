@@ -39,6 +39,8 @@ const BUDGETS_KB: Record<string, number> = {
   "/problems": 354,
   "/about": 352,
   "/stats": 417,
+  "/alibi": 445,
+  "/ledger": 440,
 };
 
 const KEY_ROUTES = [
@@ -47,6 +49,8 @@ const KEY_ROUTES = [
   "/categories/linear-algebra",
   "/paths/math-foundations",
   "/problems/la-001",
+  "/alibi",
+  "/ledger",
   "/stats",
   "/collections",
   "/playlists",

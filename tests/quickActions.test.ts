@@ -130,6 +130,7 @@ describe("matching", () => {
       "review-queue",
       "assistant-show",
       "assistant-hide",
+      "behavior-ledger",
       "daily-challenge",
     ]);
     // All "Open …" labels prefix-match; shorter labels first (labs, then the
@@ -140,6 +141,7 @@ describe("matching", () => {
       "labs",
       "review-queue",
       "today-session",
+      "behavior-ledger",
       "research",
     ]);
     // Same prefix tier: the 15-char stats label beats the 23-char one.

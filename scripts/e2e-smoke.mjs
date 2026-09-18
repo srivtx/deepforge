@@ -517,8 +517,64 @@ record("sitemap: inventions", sitemapInventions, sitemap.url,
   "missing /inventions/<slug>");
 line(sitemapInventions, `GET /sitemap.xml  inventions=${sitemapInventions ? "yes" : "NO"}`);
 
-// --- 16. Summary -------------------------------------------------------------
-console.log("\n[16/16] Summary");
+// --- 16. Wave-41 surfaces (silent bug hunt + paper #2) -----------------------
+console.log("\n[16/18] Wave-41 surfaces");
+const alibiPage = await get("/alibi");
+const alibiOk = alibiPage.status === 200 && has(alibiPage.body, "Silent Bug Hunt");
+record("alibi: hunt page", alibiOk, alibiPage.url, `status=${alibiPage.status}`);
+line(alibiOk, `GET /alibi  status=${alibiPage.status}`);
+const alibiPaper = await get("/inventions/alibi-distance");
+const alibiPaperOk = alibiPaper.status === 200 && has(alibiPaper.body, "Abstract");
+record("inventions: alibi paper", alibiPaperOk, alibiPaper.url, `status=${alibiPaper.status}`);
+line(alibiPaperOk, `GET /inventions/alibi-distance  status=${alibiPaper.status}`);
+const alibiPdf = await fetch(`${BASE_URL}/inventions/alibi-distance/paper.pdf`, {
+  signal: AbortSignal.timeout(20000),
+}).catch(() => null);
+const alibiPdfType = alibiPdf?.headers.get("content-type") ?? "";
+const alibiPdfBody = alibiPdf ? Buffer.from(await alibiPdf.arrayBuffer()) : Buffer.alloc(0);
+const alibiPdfMagic = alibiPdfBody.subarray(0, 5).toString();
+const alibiPdfOk =
+  Boolean(alibiPdf) &&
+  alibiPdf.status === 200 &&
+  alibiPdfType.includes("application/pdf") &&
+  alibiPdfMagic === "%PDF-";
+record("inventions: alibi pdf", alibiPdfOk, `${BASE_URL}/inventions/alibi-distance/paper.pdf`,
+  `status=${alibiPdf?.status ?? 0} type=${alibiPdfType} magic=${alibiPdfMagic}`);
+line(alibiPdfOk, `GET /inventions/alibi-distance/paper.pdf  status=${alibiPdf?.status ?? 0}`);
+const sitemapAlibi = has(sitemap.body, "/alibi");
+record("sitemap: alibi route", sitemapAlibi, sitemap.url, '"/alibi" missing from sitemap');
+line(sitemapAlibi, `GET /sitemap.xml  alibi=${sitemapAlibi ? "yes" : "NO"}`);
+
+// --- 17. Wave-42 surfaces (behavior ledger + paper #3) ------------------------
+console.log("\n[17/18] Wave-42 surfaces");
+const ledgerPage = await get("/ledger");
+const ledgerOk = ledgerPage.status === 200 && has(ledgerPage.body, "Behavioral Delta Ledger");
+record("ledger: picker", ledgerOk, ledgerPage.url, `status=${ledgerPage.status}`);
+line(ledgerOk, `GET /ledger  status=${ledgerPage.status}`);
+const ledgerPaper = await get("/inventions/behavioral-delta-ledger");
+const ledgerPaperOk = ledgerPaper.status === 200 && has(ledgerPaper.body, "Abstract");
+record("inventions: ledger paper", ledgerPaperOk, ledgerPaper.url, `status=${ledgerPaper.status}`);
+line(ledgerPaperOk, `GET /inventions/behavioral-delta-ledger  status=${ledgerPaper.status}`);
+const ledgerPdf = await fetch(`${BASE_URL}/inventions/behavioral-delta-ledger/paper.pdf`, {
+  signal: AbortSignal.timeout(20000),
+}).catch(() => null);
+const ledgerPdfType = ledgerPdf?.headers.get("content-type") ?? "";
+const ledgerPdfBody = ledgerPdf ? Buffer.from(await ledgerPdf.arrayBuffer()) : Buffer.alloc(0);
+const ledgerPdfMagic = ledgerPdfBody.subarray(0, 5).toString();
+const ledgerPdfOk =
+  Boolean(ledgerPdf) &&
+  ledgerPdf.status === 200 &&
+  ledgerPdfType.includes("application/pdf") &&
+  ledgerPdfMagic === "%PDF-";
+record("inventions: ledger pdf", ledgerPdfOk, `${BASE_URL}/inventions/behavioral-delta-ledger/paper.pdf`,
+  `status=${ledgerPdf?.status ?? 0} type=${ledgerPdfType} magic=${ledgerPdfMagic}`);
+line(ledgerPdfOk, `GET /inventions/behavioral-delta-ledger/paper.pdf  status=${ledgerPdf?.status ?? 0}`);
+const sitemapLedger = has(sitemap.body, "/ledger");
+record("sitemap: ledger route", sitemapLedger, sitemap.url, '"/ledger" missing from sitemap');
+line(sitemapLedger, `GET /sitemap.xml  ledger=${sitemapLedger ? "yes" : "NO"}`);
+
+// --- 18. Summary -------------------------------------------------------------
+console.log("\n[18/18] Summary");
 const groupNames = [...new Set(checks.map((c) => c.group))];
 console.table(
   groupNames.map((group) => {

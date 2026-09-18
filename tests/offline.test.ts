@@ -23,6 +23,7 @@ const SW = readFileSync(SW_PATH, "utf8");
 /** Static page routes: src/app/<dir>/page.tsx, plus the root page at "/". */
 const STATIC_ROUTES: Record<string, string> = {
   about: "/about",
+  alibi: "/alibi",
   articles: "/articles",
   backup: "/backup",
   badges: "/badges",
@@ -37,6 +38,7 @@ const STATIC_ROUTES: Record<string, string> = {
   inventions: "/inventions",
   labs: "/labs",
   leaderboard: "/leaderboard",
+  ledger: "/ledger",
   math: "/math",
   papers: "/papers",
   paths: "/paths",
@@ -114,6 +116,12 @@ const DYNAMIC_ROUTES: DynamicRoute[] = [
     prefix: "/labs/",
     fallback: "/labs",
     reason: "lab index lists every hands-on challenge",
+  },
+  {
+    dir: "ledger/[id]",
+    prefix: "/ledger/",
+    fallback: "/ledger",
+    reason: "ledger picker lists every attempted problem",
   },
   {
     dir: "papers/[slug]",
