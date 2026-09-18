@@ -29,7 +29,7 @@
  * schemes are ignored entirely.
  */
 
-const VERSION = "v10";
+const VERSION = "v11";
 
 const IS_LOCAL = ["localhost", "127.0.0.1", "0.0.0.0"].includes(
   self.location.hostname,
@@ -91,6 +91,7 @@ const PRECACHE_ROUTES = [
   "/submit",
   "/today",
   "/verify",
+  "/warrant",
 ];
 
 // Offline stand-ins for dynamic routes. Longest matching prefix wins, so the

@@ -56,6 +56,7 @@ const STATIC_ROUTES: Record<string, string> = {
   submit: "/submit",
   today: "/today",
   verify: "/verify",
+  warrant: "/warrant",
 };
 
 interface DynamicRoute {

@@ -25,6 +25,7 @@ export type SectionId =
   | "papers"
   | "inventions"
   | "keyfuse"
+  | "warrant"
   | "sims"
   | "discuss"
   | "submit"
@@ -302,6 +303,16 @@ const SECTION_LIST: SectionMeta[] = [
     group: "Learn",
     icon: "M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
     keywords: ["keyfuse", "cache", "key", "witness", "audit", "collision", "env"],
+  },
+  {
+    id: "warrant",
+    href: "/warrant",
+    title: "Warrant Lab",
+    blurb:
+      "A read-only contestability lab: derived claims carry an append-only falsification ledger, a recomputable warrant grade, and exact demotion through cites — never a truth verdict.",
+    group: "Learn",
+    icon: "M12 3v18M6 6l-4 8a4 4 0 0 0 8 0zM18 6l-4 8a4 4 0 0 0 8 0zM4 21h16",
+    keywords: ["warrant", "refutation", "ledger", "audit", "challenge", "grade", "demote", "cites"],
   },
   {
     id: "sims",

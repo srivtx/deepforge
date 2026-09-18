@@ -73,6 +73,13 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
     href: "/keyfuse",
   },
   {
+    id: "open-warrant",
+    label: "Open the Warrant Lab",
+    keywords: ["warrant", "refutation", "ledger", "audit", "challenge", "grade", "cites"],
+    kind: "navigate",
+    href: "/warrant",
+  },
+  {
     id: "stats",
     label: "Show statistics",
     keywords: ["stats", "statistics", "dashboard", "progress", "mastery"],

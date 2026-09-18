@@ -42,6 +42,7 @@ const BUDGETS_KB: Record<string, number> = {
   "/alibi": 445,
   "/ledger": 440,
   "/keyfuse": 440,
+  "/warrant": 440,
 };
 
 const KEY_ROUTES = [
@@ -53,6 +54,7 @@ const KEY_ROUTES = [
   "/alibi",
   "/ledger",
   "/keyfuse",
+  "/warrant",
   "/stats",
   "/collections",
   "/playlists",

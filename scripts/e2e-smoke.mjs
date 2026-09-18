@@ -597,8 +597,39 @@ const sitemapLedger = has(sitemap.body, "/ledger");
 record("sitemap: ledger route", sitemapLedger, sitemap.url, '"/ledger" missing from sitemap');
 line(sitemapLedger, `GET /sitemap.xml  ledger=${sitemapLedger ? "yes" : "NO"}`);
 
-// --- 18. Summary -------------------------------------------------------------
-console.log("\n[18/18] Summary");
+// --- 18. Wave-44 surfaces (warrant lab + paper #5) ----------------------------
+console.log("\n[18/19] Wave-44 surfaces");
+const warrantPage = await get("/warrant");
+const warrantOk = warrantPage.status === 200 && has(warrantPage.body, "Warrant Lab");
+record("warrant: lab", warrantOk, warrantPage.url, `status=${warrantPage.status}`);
+line(warrantOk, `GET /warrant  status=${warrantPage.status}`);
+const warrantPaper = await get("/inventions/refutation-ledgers");
+const warrantPaperOk =
+  warrantPaper.status === 200 &&
+  has(warrantPaper.body, "Abstract") &&
+  has(warrantPaper.body, "Refutation-Ledger Values");
+record("inventions: warrant paper", warrantPaperOk, warrantPaper.url, `status=${warrantPaper.status}`);
+line(warrantPaperOk, `GET /inventions/refutation-ledgers  status=${warrantPaper.status}`);
+const warrantPdf = await fetch(`${BASE_URL}/inventions/refutation-ledgers/paper.pdf`, {
+  signal: AbortSignal.timeout(20000),
+}).catch(() => null);
+const warrantPdfType = warrantPdf?.headers.get("content-type") ?? "";
+const warrantPdfBody = warrantPdf ? Buffer.from(await warrantPdf.arrayBuffer()) : Buffer.alloc(0);
+const warrantPdfMagic = warrantPdfBody.subarray(0, 5).toString();
+const warrantPdfOk =
+  Boolean(warrantPdf) &&
+  warrantPdf.status === 200 &&
+  warrantPdfType.includes("application/pdf") &&
+  warrantPdfMagic === "%PDF-";
+record("inventions: warrant pdf", warrantPdfOk, `${BASE_URL}/inventions/refutation-ledgers/paper.pdf`,
+  `status=${warrantPdf?.status ?? 0} type=${warrantPdfType} magic=${warrantPdfMagic}`);
+line(warrantPdfOk, `GET /inventions/refutation-ledgers/paper.pdf  status=${warrantPdf?.status ?? 0}`);
+const sitemapWarrant = has(sitemap.body, "/warrant");
+record("sitemap: warrant route", sitemapWarrant, sitemap.url, '"/warrant" missing from sitemap');
+line(sitemapWarrant, `GET /sitemap.xml  warrant=${sitemapWarrant ? "yes" : "NO"}`);
+
+// --- 19. Summary -------------------------------------------------------------
+console.log("\n[19/19] Summary");
 const groupNames = [...new Set(checks.map((c) => c.group))];
 console.table(
   groupNames.map((group) => {

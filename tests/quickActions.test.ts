@@ -128,6 +128,7 @@ describe("matching", () => {
     expect(matchQuickActions("the").map((action) => action.id)).toEqual([
       "theme-toggle",
       "review-queue",
+      "open-warrant",
       "assistant-show",
       "assistant-hide",
       "behavior-ledger",
@@ -141,6 +142,7 @@ describe("matching", () => {
       "labs",
       "review-queue",
       "today-session",
+      "open-warrant",
       "behavior-ledger",
       "research",
       "open-keyfuse",

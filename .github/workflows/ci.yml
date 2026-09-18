@@ -62,6 +62,10 @@ jobs:
         timeout-minutes: 6
         run: bun run scripts/verify-keyfuse.ts
 
+      - name: Verify Warrant (contract + arena gate)
+        timeout-minutes: 6
+        run: bun run scripts/verify-warrant.ts
+
       - name: Build
         timeout-minutes: 15
         run: bun run build
