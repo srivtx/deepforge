@@ -1,43 +1,64 @@
+"use client";
+
+import { useState } from "react";
 import type {
   InventionBlock,
   InventionFigure,
+  InventionFigureBar,
   InventionPaper,
 } from "@/data/inventions/types";
+import { splitBionic } from "@/lib/bionic";
 
 /**
- * Server component that renders a full invention paper: numbered sections,
- * paragraphs, lists, formulas, code, tables, deterministic inline-SVG
- * figures, callouts, and the numbered reference list.
+ * Renders a full invention paper: numbered sections, paragraphs, lists,
+ * formulas, code, tables, deterministic inline-SVG figures, callouts, and the
+ * numbered reference list.
  *
- * Everything is server-rendered with no client JavaScript, so the page works
- * with JS disabled and Ctrl+P prints the same document the PDF contains.
+ * Client component because the reading-mode control is interactive: bionic
+ * reading is on by default and applies to prose (paragraphs, list items, and
+ * callout text) only. Code, formulas, tables, figure labels, section
+ * headings, and references are never transformed; the PDF projection is
+ * unaffected. With client JavaScript disabled the server-rendered HTML still
+ * shows the bionic default.
  */
 
 const FIGURE_WIDTH = 720;
 const FIGURE_HEIGHT = 340;
+const FIGURE_HEIGHT_ROTATED = 420;
 const FIGURE_MARGIN = { top: 38, right: 16, bottom: 74, left: 48 };
+const FIGURE_MARGIN_ROTATED = { top: 38, right: 16, bottom: 154, left: 48 };
+const ROTATED_LABEL_THRESHOLD = 8;
 
 function Figure({ figure }: { figure: InventionFigure }) {
-  const groups = figure.series[0]?.bars.length ?? 0;
+  const groups = Math.max(
+    1,
+    ...figure.series.map((series) => series.bars.length),
+  );
+  const rotated = groups > ROTATED_LABEL_THRESHOLD;
+  const height = rotated ? FIGURE_HEIGHT_ROTATED : FIGURE_HEIGHT;
+  const margin = rotated ? FIGURE_MARGIN_ROTATED : FIGURE_MARGIN;
+  const labels = figure.series.reduce<readonly InventionFigureBar[]>(
+    (widest, series) => (series.bars.length > widest.length ? series.bars : widest),
+    [],
+  );
   const seriesCount = figure.series.length;
-  const plotWidth = FIGURE_WIDTH - FIGURE_MARGIN.left - FIGURE_MARGIN.right;
-  const plotHeight = FIGURE_HEIGHT - FIGURE_MARGIN.top - FIGURE_MARGIN.bottom;
-  const groupWidth = groups > 0 ? plotWidth / groups : plotWidth;
+  const plotWidth = FIGURE_WIDTH - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const groupWidth = plotWidth / groups;
   const barWidth = Math.min(30, Math.max(8, (groupWidth * 0.6) / seriesCount));
   const barGap = 6;
-  const baseline = FIGURE_MARGIN.top + plotHeight;
+  const baseline = margin.top + plotHeight;
   const titleId = `figure-${figure.id}-title`;
   const descId = `figure-${figure.id}-desc`;
 
-  const y = (value: number) =>
-    FIGURE_MARGIN.top + plotHeight * (1 - value / figure.max);
+  const y = (value: number) => margin.top + plotHeight * (1 - value / figure.max);
 
   const ticks = [0, 1, 2, 3].map((step) => (figure.max * step) / 3);
 
   return (
     <figure className="rounded-lg border border-hairline bg-canvas-card p-3 sm:p-4 print:break-inside-avoid">
       <svg
-        viewBox={`0 0 ${FIGURE_WIDTH} ${FIGURE_HEIGHT}`}
+        viewBox={`0 0 ${FIGURE_WIDTH} ${height}`}
         role="img"
         aria-labelledby={`${titleId} ${descId}`}
         className="h-auto w-full"
@@ -48,7 +69,7 @@ function Figure({ figure }: { figure: InventionFigure }) {
         {figure.series.map((series, index) => (
           <g key={series.label}>
             <rect
-              x={FIGURE_MARGIN.left + index * 116}
+              x={margin.left + index * 116}
               y={12}
               width={10}
               height={10}
@@ -58,7 +79,7 @@ function Figure({ figure }: { figure: InventionFigure }) {
               }
             />
             <text
-              x={FIGURE_MARGIN.left + index * 116 + 16}
+              x={margin.left + index * 116 + 16}
               y={21}
               fontSize={11}
               className="fill-current text-body-mid"
@@ -71,15 +92,15 @@ function Figure({ figure }: { figure: InventionFigure }) {
         {ticks.map((tick) => (
           <g key={tick}>
             <line
-              x1={FIGURE_MARGIN.left}
-              x2={FIGURE_WIDTH - FIGURE_MARGIN.right}
+              x1={margin.left}
+              x2={FIGURE_WIDTH - margin.right}
               y1={y(tick)}
               y2={y(tick)}
               className="stroke-hairline"
               strokeWidth={1}
             />
             <text
-              x={FIGURE_MARGIN.left - 8}
+              x={margin.left - 8}
               y={y(tick) + 4}
               textAnchor="end"
               fontSize={11}
@@ -93,8 +114,8 @@ function Figure({ figure }: { figure: InventionFigure }) {
         {typeof figure.gate === "number" && (
           <g>
             <line
-              x1={FIGURE_MARGIN.left}
-              x2={FIGURE_WIDTH - FIGURE_MARGIN.right}
+              x1={margin.left}
+              x2={FIGURE_WIDTH - margin.right}
               y1={y(figure.gate)}
               y2={y(figure.gate)}
               strokeDasharray="5 4"
@@ -102,7 +123,7 @@ function Figure({ figure }: { figure: InventionFigure }) {
               className="stroke-current text-body-mid"
             />
             <text
-              x={FIGURE_WIDTH - FIGURE_MARGIN.right}
+              x={FIGURE_WIDTH - margin.right}
               y={y(figure.gate) - 5}
               textAnchor="end"
               fontSize={10}
@@ -117,20 +138,20 @@ function Figure({ figure }: { figure: InventionFigure }) {
           series.bars.map((bar, barIndex) => {
             const clusterWidth =
               barWidth * seriesCount + barGap * (seriesCount - 1);
-            const groupLeft = FIGURE_MARGIN.left + barIndex * groupWidth;
+            const groupLeft = margin.left + barIndex * groupWidth;
             const x =
               groupLeft +
               (groupWidth - clusterWidth) / 2 +
               seriesIndex * (barWidth + barGap);
             const top = y(bar.value);
-            const height = Math.max(1, baseline - top);
+            const barHeight = Math.max(1, baseline - top);
             return (
               <g key={`${series.label}-${bar.label}`}>
                 <rect
                   x={x}
                   y={top}
                   width={barWidth}
-                  height={height}
+                  height={barHeight}
                   rx={2}
                   className={
                     seriesIndex === 0
@@ -152,18 +173,23 @@ function Figure({ figure }: { figure: InventionFigure }) {
           }),
         )}
 
-        {(figure.series[0]?.bars ?? []).map((bar, barIndex) => (
-          <text
-            key={bar.label}
-            x={FIGURE_MARGIN.left + barIndex * groupWidth + groupWidth / 2}
-            y={baseline + 26}
-            textAnchor="middle"
-            fontSize={12}
-            className="fill-current text-body-mid"
-          >
-            {bar.label}
-          </text>
-        ))}
+        {labels.map((bar, barIndex) => {
+          const x = margin.left + barIndex * groupWidth + groupWidth / 2;
+          const y = baseline + (rotated ? 16 : 26);
+          return (
+            <text
+              key={bar.label}
+              x={x}
+              y={y}
+              textAnchor={rotated ? "end" : "middle"}
+              fontSize={rotated ? 11 : 12}
+              transform={rotated ? `rotate(-45 ${x} ${y})` : undefined}
+              className="fill-current text-body-mid"
+            >
+              {bar.label}
+            </text>
+          );
+        })}
       </svg>
       <figcaption className="mt-2 text-xs leading-relaxed text-body-mid">
         <span className="font-medium text-body">{figure.title}.</span>{" "}
@@ -174,11 +200,40 @@ function Figure({ figure }: { figure: InventionFigure }) {
   );
 }
 
-function BlockView({ block }: { block: InventionBlock }) {
+/**
+ * Prose renderer for the bionic mode: bold segments use spans with
+ * `font-semibold` (never `<strong>`, so screen readers read the text
+ * normally). In normal mode the original string is rendered untouched.
+ */
+function ProseText({ text, bionic }: { text: string; bionic: boolean }) {
+  if (!bionic) return <>{text}</>;
+  return (
+    <>
+      {splitBionic(text).map((segment, index) => (
+        <span
+          key={`${index}-${segment.bold ? "b" : "p"}`}
+          className={segment.bold ? "font-semibold" : undefined}
+        >
+          {segment.text}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function BlockView({
+  block,
+  bionic,
+}: {
+  block: InventionBlock;
+  bionic: boolean;
+}) {
   switch (block.kind) {
     case "paragraph":
       return (
-        <p className="text-sm leading-relaxed text-body">{block.text}</p>
+        <p className="text-sm leading-relaxed text-body">
+          <ProseText text={block.text} bionic={bionic} />
+        </p>
       );
 
     case "list": {
@@ -193,7 +248,7 @@ function BlockView({ block }: { block: InventionBlock }) {
         >
           {block.items.map((item) => (
             <li key={item} className="pl-1">
-              {item}
+              <ProseText text={item} bionic={bionic} />
             </li>
           ))}
         </ListTag>
@@ -285,15 +340,61 @@ function BlockView({ block }: { block: InventionBlock }) {
       return (
         <aside className="rounded-lg border border-hairline bg-canvas-card p-4 print:break-inside-avoid">
           <p className="text-sm font-medium text-ink">{block.title}</p>
-          <p className="mt-1 text-sm leading-relaxed text-body">{block.text}</p>
+          <p className="mt-1 text-sm leading-relaxed text-body">
+            <ProseText text={block.text} bionic={bionic} />
+          </p>
         </aside>
       );
   }
 }
 
+function ReadingModeControl({
+  bionic,
+  onChange,
+}: {
+  bionic: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const buttonClass = (active: boolean) =>
+    `min-h-11 rounded-md border px-2.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0 lg:min-h-9 ${
+      active
+        ? "border-accent/40 bg-accent/5 text-accent"
+        : "border-hairline bg-canvas text-body-mid hover:text-ink"
+    }`;
+
+  return (
+    <div
+      role="group"
+      aria-label="Reading mode"
+      className="flex flex-wrap items-center gap-1.5 rounded-lg border border-hairline bg-canvas-card p-1.5 lg:fixed lg:right-4 lg:top-24 lg:z-30 lg:w-24 lg:flex-col lg:items-stretch print:hidden"
+    >
+      <span className="px-1.5 text-xs text-mute lg:text-center">Reading</span>
+      <button
+        type="button"
+        aria-pressed={bionic}
+        onClick={() => onChange(true)}
+        className={buttonClass(bionic)}
+      >
+        Bionic
+      </button>
+      <button
+        type="button"
+        aria-pressed={!bionic}
+        onClick={() => onChange(false)}
+        className={buttonClass(!bionic)}
+      >
+        Normal
+      </button>
+    </div>
+  );
+}
+
 export function PaperBody({ paper }: { paper: InventionPaper }) {
+  const [bionic, setBionic] = useState(true);
+
   return (
     <div className="flex flex-col gap-10">
+      <ReadingModeControl bionic={bionic} onChange={setBionic} />
       {paper.sections.map((section) => (
         <section
           key={section.id}
@@ -309,7 +410,7 @@ export function PaperBody({ paper }: { paper: InventionPaper }) {
           </h2>
           <div className="flex flex-col gap-4">
             {section.blocks.map((block, blockIndex) => (
-              <BlockView key={blockIndex} block={block} />
+              <BlockView key={blockIndex} block={block} bionic={bionic} />
             ))}
           </div>
         </section>

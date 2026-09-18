@@ -23,7 +23,10 @@ def _deep_eq(a, b, tol=TOL):
         try:
             return math.isclose(float(a), float(b), rel_tol=tol, abs_tol=tol)
         except (ValueError, OverflowError):
-            return float(a) == float(b)
+            # Values too large for float() (e.g. ~1900-digit ints) compare
+            # exactly in Python; re-raising here turned a verdict into a
+            # harness error.
+            return a == b
     if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
         return len(a) == len(b) and all(_deep_eq(x, y, tol) for x, y in zip(a, b))
     if isinstance(a, dict) and isinstance(b, dict):

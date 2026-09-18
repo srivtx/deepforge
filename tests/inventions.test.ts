@@ -32,9 +32,13 @@ function firstBytes(bytes: Uint8Array, count: number): string {
 describe("invention registry", () => {
   test("exports exactly the expected papers, and the lib re-export is the same list", () => {
     expect(DATA_INVENTIONS.map((paper) => paper.slug)).toEqual([
+      "behavioral-delta-ledger",
+      "alibi-distance",
       "ladder-graded-spacing",
     ]);
     expect(INVENTIONS.map((paper) => paper.slug)).toEqual([
+      "behavioral-delta-ledger",
+      "alibi-distance",
       "ladder-graded-spacing",
     ]);
     expect(INVENTIONS).toBe(DATA_INVENTIONS);
@@ -192,7 +196,9 @@ describe("citations and filenames", () => {
       expect(paperFilename(paper)).toBe(`${paper.slug}.pdf`);
       expect(paperFilename(paper)).toBe(paperFilename(paper));
     }
-    expect(paperFilename(INVENTIONS[0])).toBe("ladder-graded-spacing.pdf");
+    expect(paperFilename(INVENTIONS[0])).toBe("behavioral-delta-ledger.pdf");
+    expect(paperFilename(INVENTIONS[1])).toBe("alibi-distance.pdf");
+    expect(paperFilename(INVENTIONS[2])).toBe("ladder-graded-spacing.pdf");
   });
 });
 
@@ -229,7 +235,7 @@ describe("static routes", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/pdf");
     expect(response.headers.get("content-disposition")).toContain(
-      "ladder-graded-spacing.pdf",
+      `${paper.slug}.pdf`,
     );
     const bytes = new Uint8Array(await response.arrayBuffer());
     expect(firstBytes(bytes, 4)).toBe("%PDF");

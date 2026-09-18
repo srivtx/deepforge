@@ -118,6 +118,10 @@ export const BACKUP_EXCLUDED_KEYS: Readonly<Record<string, string>> = {
     "manual execution-mode switch, an environment flag not learner data",
   "deepforge:pwa-hint-dismissed":
     "device install-hint dismissal, not learner data",
+  "deepforge:bdl:v1":
+    "regenerable device-local signature ledger, recomputed per run",
+  "deepforge:bdl-shelf:v1":
+    "device-scoped source shelf duplicating progress.savedCode; opt-in JSON export instead",
 };
 
 /** True when a key must never be exported or restored. */

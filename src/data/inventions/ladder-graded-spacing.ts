@@ -57,6 +57,33 @@ const EDGE_TABLE = {
   ],
 } as const;
 
+const EDGE_FIGURE = {
+  id: "edge-cohort-reviews",
+  title: "Edge cohorts: reviews relative to SM-2",
+  caption:
+    "Reviews per retained item relative to SM-2 (1.00 is parity, lower is better) for the three edge cohorts, spec-full versus the shipped noE variant. The ship gate is 1.10x; spec-full breaks it on hint-heavy (1.449x), while noE finishes below parity in every cohort (0.9933 / 0.7755 / 0.8375). The retuned h15 and nonHintE arms are in the edge table above.",
+  unit: "reviews relative to SM-2 (1.0 = parity, lower is better)",
+  max: 1.5,
+  series: [
+    {
+      label: "spec-full",
+      bars: [
+        { label: "Hint-heavy", value: 1.449 },
+        { label: "Reset-heavy", value: 1.001 },
+        { label: "One leech", value: 0.999 },
+      ],
+    },
+    {
+      label: "noE (chosen)",
+      bars: [
+        { label: "Hint-heavy", value: 0.9933 },
+        { label: "Reset-heavy", value: 0.7755 },
+        { label: "One leech", value: 0.8375 },
+      ],
+    },
+  ],
+} as const;
+
 const HEADLINE_TABLE = {
   kind: "table",
   title: "Chosen configuration (noE): headline outcomes",
@@ -373,6 +400,20 @@ export const LADDER_GRADED_SPACING: InventionPaper = {
           columns: [...EDGE_TABLE.columns],
           rows: EDGE_TABLE.rows.map((row) => [...row]),
           caption: EDGE_TABLE.caption,
+        },
+        {
+          kind: "figure",
+          figure: {
+            id: EDGE_FIGURE.id,
+            title: EDGE_FIGURE.title,
+            caption: EDGE_FIGURE.caption,
+            unit: EDGE_FIGURE.unit,
+            max: EDGE_FIGURE.max,
+            series: EDGE_FIGURE.series.map((series) => ({
+              label: series.label,
+              bars: series.bars.map((bar) => ({ ...bar })),
+            })),
+          },
         },
         {
           kind: "table",

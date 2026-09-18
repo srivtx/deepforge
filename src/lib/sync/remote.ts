@@ -144,6 +144,8 @@ const SYNC_CHANGE_EVENT = "deepforge:sync-change";
  *   deepforge:forum              comments.ts — social engine owns its own tables
  *   deepforge:session:v1         backend.ts — cached auth session (per device)
  *   deepforge:sync:v1            remote.ts — last-synced stamp (per device)
+ *   deepforge:bdl:v1             bdlStore.ts — ledger signatures, device-local by design
+ *   deepforge:bdl-shelf:v1       bdlStore.ts — opt-in source shelf, device-scoped
  */
 const ALL_STORE_IDS: StoreId[] = [
   "progress",

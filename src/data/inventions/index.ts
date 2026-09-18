@@ -5,6 +5,8 @@
  * exposes the list the routes, the PDF endpoint, and the tests share.
  */
 
+import { ALIBI_DISTANCE } from "./alibi-distance";
+import { BEHAVIORAL_DELTA_LEDGER } from "./behavioral-delta-ledger";
 import { LADDER_GRADED_SPACING } from "./ladder-graded-spacing";
 import type { InventionPaper } from "./types";
 
@@ -19,7 +21,11 @@ export type {
 } from "./types";
 
 /** Every DeepForge invention paper, newest first. */
-export const INVENTIONS: InventionPaper[] = [LADDER_GRADED_SPACING];
+export const INVENTIONS: InventionPaper[] = [
+  BEHAVIORAL_DELTA_LEDGER,
+  ALIBI_DISTANCE,
+  LADDER_GRADED_SPACING,
+];
 
 /** Deterministic slug lookup; undefined for unknown slugs. */
 export function getInventionBySlug(slug: string): InventionPaper | undefined {
