@@ -16,12 +16,16 @@ import { SECTIONS_BY_ID } from "@/lib/sections";
 export type NavItemId =
   | "today"
   | "review"
+  | "daily"
+  | "alibi"
+  | "ledger"
   | "problems"
   | "paths"
   | "projects"
   | "articles"
   | "papers"
   | "inventions"
+  | "keyfuse"
   | "penpaper"
   | "interview"
   | "daily"
@@ -46,15 +50,18 @@ export type NavItemId =
 const NAV_ITEM_LABELS: Record<NavItemId, string> = {
   today: "Today",
   review: "Review",
+  daily: "Daily Challenge",
+  alibi: "Silent Bug Hunt",
+  ledger: "Behavior Ledger",
   problems: "Problems",
   paths: "Paths",
   projects: "Projects",
   articles: "Articles",
   papers: "Papers",
   inventions: "Inventions",
+  keyfuse: "KeyFuse",
   penpaper: "Pen & Paper",
   interview: "Interview Prep",
-  daily: "Daily Challenge",
   labs: "Labs",
   playground: "Playground",
   sims: "Sims",
@@ -92,7 +99,7 @@ export const NAV_MENUS: NavMenu[] = [
     label: "Learn",
     groups: [
       {
-        items: ["problems", "paths", "projects", "articles", "papers", "inventions", "penpaper", "interview"],
+        items: ["problems", "paths", "projects", "articles", "papers", "inventions", "keyfuse", "penpaper", "interview"],
       },
     ],
   },
@@ -100,7 +107,7 @@ export const NAV_MENUS: NavMenu[] = [
     id: "practice",
     label: "Practice",
     groups: [
-      { items: ["today", "review", "daily", "labs", "playground", "sims", "research"] },
+      { items: ["today", "review", "daily", "alibi", "ledger", "labs", "playground", "sims", "research"] },
     ],
   },
   {
@@ -132,11 +139,11 @@ export const NAV_MENUS: NavMenu[] = [
 export const MOBILE_NAV_GROUPS: { label: string; items: NavItemId[] }[] = [
   {
     label: "Learn",
-    items: ["problems", "paths", "projects", "articles", "papers", "inventions", "penpaper", "interview"],
+    items: ["problems", "paths", "projects", "articles", "papers", "inventions", "keyfuse", "penpaper", "interview"],
   },
   {
     label: "Practice",
-    items: ["today", "review", "daily", "labs", "playground", "sims", "research"],
+    items: ["today", "review", "daily", "alibi", "ledger", "labs", "playground", "sims", "research"],
   },
   {
     label: "Compete",

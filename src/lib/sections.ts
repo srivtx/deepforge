@@ -2,6 +2,8 @@ export type SectionId =
   | "today"
   | "review"
   | "daily"
+  | "alibi"
+  | "ledger"
   | "problems"
   | "paths"
   | "projects"
@@ -22,6 +24,7 @@ export type SectionId =
   | "articles"
   | "papers"
   | "inventions"
+  | "keyfuse"
   | "sims"
   | "discuss"
   | "submit"
@@ -83,6 +86,26 @@ const SECTION_LIST: SectionMeta[] = [
     group: "Practice",
     icon: "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4",
     keywords: ["daily", "challenge", "streak", "today"],
+  },
+  {
+    id: "alibi",
+    href: "/alibi",
+    title: "Silent Bug Hunt",
+    blurb:
+      "Hunt a silent bug: patch a function and find the input where a hidden ghost that passes every shipped test diverges from the reference.",
+    group: "Practice",
+    icon: "M9 6V5a3 3 0 0 1 6 0v1M7 8h10v7a5 5 0 0 1-10 0V8zM7 11H3M7 14l-3.5 2M17 11h4M17 14l3.5 2M12 20v2",
+    keywords: ["alibi", "bug", "hunt", "silent", "divergence", "puzzle", "game"],
+  },
+  {
+    id: "ledger",
+    href: "/ledger",
+    title: "Behavior Ledger",
+    blurb:
+      "See which hidden checks an edit changed — counts only, opt-in and device-local, never grading.",
+    group: "Practice",
+    icon: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+    keywords: ["ledger", "behavior", "delta", "no-op", "hidden", "checks"],
   },
   {
     id: "problems",
@@ -269,6 +292,16 @@ const SECTION_LIST: SectionMeta[] = [
     group: "Learn",
     icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15h6M9 11h3",
     keywords: ["inventions", "invention", "publication", "pdf", "lgs"],
+  },
+  {
+    id: "keyfuse",
+    href: "/keyfuse",
+    title: "KeyFuse",
+    blurb:
+      "A read-only cache-key auditor: probe a task's declared inputs, print a minimal same-key / different-output witness, and repair the key conservatively.",
+    group: "Learn",
+    icon: "M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
+    keywords: ["keyfuse", "cache", "key", "witness", "audit", "collision", "env"],
   },
   {
     id: "sims",
