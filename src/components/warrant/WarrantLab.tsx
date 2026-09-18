@@ -44,13 +44,13 @@ const CONTEXT = "warrant-demo:session";
 const STATUS_HEADING_ID = "warrant-status-heading";
 
 const INTRO =
-  "Warrant Lab is a browser-session demo of refutation-ledger values. A derived claim carries an append-only ledger of admitted challenges; its grade γ is recomputed from that ledger and from the grades of every claim it cites. Challenge a claim, read the fold that pins its grade, or audit the arithmetic against a frozen head anchor.";
+  "Every card below is a claim this platform would normally hand you without evidence: a hint, an explanation, a difficulty label, a prerequisite link. Here each one carries the list of checks run against it and the grade that comes out. Press a button on any card to add a check, see the arithmetic, or audit the bookkeeping — all in this browser tab.";
 
 const SESSION_NOTE =
-  "Browser-session only. Nothing is stored or sent. The nine demo claims and their ledgers are built once from a frozen fixture when the page loads; local actions append to this browser's copy of the store.";
+  "Browser-session only. Nothing is stored or sent. The nine demo claims are built from a frozen fixture when the page loads; your button presses append to this tab's copy only.";
 
 const AUDIT_NOTE =
-  "Audit re-checks arithmetic against the ledger and the frozen head anchor only. The frozen anchor predates this session; local challenges are expected to report head-mismatch.";
+  "Audit redoes the arithmetic and checks the stored link chain against a frozen head anchor. Because the anchor was frozen before this session, a claim you challenged here is expected to report a head-mismatch.";
 
 const KIND_LABEL: Readonly<Record<string, string>> = {
   hint: "Hint",
@@ -470,7 +470,7 @@ export function WarrantLab() {
             tabIndex={-1}
             className="text-xs font-medium text-body-mid focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
-            Session output
+            What just happened
           </h2>
         </div>
         <div aria-live="polite" className="flex flex-col gap-3 px-4 py-4 sm:px-5">
@@ -487,7 +487,9 @@ export function WarrantLab() {
           )}
           {message === null && auditSummary === undefined && (
             <p className="text-xs leading-snug text-body-mid">
-              No action yet. Use Challenge, Why, or Audit on a claim card below.
+              Nothing yet. Press a button on any claim card below — start with
+              &quot;Why this grade?&quot; on Hint · hint-000, or follow the
+              three-press tour above.
             </p>
           )}
         </div>

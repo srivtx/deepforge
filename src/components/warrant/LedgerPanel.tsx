@@ -184,7 +184,7 @@ export function LedgerPanel({
           </p>
         ) : (
           <p className="mt-2 text-xs leading-relaxed text-body">
-            {`${countLabel(declaredClasses, "declared dependency class", "declared dependency classes")} survived; ${countLabel(refutedCount, "refutation", "refutations")}; ${countLabel(chain.length, "challenge", "challenges")} on record.`}
+            {`Survived ${countLabel(declaredClasses, "declared check-family", "declared check-families")}; ${countLabel(refutedCount, "refutation", "refutations")}; ${countLabel(chain.length, "check", "checks")} on record.`}
           </p>
         )}
       </div>
@@ -197,11 +197,15 @@ export function LedgerPanel({
       </div>
 
       <div className={CARD}>
-        <h3 className={CARD_HEADING}>Recomputed grade</h3>
+        <h3 className={CARD_HEADING}>The grade, step by step</h3>
         <pre className="df-scroll mt-2 max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-hairline bg-canvas-soft p-2.5 font-mono text-xs leading-relaxed text-body">
           γ(v) = dead if any admitted refuted append else min(K, D(chain), min
           γ(cites))
         </pre>
+        <p className="mt-2 text-xs leading-relaxed text-body-mid">
+          Read it as: γ is 3 at most; a cited claim can drag it lower; one
+          refutation makes it dead for good.
+        </p>
         <div className="mt-2 flex flex-col gap-1.5 text-xs leading-relaxed text-body">
           <p>
             {`K = ${WARRANT_MAX_GRADE} (WARRANT_MAX_GRADE); D = ${declaredClasses} declared dependency classes; current γ = ${grade === null ? "not computed here" : gradeLabel(grade)}; own part of the fold before cites = ${gradeLabel(own)}.`}
@@ -306,40 +310,40 @@ export function LedgerPanel({
       </div>
 
       <div className={CARD}>
-        <h3 className={CARD_HEADING}>Session actions</h3>
+        <h3 className={CARD_HEADING}>Try it</h3>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             className={CHALLENGE_BUTTON}
             onClick={() => onChallenge(valueId, "survived")}
           >
-            Local challenge (survived)
+            Log a survival check
           </button>
           <button
             type="button"
             className={CHALLENGE_BUTTON}
             onClick={() => onChallenge(valueId, "refuted")}
           >
-            Local challenge (refuted)
+            Log a refutation
           </button>
           <button
             type="button"
             className={READ_BUTTON}
             onClick={() => onWhy(valueId)}
           >
-            Why
+            Why this grade?
           </button>
           <button
             type="button"
             className={READ_BUTTON}
             onClick={() => onAudit(valueId)}
           >
-            Audit
+            Audit ledger
           </button>
         </div>
         <p className="mt-2 text-[11px] leading-snug text-mute">
-          These actions run in this browser session only; nothing is stored or
-          sent.
+          These four buttons change this browser tab only; nothing is stored or
+          sent. A refutation is recorded against the claim, never the person.
         </p>
         {auditSummary !== undefined && (
           <div className="mt-3 rounded-md border border-hairline bg-canvas-soft p-2.5">
