@@ -239,3 +239,27 @@ attestation envelope** (i.e., combine the integer subset with the DEVSIG/credent
 `wave-48-candidates-browser.md` §C5), where the unmatched clause becomes *offline-verifiable proof that a
 specific declared kernel produced a specific cross-adapter hash*. Do **not** re-propose general float
 bit-reproducibility: §15.7 of the WGSL spec and NVIDIA's own team both state it is not available.
+
+---
+
+## 10. Post-publication correction (2026-09-19): the pass missed two live overlaps
+
+The first pass's database and GitHub-code search did not surface two current, live WebGPU artifacts that
+share REPROGPU's core intuition. Both were found only after a reader challenged the novelty claim, and both
+are now rows in the paper's T1 table and are reflected in the revised sections 2 and 7.
+
+| Missed work | URL | What it actually does | What it does not do |
+|---|---|---|---|
+| **Coherence Energy Labs `gpu-exact` demo** (live) | https://demos.coherenceenergylabs.com/gpu-exact/ | Runs one fixed-point reaction-diffusion kernel in JavaScript on the CPU and as a WebGPU `i32` compute shader on the GPU, SHA-256s both, and shows them **bit-identical**; includes a live "flip one bit" tamper test and an explicit **integer-exact / float-drifts** scope note | A single CPU-versus-GPU pair on the visitor's machine, not cross-adapter vendor-to-vendor; no pinned reference hashes; no multi-kernel suite; no manifest format; no CI gate; not presented as a reusable library |
+| **`stfurkan/bitgpu`** (GitHub, MIT, 27★) | https://github.com/stfurkan/bitgpu | Dependency-free WebGPU runtime for 1-bit LLMs in the browser; greedy output and KV-cache reuse gated **bit-exact on real hardware** with a headless GPU verification gate | An application runtime, not a declared integer-kernel conformance protocol; no cross-adapter hash manifest; no exactness-boundary kernel suite; no reference-hash pins |
+
+**Consequence for the claim.** The earlier "unmatched clause" wording ("a browser/WebGPU library that
+publishes cross-adapter bit-identical output hashes for a declared integer/fixed-point WGSL kernel subset,
+plus a conformance harness — no located project does this") was **overstated**, because the *idea* (exact
+integer execution + hashing + CPU/GPU comparison + declared float boundary) is already demonstrated live by
+Coherence, and bit-exact integer execution in browser WebGPU is already an active engineering direction
+(bitgpu). What survives, and is now stated narrowly, is the **cross-adapter (vendor-to-vendor) multi-kernel
+manifest protocol with pinned reference hashes and an explicit gate honesty rule** — a combination/artifact
+contribution, not an unprecedented capability. The verdict remains **GO-WEAK**; the word "unmatched" is
+retired for this candidate. The paper was corrected in the same commit, and a correction paragraph was added
+to its section 2.

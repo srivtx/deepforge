@@ -39,7 +39,7 @@ const T1: InventionBlock = {
   kind: "table",
   title: "T1. Closest work and the exact delta (static; no REPROGPU numbers)",
   caption:
-    "Every row states the mechanism that is known elsewhere and the clause that is not done there. No row is a comparison against a strawman, and none of these works was run in our gate. The unmatched clause is narrow: a browser/WebGPU library that publishes cross-adapter byte-identical output hashes for a declared integer/fixed-point WGSL subset, plus a conformance harness. The science of reproducible accumulation is mature; the runtime is new.",
+    "Every row states the mechanism that is known elsewhere and the clause that is not done there. No row is a comparison against a strawman, and none of these works was run in our gate. The exact integer-execution idea is not new, and the CPU-versus-GPU hash-equality demonstration already exists: the Coherence Energy Labs gpu-exact demo runs one fixed-point kernel in JS on the CPU and as a WebGPU i32 shader on the GPU, SHA-256s both, and shows them bit-identical. The clause not located there is narrower: a reusable, multi-kernel conformance protocol that pins byte-level reference hashes for a declared integer/fixed-point WGSL subset and collects cross-adapter (vendor-to-vendor, not CPU-versus-GPU-on-one-machine) manifests, with a gate that states what it does not prove. The science of reproducible accumulation is mature; the artifact is a narrow combination, not an unprecedented capability.",
   columns: ["Work", "URL", "What it does", "Clauses not done"],
   rows: [
     ["ReproBLAS / binned summation (TOMS 2020)", "https://doi.org/10.1145/3389360", "Bitwise order-independent float sum, dot, and nrm2 via a 6-word binned accumulator; handles over- and underflow reproducibly", "GPU/WebGPU port; conformance harness; GEMM absent from the stable release"],
@@ -58,6 +58,8 @@ const T1: InventionBlock = {
     ["SAGE software attestation for GPUs (USENIX ATC 2023)", "https://www.usenix.org/system/files/atc23-ivanov.pdf", "Verifiable untampered kernel execution on an NVIDIA GPU", "Attests code integrity, not numeric reproducibility; no browser path"],
     ["WebGPU CTS floating-point primer", "https://chromium.googlesource.com/external/github.com/gpuweb/cts/+/07f15b8e1e73c5cc52d94ab9916a59c04f9c95ec/docs/fp_primer.md", "The normative cross-vendor conformance suite; tests floating-point accuracy within ULP and absolute tolerances", "Tests tolerances, not bit-exact cross-adapter output hashes"],
     ["PAradigm cross-vendor determinism brief", "https://github.com/11vated/PAradigm-reference/blob/main/research/001-gpu-determinism-cross-vendor.md", "States that WGSL is not bitwise deterministic and recommends an integer-only core plus a conformance matrix", "A recommendation, not an implementation; no code and no hashes"],
+    ["Coherence Energy Labs gpu-exact demo", "https://demos.coherenceenergylabs.com/gpu-exact/", "Runs one fixed-point reaction-diffusion kernel in JavaScript on the CPU and as a WebGPU i32 compute shader on the GPU, SHA-256 hashes both, and shows them bit-identical, with a live tamper test and an explicit integer-exact/float-drifts scope note", "A single CPU-versus-GPU pair on the visitor's machine, not cross-adapter vendor-to-vendor; no pinned reference hashes, no multi-kernel suite, no manifest format, no CI gate"],
+    ["bitgpu (GitHub)", "https://github.com/stfurkan/bitgpu", "Dependency-free WebGPU runtime for 1-bit LLMs in the browser; greedy output and KV-cache reuse are gated bit-exact on real hardware with a headless GPU verification gate", "An application runtime, not a declared integer-kernel conformance protocol; no cross-adapter hash manifest, no exactness-boundary kernel suite, no reference-hash pins"],
     ["WgPy (arXiv 2503.00279, 2025)", "https://arxiv.org/abs/2503.00279", "A NumPy-like WebGPU/WebGL array library in the browser, with fast matmul", "No determinism or reproducibility claim and no harness"],
     ["hash-shader (GitHub)", "https://github.com/RustyBamboo/hash-shader", "A SHA-256 compute shader written in integer WebGPU ops", "Not a reproducibility harness and publishes no cross-adapter hash table"],
     ["BitExact (GitHub)", "https://github.com/aaravkohli1/BitExact", "Deterministic CUDA matmul, RMSNorm, and reductions with a PyTorch drop-in", "CUDA/NVIDIA only; not a browser and not cross-vendor"],
@@ -240,9 +242,13 @@ export const REPROGPU: InventionPaper = {
         },
         {
           kind: "paragraph",
-          text: "The unmatched clause is narrow and is a delivery delta rather than a scientific one: no located project ports a declared integer and fixed-point kernel set to WGSL, publishes cross-adapter byte-identical output hashes, and ships the harness that produces them. The WebGPU CTS tests accuracy within tolerances, not bit-exactness; the zkML line proves properties of a computation rather than reproducing its exact bytes; and the one public brief that recommends exactly this integer-only-core-plus-conformance-matrix design is a research note with no code and no hashes. T1 states the exact delta row by row, including the motivating counter-pressure that bit-exactness across GPU architectures is not the norm. Every URL in T1 was read by the prior-art pass on the dates recorded there; a change to a cited URL or a cited WGSL section number invalidates the corresponding statement and must be re-checked.",
+          text: "The remaining clause is narrow and is a delivery delta rather than a scientific one: no located project pins cross-adapter (vendor-to-vendor) byte-identical output hashes for a declared integer and fixed-point WGSL kernel set and ships the reusable harness and manifest that produce them. The exact integer-execution idea itself is already demonstrated in a browser: the Coherence Energy Labs gpu-exact demo runs one fixed-point kernel on the CPU and a WebGPU i32 shader on the GPU and shows the same SHA-256, with the same integer-exact/float-drifts scope note this paper draws; bitgpu ships bit-exact browser WebGPU integer execution, though as an application runtime rather than a conformance protocol. What is not located is the multi-kernel, pinned-reference-hash, cross-adapter manifest protocol around that idea. The WebGPU CTS tests accuracy within tolerances, not bit-exactness; the zkML line proves properties of a computation rather than reproducing its exact bytes; and the PAradigm brief that recommends exactly this integer-only-core-plus-conformance-matrix design is a research note with no code and no hashes. T1 states the delta row by row, including the motivating counter-pressure that bit-exactness across GPU architectures is not the norm. Every URL in T1 was read by the prior-art pass on the dates recorded there; a change to a cited URL or a cited WGSL section number invalidates the corresponding statement and must be re-checked.",
         },
         T1,
+        {
+          kind: "paragraph",
+          text: "Correction to the prior-art record. The first prior-art pass for this wave did not locate the Coherence Energy Labs gpu-exact demo or bitgpu, and an earlier draft of the abstract and of this section described the capability as unmatched without them; both were added after publication and are now rows in T1. With them, the honest description of the contribution is a narrow systems/artifact package - a declared exactness boundary, a multi-kernel suite with pinned reference hashes, a cross-adapter manifest, and a gate that publishes what it cannot prove - on top of an idea (exact integer execution, hashed and compared) that is already demonstrated elsewhere. The correction is recorded in docs/research/wave-48-priorart-reprogpu.md rather than silently patched.",
+        },
       ],
     },
     {
@@ -419,10 +425,10 @@ export const REPROGPU: InventionPaper = {
         {
           kind: "list",
           items: [
-            "K1: 4044c04a3bbc28331e07e9ad0fe281a70786bb9352f737baaa3ebf8215448110",
+            "K1: ea7c46670ea2a3258b7522db6a8b09af1f2e7895021870a32669ca7ec9b2df3f",
             "K2: 010e4d4db8cc43cf95f9d4329da09d5bd3a4d3d764c20d63490df81c6c0d4dbe",
-            "K3: 3a0919458937b75aecf1496505a904fc3b480bd98e4b49b3d7e06f5f30c11642",
-            "K4: d26f01051c53e5b2b3ea438f4b7329c311efcd6da545a693950b91ce116688f8",
+            "K3: 1013c964ff0a25721558503d391bd6630e96f848973c7198668dfcd14988132d",
+            "K4: d9d8db073c560de60fead78f846afbb4feec2b2626d2d74c072ed6a1c6b23489",
             "K5: 3f003ca3d1bba17b2052b5cba08a42211eba3fae742177ad52d9f109541e3cbe",
           ],
         },
