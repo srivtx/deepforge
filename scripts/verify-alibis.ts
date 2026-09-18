@@ -22,11 +22,12 @@
 
 import { spawnSync } from "node:child_process";
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { ALIBI_PUZZLES } from "../src/data/alibis";
 import { CATEGORIES } from "../src/data/problems";
 
-const OUT_DIR = "/var/folders/lc/r25hfwjs4j963w2f40s9rc5h0000gn/T/opencode/w41-remine2/build-data";
+const OUT_DIR = join(tmpdir(), "deepforge-alibi-gate");
 const BANK_PATH = join(OUT_DIR, "alibi-bank.json");
 const PUZZLES_PATH = resolve("src/data/alibis/puzzles.ts");
 const MIN_PUZZLES = 24;
