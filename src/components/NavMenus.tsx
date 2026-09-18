@@ -27,6 +27,7 @@ export type NavItemId =
   | "inventions"
   | "keyfuse"
   | "warrant"
+  | "reprogpu"
   | "penpaper"
   | "interview"
   | "daily"
@@ -62,6 +63,7 @@ const NAV_ITEM_LABELS: Record<NavItemId, string> = {
   inventions: "Inventions",
   keyfuse: "KeyFuse",
   warrant: "Warrant Lab",
+  reprogpu: "REPROGPU",
   penpaper: "Pen & Paper",
   interview: "Interview Prep",
   labs: "Labs",
@@ -101,7 +103,7 @@ export const NAV_MENUS: NavMenu[] = [
     label: "Learn",
     groups: [
       {
-        items: ["problems", "paths", "projects", "articles", "papers", "inventions", "keyfuse", "warrant", "penpaper", "interview"],
+        items: ["problems", "paths", "projects", "articles", "papers", "inventions", "keyfuse", "warrant", "reprogpu", "penpaper", "interview"],
       },
     ],
   },
@@ -141,7 +143,7 @@ export const NAV_MENUS: NavMenu[] = [
 export const MOBILE_NAV_GROUPS: { label: string; items: NavItemId[] }[] = [
   {
     label: "Learn",
-    items: ["problems", "paths", "projects", "articles", "papers", "inventions", "keyfuse", "warrant", "penpaper", "interview"],
+    items: ["problems", "paths", "projects", "articles", "papers", "inventions", "keyfuse", "warrant", "reprogpu", "penpaper", "interview"],
   },
   {
     label: "Practice",

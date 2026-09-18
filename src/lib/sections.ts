@@ -26,6 +26,7 @@ export type SectionId =
   | "inventions"
   | "keyfuse"
   | "warrant"
+  | "reprogpu"
   | "sims"
   | "discuss"
   | "submit"
@@ -313,6 +314,16 @@ const SECTION_LIST: SectionMeta[] = [
     group: "Learn",
     icon: "M12 3v18M6 6l-4 8a4 4 0 0 0 8 0zM18 6l-4 8a4 4 0 0 0 8 0zM4 21h16",
     keywords: ["warrant", "refutation", "ledger", "audit", "challenge", "grade", "demote", "cites"],
+  },
+  {
+    id: "reprogpu",
+    href: "/reprogpu",
+    title: "REPROGPU",
+    blurb:
+      "A read-only conformance lab: run a declared integer WebGPU kernel subset in your browser and compare its output hashes across adapters, with a float kernel as the explicit negative control.",
+    group: "Learn",
+    icon: "M12 3v18M6 6l-4 8a4 4 0 0 0 8 0zM18 6l-4 8a4 4 0 0 0 8 0zM4 21h16",
+    keywords: ["reprogpu", "webgpu", "reproducible", "hash", "conformance", "integer", "kernel", "adapter"],
   },
   {
     id: "sims",

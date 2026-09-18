@@ -80,6 +80,13 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
     href: "/warrant",
   },
   {
+    id: "open-reprogpu",
+    label: "Open the REPROGPU conformance lab",
+    keywords: ["reprogpu", "webgpu", "reproducible", "hash", "conformance", "kernel", "adapter", "integer"],
+    kind: "navigate",
+    href: "/reprogpu",
+  },
+  {
     id: "stats",
     label: "Show statistics",
     keywords: ["stats", "statistics", "dashboard", "progress", "mastery"],

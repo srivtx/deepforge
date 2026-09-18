@@ -133,6 +133,7 @@ describe("matching", () => {
       "assistant-hide",
       "behavior-ledger",
       "daily-challenge",
+      "open-reprogpu",
     ]);
     // All "Open …" labels prefix-match; shorter labels first (labs, then the
     // 19-char review label, then the 20-char today label).
@@ -146,6 +147,7 @@ describe("matching", () => {
       "behavior-ledger",
       "research",
       "open-keyfuse",
+      "open-reprogpu",
     ]);
     // Same prefix tier: the 15-char stats label beats the 23-char one.
     expect(matchQuickActions("show").map((action) => action.id)).toEqual([

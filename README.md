@@ -66,6 +66,7 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Inventions** — `/inventions` publishes the platform's own research papers as full pages (abstract, method, tables, SVG figures, numbered references) with a real generated PDF per paper (`/inventions/<slug>/paper.pdf`, hand-rolled zero-dependency renderer) and a stable citation block
 - **KeyFuse** — `/keyfuse` is a read-only, in-browser cache-key auditor: it probes a task's declared inputs across a typed slot universe, prints a minimal same-key / different-output witness for an undeclared dependency, and emits a conservative repaired key (declared ∪ implicated). The fourth house paper documents the five probe strategies, the masking and anchoring counterexamples, and the honest limits — falsification-first, never a soundness claim
 - **Warrant Lab** — `/warrant` is a read-only contestability lab: derived claims carry an append-only ledger of falsification attempts whose warrant grade is a recomputable function of declared dependency classes (K capped), a refutation demotes exactly the claims that cite it through frozen cites, and an audit rechecks the arithmetic and the anchored hash chain. The fifth house paper reports the Derived-Claim Arena (48 claims, 5 regimes, 200 frozen seeds) where the declared-dependence grade beats the strongest count baseline by +1.000 pair-win and AUC while the syntactic tuple variant is killed as predicted — never a truth claim
+- **REPROGPU** — `/reprogpu` is a read-only WebGPU conformance lab: it runs a declared integer kernel subset (a 320-bit exact f32 sum, Philox4x32-10, Q16.16 GEMM, integer SHA-256) in your browser and compares each output's SHA-256 across adapters, with an f32 matmul as the explicit negative control. The sixth house paper documents the WGSL exactness boundary (float is outside the guarantee), the pinned reference hashes, and the honesty rule that CI checks the references and vectors while the browser run is the cross-adapter demonstration
 - **Concepts** — browse every math checkpoint grouped by category with mastery bars, due/locked status, prerequisite reasoning, worked steps, practice and code links, and the same self-grading as Today; a Map view layers all 21 checkpoints by prerequisite depth with pan/zoom, mastery shading, and a From → To route planner
 - **Notebook mode** — per-cell Python execution with run-all and test validation, persisted per problem
 - **Self-explanation** — after a solve, explain the key step in your own words before moving on; graded deterministically, no model or network
@@ -88,7 +89,7 @@ A practice platform for machine learning, math, and engineering. Write Python fr
 - **Backup** — full local export/import with an audited inventory of every stored key and documented exclusions
 - **Sync** — local-first progress/streaks/collections sync through Supabase (magic link or Google) when you opt in
 - **Accessibility** — keyboard pass across dialogs, menus, comment threads, and the command palette: Tab containment, Escape-to-close, focus-visible rings, and aria-live status
-- **PWA** — installable, offline shell v11 with a per-route fallback (verified by a route-inventory test), service worker that never caches dev assets
+- **PWA** — installable, offline shell v12 with a per-route fallback (verified by a route-inventory test), service worker that never caches dev assets
 
 ## Optional: sync & accounts
 
@@ -155,10 +156,10 @@ bun run scripts/verify-paths.ts           # 33 paths: slugs, stages, problem ids
 bun run scripts/verify-paths-content.ts   # stage blurb/ordering/content rules
 bunx tsc --noEmit                         # types
 bun run lint                              # ESLint
-bun test                                  # 1,740 unit tests (85 files)
+bun test                                  # 1,785 unit tests (87 files)
 bun run build
 bunx next start -p 3099 &                 # production server the smoke suite expects
-bun run scripts/e2e-smoke.mjs             # 195-check end-to-end smoke against :3099
+bun run scripts/e2e-smoke.mjs             # 199-check end-to-end smoke against :3099
 ```
 
 ## Quick Start

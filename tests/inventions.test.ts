@@ -32,6 +32,7 @@ function firstBytes(bytes: Uint8Array, count: number): string {
 describe("invention registry", () => {
   test("exports exactly the expected papers, and the lib re-export is the same list", () => {
     expect(DATA_INVENTIONS.map((paper) => paper.slug)).toEqual([
+      "reprogpu",
       "refutation-ledgers",
       "keyfuse",
       "behavioral-delta-ledger",
@@ -39,6 +40,7 @@ describe("invention registry", () => {
       "ladder-graded-spacing",
     ]);
     expect(INVENTIONS.map((paper) => paper.slug)).toEqual([
+      "reprogpu",
       "refutation-ledgers",
       "keyfuse",
       "behavioral-delta-ledger",
@@ -200,10 +202,11 @@ describe("citations and filenames", () => {
       expect(paperFilename(paper)).toBe(`${paper.slug}.pdf`);
       expect(paperFilename(paper)).toBe(paperFilename(paper));
     }
-    expect(paperFilename(INVENTIONS[0])).toBe("refutation-ledgers.pdf");
-    expect(paperFilename(INVENTIONS[1])).toBe("keyfuse.pdf");
-    expect(paperFilename(INVENTIONS[2])).toBe("behavioral-delta-ledger.pdf");
-    expect(paperFilename(INVENTIONS[3])).toBe("alibi-distance.pdf");
+    expect(paperFilename(INVENTIONS[0])).toBe("reprogpu.pdf");
+    expect(paperFilename(INVENTIONS[1])).toBe("refutation-ledgers.pdf");
+    expect(paperFilename(INVENTIONS[2])).toBe("keyfuse.pdf");
+    expect(paperFilename(INVENTIONS[3])).toBe("behavioral-delta-ledger.pdf");
+    expect(paperFilename(INVENTIONS[4])).toBe("alibi-distance.pdf");
   });
 });
 

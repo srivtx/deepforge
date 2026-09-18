@@ -13,6 +13,7 @@
     "verify:bdl": "bun run scripts/verify-bdl.ts",
     "verify:keyfuse": "bun run scripts/verify-keyfuse.ts",
     "verify:warrant": "bun run scripts/verify-warrant.ts",
+    "verify:reprogpu": "bun run scripts/verify-reprogpu.ts",
     "prune:vercel": "node scripts/vercel-prune.mjs --execute",
     "prune:vercel:dry": "node scripts/vercel-prune.mjs"
   },

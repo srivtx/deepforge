@@ -66,6 +66,10 @@ jobs:
         timeout-minutes: 6
         run: bun run scripts/verify-warrant.ts
 
+      - name: Verify REPROGPU (reference + KAT gate)
+        timeout-minutes: 6
+        run: bun run scripts/verify-reprogpu.ts
+
       - name: Build
         timeout-minutes: 15
         run: bun run build

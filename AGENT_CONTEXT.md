@@ -145,7 +145,7 @@ deepforge/
 │   │   ├── certificates.ts · credentials.ts · labs.ts · pyodide.ts · paths.ts
 │   │   └── ...
 │   └── types/problem.ts
-├── tests/                      # 1,740 bun tests (85 files)
+├── tests/                      # 1,785 bun tests (87 files)
 ├── scripts/                    # verify-problems, verify-paths(-content), e2e-smoke, measure-bundle
 ├── supabase/migrations/        # init, avatars, hardening
 ├── docs/                       # DESIGN-SYSTEM, SETUP-SUPABASE, next-wave-plan, research/
@@ -254,21 +254,22 @@ bun run build                                 # production build
 - ✅ Bundle split: light problem index, per-route picks (daily problem, leaderboard scoring), and a lazy Zero mount; home 276.6 KB gzip (from 1,553 KB)
 - ✅ Mobile audits at 375px across new views
 - ✅ Keyboard/focus pass across dialogs, menus, command palette, and social threads; 🔲 full screen-reader + contrast sweep
-- ✅ PWA offline: route fallback chain + “update available” prompt (SW v11) with per-route fallback verified by a route-inventory test
+- ✅ PWA offline: route fallback chain + “update available” prompt (SW v12) with per-route fallback verified by a route-inventory test
 - ✅ Wave 39: `/review` hub (forecast, leeches, drill), `/concepts` Map view with route planner, runnable paper starters (lazy Pyodide)
 - ✅ Wave 40: Ladder-Graded Spacing (scientist → verifiers → engineer pipeline; 24.2% fewer reviews, 30/30 seeds, better Brier) wired through grading, ordering, and readiness; `/inventions` house-paper publisher with full pages and a zero-dep PDF renderer
 - ✅ Wave 41: Alibi Distance census paper + `/alibi` Silent Bug Hunt (96 machine-verified test-passing ghosts, resistance claims scoped to the named suites); bionic reading (default on) + figures on paper pages and PDFs
 - ✅ Wave 42: Behavioral Delta Ledger paper + `/ledger` count-only hidden-check feedback (opt-in, device-local, never grading/review/certificates/sync); census + harness gates in CI
 - ✅ Wave 43: KeyFuse — novelty-first external software invention (falsification-first cache-key auditing): typed slot universe, five probe strategies, exact ≤t attribution within budget, minimal same-key / different-output witnesses, conservative key repair; 24-task corpus with brute-force ground truth, Metro-style env-latent demo, negative controls; `/keyfuse` read-only lab + paper #4; `verify:keyfuse` gate (12 criteria, ≈140 ms) in CI
 - ✅ Wave 44: Refutation-Ledger Values — novelty-first external software invention (contestable derived claims with ledger-warranted grades): append-only falsification ledgers, declared dependence-class counting (K=3 cap, cites-min), exact demotion through frozen cites, transitive audit with anchored hash-chain tamper evidence; Derived-Claim Arena (48 claims, 5 regimes, 9 graders, 200 frozen seeds; the shipped declared-dependence grade beats the family-dedup baseline by +1.000 pair-win and +1.000 AUC in the correlated-family regime, the syntactic tuple variant is killed as predicted, churn 0, demotion 1.0/1.0); `/warrant` read-only lab + paper #5; `verify:warrant` gate (8 criteria, pinned digest) in CI
-- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 195-check smoke
+- ✅ Wave 48: REPROGPU — cross-adapter bit-reproducible WebGPU conformance lab for a declared integer kernel subset (320-bit exact f32 sum, Philox4x32-10 against Random123 KATs, Q16.16 GEMM with a single floor shift, integer SHA-256 against FIPS/Node oracle), with an f32 matmul negative control and the WGSL exactness boundary documented (float is outside the guarantee); pure-TS reference gate (5 criteria, ~0.8 s) in CI, browser harness manifests adapter info + per-kernel SHA-256; `/reprogpu` lab + paper #6
+- ✅ CI: GitHub Actions runs typecheck, lint, unit tests, all verifiers, the build, and the 199-check smoke
 
 ### Next steps (sensible order)
 1. **Path curation, continued** — 33 paths shipped with stage checkpoints, artifact links, resolved prerequisites, and a verified capstone each; still open from [`docs/research/path-curation.md`](./docs/research/path-curation.md): mixed-kind steps (problems + labs + math + projects).
 2. **Content growth** — 5,730 problems shipped; keep rebalancing the thinnest categories (Linear Algebra at 320; Data Structures at 355) and the level mix.
 3. **Production hardening** — Vercel deploy, custom SMTP for magic links, two-account RLS spot check.
 4. **Social scale** — realtime subscriptions, pagination, and the per-problem comments UI shipped; remaining: global-leaderboard polish.
-5. **E2E in CI** — shipped: the 195-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
+5. **E2E in CI** — shipped: the 199-check smoke runs in GitHub Actions; remaining: live-preview checks after deploy.
 6. **Deploy & credentials** — work the human items in [`docs/next-wave-plan.md`](./docs/next-wave-plan.md), then certificate signing (phase 2).
 
 ---
@@ -347,10 +348,10 @@ If you are an AI agent working on DeepForge:
 - **Gamification:** ✅ Bug hunts (synced) with bug-slayer/exterminator/flawless badges; speedrunner/speed-demon badges; heatmap counts bug hunts + speedruns
 - **Certificates:** ✅ Path/collection/category/lab/project/interview kinds, SHA-256 code + public `/verify`
 - **Avatars:** ✅ 12 character presets, two art styles (Illustrated + Pixel)
-- **Tests:** ✅ 1,740 unit tests (85 files) + 195 e2e smoke checks (CI)
+- **Tests:** ✅ 1,785 unit tests (87 files) + 199 e2e smoke checks (CI)
 - **Solutions on rails:** ✅ every lab and research challenge carries a Python-verified reference solution (Show solution reveal); certificates gain a research kind (5/5 baselines); stats and Today surface labs/research progress
 - **Deploys:** ✅ the full problem bank is prerendered so every page is edge-static (~1 GB of build output per deploy); all 5,730 deployment history is bounded by `bun run prune:vercel` (`scripts/vercel-prune.mjs`, keeps newest prod + preview). One bad day of auto-deploys had accumulated 56 GB; 95 deployments were pruned to 2
-- **PWA:** ✅ Offline v11 per-route fallback (route-inventory test, nested static routes modeled) + update prompt
+- **PWA:** ✅ Offline v12 per-route fallback (route-inventory test, nested static routes modeled) + update prompt
 - **Search & shortcuts:** ✅ Palette search over problems, paths, articles, blog, research challenges, papers, and labs + quick actions (labs, trails, research); g-sequences + `?` overlay
 - **Backup:** ✅ Full local export/import with an audited key inventory
 - **SEO:** ✅ Metadata, manifest, robots, sitemap (lastModified derived; lists `/today`, `/labs/trails`, `/concepts`, all 13 lab/research detail URLs, and all 35 paper URLs); OG image kinds `research` and `lab`

@@ -628,8 +628,39 @@ const sitemapWarrant = has(sitemap.body, "/warrant");
 record("sitemap: warrant route", sitemapWarrant, sitemap.url, '"/warrant" missing from sitemap');
 line(sitemapWarrant, `GET /sitemap.xml  warrant=${sitemapWarrant ? "yes" : "NO"}`);
 
-// --- 19. Summary -------------------------------------------------------------
-console.log("\n[19/19] Summary");
+// --- 19. Wave-48 surfaces (REPROGPU lab + paper #6) ---------------------------
+console.log("\n[19/20] Wave-48 surfaces");
+const reprogpuPage = await get("/reprogpu");
+const reprogpuOk = reprogpuPage.status === 200 && has(reprogpuPage.body, "REPROGPU");
+record("reprogpu: lab", reprogpuOk, reprogpuPage.url, `status=${reprogpuPage.status}`);
+line(reprogpuOk, `GET /reprogpu  status=${reprogpuPage.status}`);
+const reprogpuPaper = await get("/inventions/reprogpu");
+const reprogpuPaperOk =
+  reprogpuPaper.status === 200 &&
+  has(reprogpuPaper.body, "Abstract") &&
+  has(reprogpuPaper.body, "REPROGPU");
+record("inventions: reprogpu paper", reprogpuPaperOk, reprogpuPaper.url, `status=${reprogpuPaper.status}`);
+line(reprogpuPaperOk, `GET /inventions/reprogpu  status=${reprogpuPaper.status}`);
+const reprogpuPdf = await fetch(`${BASE_URL}/inventions/reprogpu/paper.pdf`, {
+  signal: AbortSignal.timeout(20000),
+}).catch(() => null);
+const reprogpuPdfType = reprogpuPdf?.headers.get("content-type") ?? "";
+const reprogpuPdfBody = reprogpuPdf ? Buffer.from(await reprogpuPdf.arrayBuffer()) : Buffer.alloc(0);
+const reprogpuPdfMagic = reprogpuPdfBody.subarray(0, 5).toString();
+const reprogpuPdfOk =
+  Boolean(reprogpuPdf) &&
+  reprogpuPdf.status === 200 &&
+  reprogpuPdfType.includes("application/pdf") &&
+  reprogpuPdfMagic === "%PDF-";
+record("inventions: reprogpu pdf", reprogpuPdfOk, `${BASE_URL}/inventions/reprogpu/paper.pdf`,
+  `status=${reprogpuPdf?.status ?? 0} type=${reprogpuPdfType} magic=${reprogpuPdfMagic}`);
+line(reprogpuPdfOk, `GET /inventions/reprogpu/paper.pdf  status=${reprogpuPdf?.status ?? 0}`);
+const sitemapReprogpu = has(sitemap.body, "/reprogpu");
+record("sitemap: reprogpu route", sitemapReprogpu, sitemap.url, '"/reprogpu" missing from sitemap');
+line(sitemapReprogpu, `GET /sitemap.xml  reprogpu=${sitemapReprogpu ? "yes" : "NO"}`);
+
+// --- 20. Summary -------------------------------------------------------------
+console.log("\n[20/20] Summary");
 const groupNames = [...new Set(checks.map((c) => c.group))];
 console.table(
   groupNames.map((group) => {
