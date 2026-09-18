@@ -32,11 +32,13 @@ function firstBytes(bytes: Uint8Array, count: number): string {
 describe("invention registry", () => {
   test("exports exactly the expected papers, and the lib re-export is the same list", () => {
     expect(DATA_INVENTIONS.map((paper) => paper.slug)).toEqual([
+      "keyfuse",
       "behavioral-delta-ledger",
       "alibi-distance",
       "ladder-graded-spacing",
     ]);
     expect(INVENTIONS.map((paper) => paper.slug)).toEqual([
+      "keyfuse",
       "behavioral-delta-ledger",
       "alibi-distance",
       "ladder-graded-spacing",
@@ -196,9 +198,9 @@ describe("citations and filenames", () => {
       expect(paperFilename(paper)).toBe(`${paper.slug}.pdf`);
       expect(paperFilename(paper)).toBe(paperFilename(paper));
     }
-    expect(paperFilename(INVENTIONS[0])).toBe("behavioral-delta-ledger.pdf");
-    expect(paperFilename(INVENTIONS[1])).toBe("alibi-distance.pdf");
-    expect(paperFilename(INVENTIONS[2])).toBe("ladder-graded-spacing.pdf");
+    expect(paperFilename(INVENTIONS[0])).toBe("keyfuse.pdf");
+    expect(paperFilename(INVENTIONS[1])).toBe("behavioral-delta-ledger.pdf");
+    expect(paperFilename(INVENTIONS[2])).toBe("alibi-distance.pdf");
   });
 });
 

@@ -7,6 +7,7 @@
 
 import { ALIBI_DISTANCE } from "./alibi-distance";
 import { BEHAVIORAL_DELTA_LEDGER } from "./behavioral-delta-ledger";
+import { KEYFUSE } from "./keyfuse";
 import { LADDER_GRADED_SPACING } from "./ladder-graded-spacing";
 import type { InventionPaper } from "./types";
 
@@ -22,6 +23,7 @@ export type {
 
 /** Every DeepForge invention paper, newest first. */
 export const INVENTIONS: InventionPaper[] = [
+  KEYFUSE,
   BEHAVIORAL_DELTA_LEDGER,
   ALIBI_DISTANCE,
   LADDER_GRADED_SPACING,
