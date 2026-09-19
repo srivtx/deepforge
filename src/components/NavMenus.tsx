@@ -60,7 +60,7 @@ const NAV_ITEM_LABELS: Record<NavItemId, string> = {
   projects: "Projects",
   articles: "Articles",
   papers: "Papers",
-  inventions: "Inventions",
+  inventions: "Publications",
   keyfuse: "KeyFuse",
   warrant: "Warrant Lab",
   reprogpu: "REPROGPU",

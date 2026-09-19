@@ -3,9 +3,9 @@ import Link from "next/link";
 import { PageShell } from "@/components/PageShell";
 import { INVENTIONS } from "@/data/inventions";
 
-const TITLE = "Inventions";
+const TITLE = "Publications";
 const DESCRIPTION =
-  "Research papers from DeepForge: the techniques the platform invents, specifies, simulates, and publishes with a downloadable PDF.";
+  "Research papers from DeepForge: the techniques the platform specifies, simulates, and publishes with a downloadable PDF.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     canonical: "/inventions",
   },
   openGraph: {
-    title: "Inventions — DeepForge",
+    title: "Publications — DeepForge",
     description: DESCRIPTION,
     url: "/inventions",
     type: "website",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "Inventions — DeepForge",
+    title: "Publications — DeepForge",
     description: DESCRIPTION,
   },
 };

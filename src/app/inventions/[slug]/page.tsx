@@ -29,7 +29,7 @@ export async function generateMetadata({
 
   const description = paperDescription(paper.abstract);
   return {
-    title: `${paper.title} — Inventions`,
+    title: `${paper.title} — Publications`,
     description,
     alternates: {
       canonical: `/inventions/${paper.slug}`,
@@ -78,7 +78,7 @@ export default async function InventionPaperPage({
             href="/inventions"
             className="rounded-sm transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
           >
-            Inventions
+            Publications
           </Link>
           <span className="flex min-w-0 max-w-full items-center gap-1.5">
             <span aria-hidden className="text-mute">

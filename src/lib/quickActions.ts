@@ -123,8 +123,8 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
   },
   {
     id: "inventions",
-    label: "Read our inventions",
-    keywords: ["inventions", "invention", "publication", "pdf", "lgs"],
+    label: "Read our publications",
+    keywords: ["publications", "papers", "research papers", "inventions", "publication", "pdf", "lgs"],
     kind: "navigate",
     href: "/inventions",
   },
