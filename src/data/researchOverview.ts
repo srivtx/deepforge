@@ -209,7 +209,7 @@ export const WORKS: readonly WorkEntry[] = [
         "A full-corpus run sampled 106,081 single-edit mutants across 5,730 exercises. 17,502 of them pass every shipped test, 7,727 of those diverge from the reference on the probe bank, and 46.08% of analyzable problems admit a radius-1 alibi.",
       ),
       result(
-        "A second, independently written engine reproduces the census rates within 0.2 percentage points and the closure estimates within 0.7.",
+        "A second, separately written CPython engine, run by the same author, agreed with the TypeScript engine to within 0.14 percentage points on the census rates, 0.32 on the length quartiles and 0.44 on the closure estimates. Neither engine, nor its input, nor its output is part of this release, so the census below is a record of a mining run rather than a result an outside reader can re-derive.",
       ),
       result(
         "An in-sample witness closes 59.7% of affected problems and kills 73.2% of mined alibis, but a cross-validated witness kills only 48.4% of held-out alibis. The deployable estimate is therefore about 23.5% of problems still affected, not the in-sample 18.6%.",
