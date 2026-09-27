@@ -1,0 +1,116 @@
+{
+  "format": "df-corpus",
+  "formatVersion": 1,
+  "notes": "SYNTHETIC FORMAT FIXTURE — NOT A SCIENTIFIC CORPUS. Every exercise here was written by hand for this repository to exercise the df-corpus/1 format, including the validator's rejection paths. It contains no external data, it was not sampled from any population, and no rate computed from it means anything about any real corpus or about the DeepForge methodology. Its only purpose is to let a researcher see the validator accept, reject, and account, without running anything. The deliberately invalid exercise is exercises[5] (`syn-invalid-005`).",
+  "corpus": {
+    "id": "synthetic-format-fixture",
+    "name": "SYNTHETIC FORMAT FIXTURE (not a scientific corpus)",
+    "version": "1.0.0",
+    "origin": "synthetic-example",
+    "language": "python",
+    "provenance": {
+      "maintainer": "DeepForge research-integrity workstream (fixture author)",
+      "source": "docs/research/external-corpus/example-synthetic-corpus.json in the deepforge repository",
+      "obtained": "2026-09-27",
+      "method": "hand-authored",
+      "independence": "independent-from-deepforge",
+      "contaminationNotes": "Written for this repository as a format fixture. Deliberately NOT derived from the DeepForge corpus: no reference solution here is a copy of one in src/data/problems.",
+      "tooling": "none; the six exercises were typed by hand to exercise the format and the validator"
+    },
+    "license": {
+      "id": "CC0-1.0",
+      "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "holder": "DeepForge research-integrity workstream",
+      "notes": "Public domain dedication applied to a fixture that contains no third-party content."
+    }
+  },
+  "exercises": [
+    {
+      "id": "syn-001",
+      "title": "Sum of a list",
+      "category": "arithmetic",
+      "difficulty": "trivial",
+      "source": "fixture#1",
+      "reference": "def total(xs):\n    return sum(xs)\n",
+      "tests": [
+        { "input": [[1, 2, 3]], "expected": 6 },
+        { "input": [[10, -4]], "expected": 6 },
+        { "input": [[0]], "expected": 0 },
+        { "input": [[]], "expected": 0 }
+      ]
+    },
+    {
+      "id": "syn-002",
+      "title": "Largest of a list",
+      "category": "arithmetic",
+      "difficulty": "trivial",
+      "source": "fixture#2",
+      "entry": "largest",
+      "reference": "def largest(xs):\n    if not xs:\n        return None\n    best = xs[0]\n    for value in xs[1:]:\n        if value > best:\n            best = value\n    return best\n",
+      "tests": [
+        { "input": [[3, 9, 2]], "expected": 9 },
+        { "input": [[-4, -9]], "expected": -4 },
+        { "input": [[]], "expected": null }
+      ]
+    },
+    {
+      "id": "syn-003",
+      "title": "Count of vowels",
+      "category": "text",
+      "difficulty": "easy",
+      "source": "fixture#3",
+      "reference": "def count_vowels(text):\n    total = 0\n    for ch in text:\n        if ch in \"aeiou\":\n            total += 1\n    return total\n",
+      "tests": [
+        { "input": ["education"], "expected": 5 },
+        { "input": ["rhythm"], "expected": 0 },
+        { "input": [""], "expected": 0 }
+      ]
+    },
+    {
+      "id": "syn-004",
+      "title": "Second smallest, declared entry point",
+      "category": "ordering",
+      "difficulty": "easy",
+      "source": "fixture#4",
+      "entry": "second_smallest",
+      "reference": "def second_smallest(xs):\n    ordered = sorted(xs)\n    if len(ordered) < 2:\n        return None\n    return ordered[1]\n",
+      "tests": [
+        { "input": [[4, 1, 7, 1]], "expected": 1 },
+        { "input": [[10, 20]], "expected": 20 },
+        { "input": [[5]], "expected": null }
+      ]
+    },
+    {
+      "id": "syn-005",
+      "title": "Deliberately invalid: a zero-argument function",
+      "category": "arithmetic",
+      "difficulty": "trivial",
+      "source": "fixture#5",
+      "notes": "VALID exercise, deliberately declared with a single test so the `advisory/tests-below-three` disclosure fires. The methodology still accepts it: fewer tests is weaker, not invalid.",
+      "reference": "def answer():\n    return 42\n",
+      "tests": [{ "input": [], "expected": 42 }]
+    },
+    {
+      "id": "syn-invalid-005",
+      "title": "DELIBERATELY INVALID — this exercise must be rejected",
+      "category": "arithmetic",
+      "difficulty": "trivial",
+      "source": "fixture#6",
+      "notes": "INVALID ON PURPOSE. Three format violations at once, so a researcher can see the validator name each one and name the exercise: (1) the test case has no `expected` key, so the shipped behaviour of the function is undeclared; (2) `testcase` is a misspelling of `tests`, so the exercise carries an unrecognised field; (3) `testcases` is present and is a string, so a naive reader would treat it as the test list. A validator that silently ignored the typo would accept a zero-test exercise and quietly change the denominator of every rate computed from this corpus.",
+      "reference": "def mean(xs):\n    return sum(xs) / len(xs)\n",
+      "testcase": [{ "input": [[1, 2, 3]], "expected": 2 }],
+      "testcases": "one test, badly typed",
+      "tests": [{ "input": [[1, 2, 3]] }, { "input": [[10]], "expected": 10 }]
+    }
+  ],
+  "candidateAlibis": [
+    {
+      "id": "syn-alibi-001",
+      "exerciseId": "syn-001",
+      "minedBy": "written by hand for this fixture; NOT produced by any DeepForge mining engine, because no such engine is in the repository",
+      "notes": "A real one-line silent failure, and it does verify: reference and ghost differ by exactly one line, both pass all four shipped tests, they diverge at the witness ([1..8] sums to 36 for the reference and 0 for the ghost), and the shipped verifier's union (238 probes) and held-out (85 probes) suites find no divergence. Its resistance here is a property of this toy exercise — every shipped test is a list of at most three numbers, so no probe in either suite grows the argument to eight elements — and it says NOTHING about silent-failure rates on any real corpus. DeepForge's alibi mutation-mining engine is not in this repository, so a real external lab supplies candidates from its own miner and this list can only ever be verified here, never regenerated.",
+      "ghost": "def total(xs):\n    return sum(xs) if len(xs) < 8 else 0\n",
+      "witness": "([1, 2, 3, 4, 5, 6, 7, 8],)"
+    }
+  ]
+}

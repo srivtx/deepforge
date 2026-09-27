@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepforge.invalid/schemas/external-corpus/format-1.schema.json",
+  "title": "df-corpus/1 — external exercise-corpus format for the DeepForge Alibi Distance and Behavioral Delta Ledger methodology",
+  "description": "The format an independent third party writes to have the DeepForge methodology run over their own programming-exercise corpus without modifying the research engine. This document is the machine-readable half of the specification in docs/research/external-corpus-format.md. The executable half is src/lib/externalCorpus/validate.ts; where this document and the validator disagree, the validator wins and the disagreement is a bug in one of them (tests/external-corpus.test.ts asserts the required-field lists here match the validator's constants).",
+  "type": "object",
+  "required": ["format", "formatVersion", "corpus", "exercises"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "df-corpus",
+      "description": "Wire tag. A document without it is not a corpus file."
+    },
+    "formatVersion": {
+      "const": 1,
+      "description": "Format version. This build implements version 1 only and refuses any other value rather than guessing."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free text about the corpus as a whole. Never read by an engine."
+    },
+    "candidateAlibis": {
+      "type": "array",
+      "description": "Optional silent-failure candidates discovered by the submitter's own miner. ABSENCE IS MEANINGFUL: a file without this key makes no alibi claim, and a run over it states nothing about Alibi Distance. DeepForge's own alibi mutation-mining engine is not in the repository, so this list can only be verified, never regenerated here.",
+      "items": { "$ref": "#/$defs/candidateAlibi" }
+    },
+    "corpus": { "$ref": "#/$defs/corpusHeader" },
+    "exercises": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200000,
+      "description": "The exercises. An empty array is a hard rejection: 0/0 is not a result.",
+      "items": { "$ref": "#/$defs/exercise" }
+    }
+  },
+  "$defs": {
+    "corpusHeader": {
+      "type": "object",
+      "required": ["id", "name", "version", "origin", "language", "provenance", "license"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$",
+          "description": "Corpus identifier. Appears in every log line, every report, and every output file name."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Human-readable name."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$",
+          "description": "Release string for this snapshot. A different version of the same corpus is a different measurement, and the report records which one ran."
+        },
+        "origin": {
+          "enum": ["external", "synthetic-example"],
+          "description": "There is deliberately no `internal` value: no file can claim to be the DeepForge corpus. `synthetic-example` marks a format fixture, whose reports carry notAScientificResult: true and can never support a claim."
+        },
+        "language": {
+          "const": "python",
+          "description": "The engines exec CPython source. This build implements no other dialect."
+        },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "license": { "$ref": "#/$defs/license" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["maintainer", "source", "obtained", "method", "independence"],
+      "additionalProperties": false,
+      "properties": {
+        "maintainer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Who is responsible for this snapshot. Required because an unattributable corpus cannot be argued about."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where the exercises came from: a URL, a DOI, a repository, or a local path."
+        },
+        "obtained": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "ISO date the snapshot was taken. A corpus whose provenance date is missing cannot be versioned or compared."
+        },
+        "method": {
+          "enum": ["hand-authored", "generated", "derived", "unknown"],
+          "description": "How the exercises were produced. `unknown` is legal and is disclosed as an advisory; it is not a rejection."
+        },
+        "independence": {
+          "enum": ["independent-from-deepforge", "derived-from-deepforge", "unknown"],
+          "description": "Independence from the DeepForge corpus, as the submitter declares it. `derived-from-deepforge` and `unknown` both block any claim of external validity; a byte-level overlap check runs in addition and its limitation is recorded in every report."
+        },
+        "contaminationNotes": {
+          "type": "string",
+          "description": "Free text on known overlap, contamination, or shared authorship."
+        },
+        "tooling": {
+          "type": "string",
+          "description": "Free text on the tooling and Python build that produced the snapshot."
+        }
+      }
+    },
+    "license": {
+      "type": "object",
+      "required": ["id", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "SPDX identifier, or the literal NOASSERTION. NOASSERTION is legal, is disclosed as an advisory, and blocks nothing by itself — it is a fact about the corpus, not a defect in the format."
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where the licence text lives. Required even when id is NOASSERTION."
+        },
+        "holder": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "exercise": {
+      "type": "object",
+      "required": ["id", "reference", "tests"],
+      "additionalProperties": false,
+      "description": "One exercise. The three required fields are exactly the fields the two committed engines read. `id` seeds the probe bank, `reference` is the program, `tests` is the shipped behaviour. Everything else is metadata that is carried into the report and never used to include or exclude the exercise.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$",
+          "description": "Unique within the corpus. Load-bearing: the analyzer derives the per-exercise mutation seed from md5(id), so changing an id changes that exercise's mutants."
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000,
+          "description": "The reference solution as a Python source string. Must define at least one function and must not contain C0 control characters. The 20,000-character cap is 10.5x the longest reference in the 5,730-problem DeepForge corpus (1,902 characters), so it cannot exclude a legitimate exercise of this methodology."
+        },
+        "entry": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Entry function name. When absent, both engines use the first `def` in the source — the same rule, mirrored in the validator's resolveEntryPoint."
+        },
+        "tests": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Shipped tests, at least one. Fewer than three is legal but weakens the probe basis, because the basis perturbs only the first three shipped inputs; the validator discloses it rather than filtering on it.",
+          "items": { "$ref": "#/$defs/testCase" }
+        },
+        "title": { "type": "string", "description": "Display only; never read by an engine." },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Free-form taxonomy label. NOT required to be one of DeepForge's 15 categories — an external corpus is not required to share DeepForge's taxonomy. When absent the exercise is still accepted, the taxonomy is reported as undeclared, and the whole-corpus digest comparison against the internal corpus reports `not-applicable`."
+        },
+        "difficulty": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Free-form difficulty label, carried for slice reporting and never filtered on. Absent is recorded as `unspecified`, not defaulted to a value nobody chose."
+        },
+        "source": {
+          "type": "string",
+          "description": "Per-exercise provenance pointer, e.g. `chapter-3#ex-12`."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "testCase": {
+      "type": "object",
+      "required": ["input", "expected"],
+      "additionalProperties": false,
+      "description": "One shipped test. `input` is the positional argument list and is always an array, `[]` for a zero-argument function. `expected` may be null, so the KEY must be present; a missing key and a null value are different and the validator distinguishes them.",
+      "properties": {
+        "input": {
+          "type": "array",
+          "description": "Positional arguments, JSON-serializable. A value whose serialized length approaches 4,000 characters seeds no probes (the probe bank drops candidates at that length) and is disclosed."
+        },
+        "expected": {
+          "description": "Expected return value, any JSON value including null. Compared under the same 1e-6 deep equality the engines use."
+        }
+      }
+    },
+    "candidateAlibi": {
+      "type": "object",
+      "required": ["id", "exerciseId", "ghost", "witness"],
+      "additionalProperties": false,
+      "description": "One silent-failure candidate found by the submitter's own miner. It deliberately carries NO reference and NO tests: the runner composes the verifier's record from the referenced exercise, so a candidate can never carry a stale copy of the program it claims to differ from.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$",
+          "description": "Unique within the candidate list."
+        },
+        "exerciseId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$",
+          "description": "The id of an ACCEPTED exercise in the same file. A candidate over a rejected exercise cannot be verified and is rejected with alibi/exercise-unknown."
+        },
+        "ghost": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000,
+          "description": "The mined variant as a Python source string. Whether it is exactly one line different from the reference, whether it passes every shipped test, and whether it really diverges at the witness are all established by scripts/py_alibi_verify.py, not by the format validator."
+        },
+        "witness": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "The Python literal at which reference and ghost must diverge, e.g. \"([1,2,3],)\". Capped at ALIBI_INPUT_MAX_CHARS from src/lib/alibiHunt.ts, the longest literal the shipped duel harness accepts. The verifier confirms it is a literal and that the divergence happens."
+        },
+        "func": {
+          "type": "string",
+          "description": "Optional. When present it must equal the referenced exercise's resolved entry point, or the candidate is rejected with alibi/func-mismatch."
+        },
+        "minedBy": {
+          "type": "string",
+          "description": "Free text naming the miner that produced the candidate. Recorded in the report, never in a digest of the methodology."
+        },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}
