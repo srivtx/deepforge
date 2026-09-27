@@ -1,31 +1,35 @@
 import Link from "next/link";
+import {
+  RESEARCH_AGENDA,
+  RESEARCH_QUESTIONS,
+  type ResearchQuestion,
+} from "@/data/researchOverview";
 
-const THREADS = [
-  {
-    title: "Test adequacy",
-    question: "Can a test suite distinguish correct programs from plausible-but-wrong ones?",
-    detail:
-      "Silent Bug Hunt pairs a reference function with a test-passing one-line divergence, then asks you to find the input the suite missed.",
-    href: "/alibi",
-    action: "Try Silent Bug Hunt",
-  },
-  {
-    title: "Behavioral evidence",
-    question: "Can an edit reveal a meaningful behavioral change without becoming a grade?",
-    detail:
-      "Behavioral Delta Ledger reports only whether hidden checks changed after an edit. It never affects progress, review, or certificates.",
-    href: "/ledger",
-    action: "Explore the ledger",
-  },
-  {
-    title: "Auditable feedback",
-    question: "Can learning guidance show the evidence behind it and respond when that evidence is refuted?",
-    detail:
-      "Warrant Lab makes each derived claim inspectable: see its checks, challenge it, and audit the resulting bookkeeping.",
-    href: "/warrant",
-    action: "Open Warrant Lab",
-  },
-] as const;
+/**
+ * The homepage research agenda: the programme statement, a pointer to the three
+ * research questions, and the questions themselves.
+ *
+ * Every string comes from `src/data/researchOverview.ts`, which the
+ * publications index also reads, so the two research surfaces carry the same
+ * agenda in the same words and cannot drift apart. This component is
+ * presentation only: it renders the shared list and adds nothing of its own.
+ */
+
+function QuestionCard({ thread }: { thread: ResearchQuestion }) {
+  return (
+    <article className="flex flex-col rounded-lg border border-hairline bg-canvas-card p-4">
+      <h3 className="text-sm font-medium text-ink">{thread.title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-body">{thread.question}</p>
+      <p className="mt-2 text-xs leading-relaxed text-body-mid">{thread.detail}</p>
+      <Link
+        href={thread.href}
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0"
+      >
+        {thread.action} <span aria-hidden>→</span>
+      </Link>
+    </article>
+  );
+}
 
 export function ResearchAgenda() {
   return (
@@ -43,9 +47,11 @@ export function ResearchAgenda() {
               Practice is the product. Evidence is the research agenda.
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-body">
-              DeepForge studies reliable, evidence-based AI-assisted programming
-              education. The work is grounded in three practical questions—not
-              claims of a finished theory.
+              {RESEARCH_AGENDA}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-body-mid">
+              The work is grounded in three practical questions — not claims of a
+              finished theory.
             </p>
           </div>
           <Link
@@ -57,25 +63,8 @@ export function ResearchAgenda() {
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
-          {THREADS.map((thread) => (
-            <article
-              key={thread.href}
-              className="flex flex-col rounded-lg border border-hairline bg-canvas-card p-4"
-            >
-              <h3 className="text-sm font-medium text-ink">{thread.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-body">
-                {thread.question}
-              </p>
-              <p className="mt-2 text-xs leading-relaxed text-body-mid">
-                {thread.detail}
-              </p>
-              <Link
-                href={thread.href}
-                className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:min-h-0"
-              >
-                {thread.action} <span aria-hidden>→</span>
-              </Link>
-            </article>
+          {RESEARCH_QUESTIONS.map((thread) => (
+            <QuestionCard key={thread.id} thread={thread} />
           ))}
         </div>
       </div>

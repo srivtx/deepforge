@@ -110,9 +110,10 @@ export default function WarrantPage() {
               href="/inventions"
               className="text-accent underline-offset-2 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
             >
-              inventions index
+              publications index
             </Link>
-            , where the refutation-ledger paper and the other labs are listed.
+            , where the Refutation-Ledger Values paper and the other labs are
+            listed with their status.
           </p>
         </div>
       </section>

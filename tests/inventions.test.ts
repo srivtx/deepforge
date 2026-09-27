@@ -18,6 +18,7 @@ import {
   citeText,
   getInvention,
   paperFilename,
+  statusLine,
   toPdfDoc,
 } from "@/lib/inventions";
 import { renderPaperPdf } from "@/lib/pdf";
@@ -180,6 +181,14 @@ describe("toPdfDoc", () => {
       for (let i = 0; i < doc.references.length; i += 1) {
         expect(doc.references[i].includes(paper.references[i].url)).toBe(true);
       }
+    }
+  });
+
+  test("carries the publication status onto the downloaded PDF", () => {
+    for (const paper of INVENTIONS) {
+      const doc = toPdfDoc(paper);
+      expect(doc.meta.status).toBe(statusLine(paper.slug));
+      expect(doc.meta.status).toContain("Not peer reviewed");
     }
   });
 });

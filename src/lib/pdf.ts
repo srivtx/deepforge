@@ -24,6 +24,11 @@ export interface PdfPaperMeta {
   date: string; // ISO date, printed human-readably
   abstract: string;
   keywords: string[];
+  /**
+   * Optional status line printed under the date, e.g. the publication status
+   * and review state of a paper. Omitted when absent; never inferred.
+   */
+  status?: string;
 }
 export type PdfBlock =
   | { kind: "heading"; level: 1 | 2 | 3; text: string }
@@ -979,6 +984,14 @@ function addTitleBlock(p: Pager, meta: PdfPaperMeta): void {
     p.y -= 2;
     p.ensure(13);
     putCentered(p, metaLine, "regular", 9, CONTENT_W, 13, 0.35);
+  }
+
+  // Review state travels with the document: a downloaded paper must say what
+  // kind of object it is without the reader having to visit the index.
+  const status = String(meta?.status ?? "").trim();
+  if (status !== "") {
+    p.ensure(13);
+    putCentered(p, status, "bold", 9, CONTENT_W, 13, 0.35);
   }
 
   p.y -= 10;

@@ -659,8 +659,42 @@ const sitemapReprogpu = has(sitemap.body, "/reprogpu");
 record("sitemap: reprogpu route", sitemapReprogpu, sitemap.url, '"/reprogpu" missing from sitemap');
 line(sitemapReprogpu, `GET /sitemap.xml  reprogpu=${sitemapReprogpu ? "yes" : "NO"}`);
 
-// --- 20. Summary -------------------------------------------------------------
-console.log("\n[20/20] Summary");
+// --- 20. Research front (agenda, review state, claim convention) -------------
+console.log("\n[20/21] Research front");
+const AGENDA =
+  "Reliable and evidence-based programming education in the age of generative AI.";
+const agendaOk = has(inventions.body, AGENDA);
+record("inventions: research agenda", agendaOk, inventions.url, "agenda statement missing");
+line(agendaOk, `GET /inventions  agenda=${agendaOk ? "yes" : "NO"}`);
+const reviewOk =
+  has(inventions.body, "has been peer reviewed") &&
+  count(inventions.body, /Not peer reviewed/g) >= 6;
+record("inventions: not peer reviewed", reviewOk, inventions.url,
+  `review statement=${has(inventions.body, "has been peer reviewed")} per-paper labels=${count(inventions.body, /Not peer reviewed/g)}`);
+line(reviewOk, `GET /inventions  review-state=${reviewOk ? "yes" : "NO"}`);
+const conventionOk =
+  has(inventions.body, "Result") && has(inventions.body, "Hypothesis") &&
+  has(inventions.body, "Unpublished");
+record("inventions: claim convention", conventionOk, inventions.url,
+  "result/hypothesis/unpublished marks missing");
+line(conventionOk, `GET /inventions  convention=${conventionOk ? "yes" : "NO"}`);
+const agendaHome = await get("/");
+const agendaHomeOk = has(agendaHome.body, AGENDA);
+record("home: research agenda", agendaHomeOk, agendaHome.url, "agenda statement missing on the homepage");
+line(agendaHomeOk, `GET /  agenda=${agendaHomeOk ? "yes" : "NO"}`);
+const statusPdf = await fetch(`${BASE_URL}/inventions/reprogpu/paper.pdf`, {
+  signal: AbortSignal.timeout(20000),
+});
+const statusPdfBody = statusPdf ? Buffer.from(await statusPdf.arrayBuffer()) : Buffer.alloc(0);
+// The status line is drawn with the embedded fonts, so it is not extractable as
+// text; the page check above is what asserts the label renders.
+const statusPdfOk = statusPdf?.status === 200 && statusPdfBody.length > 0;
+record("inventions: status pdf serves", statusPdfOk, `${BASE_URL}/inventions/reprogpu/paper.pdf`,
+  `status=${statusPdf?.status ?? 0}`);
+line(statusPdfOk, `GET /inventions/reprogpu/paper.pdf  status=${statusPdf?.status ?? 0}`);
+
+// --- 21. Summary -------------------------------------------------------------
+console.log("\n[21/21] Summary");
 const groupNames = [...new Set(checks.map((c) => c.group))];
 console.table(
   groupNames.map((group) => {

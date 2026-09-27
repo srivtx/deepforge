@@ -4,6 +4,11 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/PageShell";
 import { PaperBody } from "@/components/inventions/PaperBody";
 import { INVENTIONS } from "@/data/inventions";
+import {
+  REVIEW_LABEL,
+  requireWorkEntry,
+  statusLabel,
+} from "@/data/researchOverview";
 import { citeText, getInvention } from "@/lib/inventions";
 
 export const dynamicParams = false;
@@ -57,6 +62,7 @@ export default async function InventionPaperPage({
   const { slug } = await params;
   const paper = getInvention(slug);
   if (!paper) notFound();
+  const work = requireWorkEntry(paper.slug);
 
   return (
     <PageShell>
@@ -95,6 +101,25 @@ export default async function InventionPaperPage({
           <h1 className="break-words text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
             {paper.title}
           </h1>
+          {/* Status travels with the paper: a reader who lands here directly,
+              or downloads the PDF, must see it without reading the index. */}
+          <ul
+            aria-label="Publication status"
+            className="flex flex-wrap items-center gap-2"
+          >
+            {work.kinds.map((kind) => (
+              <li
+                key={kind}
+                className="shrink-0 rounded-full border border-hairline px-2 py-0.5 text-xs text-body-mid"
+              >
+                {statusLabel(kind)}
+              </li>
+            ))}
+            <li className="shrink-0 rounded-full border border-warning/40 bg-warning/5 px-2 py-0.5 text-xs font-medium text-warning">
+              {REVIEW_LABEL}
+            </li>
+          </ul>
+          <p className="text-sm leading-relaxed text-body">{work.note}</p>
           <div className="flex flex-wrap items-center gap-3 print:hidden">
             <a
               href={`/inventions/${paper.slug}/paper.pdf`}

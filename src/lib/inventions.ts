@@ -14,6 +14,11 @@ import {
   INVENTIONS,
   type InventionPaper,
 } from "@/data/inventions";
+import {
+  REVIEW_LABEL,
+  requireWorkEntry,
+  statusLabel,
+} from "@/data/researchOverview";
 import type { PdfBlock, PdfDoc } from "./pdf";
 
 export { INVENTIONS };
@@ -37,6 +42,17 @@ export function paperFilename(paper: InventionPaper): string {
 export function citeText(paper: InventionPaper): string {
   const year = paper.date.slice(0, 4);
   return `${paper.authors.join(", ")} (${year}). ${paper.title}. DeepForge. ${SITE_URL}/inventions/${paper.slug}`;
+}
+
+/**
+ * The status line printed on the first page of the PDF, e.g.
+ * `Preprint · Artifact · Not peer reviewed`. Deterministic for a given paper and
+ * derived from the same registry the web page reads, so the download cannot
+ * claim more than the page does.
+ */
+export function statusLine(slug: string): string {
+  const work = requireWorkEntry(slug);
+  return [...work.kinds.map(statusLabel), REVIEW_LABEL].join("  \u00B7  ");
 }
 
 /**
@@ -122,6 +138,7 @@ export function toPdfDoc(paper: InventionPaper): PdfDoc {
       date: paper.date,
       abstract: paper.abstract,
       keywords: [...paper.keywords],
+      status: statusLine(paper.slug),
     },
     blocks,
     references: paper.references.map(

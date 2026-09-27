@@ -53,9 +53,10 @@ export default function ReproGpuPage() {
               href="/inventions"
               className="text-accent underline-offset-2 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
             >
-              inventions index
+              publications index
             </Link>
-            .
+            , which records this work as an artifact and conformance
+            contribution rather than a new method.
           </p>
         </div>
       </section>

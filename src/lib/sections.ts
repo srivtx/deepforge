@@ -290,10 +290,10 @@ const SECTION_LIST: SectionMeta[] = [
     href: "/inventions",
     title: "Publications",
     blurb:
-      "Papers from the forge: the techniques behind the platform, published in full with a PDF.",
+      "One research agenda, six papers, and the evidence behind every claim. Nothing here is peer reviewed.",
     group: "Learn",
     icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15h6M9 11h3",
-    keywords: ["publications", "papers", "research papers", "inventions", "publication", "pdf", "lgs"],
+    keywords: ["publications", "papers", "research papers", "inventions", "publication", "pdf", "lgs", "research", "agenda"],
   },
   {
     id: "keyfuse",
