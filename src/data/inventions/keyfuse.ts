@@ -16,7 +16,17 @@ import type { InventionPaper } from "./types";
  * condition is an assumption and not a theorem, and the certificate is the
  * weak string the engine emits. The not-claimed list in section 8 is copied
  * word for word from blueprint section 1. No number here is an estimate: the
- * corpus is brute-forced and every aggregate is recomputed by the gate.
+ * corpus is brute-forced, so ground truth is exact by enumeration. The
+ * committed evidence script recomputes every aggregate; the twelve-criterion
+ * CI gate independently recomputes the 72 cells, the witness and necessity
+ * checks, the collision separations, the anchor residuals, and the negative
+ * controls, and compares the pinned aggregate counts. Two aggregates quoted
+ * below - the corpus-wide assignment and collision-pair totals and the T2
+ * strategy-by-metric row - come from the evidence script and are not
+ * recomputed by the CI gate. F1's bar values are a third case: no committed
+ * gate reads that figure, and four of its twelve bars do not reproduce from
+ * the evidence script under the rule its own caption states, so they are
+ * marked pending reconciliation in section 7 rather than changed here.
  *
  * Known deviations from the plan, stated rather than hidden:
  * 1. F2's planned fixed planted family at n in {6, 8, 10, 12} was not built
@@ -46,7 +56,7 @@ const T1_CLAIMS = {
       "C2",
       "theorem (monotone, ordered domains)",
       "If every slot domain is totally ordered with baseline minimum and f is coordinatewise monotone, a strength-t covering array over {baseline, top} detects all <=t-support baseline effects at O(v^t log n) runs.",
-      "criterion 3 (ca-fallback-honesty) bounds the shipped CA arm: attributed ca-ddmin detections are a subset of exact detections (0 subset violations; 53 absences classified). Evidence: ca(1) and ca(2) detections equal ground truth on or-threshold and max-threshold; and-chain has no <=3-support baseline effect.",
+      "criterion 3 (ca-fallback-honesty) bounds the shipped CA arm: attributed ca-ddmin detections are a subset of exact detections (0 subset violations; 53 absences classified). This bounds the fallback, not the theorem: the evidence offered for C2 is two of 24 tasks plus one null task, and no committed check tests the covering-array claim itself.",
     ],
     [
       "C3",
@@ -171,7 +181,7 @@ const T2_STRATEGY_METRICS = {
   kind: "table",
   title: "T2. Strategy x metric, summed over all 24 tasks at the default strength 2",
   caption:
-    "All values are measured by the evidence harness and recomputed by the gate. `collisionsRemaining` counts enumerated same-original-key / different-output pairs still equal under the repaired key, out of 1,533 pairs in total. `certificateMisses` is `audit.misses.length`. `single-trace` reports its traced read set rather than detections and claims no dependence, so its row bounds nothing. The exact default separates 1,386 of 1,533 pairs (90.4%).",
+    "All values are measured by the evidence harness. `collisionsRemaining` counts enumerated same-original-key / different-output pairs still equal under the repaired key, out of 1,533 pairs in total. `certificateMisses` is `audit.misses.length`. `single-trace` reports its traced read set rather than detections and claims no dependence, so its row bounds nothing. The exact default separates 1,386 of 1,533 pairs (90.4%). Note which gate checks this row: the permanent gate recomputes the 120 pinned per-task cells behind it and reports drift = 0, but the sums in this row itself are produced by the evidence script, which is committed and runs in a fraction of a second and is not a CI step.",
   columns: [
     "Strategy",
     "Strength",
@@ -305,7 +315,7 @@ const F1_DETECTION = {
   id: "keyfuse-detection-by-strategy",
   title: "Detection coverage by strategy on the planted families",
   caption:
-    "Share of the family's defining ground-truth set covered: relevantT(2) = 4 slots across the two planted-2way tasks, relevantT(3) = 6 slots across the two planted-3way tasks. Bars are labelled with the strength audited. Single-trace bars count traced reads (the engine claims no dependence for that strategy), so they measure read coverage, not detection; the unminimized ca arm can report context-necessary slots outside the ground-truth set (those are the false implicates of F3), and the exact default arm's planted-3way coverage is 3/6 because and-3way has no <=2-support effect (its 3-way support is found only at strength 3).",
+    "Share of the family's defining ground-truth set covered: relevantT(2) = 4 slots across the two planted-2way tasks, relevantT(3) = 6 slots across the two planted-3way tasks. Bars are labelled with the strength audited. Single-trace bars count traced reads (the engine claims no dependence for that strategy), so they measure read coverage, not detection; the unminimized ca arm can report context-necessary slots outside the ground-truth set (those are the false implicates of F3), and the exact default arm's planted-3way coverage is 3/6 because and-3way has no <=2-support effect (its 3-way support is found only at strength 3). PENDING RECONCILIATION: no committed gate reads this figure, and under the aggregation rule this caption states - the sum over the family's tasks of ground-truth slots the arm detected at the labelled strength, over the sum of the family's ground-truth slot counts - 8 of these 12 bars reproduce from scripts/keyfuse-evidence.ts and 4 do not (baseline-toggle planted-2way, ca(1) planted-2way, ca(1) planted-3way, and ca(3) planted-3way, the last two being an exact transposition between the two series). Which of the figure or the evidence artifact is authoritative has not been determined, so the bar values are printed unchanged and marked unreconciled rather than silently adjusted. No other number in this paper depends on F1.",
   unit: "% of the family's ground-truth relevant slots covered",
   max: 100,
   series: [
@@ -859,7 +869,7 @@ export const KEYFUSE: InventionPaper = {
         },
         {
           kind: "paragraph",
-          text: "Where the method misses, and why. First, the anchor failure: at strength 2 no <=2-support displacement of the threshold-3 baseline changes output, so the exact arm detects nothing and the 55 residual pairs (12 Hamming-1 minimal) stay equal under the repaired key; this is the documented assumption failing, and the certificate was never stronger than the weak string. Second, strength caps: and-3way's 3-way support is invisible at strength 2 in the exact arm, and the conservative fallback fails to attribute it even at strength 3, recording \"detected effect requires >3 support\" or the over-strength witness instead. Third, value-specific effects: binary or two-value domains miss f = 1 iff port == 8080; the port sentinel closes that cell on this corpus, and the limit remains for values the domains do not realize. Fourth, masking: the pinned array misses the (a,b) pair and the exact arm is the only arm that finds it. Fifth, non-monotone minimization: the split-based minimizer produced 2 supports that failed the exhaustive 1-minimality check, both reported. The corpus-wide separation numbers reflect all of this: the exact default leaves 147 of 1,533 enumerated pairs colliding, and the residual is concentrated exactly where the assumption or the strength cap fails (anchor 55, planted-3way 48, negative 28, masking 12, combo-env 4).",
+          text: "Where the method misses, and why. First, the anchor failure: at strength 2 no <=2-support displacement of the threshold-3 baseline changes output, so the exact arm detects nothing and the 55 residual pairs (12 Hamming-1 minimal) stay equal under the repaired key; this is the documented assumption failing, and the certificate was never stronger than the weak string. Second, strength caps: and-3way's 3-way support is invisible at strength 2 in the exact arm, and the conservative fallback fails to attribute it even at strength 3, recording \"detected effect requires >3 support\" or the over-strength witness instead. Third, value-specific effects: binary or two-value domains miss f = 1 iff port == 8080; the port sentinel closes that cell on this corpus, and the limit remains for values the domains do not realize. Fourth, masking: the pinned array misses the (a,b) pair and the exact arm is the only arm that finds it. Fifth, non-monotone minimization: the split-based minimizer produced 2 supports that failed the exhaustive 1-minimality check, both reported. F1 is a sixth item and a different kind: that figure's bar values are not currently reconciled with the evidence script (four of twelve bars disagree under the rule its own caption states, and no gate reads it), so F1 should be read as a qualitative comparison of strategies and not as a source of exact per-family coverage percentages until the intended aggregation rule is fixed. The corpus-wide separation numbers reflect all of this: the exact default leaves 147 of 1,533 enumerated pairs colliding, and the residual is concentrated exactly where the assumption or the strength cap fails (anchor 55, planted-3way 48, negative 28, masking 12, combo-env 4).",
         },
         {
           kind: "callout",
@@ -872,6 +882,11 @@ export const KEYFUSE: InventionPaper = {
       id: "limits",
       heading: "8. Cost, limits, and honest failures",
       blocks: [
+        {
+          kind: "callout",
+          title: "Limitations that apply to every number in this paper",
+          text: "Four of them, stated once so they cannot be lost in a citation. (1) No human-participant data, and no real build: the 24 tasks are pure closures over a declared slot universe, and the incidents named in Section 1 are reproduced as a failure shape in a controlled project pair, not audited in Nx, Metro, Gradle, or Turborepo. (2) No external replication. The corpus is hand-constructed, the instrument has been run only by this project, and nobody outside it has attempted to reproduce the counts; no claim is made that the instrument already audits real cached builds. (3) Recomputed against replayed, and one figure reconciled against neither. Ground truth here is exact by brute-force enumeration, so the gate does check the instrument against an independent oracle and its headline cell counts are genuinely recomputed. That is not true of every number printed here: the corpus-wide 408 / 651 / 1,533 aggregates, the T2 strategy-by-metric row, the 521-detection and 348-necessity totals, and the 1,386 / 147 separation come from the committed evidence script and are not recomputed by the CI gate, and F1's bar values are read by no gate at all, with four of its twelve bars failing to reproduce from the evidence script under the rule F1's own caption states. Those four bars are printed unchanged and marked pending reconciliation rather than adjusted, because the audit could not determine which of the figure or the evidence artifact is authoritative. A gate that compares a recomputed value with a stored constant proves determinism, not correctness, and for the replayed aggregates that is the whole of the check. (4) No experiment here measures a generative-AI tutor, and no number bears on one: the object is a build-cache key, the oracle is a pure function, and nothing in Sections 3 to 8 concerns how a generative tutor behaves, teaches, or is graded.",
+        },
         {
           kind: "paragraph",
           text: "Cost is bounded by construction. Every audit is capped at KEYFUSE_MAX_RUNS = 4,096 oracle calls; exceeding the cap stops the audit at a row boundary, sets truncated=true, and selects the certificate \"budget exhausted before coverage completed\". The exact arm is only attempted when the Hamming-ball row count is at most KEYFUSE_EXACT_MAX_ROWS = 2,048; otherwise the audit records the row-count miss and uses the conservative fallback. On the frozen corpus the largest single audit is 541 runs (max-threshold, cover-with-defaults, strength 3), and the T2 sums at default strength 2 are 119 to 866 runs per strategy across all 24 tasks. The full permanent gate completes in ≈140 ms of local wall time against its 60 s budget, and the evidence script's own runtime budget is 60 s.",
@@ -891,6 +906,8 @@ export const KEYFUSE: InventionPaper = {
             "No guarantee for value-specific effects the probe domains do not realize.",
             "No security boundary: the key hash is a 64-bit FNV construction, not cryptographic.",
             "Deterministic-oracle assumption is explicit; non-determinism refuses rather than guesses.",
+            "No claim is made for F1's bar values until the figure and the evidence script agree: 4 of its 12 bars do not reproduce under the rule its own caption states, no gate reads it, and it is marked pending reconciliation in section 7 rather than corrected by guesswork.",
+            "No claim of external validity: the corpus is hand-built, and no result here has been checked outside this project, on a real build, or against a real toolchain.",
           ],
         },
         {
@@ -938,7 +955,7 @@ export const KEYFUSE: InventionPaper = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Everything in this paper is offline, deterministic, and dependency-free. Two full evidence sweeps serialize byte-identical canonical JSON (360 audits each, fingerprint 09c5076ebac86617), the evidence artifact carries digest 2213e158e53ff94f, and the permanent gate audits 72 cells, compares each against the brute-force ground truth, and recomputes the pinned aggregates with no auto-update path. The gate's twelve criteria cover purity and determinism, exact-arm equality, fallback honesty, masking, planted interactions, minimality, necessity and repair, anchor honesty, negative controls, portability and budget, pinned aggregates, and the summary; all twelve pass, and any count that moves must be updated in the gate constant and in this paper in the same reviewed commit.",
+          text:     "Everything in this paper is offline, deterministic, and dependency-free. Two full evidence sweeps serialize byte-identical canonical JSON (360 audits each, fingerprint 09c5076ebac86617), the evidence artifact carries digest 2213e158e53ff94f, and the permanent gate audits 72 cells, compares each against the brute-force ground truth, and recomputes the pinned aggregates with no auto-update path. The gate's twelve criteria cover purity and determinism, exact-arm equality, fallback honesty, masking, planted interactions, minimality, necessity and repair, anchor honesty, negative controls, portability and budget, pinned aggregates, and the summary; all twelve pass, and any count that moves must be updated in the gate constant and in this paper in the same reviewed commit. The distinction between what the gate recomputes and what it replays is worth stating once. Recomputed by the gate from the corpus: the 72 exact-arm cells and their 69/3 split, the 53 classified fallback absences, the 219 necessity checks and 0 violations, the 83 minimized witnesses and 81/2 split, the 101 collision witnesses and 0 unseparated, the 55/12/1 anchor residuals, the two negative controls, and the 120 pinned per-task cells. Produced by the committed evidence script rather than the CI gate: the corpus-wide 408 / 651 / 1,533 assignment and collision-pair aggregates, the T2 strategy-by-metric row, the 521-detection and 348-necessity totals, and the 1,386 / 147 separation. Read by no gate at all: F1's bar values, four of which do not reproduce from the evidence script under the rule F1's own caption states; they are printed unchanged and marked pending reconciliation in section 7, and a reader reproducing this paper should treat that figure as unreconciled until the intended rule is fixed. A gate that recomputes a value and compares it with a stored constant proves determinism, not correctness; here the ground truth is exact by brute-force enumeration, so the gate does test the instrument against an independent oracle, and that is the one paper in this series where that is true of its headline numbers.",
         },
         {
           kind: "code",

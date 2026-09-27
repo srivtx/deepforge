@@ -10,7 +10,7 @@ import type { InventionPaper } from "./types";
  * section). Retracted wave-42 figures are not repeated here: the paper and the
  * product both report the held-out concordance, the exact-signature ghost
  * definition, and the formal last-k cold-set object. The probe-visibility
- * phenomenon is wave 41's result (Alibi Distance) and is replicated, not
+ * phenomenon is wave 41's result (Alibi Distance) and is re-measured here, not
  * claimed as new; all learner-behaviour numbers come from simulated edit
  * policies and synthetic cohorts, and the paper says so wherever they appear.
  */
@@ -94,7 +94,7 @@ const CONCORDANCE_TABLE = {
   kind: "table",
   title: "Same-edit sign concordance: in-sample versus held-out",
   caption:
-    "The held-out protocol builds the basis from odd-index shipped tests only and scores the delta on even-index tests, over independent walks (n = 18,191 steps). Held-out performance is what the paper and the product use; the in-sample rows are shown only to quantify how much the leak inflated the earlier draft. The positive-only in-sample rates of the withdrawn draft are not used as reported results; the abstract cites the in-sample climb rate only to quantify the held-out drop.",
+    "The held-out protocol builds the basis from odd-index shipped tests only and scores the delta on even-index tests, over independent walks (n = 18,191 steps). Held-out performance is what the paper and the product use. The estimand is the full-sign rate: the sign of the hidden delta against the sign of the test delta on every step where both are defined. The positive-only in-sample rate of the withdrawn draft (90.20% climb, AUC 0.903) restricts the same comparison to steps with a nonzero test delta, so it conditions on a subset of steps and is not on the same scale as any held-out row here; it is listed only to record that it exists. Comparing it to a held-out full-sign figure would mix a conditional rate with an unconditional one, and the 6.20-point gap it suggests is 2.42 points of metric change rather than leakage. The like-for-like drop is 87.78 to 84.00 (3.78 points) for climb and 83.40 to 82.23 (1.17 points) for random.",
   columns: ["Estimate", "climb", "random"],
   rows: [
     ["Full-sign in-sample concordance", "87.78%", "83.40%"],
@@ -225,7 +225,7 @@ const CONCORDANCE_FIGURE = {
   id: "bdl-heldout-concordance",
   title: "Sign concordance: in-sample versus held-out",
   caption:
-    "Full-sign in-sample concordance (87.78% climb, 83.40% random) against the held-out protocol that builds the basis from odd-index tests and scores on even-index tests (84.00%, AUC 0.829; 82.23%, AUC 0.797). The in-sample drop is 3.78 points for climb (87.78% to 84.00%) and 1.17 points for random (83.40% to 82.23%), the measured cost of removing the leak; the held-out bars are the reported numbers.",
+    "Full-sign in-sample concordance (87.78% climb, 83.40% random) against the held-out protocol that builds the basis from odd-index tests and scores on even-index tests (84.00%, AUC 0.829; 82.23%, AUC 0.797). Both rows are the same full-sign statistic, so the in-sample drop is comparable: 3.78 points for climb (87.78% to 84.00%) and 1.17 points for random (83.40% to 82.23%), the measured cost of removing the leak. The held-out bars are the reported numbers. The withdrawn draft's 90.20% positive-only in-sample rate is deliberately not plotted: it conditions on steps with a nonzero test delta, and plotting it beside a full-sign held-out bar would put two different statistics on one axis.",
   unit: "% sign concordance",
   max: 100,
   series: [
@@ -254,7 +254,7 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
   authors: ["DeepForge Research"],
   date: "2026-09-18",
   abstract:
-    "A learner's repeated Run on an auto-graded exercise usually leaves one bit \u2014 pass or fail \u2014 and no memory of the previous program. We define a per-edit behavioral signature: a deterministic 48-probe basis built by perturbing the exercise's own test inputs, relative to the shipped reference, with states agree / wrong value / raise-or-timeout, executed under a fresh-copy protocol. Mining the DeepForge corpus (5,730 exercises, 5,682 analyzable, 88,357 sampled single-edit mutants) shows 10.23% of mutants are invisible on the basis (95% CI [10.03, 10.43]), 16.45% pass every shipped test, and 44.40% of problems carry a test-passing slip the basis can see. On 699 simulated edit walks, 34\u201351% of edits are exact no-ops by signature. In-sample, the sign of the hidden delta matches the sign of the test delta for 90.20% of climb walks (AUC 0.903), but with the basis built only from odd-index tests and the delta scored on even-index tests the held-out concordance drops to 84.00% (AUC 0.829) and 82.23% (AUC 0.797) \u2014 the number we report. Break-induced risk of a next-attempt test regression is 1.14\u00D7 (95% CI [0.88, 1.47]) and 1.36\u00D7 ([1.04, 1.79]), below the pre-registered 2\u00D7 prediction, so the ledger is retrospective attribution, not forecasting. Persistent \u201Ccold\u201D probes are common under the formal last-three-attempt definition (85.8% of climb walks have \u2265 4) but almost never concentrated in one perturbation family (1.50%), and the aggregate enrichment over structural transformations is post hoc and modest (reverse z = +3.1, empty z = \u221211.8 under a within-walk permutation null); all residual routing is therefore excluded from the shipped design. The shipped instrument is a count-only, opt-in, standalone practice route that stores one signature per problem, never sources, never families, and never grades; it reports \u201Ck of N hidden checks changed\u201D or \u201Cno change on N hidden checks\u201D, because probe blindness makes stronger language false.",
+    "A learner's repeated Run on an auto-graded exercise usually leaves one bit \u2014 pass or fail \u2014 and no memory of the previous program. We define a per-edit behavioral signature: a deterministic 48-probe basis built by perturbing the exercise's own test inputs, relative to the shipped reference, with states agree / wrong value / raise-or-timeout, executed under a fresh-copy protocol. Mining the DeepForge corpus (5,730 exercises, 5,682 analyzable, 88,357 sampled single-edit mutants) shows 10.23% of mutants are invisible on the basis (95% CI [10.03, 10.43]), 16.45% pass every shipped test, and 44.40% of problems carry a test-passing slip the basis can see. On 699 simulated edit walks, 34\u201351% of edits are exact no-ops by signature. In-sample, on the same full-sign statistic used for the held-out figures, the sign of the hidden delta matches the sign of the test delta for 87.78% of climb steps and 83.40% of random steps; with the basis built only from odd-index tests and the delta scored on even-index tests the held-out concordance falls to 84.00% (AUC 0.829) and 82.23% (AUC 0.797) \u2014 a drop of 3.78 and 1.17 points, and the number we report. A positive-only in-sample rate, restricted to steps with a nonzero test delta, reads 90.20% (AUC 0.903); that is a different statistic on a different denominator and is not comparable to the held-out figures, so the 6.20-point gap between 90.20% and 84.00% is not a leakage measurement. Break-induced risk of a next-attempt test regression is 1.14\u00D7 (95% CI [0.88, 1.47]) and 1.36\u00D7 ([1.04, 1.79]), below the pre-registered 2\u00D7 prediction, so the ledger is retrospective attribution, not forecasting. Persistent \u201Ccold\u201D probes are common under the formal last-three-attempt definition (85.8% of climb walks have \u2265 4) but almost never concentrated in one perturbation family (1.50%), and the aggregate enrichment over structural transformations is post hoc and modest (reverse z = +3.1, empty z = \u221211.8 under a within-walk permutation null); all residual routing is therefore excluded from the shipped design. The shipped instrument is a count-only, opt-in, standalone practice route that stores one signature per problem, never sources, never families, and never grades; it reports \u201Ck of N hidden checks changed\u201D or \u201Cno change on N hidden checks\u201D, because probe blindness makes stronger language false.",
   keywords: [
     "behavioral delta",
     "differential testing",
@@ -280,7 +280,7 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
         },
         {
           kind: "paragraph",
-          text: "This paper reports the measurement program behind that instrument: a full-corpus census of 88,357 sampled single-edit mutants on 5,682 analyzable exercises, a study of 699 simulated edit walks under three policies, a leakage-controlled replication of the same-edit concordance result, and a formal reconciliation of the cold-set object that the first draft measured incorrectly. It also reports what failed: four pre-registered predictions did not survive, and the failures removed copy from the product rather than being smoothed in the text.",
+          text: "This paper reports the measurement program behind that instrument: a full-corpus census of 88,357 sampled single-edit mutants on 5,682 analyzable exercises, a study of 699 simulated edit walks under three policies, a leakage-controlled re-measurement of the in-sample concordance result, and a formal reconciliation of the cold-set object that the first draft measured incorrectly. It also reports what failed: four pre-registered predictions did not survive, and the failures removed copy from the product rather than being smoothed in the text.",
         },
         {
           kind: "list",
@@ -288,7 +288,7 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
             "Per-edit hidden signature: a deterministic basis derived from the exercise's own tests, ternary states under a fresh-copy protocol, diffed between two consecutive learner programs.",
             "Census: 5,682 analyzable exercises, 88,357 sampled single-edit mutants, 10.23% invisible on the 48-probe basis, 16.45% passing all shipped tests, 45.23% of those hidden-visible, and 44.40% of problems carrying at least one visible silent slip.",
             "Walk study: 699 simulated walks (climb / random / revert) with exact-signature ghost rates of 48.37% / 51.16% / 33.98% after the corrected no-op definition, replacing a definition that missed wrong-to-wrong state flips.",
-            "Held-out collapse: 84.00% (AUC 0.829) and 82.23% (AUC 0.797) under an odd-test-basis, even-test-scoring protocol, replacing in-sample rates; directional copy is cut.",
+            "Held-out collapse: 84.00% (AUC 0.829) and 82.23% (AUC 0.797) under an odd-test-basis, even-test-scoring protocol, a drop of 3.78 and 1.17 points from the like-for-like full-sign in-sample rates of 87.78% and 83.40%; directional copy is cut.",
             "Formal cold-set reconciliation: the measured object (walk-long) and the defined object (last k = 3) disagree, H6b is dead under both, and the residual routing story is cut from the product.",
             "Product decision: a count-only, opt-in, standalone route that never states direction and never touches grading, review, certificates, or sync.",
           ],
@@ -296,7 +296,7 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
         {
           kind: "callout",
           title: "Novelty, stated honestly",
-          text: "The visibility of hidden-basis divergence is wave 41's result, replicated here (44.40% of problems carry a test-passing slip the basis sees, against Alibi Distance's 46.08% P(alpha=1) on a basis that included the shipped inputs). What is new is the object: the delta between two of a learner's own consecutive programs on a hidden basis derived from the exercise's own tests, the exact no-op edit as a behavioral event, and the measured limits of that object (held-out sign concordance 84.0 / 82.2%, 10.2% probe blindness, cold-set coherence 1.5%).",
+          text: "The visibility of hidden-basis divergence is wave 41's result, and this run is consistent with it rather than a replication of it: 44.40% of problems carry a test-passing slip the basis sees, against Alibi Distance's 46.08% P(alpha=1) on a basis that included the shipped inputs. The two statistics are built differently - different basis composition and a different estimand (a test-passing slip against a radius-1 alibi) - so their 1.68-point difference is not a measure of agreement. What this paper adds is the object: the delta between two of a learner's own consecutive programs on a hidden basis derived from the exercise's own tests, the exact no-op edit as a behavioral event, and the measured limits of that object (held-out sign concordance 84.0 / 82.2%, 10.2% probe blindness, cold-set coherence 1.5%). No priority claim is made for the trace object, the no-op definition, or any rate over it.",
         },
         {
           kind: "callout",
@@ -319,7 +319,7 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
         },
         {
           kind: "paragraph",
-          text: "Mutation testing is the parent methodology. DeMillo, Lipton, and Sayward (1978) framed test data selection around seeded simple faults; Jia and Harman (2011) and Papadakis et al. (2019) surveyed the field; Just et al. (2014) gave the strongest evidence that mutants correlate with real faults. BDL samples the same single-edit families as the wave-41 census, but its object is not a mutation score: it computes the behavioral delta of an edit rather than the survival of a mutant, and it is relative to the learner's previous program, not to an absolute reference. Inozemtseva and Holmes (2014) showed coverage is a weak proxy for suite effectiveness, which is why the Ledger reports counts over a basis instead of a score. DSpot (Danglot et al., 2019) amplifies developer tests; Speccle's ADR-0012 argues for acting on the individual surviving mutant rather than a score threshold. The Ledger is adjacent to both but never modifies a shipped suite or gates a learner.",
+          text: "Mutation testing is the parent methodology. DeMillo, Lipton, and Sayward (1978) framed test data selection around seeded simple faults; Jia and Harman (2011) and Papadakis et al. (2019) surveyed the field; Just et al. (2014) gave the strongest evidence that mutants correlate with real faults. BDL samples the same single-edit families as the wave-41 census, but its object is not a mutation score: it computes the behavioral delta of an edit rather than the survival of a mutant, and it is relative to the learner's previous program, not to an absolute reference. Inozemtseva and Holmes (2014) showed coverage is a weak proxy for suite effectiveness, which is why the Ledger reports counts over a basis instead of a score. DSpot (Danglot et al., 2019) amplifies developer tests, and the position that the individual surviving mutant matters more than an aggregate adequacy threshold is also the position this paper reaches independently, by measuring the estimator rather than the score. The Ledger is adjacent to both but never modifies a shipped suite or gates a learner.",
         },
         {
           kind: "paragraph",
@@ -336,10 +336,10 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
           rows: [
             ["Differential testing", "Divergence between comparable programs as an oracle", "A correctness verdict; BDL counts changed hidden checks"],
             ["Mutation testing", "Single-edit families as a slip model", "A mutation score for a program under test"],
-            ["Wave 41 / Alibi Distance", "The probe-divergence visibility phenomenon (replicated)", "Discovery of probe blindness or a radius account"],
+            ["Wave 41 / Alibi Distance", "The probe-divergence visibility phenomenon (re-measured here on a different estimator, not replicated)", "Discovery of probe blindness or a radius account"],
             ["Novice flailing (Jadud)", "Behavioral futility as a distinct event from error count", "An error-quotient replacement or a diagnostic of intent"],
             ["Errorful learning (Kornell; Metcalfe)", "Re-encountering one's own wrong program", "Evidence that replay improves learning"],
-            ["Speccle ADR / DSpot", "Act on the individual survivor, not the aggregate score", "Automatic test augmentation or repair"],
+            ["DSpot and the survivor-first position", "Act on the individual survivor, not the aggregate score", "Automatic test augmentation or repair"],
           ],
         },
       ],
@@ -401,7 +401,7 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
         {
           kind: "callout",
           title: "What the measurement is relative to",
-          text: "Every rate is relative to the frozen perturbation set, the deterministic basis, the 1e-6 equality semantics, and the eleven-family edit model. Enlarging the basis or the edit model can only find more divergence, so the invisibility rate is a lower bound on any wider-domain notion. None of these numbers is a property of learners.",
+          text: "Every rate is relative to the frozen perturbation set, the deterministic basis, the 1e-6 equality semantics, and the eleven-family edit model. Enlarging the basis should find at least as much divergence, so we expect the invisibility rate measured here to be a lower bound for a wider basis; that expectation is not separately measured in this study, and the sibling paper in this series withdrew an analogous monotonicity claim after a counterexample was found, so it is stated as an expectation rather than a property. None of these numbers is a property of learners.",
         },
       ],
     },
@@ -411,7 +411,7 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The clean run processed all 5,730 exercises; 48 have fewer than five reference-evaluable probes and are skipped, leaving 5,682 analyzable problems. Mutant sampling generated 88,357 single-edit mutants, of which 14,534 (16.45%) pass every shipped test. The hidden basis sees 6,574 of those passers (45.23%) and misses the other 54.77%; 9,041 mutants (10.23%) are invisible on the basis, and 2,523 problems (44.40%) carry at least one test-passing, hidden-visible slip. The test-passing rate independently replicates wave 41's 16.50% on a fresh artifact.",
+          text: "The clean run processed all 5,730 exercises; 48 have fewer than five reference-evaluable probes and are skipped, leaving 5,682 analyzable problems. Mutant sampling generated 88,357 single-edit mutants, of which 14,534 (16.45%) pass every shipped test. The hidden basis sees 6,574 of those passers (45.23%) and misses the other 54.77%; 9,041 mutants (10.23%) are invisible on the basis, and 2,523 problems (44.40%) carry at least one test-passing, hidden-visible slip. The test-passing rate is close to wave 41's 16.50% (16.45% here), which is a useful coarse consistency check but not a replication: the two runs sample mutants under different caps (at most 24 per problem here, at most 36 there) over slightly different analyzable sets (5,682 against 5,721), so the two percentages are not estimates of the same quantity and their 0.05-point proximity should not be read as agreement.",
         },
         {
           kind: "table",
@@ -493,7 +493,7 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
         },
         {
           kind: "paragraph",
-          text: "The sign of a hidden delta agrees with the sign of the graded test delta far more often than chance - but only in-sample. Full-sign in-sample concordance is 87.78% for climb and 83.40% for random; the positive-only in-sample rates of the first draft are not used as reported results; the abstract cites the in-sample climb rate only to quantify the held-out drop. Under the leakage-controlled protocol, with the basis built only from odd-index tests and the delta scored on even-index tests, held-out concordance is 84.00% (AUC 0.829) for climb and 82.23% (AUC 0.797) for random over 18,191 independent steps. The correct reading is that the basis is a genuinely informative proxy for the graded contract, and not informative enough to state a direction to a learner. That is precisely why the product reports whether the signature changed and how many dims changed, and never whether the edit improved the program.",
+          text: "The sign of a hidden delta agrees with the sign of the graded test delta far more often than chance - but only in-sample. On the full-sign statistic used throughout this section, in-sample concordance is 87.78% for climb and 83.40% for random; the positive-only in-sample rate of the first draft (90.20% climb, AUC 0.903) conditions on steps with a nonzero test delta, is a different statistic on a different denominator, and is not used as a reported result. Under the leakage-controlled protocol, with the basis built only from odd-index tests and the delta scored on even-index tests, held-out concordance is 84.00% (AUC 0.829) for climb and 82.23% (AUC 0.797) for random over 18,191 independent steps. The like-for-like drop is 3.78 points for climb and 1.17 for random. The correct reading is that the basis is a genuinely informative proxy for the graded contract, and not informative enough to state a direction to a learner. That is precisely why the product reports whether the signature changed and how many dims changed, and never whether the edit improved the program.",
         },
         {
           kind: "table",
@@ -648,14 +648,24 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
       heading: "9. Reproducibility",
       blocks: [
         {
+          kind: "callout",
+          title: "Limitation: what is absent from the release, and what the gate actually checks",
+          text: "Neither the census engine (bdl_engine_clean.py), nor its census_clean.jsonl output, nor analysis/recompute.py, nor the walk and cold-set artifacts is in this release. Absent are therefore every full-corpus count in Table 1 (88,357 / 9,041 / 14,534 / 6,574 / 2,523 / 3,600 / 2,818 / 5,627 / 55), the per-family invisibility table, the 699-walk study, the leakage protocol's 18,191 steps, the sub-basis sensitivity figures, the permutation null, the latency audit, and the synthetic routing model. The permanent gate consequently checks something much narrower than the headline. What it recomputes on every run: the analyzer on a deterministic stratified 240-problem sample (4.2% of the corpus), two byte-identical runs of it, the flake, cosmetic-churn, and rename-churn rows, and the twelve shipped harness fixtures under CPython. What it compares against constants rather than recomputing: the full-corpus counts above, and even for those the exact check runs only when the census artifact is supplied, which CI does not do. The sampled check is a band, not the census: on the last run the sampled hidden-visible rate was 42.33% against the published 45.23% and passed on a printed tolerance of 10.07 points, and problems-with-a-visible-slip sampled 45.34% against 44.40% on 9.92 points. A reader should treat the full-corpus rates as independently re-derived on a 240-problem sample, not as reproduced. Three of the four sampled rates landed within 0.6 points; the fourth was 2.9 points off and still passed. Whether the paper is right or the band is too wide is not settled by anything in this repository.",
+        },
+        {
+          kind: "callout",
+          title: "Recomputed versus replayed",
+          text: "A gate that recomputes a value and compares it with a stored constant proves that the pipeline is deterministic on this corpus and this machine; it does not prove the measurement is correct, and where the expected constant was produced by the same code path the comparison can only catch drift. Applying that distinction here: exact and recomputed are the twelve harness fixtures (each built by the shipped buildBdlHarness, run under CPython, and asserted on its parsed signature and mask), the two committed spot records al-345 and ds-074 (compared against embedded SHA-256 digests produced with CPython 3.13), and the determinism row asserting that two runs inside one invocation are byte-identical. Band-checked against stored constants are the five sampled rates. Replayed only, with no independent check in this repository, are every full-corpus count, the family table, the walk-study rates, the held-out concordance, the sensitivity figures, the permutation z-values, the latency numbers, and the routing model. Nothing in the gate compares against an external oracle of the kind REPROGPU's Philox and FIPS vectors provide, so nothing in this paper rests on one.",
+        },
+        {
           kind: "paragraph",
-          text: "The census is reproducible offline from a corpus dump, with no network, no model, and no new dependency. The cited artifact is the clean run under the wave-42 engineer scratch directory: clean/bdl_engine_clean.py writes clean/census_clean.jsonl with a truncating writer and no resume path, producing 5,730 fresh records, one per problem. The earlier append-resumed artifact is retired: it carried two stale pre-rename-fix records (al-345, ds-074, both with churn_rename null); the fresh records for those problems have churn_rename 0 and identical mutant counts, and every headline total is unchanged. The derived statistics come from analysis/recompute.py, which writes analysis/recompute.out and includes the within-walk permutation null (300 draws, seed 12345).",
+          text: "The census procedure needs no network, no model, and no new dependency, but the engine that produced it is not part of this release. The cited artifact is the clean run under the wave-42 engineer scratch directory: clean/bdl_engine_clean.py wrote clean/census_clean.jsonl with a truncating writer and no resume path, producing 5,730 fresh records, one per problem. Neither the script, the JSONL, nor the scratch directory is in this repository, and the derived statistics come from analysis/recompute.py, which is also absent. The earlier append-resumed artifact is retired: it carried two stale pre-rename-fix records (al-345, ds-074, both with churn_rename null); the fresh records for those problems have churn_rename 0 and identical mutant counts, and every headline total is unchanged. Every number in Sections 4 to 6 is therefore a record of that run rather than an artifact a reader can regenerate.",
         },
         {
           kind: "code",
           language: "bash",
           title: "Reproducing the reported results",
-          code: "# fresh full-corpus census (truncating writer; no resume path)\npython3 clean/bdl_engine_clean.py problems.json clean/census_clean.jsonl\n\n# corrected ghost/churn v2, formal last-k cold sets, permutation null\npython3 analysis/recompute.py > analysis/recompute.out\n\n# permanent Python-backed harness gate (wired as verify:bdl once it lands)\nbun run scripts/verify-bdl.ts\n\n# paper and PDF projections (all registered inventions)\nbun test tests/inventions.test.ts tests/pdf.test.ts",
+          code: "# the full-corpus census engine is NOT in this release, so these two\n# commands cannot be run from a clean checkout; they record how the reported\n# numbers were produced\npython3 clean/bdl_engine_clean.py problems.json clean/census_clean.jsonl\npython3 analysis/recompute.py > analysis/recompute.out\n\n# the permanent Python-backed harness gate (wired as verify:bdl in CI).\n# It re-runs the analyzer on a deterministic stratified 240-problem sample and\n# requires the four headline rates to fall within 3 sigma of the stored values.\nbun run scripts/verify-bdl.ts\n\n# paper and PDF projections (all registered inventions)\nbun test tests/inventions.test.ts tests/pdf.test.ts",
         },
         {
           kind: "list",
@@ -666,7 +676,7 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
             "Mutants: at most 24 per problem and 4 per family over eleven families, target order shuffled by the problem seed.",
             "Walks: stride-24 sample, 233 walks per policy, 10-12 steps, walk seed md5(id)[:8] + {climb:1, random:2, revert:3}.",
             "Permutation null: within-walk, 300 draws, seed 12345. Synthetic cohort: seed 20260918, 400 learners. Latency audit: 200 problems, seed 42.",
-            "Derived statistics: 88,357 mutants; 9,041 invisible = 10.23% [10.03, 10.43]; 14,534 test-passing = 16.45% [16.21, 16.70]; 6,574 hidden-visible = 45.23% [44.42, 46.04]; 2,523 / 5,682 visible silent slips = 44.40% [43.12, 45.70]; 0 / 5,682 flakes.",
+            "Derived statistics, recorded from the clean run and stored as constants in the permanent gate (which compares them exactly only when the census artifact is supplied, and CI does not supply it): 88,357 mutants; 9,041 invisible = 10.23% [10.03, 10.43]; 14,534 test-passing = 16.45% [16.21, 16.70]; 6,574 hidden-visible = 45.23% [44.42, 46.04]; 2,523 / 5,682 visible silent slips = 44.40% [43.12, 45.70]; 0 / 5,682 flakes. In the default self-contained mode the gate instead re-runs the analyzer on a deterministic stratified 240-problem sample and requires the four headline rates to fall within 3 sigma of the stored values, printing the tolerance for each row.",
             "Permanent gate: scripts/verify-bdl.ts plus scripts/py_bdl_verify.py emit harnesses for fixed fixtures (agree, wrong value, raise, reference timeout), assert the parsed sig and mask exactly, assert the wall-deadline path marks x, and exit non-zero on any mismatch.",
           ],
         },
@@ -682,8 +692,13 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
       heading: "10. Limitations & future work",
       blocks: [
         {
+          kind: "callout",
+          title: "Limitations that apply to every number in this paper",
+          text: "Four of them, stated once so they cannot be lost in a citation. (1) No human-participant data, and no observational data of any kind: every walk, ghost rate, concordance, and routing result is a simulated edit policy, a synthetic cohort, or a corpus statistic, and the section below that says so is the one a citation should carry. (2) No external replication. Nothing in this paper has been reproduced by anyone outside this project, and the wave-41 comparison in Section 4 is a consistency check between two different estimators rather than a replication, for the reasons given there. (3) The full-corpus census is not reproducible from a checkout. The engine, its JSONL output, and the analysis script are absent, and CI substitutes a 240-problem stratified 3-sigma band check whose printed tolerances reach 10.07 points on a headline row; Section 9 lists exactly which numbers the gate recomputes, which it replays, and which it does not touch. A gate that compares a recomputed value with a stored constant proves determinism, not correctness, and for the full-corpus counts that is the whole of what the gate does. (4) No experiment here measures a generative-AI tutor. The external field evidence on generative tutoring is about other systems and other designs; nothing in Sections 4 to 7 bears on whether a generative tutor produces no-op edits, on the counts this paper defines, or on their value to a learner.",
+        },
+        {
           kind: "paragraph",
-          text: "The first limitation bounds every learner-facing number in this paper: there is no human data. Every walk, ghost rate, concordance, and routing result is a simulated edit policy, a synthetic cohort, or a corpus statistic. Whether real learners make no-op edits at these rates, whether a count card changes behavior, and whether the replay shelf helps retention are all unmeasured. The first human experiment proposed here is deliberately small and local: log consecutive signature pairs in the opt-in route and compare the observed no-op distribution with the simulated one. Nothing in this paper should be cited as a learner-error rate.",
+          text: "The first limitation bounds every learner-facing number in this paper: there is no human data. Every walk, ghost rate, concordance, and routing result is a simulated edit policy, a synthetic cohort, or a corpus statistic. Whether real learners make no-op edits at these rates, whether a count card changes behavior, and whether the replay shelf helps retention are all unmeasured. The first human experiment proposed here is deliberately small and local: log consecutive signature pairs in the opt-in route and compare the observed no-op distribution with the simulated one. Nothing in this paper should be cited as a learner-error rate. The programming-trace literature is the natural home for the object this paper studies, and it was not surveyed systematically here, so no priority claim is made for the trace features or the delta object.",
         },
         {
           kind: "list",
@@ -840,9 +855,9 @@ export const BEHAVIORAL_DELTA_LEDGER: InventionPaper = {
       url: "https://katabench.com/docs/grading",
     },
     {
-      id: "speccle",
+      id: "withdrawn-speccle",
       citation:
-        "speccle ADR-0012, strengthen routes on the survivor, not the score",
+        "[withdrawn] speccle ADR-0012 — the repository this pointed to could not be located, so the sentence in Section 2 that leaned on it was reworded to stand on this paper's own measurement and this entry is not to be cited",
       url: "https://github.com/matthewalton/speccle/blob/main/docs/adr/0012-strengthen-routes-on-the-survivor-not-the-score.md",
     },
     {

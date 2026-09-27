@@ -83,14 +83,13 @@ const T1: InventionBlock = {
   kind: "table",
   title: "T1. Closest work and the exact delta (static; no arena numbers)",
   caption:
-    "Clause key: (i) ledger of attempts as the warrant; (ii) dependence accounting; (iii) grade as a total, recomputable function of the ledger; (iv) exact dependency-directed demotion through cites. Every row states what is not implemented there; no row is a comparison against a strawman, and none of these works was measured in our arena.",
+    "Clause key: (i) ledger of attempts as the warrant; (ii) dependence accounting; (iii) grade as a total, recomputable function of the ledger; (iv) exact dependency-directed demotion through cites. Every row states what is not implemented there; no row is a comparison against a strawman, and none of these works was measured in our arena. One row present in an earlier version of this table was withdrawn because the repository it named could not be located when the reference list was re-checked, so the \u0022closest single match\u0027 it was labelled is not claimed here; the table is a survey of located works, not an exhaustive one, and the Section 1 ceiling is phrased as an absence in the literature we surveyed for that reason.",
   columns: ["Work", "URL", "Implements", "Clause matched", "Not implemented"],
   rows: [
     ["falsification-ledger (OSS, PyPI 0.1.1, 2026)", "https://github.com/foolproof-labs/falsification-ledger", "pre-registered falsification contract; append-only hash-chained ledger; content-addressed reports; chain recompute on demand", "RLV(i); RLV(iii) tamper-audit", "runtime values; declared dependence-class count; cite demotion; grade semantics"],
     ["falsifyr (CRAN/GitHub 1.0.0, 2025-26)", "https://github.com/msaule/falsifyr/", "attack leaderboard; attack families; deterministic per seed; smallest-kill; 0-100 survival score", "RLV(i); partly RLV(ii)", "runtime values; declared dependence-class grade; cites and demotion; audit by recompute (the score is a heuristic)"],
     ["falsification-ledger hit-rate report", "https://pypi.org/project/falsification-ledger/", "hit-rate over adjudicated claims with per-source-type buckets; verdict_ready gate", "RLV(iii) audit of a derived statistic", "per-value grades; declared dependence accounting; demotion"],
     ["FalsiFlyer AUDIT_LEDGER_SPEC (OSS, retrieved 2026-09-18)", "https://github.com/subvurs/FalsiFlyer/blob/main/docs/AUDIT_LEDGER_SPEC.md", "hash-chained and signed ledger binding kernel, dataset, and decision-rule hashes to verdicts; chain check; eight adversarial baselines; truncation caveat", "RLV(i); RLV(iii)", "runtime values; grade function; dependence classes; cite demotion"],
-    ["totem capability falsification (commit fc3f4114, 2026)", "https://github.com/mmnto-ai/totem/blob/fc3f4114/packages/core/src/capability/falsification.ts", "append-only claim and resolution log; byte-reproducible ledger; pinned arithmetic check makes inflation detectable", "RLV(iii), strongest match", "falsification attempts as warrant; declared dependence-class count; dependency-directed demotion"],
     ["Doyle 1979 TMS / de Kleer 1986 ATMS", "https://dspace.mit.edu/handle/1721.1/5733", "justifications as warrant; exact dependency-directed retraction and label recomputation; nogoods", "RLV(iv)", "falsification ledger; dependence accounting; graded warrant"],
     ["provenance semirings (Green et al. 2007)", "https://dl.acm.org/doi/10.1145/1265530.1265535", "positive provenance polynomials for how a result derives", "RLV(i) flavor only", "negative evidence; refutation; demotion"],
     ["Verheij accrual of arguments (1995/1999)", "https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.41.4458", "independent arguments reinforce; more reasons imply more cogency; compound defeat", "RLV(ii) concept", "combinatorial dependence set; machine audit; demotion of values"],
@@ -99,7 +98,7 @@ const T1: InventionBlock = {
     ["subjective logic / EBSL (Josang 2001)", "https://doi.org/10.1016/s0218-4885(01)00083-1", "grades as functions of positive and negative evidence; fusion assumes source separation; discounting", "RLV(ii)/(iii) concept", "append-only ledger; syntactic ids; cite demotion; audit"],
     ["Knight & Leveson (IEEE TSE 1986)", "https://www.csc.kth.se/utbildning/kth/kurser/DA2210/vettig13/Seminarier/KnightLeveson.pdf", "shows that independent development does not buy failure independence; correlated failures are empirical", "RLV(ii) counter-pressure", "no system; everything else"],
     ["Assurance 2.0 defeaters (2024)", "https://www.csl.sri.com/~rushby/papers/defeaters24.pdf", "defeaters recorded, investigated, retained; confidence from doubts; warns that counts are gameable", "RLV(i)/(ii) caution", "runtime values; exact grade function; cite demotion"],
-    ["EviBound (arXiv 2511.05524, 2025)", "https://arxiv.org/abs/2511.05524", "claims promoted only with machine-checkable evidence; run id, artifacts, status; refusal and blocking", "RLV(i)/(iii) spirit", "ledger of falsification attempts; dependence; grade; demotion"],
+    ["EviBound (arXiv 2511.05524, 2025)", "https://arxiv.org/abs/2511.05524", "claims promoted only with machine-checkable evidence; run id, artifacts, status; refusal and blocking", "RLV(i)/(iii); the promotion-with-evidence thesis is prior art and is not claimed here", "ledger of falsification attempts; dependence; grade; demotion"],
     ["SV-COMP witnesses 2.0 (SPIN 2024)", "https://www.sosy-lab.org/research/pub/2024-SPIN.Software_Verification_Witnesses_2.0.pdf", "violation and correctness witnesses as exchangeable, independently checked artifacts with explicit assumption scopes", "adjacent candidate; FK(i)", "subsumption; difference witness; composition gate"],
     ["checked subsumption certificates in DL (PAAR 2020)", "https://ceurspt.wikidata.dbis.rwth-aachen.de/Vol-2663/paper-5.pdf", "checked certificates for computed subsumptions; non-entailment countermodels proposed as future work", "adjacent; partial FK(ii)", "subsumption between refutations; scope typing; gate"],
     ["mutant subsumption graphs (ICSTW 2014)", "https://dl.acm.org/doi/10.1109/ICSTW.2014.20", "kill-set inclusion between mutants; true subsumption undecidable; approximations", "adjacent; partial FK(ii)", "refutation values; scope types; difference witnesses; gate"],
@@ -122,7 +121,7 @@ const T2: InventionBlock = {
     ["Regimes", "R redundant; D diverse-label control (coincides with R under the binary blind-spot model, since a defective claim can only survive its one blind family); C churn (R plus extra seeds in one family); P replay (identical attempts repeated); X correlated"],
     ["Conflict pairs", "12 per regime, both sides matched on raw survivor count"],
     ["Seeds", "200 frozen seeds; s <- (1664525 * s + 1013904223) mod 2^32"],
-    ["Graders", "B0 survivor present; B1 raw survivor count; B2 survival share; B3 pinned survivor count; B4 alive/dead belief; B5 distinct surviving families (strongest cheap adversary); B6 distinct attempt tuples (kill-criterion bait); B7 declared dependence classes (shipped); B8 oracle blind-spot classes (analysis only)"],
+    ["Graders", "B0 survivor present; B1 raw survivor count; B2 survival share; B3 pinned survivor count; B4 alive/dead belief; B5 distinct surviving families (the strongest cheap adversary we constructed, capped at K = 3 - a cap that matters in regime X, where a defective claim can survive three families); B6 distinct attempt tuples (kill-criterion bait); B7 declared dependence classes (shipped); B8 oracle blind-spot classes (analysis only)"],
     ["Oracle", "one family with an empty blind spot, used for scoring only; never implemented in the engine or the lab"],
   ],
 };
@@ -131,7 +130,7 @@ const T3: InventionBlock = {
   kind: "table",
   title: "T3. Pair-win rate by grader and regime (mean / 5th percentile over 200 seeds)",
   caption:
-    "Fraction of the 12 matched conflict pairs per seed where the grader ranks the non-defective side above the defective side; ties count 0.5. B0-B4 and B6 sit at 0.500 in every regime. B5, the strongest cheap count baseline, separates in R/D/C/P and collapses to 0.000 in the correlated regime X, where family-dedup sees three modes where only one exists. B7 keeps 1.000 and the analysis-only B8 matches it.",
+    "Fraction of the 12 matched conflict pairs per seed where the grader ranks the non-defective side above the defective side; ties count 0.5. B0-B4 and B6 sit at 0.500 in every regime. B5, the strongest cheap count baseline we constructed (distinct surviving families, capped at K = 3, and that cap is load-bearing in X where a defective claim can survive three families), separates in R/D/C/P and collapses to 0.000 in the correlated regime X, where family-dedup sees three modes where only one exists. B7 keeps 1.000 and the analysis-only B8 matches it, because in X they are the same function of the same table (Section 6). The mean and the 5th percentile are identical in every cell here: the per-seed value does not vary, so the seed sweep is a determinism check and not a stability check.",
   columns: ["Grader", ...REGIMES],
   rows: metricRows(ARTIFACT.pw),
 };
@@ -140,7 +139,7 @@ const T4: InventionBlock = {
   kind: "table",
   title: "T4. Calibration AUC by grader and regime (mean / 5th percentile over 200 seeds)",
   caption:
-    "Tie-aware AUC of each grader's score against the hidden defective label over all 48 claims, per regime. Label 1 is the non-defective side. The same split as T3 appears: B5 reads 0.000 in X, B7 reads 1.000, and the analysis-only B8 oracle also reads 1.000 in X because the three overlapping roots share one blind spot; B8 bounds the signal the corpus carries and is never implemented by the system.",
+    "Tie-aware AUC of each grader's score against the hidden defective label over all 48 claims, per regime. Label 1 is the non-defective side. The same split as T3 appears: B5 reads 0.000 in X, B7 reads 1.000, and the analysis-only B8 oracle also reads 1.000 in X because the three overlapping roots share one blind spot - that equality is circular rather than corroborating, since B7 and B8 read the same declared table (Section 6). B8 bounds the signal the corpus carries and is never implemented by the system. Mean and 5th percentile coincide in every cell, as in T3.",
   columns: ["Grader", ...REGIMES],
   rows: metricRows(ARTIFACT.auc),
 };
@@ -149,7 +148,7 @@ const T5: InventionBlock = {
   kind: "table",
   title: "T5. Decision metrics: AP@12 in regime X, seed churn, and demotion sanity",
   caption:
-    "AP@12 ranks values by suspicion (1 divided by grade, original claim index as the tie-break), replays the top 12 with the oracle, and reports the share that is actually defective; values are mean / 5th percentile over 200 seeds in regime X. Churn is measured from R to the seed-swamped regime C. Demotion precision and recall compare the read-time closure against the reachable-set oracle; that check exercises TMS-style retraction and is reported as such, never as the novelty.",
+    "AP@12 ranks values by suspicion (1 divided by grade, original claim index as the tie-break), replays the top 12 with the oracle, and reports the share that is actually defective; values are mean / 5th percentile over 200 seeds in regime X. AP@12 is a replay of the top 12 against an oracle that reads the same declared table the shipped relation B7 reads, so in regime X the B7 1.000 is a consistency check on the implementation and not evidence that the grade ranks real defects: with 48 claims and a ranking signal that is the ground-truth rule, this metric cannot fail in the way a held-out metric could. It is reported here and in F3 rather than headlined. Churn is measured from R to the seed-swamped regime C. Demotion precision and recall compare the read-time closure against the reachable-set oracle; that check exercises TMS-style retraction and is reported as such, never as the novelty.",
   columns: ["Metric", "Scope", "Measured", "Reading"],
   rows: [
     ...GRADERS.map((grader) => [
@@ -157,7 +156,7 @@ const T5: InventionBlock = {
       "regime X (mean / p5)",
       pairText(ARTIFACT.ap12.X[grader]),
       grader === "B5"
-        ? "strongest cheap count baseline"
+        ? "strongest cheap count baseline we constructed (distinct surviving families, K cap load-bearing in X)"
         : grader === "B7"
           ? "shipped declared-dependence relation"
           : grader === "B8"
@@ -194,7 +193,7 @@ const F1: InventionFigure = {
   id: "warrant-pairwin-r-x",
   title: "F1. Pair-win rate by grader in regimes R and X",
   caption:
-    "B1, B5, B6, B7, and B8, means over 200 frozen seeds. Regime R is redundant; regime X is correlated, where f2' and f3' share f2's blind spot. B5 falls to 0.000 in X while B7 holds 1.000. The dashed line is the 0.75 decision gate from the significance attack, shown for reference; it is not a criterion the arena applies to this figure.",
+    "B1, B5, B6, B7, and B8, means over 200 frozen seeds. Regime R is redundant; regime X is correlated, where f2' and f3' share f2's blind spot. B5 falls to 0.000 in X while B7 holds 1.000, and in X B7 and the analysis-only B8 are the same function of the same declared table, so the gap is a property of the generator. The dashed line is the 0.75 decision gate from the significance attack, shown for reference; it is not a criterion the arena applies to this figure, and it is not met in X by any arm.",
   unit: "pair-win rate (ties count 0.5)",
   max: 1,
   gate: 0.75,
@@ -208,7 +207,7 @@ const F2: InventionFigure = {
   id: "warrant-auc-x",
   title: "F2. AUC in regime X: B5, B7, and the B8 oracle ceiling",
   caption:
-    "Mean tie-aware AUC in the correlated regime, from T4's column X. The measured headroom B8 minus B5 is 1.000. The dashed line marks the 0.05 headroom threshold from F3: a gap that small would have killed the idea, not just the witness. B8 is analysis only and is never implemented in the engine or the lab.",
+    "Mean tie-aware AUC in the correlated regime, from T4's column X. The measured headroom B8 minus B5 is 1.000. The dashed line marks the 0.05 headroom threshold from F3: a gap that small would have killed the idea, not just the witness. B8 is analysis only and is never implemented in the engine or the lab. In X, B8 and B7 are the same function of the same declared table, so this figure shows that the shipped relation reaches the generator's own ceiling there, not that either is better than a count.",
   unit: "AUC against the hidden defective label",
   max: 1,
   gate: 0.05,
@@ -224,7 +223,7 @@ const F3: InventionFigure = {
   id: "warrant-ap12-x",
   title: "F3. Audit precision AP@12 by grader in regime X",
   caption:
-    "Mean AP@12 over 200 seeds. Values are ranked by suspicion (1 divided by grade, original claim index as the tie-break), the top 12 are replayed with the oracle, and the bar is the share actually defective. The dashed line is the 0.75 gate from P4. B5 sits at 0.000; B7 and the analysis-only B8 sit at 1.000.",
+    "Mean AP@12 over 200 seeds. Values are ranked by suspicion (1 divided by grade, original claim index as the tie-break), the top 12 are replayed with the oracle, and the bar is the share actually defective. The dashed line is the 0.75 gate from P4. B5 sits at 0.000; B7 and the analysis-only B8 sit at 1.000. That equality is circular, not corroborating: the oracle replayed here reads the same declared blind-spot table that B7 merges, and with 48 claims the ranking signal is the ground-truth rule, so this figure cannot fail the way a held-out metric could. It is a consistency check on the implementation and is reported here rather than headlined.",
   unit: "AP@12 (share of the 12 audited values that are defective)",
   max: 1,
   gate: 0.75,
@@ -234,7 +233,7 @@ const F3: InventionFigure = {
 };
 
 const REFERENCES: InventionReference[] = [
-  { id: "totem", citation: "mmnto-ai/totem capability falsification (commit fc3f4114)", url: "https://github.com/mmnto-ai/totem/blob/fc3f4114/packages/core/src/capability/falsification.ts" },
+  { id: "withdrawn-totem", citation: "[withdrawn] mmnto-ai/totem capability falsification (commit fc3f4114) — the repository could not be located when the reference list was re-checked; the T1 row and the Section 2 sentence that relied on it were rewritten rather than left standing, and this entry is not to be cited", url: "https://github.com/mmnto-ai/totem/blob/fc3f4114/packages/core/src/capability/falsification.ts" },
   { id: "falsifyr", citation: "falsifyr attack leaderboard keyed by family and seed", url: "https://github.com/msaule/falsifyr/" },
   { id: "falsification-ledger", citation: "falsification-ledger: append-only hash-chained ledger", url: "https://github.com/foolproof-labs/falsification-ledger" },
   { id: "falsification-ledger-hit-rate", citation: "falsification-ledger hit-rate report", url: "https://pypi.org/project/falsification-ledger/" },
@@ -271,7 +270,7 @@ export const REFUTATION_LEDGERS: InventionPaper = {
   authors: ["DeepForge Research"],
   date: "2026-09-18",
   abstract:
-    "Derived content \u2014 hints, explanations, difficulty labels, prerequisite edges \u2014 is usually consumed with positive evidence only: a passing check is a boolean with no record of what was attacked and what failed. Refutation-Ledger Values gives a runtime value a warrant that is an append-only, tamper-evident ledger of falsification attempts, a grade that is a total, recomputable function of that ledger (declared dependence-class count, a cap of 3, and the grades of cited values), and demotion that is exact with respect to the cite graph. The Derived-Claim Arena tests whether that grade changes a decision a cheap count cannot. Across 200 frozen seeds and 12 matched conflict pairs per regime, the shipped declared-dependence relation (B7) reaches pair-win 1.000 where the strongest cheap baseline (B5) reaches 0.000 in the correlated regime X, AUC 1.000 against 0.000, and audit precision AP@12 1.000 against 0.000; seed-only churn moves the mean grade by 0.000 and flips 0.000 of pairs. The syntactic tuple variant (B6) is killed as predicted. No individual mechanism is claimed as new \u2014 TMS retraction, evidence fusion, audited ledgers, and attack-family scoring are all known \u2014 and the contribution is the value-level ledger-to-grade-to-demotion contract with its falsification record, never a truth verdict.",
+    "Derived content \u2014 hints, explanations, difficulty labels, prerequisite edges \u2014 is usually consumed with positive evidence only: a passing check is a boolean with no record of what was attacked and what failed. Refutation-Ledger Values gives a runtime value a warrant that is an append-only, tamper-evident ledger of falsification attempts, a grade that is a total, recomputable function of that ledger (declared dependence-class count, a cap of 3, and the grades of cited values), and demotion that is exact with respect to the cite graph. The Derived-Claim Arena that accompanies it is a constructed instance, not an experiment: ground truth is generated from a declared blind-spot table, and the shipped relation B7 is defined by that same table, so in the correlated regime X B7 coincides with the analysis-only oracle B8 and the pair-win 1.000 against B5's 0.000, the AUC 1.000 against 0.000, and the audit precision AP@12 1.000 against 0.000 are algebraic consequences of the construction rather than measurements of grader quality. What the arena shows is that a dependence-class grade is stable under seed churn and replay \u2014 seed-only churn moves the mean grade by 0.000 and flips 0.000 of pairs, which are the figures carrying information \u2014 and that the syntactic tuple variant (B6) is killed as pre-declared. The finding it reproduces inside the generator is the published one that count-based fusion collapses when sources are correlated (Dong, Berti-Equille & Srivastava 2009; Knight & Leveson 1986). No individual mechanism is claimed as new \u2014 TMS retraction, evidence fusion, audited ledgers, and attack-family scoring are all known \u2014 and the contribution is the value-level ledger-to-grade-to-demotion contract with its falsification record, never a truth verdict.",
   keywords: [
     "warrant",
     "falsification ledger",
@@ -307,7 +306,7 @@ export const REFUTATION_LEDGERS: InventionPaper = {
         {
           kind: "callout",
           title: "The claim ceiling",
-          text: "The defensible claim is that a runtime value's warrant is an append-only, tamper-evident ledger of falsification attempts whose grade is a total, recomputable function of that ledger (declared dependence-class term, K-cap, and cited-value grades included) and whose demotion is exact with respect to the cite graph \u2014 a value-level ledger\u2192grade\u2192demotion contract that no located work implements; the individual mechanisms (TMS retraction, evidence fusion, audited ledgers, attack-family scoring) are all known. Nothing stronger is claimed anywhere in this paper or in the lab: audit is arithmetic consistency against the ledger plus anchored tamper-evidence at the append point, never truth, never authenticity of a well-formed fabrication, and never a statement about any person.",
+          text: "The defensible claim is that a runtime value's warrant is an append-only, tamper-evident ledger of falsification attempts whose grade is a total, recomputable function of that ledger (declared dependence-class term, K-cap, and cited-value grades included) and whose demotion is exact with respect to the cite graph \u2014 a value-level ledger\u2192grade\u2192demotion contract that we did not locate in any published work or located open-source system, and which we therefore claim as an absence in the literature we surveyed rather than as a priority; the individual mechanisms (TMS retraction, evidence fusion, audited ledgers, attack-family scoring) are all known. Nothing stronger is claimed anywhere in this paper or in the lab: audit is arithmetic consistency against the ledger plus anchored tamper-evidence at the append point, never truth, never authenticity of a well-formed fabrication, and never a statement about any person. The arena contributes no evidence for the contract; it is an implementation consistency check on a generator whose ground truth and shipped grader are two readings of one table (Section 6).",
         },
       ],
     },
@@ -317,7 +316,7 @@ export const REFUTATION_LEDGERS: InventionPaper = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The closest work is the record layer, not the value layer. `falsification-ledger` implements a pre-registered falsification contract over an append-only, hash-chained ledger with content-addressed reports and a chain recompute; FalsiFlyer binds kernel, dataset, and decision-rule hashes to verdicts in a signed, hash-chained ledger; `totem` regenerates a byte-reproducible capability ledger and pins a per-row arithmetic check that makes inflation detectable; `falsifyr` scores the survival of scientific claims from attacks keyed by family and seed. Each makes a claim's standing depend on recorded attempts. None treats a runtime value as the unit, none feeds a cite graph, and none demotes dependents through cites when an attempt refutes.",
+          text: "The closest work is the record layer, not the value layer. `falsification-ledger` implements a pre-registered falsification contract over an append-only, hash-chained ledger with content-addressed reports and a chain recompute; FalsiFlyer binds kernel, dataset, and decision-rule hashes to verdicts in a signed, hash-chained ledger; `falsifyr` scores the survival of scientific claims from attacks keyed by family and seed. Each makes a claim's standing depend on recorded attempts. None treats a runtime value as the unit, none feeds a cite graph, and none demotes dependents through cites when an attempt refutes. An earlier version of this table also listed a fourth record-layer project as the closest single match for the grade clause; that repository could not be located when the reference list was re-checked, the row has been withdrawn rather than left standing, and no part of the claim above depends on it. The negative result that survives is the one stated in Section 1: no ledger, ledger-family, or truth-discovery system we located composes ledger-as-warrant, a dependence-class grade, and cite demotion at the value level.",
         },
         {
           kind: "paragraph",
@@ -423,7 +422,7 @@ export const REFUTATION_LEDGERS: InventionPaper = {
         {
           kind: "callout",
           title: "Anti-gaming of the experiment",
-          text: "Ground truth comes from the generator's blind-spot table, never from a grader. The conflict pairs are matched on raw survivor count, so B1 ties instead of losing to a construction artifact, and B5 \u2014 distinct surviving families \u2014 is the adversary, not a strawman. B8 is an explicit upper bound so that 'the corpus is too easy' cannot rescue a failure. Thresholds apply to the 5th percentile over 200 seeds frozen before the run, and the seed list and the thresholds are part of the reviewed commit. B6 is the pre-declared bait: if the syntactic tuple variant were the shipped relation, P1 and P2 would be its only path to significance, and F1 predicts its kill.",
+          text: "Ground truth comes from the generator's blind-spot table, never from a grader. The conflict pairs are matched on raw survivor count, so B1 ties instead of losing to a construction artifact, and B5 \u2014 distinct surviving families, capped at the same K = 3 as the shipped grade \u2014 is the adversary, not a strawman; that cap is a design choice and it matters in regime X, where a defective claim can survive three families. B8 is an explicit upper bound so that 'the corpus is too easy' cannot rescue a failure, and in regime X it coincides with B7 by construction rather than confirming it. Thresholds are stated at the 5th percentile over 200 seeds frozen before the run, and the seed list and the thresholds are part of the reviewed commit; where the per-seed value does not vary, the percentile threshold is non-binding, which is the case for every pair-win and AUC cell. B6 is the pre-declared bait: if the syntactic tuple variant were the shipped relation, P1 and P2 would be its only path to significance, and F1 predicts its kill.",
         },
       ],
     },
@@ -433,7 +432,11 @@ export const REFUTATION_LEDGERS: InventionPaper = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Every table and figure below is transcribed from the arena artifact (digest ca0cda0f562b8c10, 200 seeds), and the permanent gate re-runs the arena and pins the headline cells. Means and 5th percentiles are over the seed sweep; criteria apply to the 5th percentile except where a criterion names churn or demotion.",
+          text: "Before any number: the arena's ground truth and the shipped grader's dependence relation are two readings of the same declared table. In regime X, families F2P and F3P carry F2's blind spot and overlap its declared coverage, so B7 merges exactly what B8 treats as one mode, and B7 = B8 by construction. Every comparison involving B7 and B8 in T3-T5 is therefore a consistency check on the implementation, not a measurement of grader quality, and the +1.000 pair-win, +1.000 AUC, and +1.000 AP@12 gaps over B5 are consequences of the declared table rather than findings about evidence fusion. What that arena does reproduce is the published result that naive count fusion collapses when sources are correlated (Dong, Berti-Equille & Srivastava 2009; Knight & Leveson 1986), which is a reason to discount correlated counts and not a new result. The two informative contrasts in the arena are B5 versus B6 (dedup by family versus dedup by attempt tuple) and B7 versus B5 under seed churn, where the claim is invariance rather than superiority.",
+        },
+        {
+          kind: "paragraph",
+          text: "Every table and figure below is transcribed from the arena artifact (digest ca0cda0f562b8c10, 200 seeds), and the permanent gate re-runs the arena and pins the headline cells. Means and 5th percentiles are over the seed sweep; criteria apply to the 5th percentile except where a criterion names churn or demotion. One property of these cells needs stating because it makes the threshold machinery weaker than it looks: for pair-win and AUC the per-seed value is identical across all 200 seeds, so the mean and the 5th percentile coincide and the percentile threshold is satisfied exactly when the mean is. Those cells carry no sampling variability, and the seed sweep is a determinism check, not a stability check. Only the AP@12 cells for the count baselines show spread (mean 0.5175, 5th percentile 0.250).",
         },
         T3,
         T4,
@@ -449,7 +452,7 @@ export const REFUTATION_LEDGERS: InventionPaper = {
         },
         {
           kind: "paragraph",
-          text: "Reading the tables. Ties count 0.5 in pair-win; thresholds apply to the 5th percentile (nearest rank over the 200 frozen seeds), so a mean can look close while a criterion passes, and both are reported. B8 is analysis-only: it is the oracle family's blind-spot-class count, present for the ceiling argument and never implementable by the system. B5 is the strongest cheap adversary (distinct surviving families, capped at K), not a strawman. B0-B4 and B6 are constant or chance-like on the matched pairs, which is what count-matching is for. The aggregates for regimes R, D, C, and P coincide at the reported precision; X is the discriminating regime, and only the declared dependence relation stays at 1.000 there.",
+          text: "Reading the tables. Ties count 0.5 in pair-win; thresholds are stated at the 5th percentile (nearest rank over the 200 frozen seeds) and both the mean and the percentile are printed. For the pair-win and AUC cells the per-seed value is identical across all 200 seeds, so mean and 5th percentile coincide and the percentile threshold is satisfied exactly when the mean is; those cells carry no sampling variability and the seed sweep is a determinism check, not a stability check. Only the AP@12 cells for the count baselines show spread (mean 0.5175, 5th percentile 0.250). B8 is analysis-only: it is the oracle family's blind-spot-class count, present for the ceiling argument and never implementable by the system; in regime X it coincides with B7 by construction, so their agreement is a consistency check. B5 is the strongest cheap adversary we constructed (distinct surviving families, capped at K = 3 - a cap that is load-bearing in regime X, where a defective claim can survive three families), not a strawman, but it is also a capped counterfactual rather than an adversarial optimum. B0-B4 and B6 are constant or chance-like on the matched pairs, which is what count-matching is for. The aggregates for regimes R, D, C, and P coincide at the reported precision; X is the discriminating regime, and only the declared dependence relation stays at 1.000 there.",
         },
       ],
     },
@@ -457,6 +460,11 @@ export const REFUTATION_LEDGERS: InventionPaper = {
       id: "limits",
       heading: "7. Failure cases & limitations",
       blocks: [
+        {
+          kind: "callout",
+          title: "Limitations that apply to every number in this paper",
+          text: "Four of them, stated once so they cannot be lost in a citation. (1) No human-participant data, and no real content of any kind: the arena's 48 claims, 8 defect classes, 16 refuters, and 12 conflict pairs are generated, and no real hint, explanation, difficulty label, or prerequisite edge is audited anywhere in this paper. (2) No external replication. The arena is one generator with one defect-class model and one frozen seed schedule, and nobody outside this project has attempted to reproduce it; nothing here is evidence about any deployed content pipeline. (3) Replayed against recomputed. The gate recomputes the arena from source and compares the result with a digest and with pinned cells, which proves that the code is deterministic and that the recorded run has not drifted; it does not prove that the generator is a faithful model of anything, because the ground truth and the shipped grader B7 are both read off one declared table (Section 6). Correctness for the contract itself rests on the Section 4 algebra and on the demotion sanity check, not on the arena. Only the Philox and FIPS known-answer vectors elsewhere in this portfolio are external oracles, and no claim in this paper rests on one. (4) No experiment here measures a generative-AI tutor. The three motivating studies in Section 1 concern a legal research tool, a sepsis model, and a generative-tutor field experiment; they motivate the problem and they are other people's evidence about other systems, and no experiment in Sections 5 to 9 bears on how a generative tutor behaves or how its output should be graded.",
+        },
         {
           kind: "paragraph",
           text: "The contract has a visible envelope. Every item below is a limit of the shipped system or of the experiment, not a caveat added after the fact.",
@@ -474,6 +482,8 @@ export const REFUTATION_LEDGERS: InventionPaper = {
             "B8 is not implementable: it is a generator-side oracle used for scoring only, never in the engine or the lab.",
             "Demotion sanity tests retraction, not significance: precision and recall are 1 by construction against the reachable-set oracle; it checks TMS-style retraction and must not be sold as the novelty.",
             "The corpus is synthetic: ground truth is generated from the blind-spot table, never inferred from a grader; 48 claims and 12 pairs per regime are small, and no real content is audited.",
+            "The arena is circular where it looks strongest: in regime X the shipped relation B7 and the analysis-only oracle B8 are the same function of the same declared table, so the +1.000 pair-win, AUC, and AP@12 gaps over B5 are consequences of the generator. What the arena supports is stability under seed churn and the pre-declared kill of B6; the collapse of count fusion under correlated sources is the published result it reproduces, not a discovery (Dong, Berti-Equille & Srivastava 2009; Knight & Leveson 1986).",
+            "The 200 seeds are regenerations of a deterministic generator, not 200 observations: for pair-win and AUC the per-seed value is identical, so mean and 5th percentile coincide and the percentile threshold is non-binding. Only the AP@12 count-baseline cells show spread.",
             "No truth guarantee: a survived attempt does not make a claim true; a refuted attempt is taken on the refuter's authority, and a false refutation is permanent because kill is absorbing.",
             "One author can register many roots and families; the registry makes author concentration visible, but semantic dependence is undecidable and remains a declared residual that K caps rather than fixes.",
           ],
