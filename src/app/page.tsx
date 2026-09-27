@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Hero } from "@/components/Hero";
+import { ResearchAgenda } from "@/components/ResearchAgenda";
 import { StatsStrip } from "@/components/StatsStrip";
 import { CategoryGrid } from "@/components/CategoryGrid";
 import { SectionHub } from "@/components/SectionHub";
@@ -95,6 +96,7 @@ export default function Page() {
         problemCount={MARKETING_PROBLEM_COUNT}
         categoryCount={CATEGORIES.length}
       />
+      <ResearchAgenda />
       <StatsStrip
         problemCount={MARKETING_PROBLEM_COUNT}
         categoryCount={CATEGORIES.length}

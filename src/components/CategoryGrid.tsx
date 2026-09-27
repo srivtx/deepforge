@@ -28,7 +28,7 @@ export function CategoryGrid({
             Categories
           </h2>
           <p className="mt-1 text-sm text-body-mid">
-            Eight pillars. Pick one and start at the top.
+            Fifteen foundations. Pick one and start at the top.
           </p>
         </div>
         <button

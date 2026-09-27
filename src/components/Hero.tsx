@@ -16,20 +16,21 @@ export function Hero({ problemCount, categoryCount }: HeroProps) {
         <div className="flex items-center gap-2.5">
           <span className="df-pulse h-2 w-2 rounded-full bg-accent" />
           <span className="text-sm text-body-mid">
-            {categoryCount} categories · real Python execution · no libraries
+            {categoryCount} categories · real Python execution · local-first
           </span>
         </div>
 
         <h1 className="max-w-3xl text-4xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-5xl md:text-6xl">
-          Forge your ML skills.
+          Learn by building.
           <br />
-          <span className="text-accent">Build from scratch.</span>
+          <span className="text-accent">Trust what you can test.</span>
         </h1>
 
         <p className="max-w-xl text-base text-body-mid sm:text-lg">
-          {problemCount.toLocaleString()}+ problems. Real in-browser Python
-          execution. No sklearn, no torch, no shortcuts — just you, the math,
-          and a function to fill in.
+          DeepForge is a local-first ML practice platform and an experiment in
+          reliable, evidence-based programming education. Solve{" "}
+          {problemCount.toLocaleString()}+ problems with real in-browser Python
+          execution — no sklearn, no torch, no shortcuts.
         </p>
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
