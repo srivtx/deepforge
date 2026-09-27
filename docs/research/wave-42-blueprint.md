@@ -64,6 +64,15 @@ asserts all of this and that `ProblemView`, `lgs.ts`, `reviewQueue.ts`, `certifi
 | Same-edit sign concordance (positive-only / full-sign) | **90.20 / 87.78%** (climb), **87.79 / 83.40%** (random) | 699 walks |
 | Same-edit AUC, in-sample / **held-out** | 0.9025/0.8536 → **0.829/0.797** | 699 + leak walks |
 | Held-out concordance | **84.00%** (climb) / **82.23%** (random), n=18,191 steps | leak walks |
+
+**Comparability rule for this table (2026-09-27).** The held-out concordance row is a **full-sign**
+statistic. It must only ever be compared against the **full-sign** in-sample values — 87.78% (climb)
+and 83.40% (random), a 3.78 and 1.17 point drop. The 90.20% / AUC 0.903 figures are the
+**positive-only** in-sample rate, restricted to steps whose test delta is non-zero; comparing them
+against 84.00% inflates the apparent drop by 2.42pp and was the defect recorded as claims-audit B15.
+The paper's §5 already states that the positive-only rates of the first draft "are not used as
+reported results" — so any remaining 90.20%-versus-84.00% comparison, including the abstract, is
+internally checkable and wrong.
 | Trivial baselines among test-changing steps | always-fix 51.6/41.6%, always-break 48.4/58.4% | 699 walks |
 | H5b next-test-regression risk ratio | **1.14 [0.88, 1.47]** / **1.36 [1.04, 1.79]** | 699 walks |
 | Next-improvement / next-regression AUC | 0.308/0.359; 0.667/0.626 | 699 walks |
@@ -524,10 +533,14 @@ hostile submission's wall time to ≤ 2 s in real Pyodide.
 > sampled single-edit mutants) shows 10.23% of mutants are invisible on the basis (95% CI
 > [10.03, 10.43]), 16.45% pass every shipped test, and 44.40% of problems carry a test-passing
 > slip the basis can see. On 699 simulated edit walks, 48.4–51.2% of edits are exact no-ops by
-> signature. In-sample, the sign of the hidden delta matches the sign of the test delta for
-> 90.20% of improving walks (AUC 0.903), but with the basis built only from odd-index tests and
-> the delta scored on even-index tests the held-out concordance drops to 84.00% (AUC 0.829) and
-> 82.23% (AUC 0.797) — the number we report. Break-induced risk of a next-attempt test
+> signature. In-sample, on the same full-sign statistic used for the held-out numbers, the sign of
+> the hidden delta matches the sign of the test delta for 87.78% of climb steps and 83.40% of random
+> steps; with the basis built only from odd-index tests and the delta scored on even-index tests the
+> held-out concordance falls to 84.00% (AUC 0.829) and 82.23% (AUC 0.797) — a 3.78 and 1.17 point
+> drop, and the number we report. A positive-only in-sample rate restricted to steps with a nonzero
+> test delta reads 90.20% (AUC 0.903); that is a different statistic, it is not comparable to the
+> held-out figures, and the paper does not use it as a reported result. Break-induced risk of a
+> next-attempt test
 > regression is 1.14× (95% CI [0.88, 1.47]) and 1.36× ([1.04, 1.79]), below the
 > pre-registered 2× prediction, so the ledger is retrospective attribution, not forecasting.
 > Persistent "cold" probes are common under the formal last-three-attempt definition (85.8% of
@@ -603,16 +616,33 @@ hostile submission's wall time to ≤ 2 s in real Pyodide.
   https://doi.org/10.1146/annurev-psych-010416-044022 ; and `kornell2009`
   https://doi.org/10.1037/a0015729 (already in `ladder-graded-spacing.ts`). **URL rule:** copy
   the existing entries verbatim; never invent a URL.
-- **Honest novelty statement (use in §1 and §2):** "The visibility of hidden-basis divergence
-  is wave 41's result, replicated here (44.40% vs 46.08% P(α=1)). What is new is the object:
-  the delta between two of a learner's own consecutive programs on a hidden basis derived from
-  the exercise's own tests, the exact no-op edit as a behavioral event, and the measured
+- **Honest novelty statement (use in §1 and §2):** "The visibility of hidden-basis divergence is
+  wave 41's result, and the 44.40% figure here is a re-measurement of it on a different artifact
+  rather than an independent confirmation of anything: the two statistics differ in basis
+  composition and in estimand, so their 1.68pp difference is not a measure of agreement, and both
+  are properties of synthetic single-edit mutants over a deterministic basis. This paper's object
+  is different — the delta between two of a learner's own consecutive programs on a hidden basis
+  derived from the exercise's own tests, the exact no-op edit as a behavioral event, and the measured
   limits of that object (held-out sign concordance 84.0/82.2%, 10.2% probe blindness,
-  cold-set coherence 1.5%)."
+  cold-set coherence 1.5%). No claim is made that the object, the no-op definition, or any rate over
+  it is new to the literature: behavioural traces of student code are a long-established research
+  programme, and showing a student the incorrect programs their tests missed is prior work
+  (Smith, Tang, Warren & Rixner, ITiCSE 2017). We did not survey that literature systematically and
+  therefore make no priority claim."
 - **Honest limitations (use in §10):** no human data; simulated edit model whose family rates
   are corpus engineering choices; 84/82% held-out bounds any predictive use; the product basis
   uses a different deterministic seed than the research study; residual findings are post hoc
-  and excluded from the product.
+  and excluded from the product. **Plus, added 2026-09-27 and not yet in the paper: the
+  full-corpus census is not reproducible from a checkout.** 5,682 / 88,357 / 9,041 / 14,534 /
+  6,574 / 2,523 come from `bdl_engine_clean.py` and `census_clean.jsonl`, which are not in the
+  repository; the committed gate stores them as constants and compares them exactly only in
+  `--census` mode, which CI does not use. CI re-runs the analyzer on a 240-problem stratified
+  sample (4.2% of 5,682) inside 3σ bands and prints the tolerance per row; `hidden_visible` carries
+  ±10.07pp and the sample observed 42.33% against the 45.23% headline. An outside reader can
+  therefore check the definitions, the 12 harness fixtures, the determinism digest, and the
+  falsified predictions — and cannot re-derive the census rates. The paper's own "derived
+  statistics" bullet sits next to the gate description in a way that reads as if the gate certified
+  them; replace per claims-audit W17.
 
 ## 12. Top risks
 

@@ -277,11 +277,16 @@ mattered.
 
   Comparison swaps are the *most* probe-blind family (24.75%): `<=`↔`<` often changes nothing on
   the generated inputs, which is exactly the boundary class wave 41 found sliding past tests.
-- **Silent slips:** 14,534 mutants (16.45%) pass all shipped tests — an independent replication of
-  wave 41's 16.50%. Of those, **45.23% are hidden-visible** (the ledger sees them), 54.77% are
-  invisible to both tests and the 48-probe basis. 63.36% of problems carry a test-passing mutant;
-  **44.40% carry one the ledger sees** (wave 41's P(α=1) was 46.08% on a basis that included the
-  shipped inputs; the agreement is expected and is a cross-check, not a new discovery).
+- **Silent slips:** 14,534 mutants (16.45%) pass all shipped tests. That is *close to* wave 41's
+  16.50% and is a useful coarse consistency check, but it is **not a replication**: the two runs
+  sample mutants under different caps (≤24 per problem here, ≤36 there) over slightly different
+  analyzable sets, so the two percentages do not estimate the same quantity and the 0.05pp proximity
+  is not a measure of agreement. Of the test-passing mutants, **45.23% are hidden-visible** (the
+  ledger sees them), 54.77% are invisible to both tests and the 48-probe basis. 63.36% of problems
+  carry a test-passing mutant; **44.40% carry one the ledger sees**. Wave 41's P(α=1) was 46.08% on a
+  basis that *included* the shipped inputs, against a basis here that excludes them, and the estimand
+  is a test-passing slip rather than a radius-1 alibi — so the 1.68pp difference between the two
+  numbers is not a measure of agreement and must not be presented as one.
 - Problem sensitivity (mean mutant churn fraction): p10 0.283, median **0.551**, p90 0.838.
 
 ### 6.4 Edit walks: deltas, ghosts, and what predicts tests (observed, 699 walks)
@@ -350,9 +355,15 @@ with discriminating coverage, and it is not evidence of human learning.
 ## 7. Attempts to falsify (self-red-team)
 
 1. **"It's just wave 41's hidden probes, relabeled."** Partly true and stated in §9: the
-   *visibility* phenomenon is wave 41's, and this run replicates it (44.40% vs 46.08%). What is new
-   is the object: the delta between two of the learner's own versions, the ledger, ghost detection,
-   residuals, replay, and review routing. Falsifiable difference: wave 41 mines mutants of the
+   *visibility* phenomenon is wave 41's, and the 44.40% figure here is a re-measurement of it on a
+   different artifact, not an independent confirmation of anything — the two use different basis
+   construction, different estimands, and different denominators, and both are properties of
+   synthetic single-edit mutants over a deterministic basis. What differs is the object: the delta
+   between two of the learner's own versions, the ledger, ghost detection, residuals, replay, and
+   review routing. No claim is made that the object, the no-op definition, or any rate over it is new
+   to the literature: behavioural traces of student code are a long-established research programme,
+   and showing a student the incorrect programs their tests missed is prior work (Smith, Tang,
+   Warren & Rixner, ITiCSE 2017). Falsifiable difference: wave 41 mines mutants of the
    reference and needs the reference to *find* a witness; BDL needs only the learner's two
    consecutive programs plus a basis, and its questions are about transitions, not identities. If a
    critic shows a shipped system that surfaces per-edit hidden behavioral deltas to learners, the
@@ -433,10 +444,12 @@ with discriminating coverage, and it is not evidence of human learning.
 Adjacent work, named honestly:
 
 - **Wave 41 / Alibi Distance** (this project): hidden-probe divergence of reference mutants,
-  witness closure, Silent Bug Hunt. BDL reuses the probe-divergence idea, replicates its central
-  rate (44.40% of problems carry a hidden-visible silent slip vs 46.08% P(α=1)), and converts it
-  from a corpus audit into a runtime, per-learner, per-*edit* object. The visibility phenomenon is
-  not claimed as new here.
+  witness closure, Silent Bug Hunt. BDL reuses the probe-divergence idea and is *consistent with* its
+  central rate (44.40% of problems carry a hidden-visible test-passing slip vs 46.08% P(α=1)), which is
+  not a replication: the two statistics are constructed differently — basis composition and estimand
+  both differ — so their 1.68pp difference is not a measure of agreement. BDL converts the idea from
+  a corpus audit into a runtime, per-learner, per-*edit* object. The visibility phenomenon is not
+  claimed as new here, and no priority claim is made for the trace features or the delta object.
 - **Differential testing** (McKeeman 1998) and **regression testing**: comparing executions of two
   programs/versions on shared inputs is old. BDL's difference is the setting (a learner's own
   consecutive submissions), the coordinate system (a deterministic basis derived from the
@@ -469,7 +482,9 @@ family-enriched in aggregate but not family-coherent per walk; (iv) **Bug Replay
 own wrong programs as automatically scored review content; (v) **residual-targeted review routing**
 on top of an existing spaced scheduler; (vi) the measurements in §6 — per-family hidden-basis
 invisibility over a full verified corpus, sub-basis sufficiency, the aliasing rate of references
-(0.14%), and the first census of simulated edit-walk ghosts and cold sets.
+(0.14%), and a census of simulated edit-walk ghosts and cold sets. **"First" is retired from (vi):**
+the mutation-survival literature already measures what these families measure, and the object here is
+explicitly synthetic, so a "first" over this generator would be a first over nothing.
 
 Could not verify: that no product or paper already stores per-learner behavioral signatures across
 consecutive submissions for a programming-practice corpus; that the simulated ghost/cold
@@ -708,8 +723,10 @@ held-out numbers.
 
 Novelty is restated as: **per-edit no-op / behavior-change detection on a hidden basis derived
 from the exercise's own tests, applied to a learner's own consecutive submissions, surfaced
-only as counts in a standalone opt-in route.** The probe-visibility phenomenon is wave 41's and
-is replicated here, not discovered. Cut from the product story, permanently:
+only as counts in a standalone opt-in route.** The probe-visibility phenomenon is wave 41's, and
+the 44.40% figure here is a re-measurement of it on a different artifact rather than a replication.
+No systematic survey of the programming-trace literature was performed, so no priority claim is made
+for the trace features or for the delta object. Cut from the product story, permanently:
 
 - residual coordinates, residual profiles, and review routing (object mismatch E2; H6b dead);
 - per-family labels on any learner surface (`compact` corpus fact only);
@@ -723,8 +740,23 @@ is replicated here, not discovered. Cut from the product story, permanently:
 ### E8 — what stands (unchanged)
 
 Determinism 0/5,682 flakes; fresh-copy requirement and 8/5,682 aliasing rate; transform
-exactness 0/5,682 cosmetic and 0/4,680 rename; test-passing rate 16.45% (replicating wave 41's
-16.50%); H3b 44.40% of problems carry a hidden-visible silent slip; H4b; H8 CPython latency;
+exactness 0/5,682 cosmetic and 0/4,680 rename; test-passing rate 16.45% (close to wave 41's
+16.50%, but a different estimator — different mutant caps and analyzable set, so not a replication);
+H3b 44.40% of problems carry a hidden-visible test-passing slip; H4b; H8 CPython latency;
 the aliasing and nonlocal-rename discoveries; and the instrument's honest limits — probe
 blindness (10.23% of single-edit slips invisible at 48 probes), visible reference, spec
 ambiguity, no human data.
+
+**Evidence-strength note (added 2026-09-27).** Every one of the corpus-scale numbers in this list —
+5,682 exercises, 88,357 mutants, 9,041 invisible, 14,534 test-passing, 6,574 hidden-visible, 2,523
+problems with a visible slip, 2,818/5,627 all-visible — is a **stored constant**. They come from
+`bdl_engine_clean.py` and `census_clean.jsonl`, which are not in the repository. `verify:bdl` compares
+them exactly only in `--census` mode, and CI does not pass that flag; CI instead re-runs the analyzer
+on a deterministic 240-problem stratified sample (236/240 analyzable, 4.2% of 5,682) and requires
+four headline rates to fall inside 3σ bands, printing the tolerance per row. Two of those bands are
+wide: `hidden_visible` ±10.07pp and `problems_visible_slip` ±9.92pp, and the sample observed 42.33%
+against a 45.23% headline — inside the band, but by a margin no one should describe as agreement.
+The walk study, cold sets, permutation null, latency audit, and synthetic routing model all need
+`analysis/recompute.py` and the walk artifacts, none of which are committed. So BDL is the weakest of
+the three artifacts on evidence: its *definitions* and its *falsified predictions* are the durable
+contribution, not its rates.

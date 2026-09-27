@@ -40,8 +40,10 @@ React memory.
 
 ## 2. Pinned numbers (corrected; use these everywhere)
 
-Author census = `w41/chunk-*.jsonl`, 5,721 analyzable; independent = verifier engine, 5,725
-analyzable. All headline rates inside 0.2 pp (E15).
+Author census = `w41/chunk-*.jsonl`, 5,721 analyzable; second engine = verifier engine, 5,725
+analyzable. Max divergence computed from the table below: **census rates 0.14 pp, length quartiles
+0.32 pp, closure estimates 0.44 pp** (E15). Do not write "every headline rate inside 0.2 pp" — the
+length-quartile row is 0.32pp. Neither engine is in the repository, so this is a provenance record.
 
 | Metric | Author | Independent |
 |---|---:|---:|
@@ -320,8 +322,11 @@ grading, review, certificates, and backup are **not touched**.
 > single-edit mutations of the reference that yields a program passing all shipped tests while
 > diverging from the reference on a deterministic probe bank. Mining the DeepForge corpus (5,730
 > exercises; 106,081 sampled mutants; 7,727 silent survivors) shows that 46.1% of analyzable
-> problems admit a radius-1 alibi, and an independent engine over the same corpus reproduces every
-> headline rate within 0.2 percentage points. A witness chosen on the full alibi set closes every
+> problems admit a radius-1 alibi, and a second, separately written engine over the same corpus
+> agreed to within 0.14 percentage points on the census rates, 0.32 on the length quartiles and
+> 0.44 on the closure estimates; neither engine is part of the released artifact, so that
+> agreement is a provenance record rather than a reproducible check. A witness chosen on the full
+> alibi set closes every
 > alibi in 59.7% of affected problems and kills 73.2% of them, but a cross-validated witness
 > (chosen on half the alibis) kills only 48.4%; the deployable, oracle-free estimate is therefore
 > ~23.5% of problems still affected, not the oracle-chosen 18.6%. Two negative results: probe
@@ -332,6 +337,26 @@ grading, review, certificates, and backup are **not touched**.
 > mutation–slip coupling is assumed, not measured, and a shadow-logging study is proposed. No
 > grading path was modified; the shipped artifact is a curated set of 96 verified silent-bug
 > practice puzzles.
+
+> **Post-ship correction applied above (2026-09-27, doc pass; the paper text itself is owned by the
+> concurrent `src/data/inventions/` edit and still needs this applied).** Three substitutions are
+> still outstanding in `alibi-distance.ts` and are recorded so they are not lost:
+> 1. The 0.2pp sentence — now corrected above, and the reason is that the paper's own
+>    `REPLICATION_TABLE` length-quartile row is 0.32pp (56.66 vs 56.34), which the same table's caption
+>    buckets under "within 0.7". Claims audit finding A7.
+> 2. The blind-audit sentence. "A blind audit of ten independently sampled alibis found 10/10 plainly
+>    wrong" is true as written but a reader will take "blind" and "independently sampled" to mean an
+>    external judge. §7 describes the auditor as "the verifier's script" — the same author, sampling
+>    independently of the first ten ids. Replace per claims-audit W9. Only the *sampling* was
+>    independent; the *judge* was the author, and the paper does not say so where a reader would take
+>    it that way. Claims audit findings A46/A47.
+> 3. §1's "the first census of radius-1 silent survivors on a large verified education corpus"
+>    (`alibi-distance.ts:304`) and the Abstract's "mutation–slip coupling is assumed, not measured"
+>    read as a statement about the field. It is true *of this corpus*; the field has measured
+>    mutation–fault coupling at scale (Just et al. 2014) and in CS courses specifically (Clegg et al.
+>    2019 and 2020, Perretta et al. 2022, Clegg 2022). Also the two audits are n = 10 each, so "pin down
+>    how often the mined objects are actually bugs" overstates a precision estimate on twenty items.
+>    Replace per claims-audit W2/W3/W8 and prior-art §3.5 W1/W3.
 
 - **Sections** (blocks per the `InventionBlock` union; use tables/figures as specified):
   1. **Introduction & motivation** — the finite-projection problem; the platform's honest-evidence

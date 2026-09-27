@@ -407,12 +407,23 @@ Adjacent work, named honestly:
 
 What I claim as new, with the honest caveat that my search was a handful of queries and I could
 not verify absence: (i) the **radius/weakest-link metric** `α` for exercise tightness — minimum
-edit distance to a silently-passing divergent program; (ii) the **first census** of near-miss
-aperture on a large verified educational corpus, with per-operator and per-slice structure;
-(iii) **deterministic witness closure** as a build-time corpus operation with measured cost and a
-radius guarantee (the witness *is* the test); (iv) the **examined-solve** unit; (v) two clean
-**negative results** (probe-policy transfer, predicate explanations) that save the next builder
-from repeating them.
+edit distance to a silently-passing divergent program; (ii) a **census** of near-miss aperture over
+this platform's 5,730-exercise verified corpus, with per-operator and per-slice structure, run twice
+under real execution by two separately written engines; (iii) **deterministic witness closure** as a
+build-time corpus operation with measured cost and a radius guarantee (the witness *is* the test);
+(iv) the **examined-solve** unit; (v) two clean **negative results** (probe-policy transfer,
+predicate explanations) that save the next builder from repeating them.
+
+**No priority claim (retired 2026-09-27).** Bullet (ii) previously read "the **first** census …
+on a large verified education corpus". That is not supportable and has been withdrawn. Mutation
+survival of CS autograding suites is a well-populated published line — Clegg et al. 2019 (ICSE-SEET)
+and 2020 (ICER), Perretta et al. 2022 (ISSTA), Clegg's 2022 Sheffield thesis, Shams 2015, Delgado-Pérez
+et al. 2021, Hall & Baniassad 2022, Mansur et al. 2024 — and LLM-generated versus instructor-written
+CS1 autograding suites have already been compared on 25,000+ attempts (arXiv:2411.09261). Survivor-
+driven augmentation is the published method of STING/PROBE (Li et al., ASE 2026, arXiv:2604.01518).
+No systematic survey was performed, so the honest statement is an absence in the literature
+searched, not a first. The difference being claimed is the aggregation and the closure accounting,
+not the existence of the phenomenon.
 
 ---
 
@@ -568,7 +579,9 @@ curated practice set (E13) excludes such witnesses by curation.
 - **Duel wording.** §6.4's 0.94× is a success-rate ratio; write "not better than random (63.3%
   random vs 59.5% guided conviction within 10 probes)", never "worse by 6%".
 - **Appendix A reproduction.** Replace "within the sampling noise of a different operator set" with
-  "headline rates within 0.2 pp" (E15).
+  "census rates within 0.14 pp, length quartiles within 0.32, closure estimates within 0.44 (E15)".
+  Never "every rate within 0.2 pp" — the length-quartile row of the same table is 0.32pp, which the
+  table's own caption already buckets under 0.7.
 
 ### E8 — Oracle-chosen vs deployable closure
 
@@ -624,16 +637,32 @@ grading, review, or certificates.
 ### E14 — Novelty, restated
 
 Witness closure is textbook mutation-test augmentation (DeMillo et al. 1978; STING 2026). The
-genuinely new parts are: (i) the first education-corpus census of radius-1 silent survivors; (ii)
-the radius/weakest-link framing `α` as a corpus statistic; (iii) the blind audits; (iv) two clean
-negative results (probe-policy transfer, predicate explanations). Say this plainly; do not claim
-closure as novel.
+genuinely new parts are: (i) a census of radius-1 silent survivors over this platform's 5,730-exercise
+corpus, with no priority claim (see §9 — mutation survival of CS autograding suites is already
+published); (ii) the radius/weakest-link framing `α` as a corpus statistic; (iii) the blind audits;
+(iv) two clean negative results (probe-policy transfer, predicate explanations). Say this plainly;
+do not claim closure as novel, and do not claim the census as the first of its kind.
 
-### E15 — Independent replication
+### E15 — Second-engine cross-check (not an independent replication)
 
 From-scratch engine over the same corpus: 105,425 mutants / 16.57% pass / 45.94% P(α=1) / 73.25%
-best-probe kill / 48.79% held-out vs author 106,081 / 16.50% / 46.08% / 73.22% / 48.35%. All
-headline rates inside 0.2 pp. Trust the census.
+best-probe kill / 48.79% held-out vs author 106,081 / 16.50% / 46.08% / 73.22% / 48.35%. Max
+divergence by row group, computed from that table: **census rates 0.14pp** (16.50/16.57, 7.28/7.31,
+46.08/45.94, 18.37/18.41), **length quartiles 0.32pp** (20.24/20.11, 41.45/41.38, 56.66/56.34,
+69.95/69.86), **closure estimates 0.44pp** (48.35/48.79 held-out kill; all other closure rows ≤
+0.27pp). So the correct statement is "census rates within 0.14pp, length quartiles within 0.32, closure
+estimates within 0.44" — never "every rate within 0.2pp", which the length-quartile row contradicts
+on this very table.
+
+Two further qualifications that the earlier wording omitted, both material:
+- **Not independent.** Both engines were written by this project's author, in the same project,
+  against the same corpus and seed discipline. This is a cross-implementation check, not an
+  independent replication, and no wording should imply a second party.
+- **Not reproducible by a reader.** Neither engine, nor its output, is in the repository, and the
+  scratch trees the run lived in are gone. Treat the census as a provenance record.
+
+E15's role in the wave is unchanged: the census is the part of wave 41 to trust *given* those two
+qualifications.
 
 ### E16 — P4 threshold bookkeeping
 
